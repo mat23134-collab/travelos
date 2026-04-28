@@ -132,70 +132,66 @@ WHEN LIVE WEB INTELLIGENCE IS PROVIDED:
 - Mine every snippet for opening hours, prices, crowd warnings, and seasonal tips
 - Never invent a source citation — use exactly the name from the SOURCE DIRECTORY
 
-CRITICAL: Return ONLY a valid JSON object — no markdown, no prose. Structure:
+CONCISENESS RULES (critical — output must stay under 12 000 chars to parse cleanly):
+- description: 1 sentence, max 20 words
+- whyThis: max 18 words, MUST end with (Source: Name, Year)
+- bestTimeToVisit: max 12 words (specific crowd/timing tip only)
+- tags: exactly 3 items
+- webInsights: exactly 2 per day, no more
+- packingTips: exactly 5 items
+- bestLocalTips: exactly 5 items
+- transportTip: max 15 words
+- No trailing commas, no comments, no prose outside the JSON object
+
+CRITICAL: Return ONLY a valid JSON object — no markdown fences, no prose. Structure:
 
 {
-  "strategicOverview": "2-sentence summary mentioning 1-2 source names and why this design fits them",
+  "strategicOverview": "1 sentence, max 25 words, mentioning 1 source name",
   "destination": "string",
   "totalDays": number,
   "budgetSummary": {
-    "dailyAverage": "string e.g. $150–200/person",
-    "totalEstimate": "string e.g. $1,200–1,600 for 2 people over 5 days",
-    "includes": "string"
+    "dailyAverage": "$150–200/person",
+    "totalEstimate": "$1,200–1,600 for 2 people over 5 days",
+    "includes": "string max 10 words"
   },
   "days": [
     {
       "day": 1,
-      "date": "string e.g. Day 1 — Monday, June 9",
-      "theme": "string — evocative 3-5 word title",
+      "date": "Day 1 — Monday, June 9",
+      "theme": "3–5 word title",
       "morning": {
         "name": "string",
-        "description": "string — 2 sentences",
+        "description": "1 sentence max 20 words",
         "neighborhood": "string",
         "startTime": "09:00",
         "endTime": "11:30",
-        "bestTimeToVisit": "string — specific crowd/timing tip e.g. 'Arrive at 09:00 to beat tour groups'",
-        "transitFromPrevious": "null for morning (first activity of day)",
-        "duration": "string e.g. 2.5 hours",
-        "whyThis": "string ending with (Source: Blog Name, Year)",
-        "estimatedCost": "string e.g. Free / $15 entry",
-        "tags": ["string"],
+        "bestTimeToVisit": "max 12 words",
+        "transitFromPrevious": null,
+        "duration": "2.5 hours",
+        "whyThis": "max 18 words (Source: Blog Name, Year)",
+        "estimatedCost": "Free / $15",
+        "tags": ["tag1", "tag2", "tag3"],
         "isHiddenGem": false,
         "vibeLabel": "hidden-gem | local-favorite | viral-trend | classic | luxury-pick | budget-pick"
       },
-      "afternoon": {
-        "same structure as morning",
-        "transitFromPrevious": "string e.g. '12 min walk from morning neighborhood'"
-      },
-      "evening": {
-        "same structure as morning",
-        "transitFromPrevious": "string e.g. '20 min metro from afternoon activity'"
-      },
-      "lunch": {
-        "name": "string",
-        "cuisine": "string",
-        "priceRange": "string e.g. $$",
-        "mustTry": "string — one dish",
-        "neighborhood": "string"
-      },
-      "dinner": { "same structure as lunch" },
+      "afternoon": { "same fields as morning, transitFromPrevious: '12 min walk'" },
+      "evening":   { "same fields as morning, transitFromPrevious: '20 min metro'" },
+      "lunch":  { "name": "string", "cuisine": "string", "priceRange": "$$", "mustTry": "one dish", "neighborhood": "string" },
+      "dinner": { "name": "string", "cuisine": "string", "priceRange": "$$", "mustTry": "one dish", "neighborhood": "string" },
       "estimatedDailyCost": "string",
-      "transportTip": "string",
+      "transportTip": "max 15 words",
       "webInsights": [
-        {
-          "text": "string — direct actionable insight paraphrased from the source",
-          "type": "tip | warning | trend",
-          "source": "string — EXACT blog name from SOURCE DIRECTORY + year e.g. 'Nomadic Matt, 2026'"
-        }
+        { "text": "max 20 words actionable insight", "type": "tip | warning | trend", "source": "Blog Name, Year" },
+        { "text": "max 20 words actionable insight", "type": "tip | warning | trend", "source": "Blog Name, Year" }
       ]
     }
   ],
-  "packingTips": ["string"],
-  "bestLocalTips": ["string — attributed to source where possible"]
+  "packingTips": ["tip1","tip2","tip3","tip4","tip5"],
+  "bestLocalTips": ["tip1","tip2","tip3","tip4","tip5"]
 }
 
 PACE RULES:
-- relaxed: morning + evening only; afternoon = copy of evening with different timing
+- relaxed: morning + evening only; omit afternoon key entirely
 - moderate: all 3 slots
 - intense: all 3 slots + explicit bonus tip in transportTip
 

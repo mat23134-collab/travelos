@@ -41,18 +41,57 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unexpected response type from AI' }, { status: 500 });
     }
 
-    const rawText = content.text.trim();
-    const jsonText = rawText.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+    // ── Safety clean ────────────────────────────────────────────────────────────
+    // Strip all markdown fences, BOM, and surrounding whitespace before parsing.
+    const raw = content.text;
+    const cleaned = raw
+      .replace(/^﻿/, '')                    // BOM
+      .replace(/^```(?:json)?\s*/i, '')          // opening fence
+      .replace(/\s*```\s*$/i, '')                // closing fence
+      .replace(/```(?:json)?\s*/gi, '')          // any embedded fences
+      .trim();
 
+    // ── Extract outermost { … } block ──────────────────────────────────────────
+    const start = cleaned.indexOf('{');
+    const end   = cleaned.lastIndexOf('}');
+    const jsonText = (start !== -1 && end > start)
+      ? cleaned.slice(start, end + 1)
+      : cleaned;
+
+    // ── Parse with repair fallback ───────────────────────────────────────────────
     let itinerary;
     try {
       itinerary = JSON.parse(jsonText);
-    } catch {
-      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        return NextResponse.json({ error: 'Could not parse itinerary from AI response' }, { status: 500 });
+    } catch (parseErr) {
+      // Log enough detail to diagnose the problem without flooding the terminal.
+      const pos = (parseErr as SyntaxError).message.match(/position (\d+)/)?.[1];
+      console.error(
+        `[generate] JSON parse failed — raw length: ${raw.length} chars` +
+        (pos ? `, error near position ${pos}` : '') +
+        `\nFirst 300 chars: ${raw.slice(0, 300)}` +
+        `\nLast 300 chars:  ${raw.slice(-300)}`
+      );
+
+      // Repair attempt: find the last complete top-level closing brace
+      // by walking backwards until JSON.parse stops throwing.
+      let repaired: unknown = null;
+      for (let i = jsonText.length - 1; i > 0; i--) {
+        if (jsonText[i] === '}') {
+          try {
+            repaired = JSON.parse(jsonText.slice(0, i + 1));
+            console.warn(`[generate] Repaired JSON by truncating at position ${i}`);
+            break;
+          } catch { /* keep walking */ }
+        }
       }
-      itinerary = JSON.parse(jsonMatch[0]);
+
+      if (!repaired) {
+        return NextResponse.json(
+          { error: `Malformed AI response (length ${raw.length}). Check server logs for details.` },
+          { status: 500 }
+        );
+      }
+      itinerary = repaired;
     }
 
     itinerary._meta = {

@@ -1,3 +1,5 @@
+'use client';
+
 import { WebInsight } from '@/lib/types';
 
 const config = {
