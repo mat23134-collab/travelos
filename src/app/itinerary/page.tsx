@@ -7,6 +7,7 @@ import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Itinerary, TravelerProfile } from '@/lib/types';
 import { DayCard } from '@/components/DayCard';
+import { DayPhoto } from '@/components/DayPhoto';
 import { QuickEdit } from '@/components/QuickEdit';
 import { SharePanel } from '@/components/SharePanel';
 import { LogisticsDashboard } from '@/components/LogisticsDashboard';
@@ -322,36 +323,57 @@ export default function ItineraryPage() {
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
 
-        {/* Hero — dark card with noise orbs */}
+        {/* Hero — full-bleed destination photo with glassmorphism */}
         <motion.div
           variants={heroVariant}
           initial="hidden"
           animate="show"
-          className="bg-[#0f1117] rounded-2xl p-6 sm:p-10 mb-8 text-white relative overflow-hidden"
+          className="rounded-2xl mb-8 text-white relative overflow-hidden"
         >
-          {/* Coral orb with noise */}
-          <div className="noise absolute top-0 right-0 w-96 h-96 bg-[#ff5a5f]/12 rounded-full blur-[80px] pointer-events-none" />
-          {/* Violet orb with noise */}
-          <div className="noise absolute bottom-0 left-1/4 w-64 h-64 bg-[#8b5cf6]/10 rounded-full blur-[80px] pointer-events-none" />
-          {/* Cyan accent */}
-          <div className="absolute top-1/2 right-1/3 w-32 h-32 bg-[#00d4ff]/6 rounded-full blur-[60px] pointer-events-none" />
+          {/* Destination photo — fills the hero */}
+          <div className="absolute inset-0 pointer-events-none">
+            <DayPhoto
+              query={`${itinerary.destination} cityscape`}
+              alt={itinerary.destination}
+              height={520}
+              dark
+            />
+          </div>
 
-          <div className="relative z-10">
+          {/* Deep gradient overlay for text legibility */}
+          <div className="absolute inset-0 bg-gradient-to-br from-black/80 via-black/55 to-black/30 pointer-events-none" />
+
+          {/* Coral orb */}
+          <div className="absolute top-0 right-0 w-96 h-96 bg-[#ff5a5f]/20 rounded-full blur-[90px] pointer-events-none" />
+          {/* Violet orb */}
+          <div className="absolute bottom-0 left-1/4 w-72 h-72 bg-[#8b5cf6]/18 rounded-full blur-[90px] pointer-events-none" />
+          {/* Cyan accent */}
+          <div className="absolute top-1/2 right-1/3 w-40 h-40 bg-[#00d4ff]/10 rounded-full blur-[70px] pointer-events-none" />
+
+          <div className="relative z-10 p-6 sm:p-10">
             <div className="flex items-center gap-3 mb-6 flex-wrap">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/10 text-xs text-white/60">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-xs text-white/70 backdrop-blur-sm">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#ff5a5f] animate-pulse" />
                 AI-Crafted · {new Date().getFullYear()} Live Intel
               </div>
               {itinerary._meta && <TripIntelligenceButton meta={itinerary._meta} />}
             </div>
-            <h1 className="text-3xl sm:text-4xl font-bold mb-2 tracking-tight">{itinerary.destination}</h1>
-            <p className="text-white/60 text-sm mb-6">
+            <h1 className="text-3xl sm:text-5xl font-bold mb-2 tracking-tight drop-shadow-lg">{itinerary.destination}</h1>
+            <p className="text-white/65 text-sm mb-6">
               {itinerary.totalDays}-day itinerary
               {profile && ` · ${profile.groupType} · ${profile.budget} budget · ${profile.pace} pace`}
             </p>
-            <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-              <div className="text-xs font-semibold uppercase tracking-widest text-[#ff5a5f] mb-2">Your Squad's Master Plan</div>
-              <p className="text-white/80 text-sm leading-relaxed">{itinerary.strategicOverview}</p>
+            {/* Glassmorphic overview panel */}
+            <div
+              className="rounded-xl p-4"
+              style={{
+                background: 'rgba(255,255,255,0.08)',
+                backdropFilter: 'blur(20px) saturate(160%)',
+                border: '1px solid rgba(255,255,255,0.15)',
+              }}
+            >
+              <div className="text-xs font-semibold uppercase tracking-widest text-[#ff8c8f] mb-2">Your Squad's Master Plan</div>
+              <p className="text-white/85 text-sm leading-relaxed">{itinerary.strategicOverview}</p>
             </div>
           </div>
         </motion.div>
@@ -363,16 +385,17 @@ export default function ItineraryPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15, type: 'spring', stiffness: 280, damping: 26 }}
             className="bg-white rounded-2xl border border-[#e5e7eb] p-6 mb-8 grid sm:grid-cols-3 gap-4"
+            style={{ boxShadow: '0 4px 24px -4px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)' }}
           >
-            <div className="text-center p-4 rounded-xl bg-[#f8f7f2]">
+            <div className="text-center p-4 rounded-xl bg-[#f8f7f2] border border-[#ede9e0]">
               <div className="text-xs text-[#9ca3af] uppercase tracking-widest mb-1">Daily Average</div>
               <div className="text-xl font-bold text-[#111827] tracking-tight">{itinerary.budgetSummary.dailyAverage}</div>
             </div>
-            <div className="text-center p-4 rounded-xl bg-[#fff0f0]">
+            <div className="text-center p-4 rounded-xl bg-[#fff5f5] border border-[#ffd6d7]">
               <div className="text-xs text-[#9ca3af] uppercase tracking-widest mb-1">Total Estimate</div>
               <div className="text-xl font-bold text-[#ff5a5f] tracking-tight">{itinerary.budgetSummary.totalEstimate}</div>
             </div>
-            <div className="text-center p-4 rounded-xl bg-[#f8f7f2]">
+            <div className="text-center p-4 rounded-xl bg-[#f8f7f2] border border-[#ede9e0]">
               <div className="text-xs text-[#9ca3af] uppercase tracking-widest mb-1">Includes</div>
               <div className="text-sm text-[#6b7280] leading-relaxed">{itinerary.budgetSummary.includes}</div>
             </div>
@@ -432,11 +455,12 @@ export default function ItineraryPage() {
               viewport={{ once: true, margin: '-40px' }}
               transition={{ type: 'spring', stiffness: 280, damping: 26 }}
               className="bg-white rounded-2xl border border-[#e5e7eb] p-6"
+              style={{ boxShadow: '0 4px 24px -4px rgba(0,0,0,0.07)' }}
             >
               <h3 className="font-bold text-[#111827] mb-4 flex items-center gap-2 tracking-tight"><span>🎒</span> Squad Packing List</h3>
               <ul className="flex flex-col gap-2">
                 {itinerary.packingTips.map((tip, i) => (
-                  <li key={i} className="flex gap-2 text-sm text-[#6b7280]">
+                  <li key={i} className="flex gap-2 text-sm text-[#4b5563]">
                     <span className="text-[#ff5a5f] flex-shrink-0 mt-0.5">✓</span>{tip}
                   </li>
                 ))}
@@ -450,11 +474,12 @@ export default function ItineraryPage() {
               viewport={{ once: true, margin: '-40px' }}
               transition={{ type: 'spring', stiffness: 280, damping: 26, delay: 0.08 }}
               className="bg-white rounded-2xl border border-[#e5e7eb] p-6"
+              style={{ boxShadow: '0 4px 24px -4px rgba(0,0,0,0.07)' }}
             >
               <h3 className="font-bold text-[#111827] mb-4 flex items-center gap-2 tracking-tight"><span>🗝️</span> Insider Intel</h3>
               <ul className="flex flex-col gap-2">
                 {itinerary.bestLocalTips.map((tip, i) => (
-                  <li key={i} className="flex gap-2 text-sm text-[#6b7280]">
+                  <li key={i} className="flex gap-2 text-sm text-[#4b5563]">
                     <span className="text-[#ff5a5f] flex-shrink-0 mt-0.5">✦</span>{tip}
                   </li>
                 ))}

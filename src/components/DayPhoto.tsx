@@ -15,9 +15,10 @@ interface Props {
   query: string;
   alt: string;
   height?: number;
+  dark?: boolean;
 }
 
-export function DayPhoto({ query, alt, height = 180 }: Props) {
+export function DayPhoto({ query, alt, height = 180, dark = false }: Props) {
   const [photo, setPhoto] = useState<PhotoData | null>(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -31,10 +32,9 @@ export function DayPhoto({ query, alt, height = 180 }: Props) {
   }, [query]);
 
   if (!photo) {
-    // Skeleton / gradient placeholder while loading
     return (
       <div
-        className="w-full bg-gradient-to-br from-[#f0ede4] to-[#e5e0d5] animate-pulse"
+        className={`w-full animate-pulse ${dark ? 'bg-[#1a1d26]' : 'bg-gradient-to-br from-[#f0ede4] to-[#e5e0d5]'}`}
         style={{ height }}
       />
     );
