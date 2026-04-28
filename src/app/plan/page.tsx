@@ -421,29 +421,30 @@ export default function PlanPage() {
         />
       )}
 
-      <div className="min-h-screen bg-[#080b12] flex flex-col relative overflow-hidden">
+      <div className="min-h-screen bg-[#fafaf9] flex flex-col relative overflow-hidden">
 
-        {/* Decorative orbs */}
+        {/* Watercolor orbs — softened for light canvas */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="noise animate-orb-float absolute w-[700px] h-[700px] rounded-full bg-[#ff5a5f]/8 blur-[140px] -top-40 -left-40" />
+          <div className="animate-orb-float absolute w-[700px] h-[700px] rounded-full blur-[160px] -top-40 -left-40"
+            style={{ backgroundColor: 'rgba(255,90,95,0.10)' }} />
           <div
-            className="noise animate-orb-float absolute w-[500px] h-[500px] rounded-full bg-[#8b5cf6]/8 blur-[120px] bottom-0 right-0"
-            style={{ animationDelay: '-4s' }}
+            className="animate-orb-float absolute w-[500px] h-[500px] rounded-full blur-[140px] bottom-0 right-0"
+            style={{ backgroundColor: 'rgba(139,92,246,0.07)', animationDelay: '-4s' }}
           />
           <div
-            className="noise animate-orb-float absolute w-[300px] h-[300px] rounded-full bg-[#00d4ff]/6 blur-[100px] top-1/2 left-1/2"
-            style={{ animationDelay: '-8s' }}
+            className="animate-orb-float absolute w-[300px] h-[300px] rounded-full blur-[120px] top-1/2 left-1/2"
+            style={{ backgroundColor: 'rgba(0,212,255,0.06)', animationDelay: '-8s' }}
           />
         </div>
 
         {/* Top bar */}
-        <div className="relative z-10 flex items-center justify-between px-6 py-5 border-b border-white/8">
-          <Link href="/" className="text-lg font-semibold tracking-tight text-white">
+        <div className="relative z-10 flex items-center justify-between px-6 py-5 border-b border-[#e7e5e4] bg-[#fafaf9]/80 backdrop-blur-sm">
+          <Link href="/" className="text-lg font-semibold tracking-tight text-[#1c1917]">
             Travel<span className="text-[#ff5a5f]">OS</span>
           </Link>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-white/30 font-mono tabular-nums">
-              {step + 1}<span className="text-white/15"> / {TOTAL}</span>
+            <span className="text-sm text-[#a8a29e] font-mono tabular-nums">
+              {step + 1}<span className="text-[#d6d3d1]"> / {TOTAL}</span>
             </span>
             {step > 0 && (
               <button
@@ -455,7 +456,7 @@ export default function PlanPage() {
                     setStep(0);
                   }
                 }}
-                className="text-xs text-white/25 hover:text-white/50 transition-colors"
+                className="text-xs text-[#a8a29e] hover:text-[#78716c] transition-colors"
               >
                 Reset
               </button>
@@ -464,7 +465,7 @@ export default function PlanPage() {
         </div>
 
         {/* Progress bar */}
-        <div className="relative z-10 h-0.5 bg-white/8">
+        <div className="relative z-10 h-0.5 bg-[#e7e5e4]">
           <motion.div
             className="h-full"
             style={{
@@ -487,8 +488,8 @@ export default function PlanPage() {
                   key={i}
                   animate={{
                     width: i === step ? 20 : 6,
-                    opacity: i <= step ? 1 : 0.2,
-                    backgroundColor: i <= step ? '#ff5a5f' : '#ffffff',
+                    opacity: i <= step ? 1 : 0.4,
+                    backgroundColor: i <= step ? '#ff5a5f' : '#d6d3d1',
                   }}
                   transition={{ type: 'spring', stiffness: 400, damping: 28 }}
                   className="h-1.5 rounded-full"
@@ -515,11 +516,11 @@ export default function PlanPage() {
                   >
                     Step {step + 1}
                   </motion.div>
-                  <h2 className="text-2xl sm:text-3xl font-bold text-white leading-tight mb-2">
+                  <h2 className="text-2xl sm:text-3xl font-bold text-[#1c1917] leading-tight mb-2">
                     {question.title}
                   </h2>
                   {question.subtitle && (
-                    <p className="text-white/45 text-base">{question.subtitle}</p>
+                    <p className="text-[#78716c] text-base">{question.subtitle}</p>
                   )}
                 </div>
 
@@ -536,7 +537,7 @@ export default function PlanPage() {
                         onChange={(e) => setValue(question.key, e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleNext()}
                         autoFocus
-                        className="w-full px-5 py-4 rounded-2xl border border-white/15 bg-white/8 focus:border-[#ff5a5f]/70 focus:bg-white/12 focus:outline-none text-white text-base transition-all placeholder:text-white/25 backdrop-blur-sm"
+                        className="w-full px-5 py-4 rounded-2xl border border-[#e7e5e4] bg-white shadow-sm focus:border-[#ff5a5f] focus:ring-2 focus:ring-[#ff5a5f]/10 focus:outline-none text-[#1c1917] text-base transition-all placeholder:text-[#a8a29e]"
                       />
                       {question.key === 'destination' && (
                         <motion.button
@@ -571,14 +572,14 @@ export default function PlanPage() {
                     <div className="grid grid-cols-2 gap-3">
                       {(['startDate', 'endDate'] as const).map((key, i) => (
                         <div key={key}>
-                          <label className="block text-xs font-medium text-white/40 mb-1.5">
+                          <label className="block text-xs font-medium text-[#a8a29e] mb-1.5">
                             {i === 0 ? 'Departure' : 'Return'}
                           </label>
                           <input
                             type="date"
                             value={(form[key] as string) || ''}
                             onChange={(e) => setValue(key, e.target.value)}
-                            className="w-full px-4 py-3.5 rounded-2xl border border-white/15 bg-white/8 focus:border-[#ff5a5f]/70 focus:outline-none text-white transition-all [color-scheme:dark]"
+                            className="w-full px-4 py-3.5 rounded-2xl border border-[#e7e5e4] bg-white shadow-sm focus:border-[#ff5a5f] focus:outline-none text-[#1c1917] transition-all"
                             min={
                               key === 'endDate'
                                 ? (form['startDate'] as string) || new Date().toISOString().split('T')[0]
@@ -608,25 +609,25 @@ export default function PlanPage() {
                             whileHover={{ scale: 1.03, y: -2 }}
                             whileTap={{ scale: 0.97 }}
                             animate={selected ? {
-                              boxShadow: '0 0 0 2px #ff5a5f, 0 0 20px 4px rgba(255,90,95,0.35)',
+                              boxShadow: '0 0 0 2px #ff5a5f, 0 8px 24px -4px rgba(255,90,95,0.18)',
                             } : {
-                              boxShadow: '0 0 0 1px rgba(255,255,255,0.1)',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
                             }}
                             transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                             className={`text-left p-4 rounded-2xl border transition-colors ${
                               selected
-                                ? 'border-[#ff5a5f] bg-[#ff5a5f]/15'
-                                : 'border-white/10 bg-white/5 hover:border-white/25 hover:bg-white/10'
+                                ? 'border-[#ff5a5f] bg-[#fff5f5]'
+                                : 'border-[#e7e5e4] bg-white hover:border-[#ff5a5f]/35 hover:bg-[#fff8f8]'
                             }`}
                           >
                             <div className="flex items-start gap-3">
                               {opt.icon && <span className="text-2xl mt-0.5 flex-shrink-0">{opt.icon}</span>}
                               <div>
-                                <div className={`font-semibold text-sm ${selected ? 'text-[#ff8c8f]' : 'text-white'}`}>
+                                <div className={`font-semibold text-sm ${selected ? 'text-[#ff5a5f]' : 'text-[#1c1917]'}`}>
                                   {opt.label}
                                 </div>
                                 {opt.description && (
-                                  <div className="text-xs text-white/40 mt-0.5">{opt.description}</div>
+                                  <div className="text-xs text-[#a8a29e] mt-0.5">{opt.description}</div>
                                 )}
                               </div>
                               {selected && (
@@ -663,20 +664,20 @@ export default function PlanPage() {
                             whileHover={{ scale: 1.06, y: -3 }}
                             whileTap={{ scale: 0.94 }}
                             animate={selected ? {
-                              boxShadow: '0 0 0 2px #ff5a5f, 0 0 16px 3px rgba(255,90,95,0.4)',
+                              boxShadow: '0 0 0 2px #ff5a5f, 0 6px 20px -4px rgba(255,90,95,0.20)',
                             } : {
-                              boxShadow: '0 0 0 1px rgba(255,255,255,0.08)',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
                             }}
                             transition={{ type: 'spring', stiffness: 450, damping: 22 }}
                             className={`p-3 rounded-2xl border text-center transition-colors ${
                               selected
-                                ? 'border-[#ff5a5f] bg-[#ff5a5f]/15'
-                                : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'
+                                ? 'border-[#ff5a5f] bg-[#fff5f5]'
+                                : 'border-[#e7e5e4] bg-white hover:border-[#ff5a5f]/30 hover:bg-[#fff8f8]'
                             }`}
                           >
                             <div className="text-xl mb-1.5">{opt.icon}</div>
                             <div className={`text-xs font-medium leading-tight ${
-                              selected ? 'text-[#ff8c8f]' : 'text-white/70'
+                              selected ? 'text-[#ff5a5f]' : 'text-[#57534e]'
                             }`}>
                               {opt.label}
                             </div>
@@ -691,18 +692,18 @@ export default function PlanPage() {
                     <motion.div
                       initial={{ opacity: 0, y: 12 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="border border-white/10 bg-white/5 rounded-2xl p-6 backdrop-blur-sm"
+                      className="border border-[#e7e5e4] bg-white rounded-2xl p-6 shadow-xl shadow-[#ff5a5f]/5"
                     >
                       <div className="text-center mb-8">
                         <motion.span
                           key={(form[question.key] as number) ?? question.min}
                           initial={{ scale: 1.3, opacity: 0 }}
                           animate={{ scale: 1, opacity: 1 }}
-                          className="text-6xl font-bold text-white tabular-nums"
+                          className="text-6xl font-bold text-[#1c1917] tabular-nums"
                         >
                           {(form[question.key] as number) ?? question.min ?? 1}
                         </motion.span>
-                        <span className="text-white/40 ml-2 text-xl">
+                        <span className="text-[#a8a29e] ml-2 text-xl">
                           {((form[question.key] as number) ?? 1) === 1 ? 'person' : 'people'}
                         </span>
                       </div>
@@ -714,7 +715,7 @@ export default function PlanPage() {
                         onChange={(e) => setValue(question.key, Number(e.target.value))}
                         className="w-full accent-[#ff5a5f] cursor-pointer"
                       />
-                      <div className="flex justify-between text-xs text-white/25 mt-2">
+                      <div className="flex justify-between text-xs text-[#a8a29e] mt-2">
                         <span>{question.min}</span>
                         <span>{question.max}+</span>
                       </div>
@@ -728,7 +729,7 @@ export default function PlanPage() {
                       value={(form[question.key] as string) || ''}
                       onChange={(e) => setValue(question.key, e.target.value)}
                       rows={4}
-                      className="w-full px-5 py-4 rounded-2xl border border-white/15 bg-white/8 focus:border-[#ff5a5f]/70 focus:bg-white/12 focus:outline-none text-white text-base transition-all resize-none placeholder:text-white/25 backdrop-blur-sm"
+                      className="w-full px-5 py-4 rounded-2xl border border-[#e7e5e4] bg-white shadow-sm focus:border-[#ff5a5f] focus:ring-2 focus:ring-[#ff5a5f]/10 focus:outline-none text-[#1c1917] text-base transition-all resize-none placeholder:text-[#a8a29e]"
                     />
                   )}
                 </div>
@@ -740,7 +741,7 @@ export default function PlanPage() {
                       initial={{ opacity: 0, y: -8 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -8 }}
-                      className="mb-4 px-4 py-3 rounded-xl bg-red-500/15 border border-red-500/30 text-red-300 text-sm"
+                      className="mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm"
                     >
                       {error}
                     </motion.div>
@@ -754,7 +755,7 @@ export default function PlanPage() {
                     disabled={step === 0}
                     whileHover={{ scale: step === 0 ? 1 : 1.03 }}
                     whileTap={{ scale: 0.97 }}
-                    className="px-6 py-3 rounded-xl border border-white/15 text-white/60 font-medium text-sm hover:bg-white/8 hover:text-white transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
+                    className="px-6 py-3 rounded-xl border border-[#e7e5e4] text-[#78716c] font-medium text-sm hover:bg-[#f5f5f4] hover:text-[#1c1917] hover:border-[#d6d3d1] transition-colors disabled:opacity-25 disabled:cursor-not-allowed"
                   >
                     ← Back
                   </motion.button>
@@ -782,7 +783,7 @@ export default function PlanPage() {
                   <div className="text-center mt-4">
                     <button
                       onClick={handleNext}
-                      className="text-sm text-white/25 hover:text-white/50 transition-colors"
+                      className="text-sm text-[#a8a29e] hover:text-[#78716c] transition-colors"
                     >
                       Skip this question
                     </button>
