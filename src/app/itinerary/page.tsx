@@ -340,7 +340,7 @@ export default function ItineraryPage() {
             <div className="flex items-center gap-3 mb-6 flex-wrap">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/10 text-xs text-white/60">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#ff5a5f] animate-pulse" />
-                AI-Crafted · {new Date().getFullYear()} Live Data
+                AI-Crafted · {new Date().getFullYear()} Live Intel
               </div>
               {itinerary._meta && <TripIntelligenceButton meta={itinerary._meta} />}
             </div>
@@ -350,7 +350,7 @@ export default function ItineraryPage() {
               {profile && ` · ${profile.groupType} · ${profile.budget} budget · ${profile.pace} pace`}
             </p>
             <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-              <div className="text-xs font-semibold uppercase tracking-widest text-[#ff5a5f] mb-2">Strategic Overview</div>
+              <div className="text-xs font-semibold uppercase tracking-widest text-[#ff5a5f] mb-2">Your Squad's Master Plan</div>
               <p className="text-white/80 text-sm leading-relaxed">{itinerary.strategicOverview}</p>
             </div>
           </div>
@@ -382,9 +382,9 @@ export default function ItineraryPage() {
         {/* Map — desktop only */}
         <section className="mb-8 print:hidden hidden sm:block" data-map-container>
           <div className="flex items-center gap-3 mb-4">
-            <h2 className="text-xl font-bold text-[#111827] tracking-tight">Route Map</h2>
+            <h2 className="text-xl font-bold text-[#111827] tracking-tight">Squad Route</h2>
             <div className="flex-1 h-px bg-[#e5e7eb]" />
-            <span className="text-xs text-[#9ca3af]">Clustered by neighborhood</span>
+            <span className="text-xs text-[#9ca3af]">Pinned by neighborhood</span>
           </div>
           <ItineraryMap
             days={itinerary.days}
@@ -433,7 +433,7 @@ export default function ItineraryPage() {
               transition={{ type: 'spring', stiffness: 280, damping: 26 }}
               className="bg-white rounded-2xl border border-[#e5e7eb] p-6"
             >
-              <h3 className="font-bold text-[#111827] mb-4 flex items-center gap-2 tracking-tight"><span>🎒</span> Packing Essentials</h3>
+              <h3 className="font-bold text-[#111827] mb-4 flex items-center gap-2 tracking-tight"><span>🎒</span> Squad Packing List</h3>
               <ul className="flex flex-col gap-2">
                 {itinerary.packingTips.map((tip, i) => (
                   <li key={i} className="flex gap-2 text-sm text-[#6b7280]">
@@ -451,7 +451,7 @@ export default function ItineraryPage() {
               transition={{ type: 'spring', stiffness: 280, damping: 26, delay: 0.08 }}
               className="bg-white rounded-2xl border border-[#e5e7eb] p-6"
             >
-              <h3 className="font-bold text-[#111827] mb-4 flex items-center gap-2 tracking-tight"><span>🗝️</span> Local Insider Tips</h3>
+              <h3 className="font-bold text-[#111827] mb-4 flex items-center gap-2 tracking-tight"><span>🗝️</span> Insider Intel</h3>
               <ul className="flex flex-col gap-2">
                 {itinerary.bestLocalTips.map((tip, i) => (
                   <li key={i} className="flex gap-2 text-sm text-[#6b7280]">
@@ -466,14 +466,14 @@ export default function ItineraryPage() {
         {profile && <LogisticsDashboard profile={profile} />}
 
         <div className="text-center py-8 border-t border-[#e5e7eb] print:hidden">
-          <p className="text-[#6b7280] text-sm mb-4">Want to start from scratch?</p>
+          <p className="text-[#6b7280] text-sm mb-4">New destination? New squad?</p>
           <motion.div
             whileHover={{ y: -3 }}
             whileTap={{ scale: 0.95, transition: { type: 'spring', stiffness: 600, damping: 18 } }}
             className="inline-block"
           >
             <Link href="/plan" className="inline-flex items-center gap-2 px-8 py-3 rounded-xl bg-[#ff5a5f] hover:bg-[#e04a4f] text-white font-semibold text-sm transition-colors shadow-md shadow-[#ff5a5f]/20">
-              Plan Another Trip →
+              Plan a New Trip ✈️
             </Link>
           </motion.div>
         </div>

@@ -86,9 +86,9 @@ function ParticleBurst({ active }: { active: boolean }) {
 // ─── Reaction bar ─────────────────────────────────────────────────────────────
 
 const REACTIONS = [
-  { id: 'fire', emoji: '🔥', label: 'Fire' },
-  { id: 'heart', emoji: '❤️', label: 'Love' },
-  { id: 'question', emoji: '🤔', label: 'Maybe?' },
+  { id: 'fire',  emoji: '🔥', label: 'On fire' },
+  { id: 'pin',   emoji: '📍', label: 'Pinned'  },
+  { id: 'love',  emoji: '💖', label: 'Love it' },
 ];
 
 function ReactionBar() {
@@ -150,7 +150,7 @@ function ReviewsCarousel({ reviews }: { reviews: string[] }) {
   return (
     <div className="my-3">
       <div className="text-[10px] font-semibold uppercase tracking-widest text-[#9ca3af] mb-2">
-        💬 Squad Reviews
+        💬 What the Squad Says
       </div>
 
       {/* Chat bubble */}
@@ -196,24 +196,13 @@ function parseCitation(text: string): { body: string; citation: string | null } 
   return { body: text.slice(0, match.index).trim(), citation: match[1].trim() };
 }
 
-// ─── Activity thumbnail (slot-colored, no API call) ───────────────────────────
+// ─── Slot colour palette ──────────────────────────────────────────────────────
 
 const SLOT_GRADIENT: Record<string, string> = {
   morning:   'linear-gradient(135deg, #ff8c5a 0%, #f59e0b 100%)',
   afternoon: 'linear-gradient(135deg, #ff5a5f 0%, #ff8c8f 100%)',
-  evening:   'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)',
+  evening:   'linear-gradient(135deg, #8b5cf6 0%, #4f46e5 100%)',
 };
-
-function SlotThumbnail({ slot, icon }: { slot: string; icon: string }) {
-  return (
-    <div
-      className="w-16 h-16 rounded-2xl flex-shrink-0 flex items-center justify-center text-2xl shadow-sm"
-      style={{ background: SLOT_GRADIENT[slot] ?? SLOT_GRADIENT.morning }}
-    >
-      {icon}
-    </div>
-  );
-}
 
 // ─── Expanded activity content ────────────────────────────────────────────────
 
@@ -316,86 +305,135 @@ interface ActivityCardProps {
 function ActivityCompactCard({ slot, activity, onRefresh, refreshing, destination }: ActivityCardProps) {
   const [expanded, setExpanded] = useState(false);
 
-  const vibeIcon = getVibeIcon(activity.tags ?? [], activity.name);
+  const vibeIcon  = getVibeIcon(activity.tags ?? [], activity.name);
   const vibeMatch = getVibeMatch(activity.vibeLabel, activity.isHiddenGem);
-  const squad = isSquadFriendly(activity.tags ?? []);
-  const vibeCfg = activity.vibeLabel ? VIBE_CONFIG[activity.vibeLabel] : null;
+  const squad     = isSquadFriendly(activity.tags ?? []);
+  const vibeCfg   = activity.vibeLabel ? VIBE_CONFIG[activity.vibeLabel] : null;
 
   return (
     <motion.div
       layout
-      className="rounded-2xl overflow-hidden border border-[#e5e7eb] bg-white shadow-sm"
-      whileHover={expanded ? {} : { y: -2, boxShadow: '0 8px 24px -4px rgba(255,90,95,0.10)' }}
+      className="rounded-3xl overflow-hidden border border-[#e5e7eb] bg-white shadow-sm relative"
+      whileHover={expanded ? {} : { y: -3, boxShadow: '0 12px 32px -6px rgba(255,90,95,0.16)' }}
       transition={{ type: 'spring', stiffness: 400, damping: 28 }}
     >
-      {/* ── Compact header — always visible ── */}
-      <button
-        className="w-full text-left"
-        onClick={() => setExpanded((e) => !e)}
-      >
-        <div className="flex items-center gap-3 p-3">
-          <SlotThumbnail slot={slot} icon={vibeIcon} />
+      {/* Swap shimmer overlay — localised to this card only */}
+      <AnimatePresence>
+        {refreshing && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-20 pointer-events-none rounded-3xl overflow-hidden"
+          >
+            <div
+              className="w-full h-full animate-shimmer"
+              style={{
+                background: 'linear-gradient(90deg, transparent 0%, rgba(255,90,95,0.18) 50%, transparent 100%)',
+                backgroundSize: '200% 100%',
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-          {/* Info */}
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
-              {vibeCfg && (
-                <span className={`inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full ${vibeCfg.cls}`}>
-                  {vibeCfg.icon} {vibeCfg.label}
-                </span>
-              )}
-              {squad && (
-                <span className="squad-pulse inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full border"
-                  style={{ background: 'rgba(0,220,110,0.08)', borderColor: 'rgba(0,200,100,0.3)', color: '#00b86a' }}>
-                  <span className="w-1 h-1 rounded-full bg-[#00cc6a] animate-pulse" />
-                  Squad
-                </span>
-              )}
-            </div>
-            <h4 className="font-bold text-[#111827] text-sm tracking-tight leading-tight line-clamp-1">
-              {activity.name}
-            </h4>
-            <p className="text-xs text-[#9ca3af] mt-0.5">
-              📍 {activity.neighborhood}
-              {activity.startTime && <span className="ml-2 font-mono text-[#ff5a5f]">{activity.startTime}</span>}
-            </p>
-          </div>
+      {/* ── Cover tap target ── */}
+      <button className="w-full text-left" onClick={() => setExpanded((e) => !e)}>
 
-          {/* Right: vibe match + chevron */}
-          <div className="flex-shrink-0 flex flex-col items-end gap-1.5">
+        {/* Large cover image area */}
+        <div
+          className="relative overflow-hidden"
+          style={{ height: 148, background: SLOT_GRADIENT[slot] ?? SLOT_GRADIENT.morning }}
+        >
+          {/* Big vibe emoji — scales down when expanded */}
+          <motion.div
+            animate={expanded ? { scale: 0.7, opacity: 0.5 } : { scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 340, damping: 26 }}
+            className="absolute inset-0 flex items-center justify-center text-[80px] select-none"
+            style={{ filter: 'drop-shadow(0 6px 18px rgba(0,0,0,0.28))' }}
+          >
+            {vibeIcon}
+          </motion.div>
+
+          {/* Noise grain */}
+          <div
+            className="absolute inset-0 pointer-events-none opacity-[0.07] mix-blend-overlay"
+            style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")" }}
+          />
+
+          {/* Bottom scrim for text readability */}
+          <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/75 to-transparent" />
+
+          {/* Match score — top right */}
+          <div className="absolute top-2.5 right-2.5">
             <span
-              className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white whitespace-nowrap"
-              style={{ background: 'linear-gradient(135deg, #ff5a5f, #ff8c5a)' }}
+              className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white"
+              style={{ background: 'rgba(0,0,0,0.50)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.18)' }}
             >
               {vibeMatch}% Match
             </span>
-            <div className="flex items-center gap-1.5">
-              {onRefresh && (
-                <motion.button
-                  onClick={(e) => { e.stopPropagation(); onRefresh(); }}
-                  disabled={refreshing}
-                  whileTap={{ scale: 0.82, transition: { type: 'spring', stiffness: 700, damping: 16 } }}
-                  className="text-[10px] px-2 py-1 rounded-lg border border-[#e5e7eb] text-[#9ca3af] hover:border-[#ff5a5f] hover:text-[#ff5a5f] transition-colors disabled:opacity-40"
-                >
-                  {refreshing
-                    ? <span className="w-3 h-3 rounded-full border border-[#ff5a5f]/30 border-t-[#ff5a5f] animate-spin inline-block" />
-                    : '↻'
-                  }
-                </motion.button>
-              )}
-              <motion.span
-                animate={{ rotate: expanded ? 180 : 0 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-                className="text-[#9ca3af] text-xs"
+          </div>
+
+          {/* Vibe + Squad badges — top left */}
+          <div className="absolute top-2.5 left-2.5 flex gap-1 flex-wrap">
+            {vibeCfg && (
+              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${vibeCfg.cls}`}>
+                {vibeCfg.icon} {vibeCfg.label}
+              </span>
+            )}
+            {squad && (
+              <span
+                className="squad-pulse text-[9px] font-bold px-1.5 py-0.5 rounded-full border"
+                style={{ background: 'rgba(0,220,110,0.18)', borderColor: 'rgba(0,200,100,0.45)', color: '#00cc6a' }}
               >
-                ▾
-              </motion.span>
-            </div>
+                ⚡ Squad
+              </span>
+            )}
+          </div>
+
+          {/* Name + location overlay */}
+          <div className="absolute bottom-0 inset-x-0 px-3 pb-3">
+            <h4 className="font-bold text-white text-sm tracking-tight leading-tight line-clamp-1 drop-shadow">
+              {activity.name}
+            </h4>
+            <p className="text-white/60 text-[11px] mt-0.5 leading-tight">
+              📍 {activity.neighborhood}
+              {activity.startTime && <span className="ml-2 font-mono text-[#ffb3b5]">{activity.startTime}</span>}
+            </p>
+          </div>
+        </div>
+
+        {/* Bottom strip */}
+        <div className="flex items-center justify-between px-3 py-2.5">
+          <div className="flex items-center gap-3 text-xs text-[#9ca3af]">
+            <span>⏱ {activity.duration}</span>
+            <span className="font-medium text-[#6b7280]">💳 {activity.estimatedCost}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            {onRefresh && (
+              <motion.button
+                onClick={(e) => { e.stopPropagation(); onRefresh(); }}
+                disabled={refreshing}
+                whileTap={{ scale: 0.82, transition: { type: 'spring', stiffness: 700, damping: 16 } }}
+                animate={refreshing ? { rotate: 360 } : { rotate: 0 }}
+                transition={refreshing ? { duration: 0.7, repeat: Infinity, ease: 'linear' } : {}}
+                className="w-6 h-6 flex items-center justify-center rounded-lg border border-[#e5e7eb] text-[#9ca3af] hover:border-[#ff5a5f] hover:text-[#ff5a5f] transition-colors disabled:opacity-40 text-xs"
+              >
+                ↻
+              </motion.button>
+            )}
+            <motion.span
+              animate={{ rotate: expanded ? 180 : 0 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+              className="text-[#9ca3af] text-xs"
+            >
+              ▾
+            </motion.span>
           </div>
         </div>
       </button>
 
-      {/* ── Expanded content ── */}
+      {/* ── Spring-loaded expansion ── */}
       <AnimatePresence initial={false}>
         {expanded && (
           <motion.div
@@ -464,16 +502,30 @@ function WazeTimeline({ day, destination, onSwapSlot }: TimelineProps) {
     try { await onSwapSlot(slot); } finally { setSwapping(null); }
   };
 
+  // Approximate y-centres of the 3 nodes (collapsed card ~188px + transit ~44px per gap)
+  const NODE_Y = [16, 264, 512] as const;
+
   return (
-    <div className="px-4 pb-4">
+    <div className="px-4 pb-4 relative">
+      {/* Animated walking emoji — patrols the full path */}
+      <motion.div
+        aria-hidden="true"
+        className="absolute z-10 pointer-events-none select-none text-base"
+        style={{ left: 20 }}
+        animate={{ y: [NODE_Y[0], NODE_Y[1], NODE_Y[2], NODE_Y[1], NODE_Y[0]] }}
+        transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut', times: [0, 0.3, 0.55, 0.78, 1] }}
+      >
+        🚶
+      </motion.div>
+
       {slots.map((slot, i) => {
-        const meta = SLOT_META[slot];
-        const activity = day[slot];
-        const nextActivity = slots[i + 1] ? day[slots[i + 1]] : null;
+        const meta        = SLOT_META[slot];
+        const activity    = day[slot];
+        const nextSlot    = slots[i + 1];
+        const nextActivity = nextSlot ? day[nextSlot] : null;
 
         return (
           <div key={slot}>
-            {/* Timeline row: node + card */}
             <div className="flex gap-3 items-start">
               {/* Node column */}
               <div className="flex flex-col items-center flex-shrink-0 pt-2" style={{ width: 32 }}>
@@ -489,11 +541,15 @@ function WazeTimeline({ day, destination, onSwapSlot }: TimelineProps) {
                 >
                   {meta.icon}
                 </motion.div>
+
+                {/* Vibrant coral→lime path connector */}
                 {nextActivity && (
-                  <div className="w-0.5 flex-1 mt-1.5"
+                  <div
+                    className="w-1 flex-1 mt-1.5 rounded-full"
                     style={{
-                      background: `repeating-linear-gradient(to bottom, ${meta.nodeColor}40 0, ${meta.nodeColor}40 4px, transparent 4px, transparent 8px)`,
-                      minHeight: 24,
+                      background: 'linear-gradient(to bottom, #ff5a5f, #84cc16)',
+                      minHeight: 28,
+                      opacity: 0.55,
                     }}
                   />
                 )}
@@ -501,8 +557,10 @@ function WazeTimeline({ day, destination, onSwapSlot }: TimelineProps) {
 
               {/* Activity card */}
               <div className="flex-1 pb-2 min-w-0">
-                <div className="text-[9px] font-bold uppercase tracking-widest mb-1.5"
-                  style={{ color: meta.nodeColor }}>
+                <div
+                  className="text-[9px] font-bold uppercase tracking-widest mb-1.5"
+                  style={{ color: meta.nodeColor }}
+                >
                   {meta.label}
                 </div>
                 <ActivityCompactCard
@@ -574,7 +632,7 @@ function InsiderReveal({ insights }: { insights: WebInsight[] }) {
       >
         <span className="flex items-center gap-2">
           <span>🤫</span>
-          {open ? 'Hide insider tips' : `Pro Move · ${tipInsights.length} local secret${tipInsights.length > 1 ? 's' : ''}`}
+          {open ? 'Hide intel' : `Pro Move · ${tipInsights.length} insider secret${tipInsights.length > 1 ? 's' : ''}`}
         </span>
         <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ type: 'spring', stiffness: 400, damping: 28 }}>
           ▾
@@ -654,7 +712,7 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
 
       {/* Dining */}
       <div className="px-4 pb-4">
-        <div className="text-[10px] font-semibold uppercase tracking-widest text-[#9ca3af] mb-2">Curated Dining</div>
+        <div className="text-[10px] font-semibold uppercase tracking-widest text-[#9ca3af] mb-2">Squad Eats</div>
         <div className="grid sm:grid-cols-2 gap-2">
           <DiningBlock meal="Lunch" spot={day.lunch} />
           <DiningBlock meal="Dinner" spot={day.dinner} />

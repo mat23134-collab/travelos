@@ -135,67 +135,113 @@ function DestinationPicker({
 
 // ─── Loading screen ───────────────────────────────────────────────────────────
 
-const LOADING_STEPS = [
-  { icon: '🧬', label: 'Profiling your traveler DNA...' },
-  { icon: '🌐', label: 'Searching 2026 travel blogs...' },
-  { icon: '📍', label: 'Clustering by neighborhood...' },
-  { icon: '💳', label: 'Validating budget & pace...' },
+const getLoadingSteps = (dest: string) => [
+  { icon: '📱', label: `Scanning 2026 TikTok trends for ${dest || 'your destination'}…` },
+  { icon: '🍜', label: 'Cross-referencing local food blogs for hidden gems…' },
+  { icon: '🗺', label: 'Optimizing logistics and neighborhood clusters…' },
+  { icon: '✨', label: 'Vibe-checking the itinerary for your squad…' },
+  { icon: '💎', label: 'Filtering tourist traps. Your squad deserves better.' },
 ];
 
-function LoadingScreen() {
+function LoadingScreen({ destination }: { destination: string }) {
+  const steps = getLoadingSteps(destination);
+  const [activeStep, setActiveStep] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(
+      () => setActiveStep((s) => Math.min(s + 1, steps.length - 1)),
+      5400,
+    );
+    return () => clearInterval(id);
+  }, [steps.length]);
+
+  const pct = Math.round(((activeStep + 1) / steps.length) * 100);
+
   return (
     <div className="min-h-screen bg-[#080b12] flex flex-col items-center justify-center px-6 text-center relative overflow-hidden">
-      {/* Orbs with noise texture */}
-      <div className="noise absolute w-[500px] h-[500px] rounded-full bg-[#ff5a5f]/10 blur-[120px] top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
-      <div className="noise absolute w-[300px] h-[300px] rounded-full bg-[#8b5cf6]/10 blur-[100px] bottom-1/4 right-1/4 pointer-events-none" />
+      {/* Orbs */}
+      <div className="noise absolute w-[560px] h-[560px] rounded-full bg-[#ff5a5f]/10 blur-[130px] top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none animate-orb-float" />
+      <div className="noise absolute w-[320px] h-[320px] rounded-full bg-[#8b5cf6]/10 blur-[100px] bottom-1/4 right-1/4 pointer-events-none" style={{ animationDelay: '-5s' }} />
+      <div className="noise absolute w-[240px] h-[240px] rounded-full bg-[#00d4ff]/8 blur-[80px] top-1/2 left-1/4 pointer-events-none" style={{ animationDelay: '-10s' }} />
 
+      {/* Icon */}
       <motion.div
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ type: 'spring', stiffness: 300, damping: 24 }}
-        className="mb-10 relative"
+        initial={{ opacity: 0, scale: 0.7, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 22 }}
+        className="mb-8 relative"
       >
-        <div className="w-24 h-24 rounded-full border-4 border-[#ff5a5f]/20 border-t-[#ff5a5f] animate-spin" />
-        <div className="absolute inset-0 flex items-center justify-center text-3xl">✈️</div>
-        <div className="absolute inset-0 rounded-full animate-glow-pulse" />
+        <div className="w-20 h-20 rounded-[1.5rem] bg-[#ff5a5f]/15 border border-[#ff5a5f]/25 flex items-center justify-center text-4xl shadow-xl shadow-[#ff5a5f]/20 animate-glow-pulse">
+          ✈️
+        </div>
       </motion.div>
 
-      <motion.h2
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.15 }}
-        className="text-3xl font-bold text-white mb-3"
-      >
-        Crafting your itinerary...
-      </motion.h2>
-      <motion.p
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.25 }}
-        className="text-white/50 max-w-sm leading-relaxed mb-10"
-      >
-        Searching travel blogs, clustering activities by neighborhood, and validating every
-        recommendation against your budget. About 30 seconds.
-      </motion.p>
-
-      <motion.div
-        className="flex flex-col gap-3"
-        variants={staggerContainer}
-        initial="hidden"
-        animate="show"
-      >
-        {LOADING_STEPS.map(({ icon, label }) => (
-          <motion.div
-            key={label}
-            variants={optionVariant}
-            className="flex items-center gap-3 text-sm text-white/50"
+      {/* Label + animated headline */}
+      <div className="text-[10px] font-semibold text-[#ff5a5f] uppercase tracking-widest mb-3">
+        Building your squad's master plan
+      </div>
+      <div className="h-16 flex items-center justify-center mb-8 w-full max-w-sm">
+        <AnimatePresence mode="wait">
+          <motion.p
+            key={activeStep}
+            initial={{ opacity: 0, y: 18, filter: 'blur(4px)' }}
+            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, y: -14, filter: 'blur(4px)' }}
+            transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+            className="text-lg sm:text-xl font-bold text-white leading-snug"
           >
-            <span className="w-5 h-5 flex-shrink-0 text-base">{icon}</span>
-            <span>{label}</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-[#ff5a5f] animate-pulse ml-1" />
-          </motion.div>
-        ))}
-      </motion.div>
+            {steps[activeStep].icon}&nbsp;&nbsp;{steps[activeStep].label}
+          </motion.p>
+        </AnimatePresence>
+      </div>
+
+      {/* Step checklist */}
+      <div className="flex flex-col gap-2 w-full max-w-xs mb-8">
+        {steps.map((step, i) => {
+          const done = i < activeStep;
+          const active = i === activeStep;
+          return (
+            <motion.div
+              key={step.label}
+              initial={{ opacity: 0, x: -16 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.09, type: 'spring', stiffness: 380, damping: 28 }}
+              className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all text-left ${
+                done    ? 'bg-white/4 border border-white/8' :
+                active  ? 'bg-[#ff5a5f]/12 border border-[#ff5a5f]/30' :
+                          'opacity-25'
+              }`}
+            >
+              <span className="text-base flex-shrink-0">
+                {done ? '✓' : step.icon}
+              </span>
+              <span className={`text-xs flex-1 leading-snug ${
+                done   ? 'text-white/35 line-through' :
+                active ? 'text-white font-medium' :
+                         'text-white/30'
+              }`}>
+                {step.label}
+              </span>
+              {active && (
+                <span className="w-1.5 h-1.5 rounded-full bg-[#ff5a5f] animate-pulse flex-shrink-0" />
+              )}
+            </motion.div>
+          );
+        })}
+      </div>
+
+      {/* Progress bar */}
+      <div className="w-full max-w-xs h-1 bg-white/8 rounded-full overflow-hidden mb-3">
+        <motion.div
+          className="h-full rounded-full relative overflow-hidden"
+          animate={{ width: `${pct}%` }}
+          transition={{ type: 'spring', stiffness: 200, damping: 28 }}
+          style={{ background: 'linear-gradient(90deg, #ff5a5f, #00d4ff)' }}
+        >
+          <span className="absolute inset-0 animate-shimmer opacity-60" />
+        </motion.div>
+      </div>
+      <p className="text-white/20 text-[10px] tabular-nums">{pct}% · ~30 seconds · AI-powered</p>
     </div>
   );
 }
@@ -361,7 +407,7 @@ export default function PlanPage() {
     }
   };
 
-  if (isSubmitting) return <LoadingScreen />;
+  if (isSubmitting) return <LoadingScreen destination={(form.destination as string) || ''} />;
 
   const isLast = step === TOTAL - 1;
 
@@ -509,10 +555,10 @@ export default function PlanPage() {
                             {surpriseLoading ? (
                               <>
                                 <span className="w-3.5 h-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                                Finding your perfect match...
+                                Finding your squad's perfect match…
                               </>
                             ) : (
-                              <>✨ Surprise me</>
+                              <>✨ Surprise the squad</>
                             )}
                           </span>
                         </motion.button>
