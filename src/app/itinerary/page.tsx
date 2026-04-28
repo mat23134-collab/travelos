@@ -12,6 +12,7 @@ import { SharePanel } from '@/components/SharePanel';
 import { LogisticsDashboard } from '@/components/LogisticsDashboard';
 import { DraftOverview } from '@/components/DraftOverview';
 import { ItinerarySkeleton } from '@/components/ItinerarySkeleton';
+import { MOCK_ITINERARY, MOCK_PROFILE } from '@/lib/mockData';
 import type { SwapResult } from '@/app/api/swap/route';
 
 const ItineraryMap = dynamic(
@@ -20,6 +21,91 @@ const ItineraryMap = dynamic(
 );
 
 type ViewMode = 'draft' | 'final';
+
+// ─── Trip Intelligence modal ──────────────────────────────────────────────────
+
+function TripIntelligenceButton({ meta }: { meta: NonNullable<Itinerary['_meta']> }) {
+  const [open, setOpen] = useState(false);
+
+  if (!meta.searchEnabled) return null;
+
+  const stats = [
+    { icon: '🔍', label: 'Sources scanned', value: meta.sourcesFound, color: 'text-white' },
+    { icon: '💎', label: 'Hidden gems found', value: meta.hiddenGems ?? 0, color: 'text-purple-400' },
+    { icon: '⚠️', label: 'Tourist traps filtered', value: meta.trapsFiltered ?? 0, color: 'text-amber-400' },
+    { icon: '🔴', label: 'Contradictions flagged', value: meta.contradictionsFound ?? 0, color: 'text-red-400' },
+  ];
+
+  return (
+    <>
+      <motion.button
+        onClick={() => setOpen(true)}
+        whileHover={{ scale: 1.04 }}
+        whileTap={{ scale: 0.93, transition: { type: 'spring', stiffness: 600, damping: 18 } }}
+        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-xs text-white/70 hover:bg-white/15 transition-colors"
+      >
+        <span className="w-1.5 h-1.5 rounded-full bg-[#ff5a5f] animate-pulse" />
+        Trip Intelligence
+        <span className="text-white/40 ml-0.5">↗</span>
+      </motion.button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 sm:p-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOpen(false)} />
+            <motion.div
+              className="relative w-full max-w-sm bg-[#0f1117] rounded-2xl border border-white/10 p-6 shadow-2xl"
+              initial={{ y: 40, opacity: 0, scale: 0.97 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 20, opacity: 0, scale: 0.96 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+            >
+              {/* Orb */}
+              <div className="absolute top-0 right-0 w-40 h-40 bg-[#ff5a5f]/10 rounded-full blur-[60px] pointer-events-none" />
+
+              <div className="relative z-10">
+                <div className="flex items-start justify-between mb-5">
+                  <div>
+                    <h3 className="text-white font-bold text-base tracking-tight">Trip Intelligence</h3>
+                    <p className="text-white/40 text-xs mt-0.5">How your itinerary was built</p>
+                  </div>
+                  <motion.button
+                    onClick={() => setOpen(false)}
+                    whileTap={{ scale: 0.85 }}
+                    className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-white/50 hover:bg-white/15 transition-colors text-xs"
+                  >
+                    ✕
+                  </motion.button>
+                </div>
+
+                <div className="flex flex-col gap-2.5">
+                  {stats.map(({ icon, label, value, color }) => (
+                    <div key={label} className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-white/5 border border-white/5">
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-base">{icon}</span>
+                        <span className="text-white/60 text-xs">{label}</span>
+                      </div>
+                      <span className={`font-bold text-sm tabular-nums ${color}`}>{value}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <p className="text-white/25 text-[10px] mt-4 leading-relaxed text-center">
+                  AI cross-referenced {meta.sourcesFound} live web sources to surface the best spots, filter traps, and flag conflicting info.
+                </p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
 
 // ─── Hero animation ───────────────────────────────────────────────────────────
 
@@ -87,6 +173,7 @@ export default function ItineraryPage() {
   const router = useRouter();
   const [itinerary, setItinerary] = useState<Itinerary | null>(null);
   const [profile, setProfile] = useState<TravelerProfile | null>(null);
+  const [isMock, setIsMock] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('draft');
   const [error, setError] = useState('');
   const [editBanner, setEditBanner] = useState('');
@@ -97,7 +184,14 @@ export default function ItineraryPage() {
     try {
       const raw = sessionStorage.getItem('travelos_itinerary');
       const rawProfile = sessionStorage.getItem('travelos_profile');
-      if (!raw) { router.replace('/plan'); return; }
+      if (!raw) {
+        // No live API data — show mock itinerary so the UI is always previewable
+        setItinerary(MOCK_ITINERARY);
+        setProfile(MOCK_PROFILE);
+        setIsMock(true);
+        setViewMode('final');
+        return;
+      }
       setItinerary(JSON.parse(raw));
       if (rawProfile) setProfile(JSON.parse(rawProfile));
     } catch {
@@ -243,16 +337,12 @@ export default function ItineraryPage() {
           <div className="absolute top-1/2 right-1/3 w-32 h-32 bg-[#00d4ff]/6 rounded-full blur-[60px] pointer-events-none" />
 
           <div className="relative z-10">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/10 text-xs text-white/60 mb-6 flex-wrap">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#ff5a5f] animate-pulse" />
-              AI-Crafted · {new Date().getFullYear()} Live Data
-              {itinerary._meta?.searchEnabled && <>
-                <span className="opacity-40">·</span>
-                <span>{itinerary._meta.sourcesFound} sources</span>
-                {(itinerary._meta.hiddenGems ?? 0) > 0 && <span className="text-purple-400">💎 {itinerary._meta.hiddenGems} hidden gems</span>}
-                {(itinerary._meta.trapsFiltered ?? 0) > 0 && <span className="text-amber-400">⚠️ {itinerary._meta.trapsFiltered} traps filtered</span>}
-                {(itinerary._meta.contradictionsFound ?? 0) > 0 && <span className="text-red-400">🔴 {itinerary._meta.contradictionsFound} contradictions flagged</span>}
-              </>}
+            <div className="flex items-center gap-3 mb-6 flex-wrap">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/10 text-xs text-white/60">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#ff5a5f] animate-pulse" />
+                AI-Crafted · {new Date().getFullYear()} Live Data
+              </div>
+              {itinerary._meta && <TripIntelligenceButton meta={itinerary._meta} />}
             </div>
             <h1 className="text-3xl sm:text-4xl font-bold mb-2 tracking-tight">{itinerary.destination}</h1>
             <p className="text-white/60 text-sm mb-6">

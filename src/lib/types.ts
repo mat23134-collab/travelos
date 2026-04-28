@@ -31,12 +31,15 @@ export interface Activity {
   tags: string[];
   isHiddenGem?: boolean;
   // timing
-  startTime?: string;           // "09:00"
-  endTime?: string;             // "11:30"
-  bestTimeToVisit?: string;     // "Arrive at 10 AM to beat tour buses"
-  transitFromPrevious?: string; // "10 min walk from morning activity"
+  startTime?: string;
+  endTime?: string;
+  bestTimeToVisit?: string;
+  transitFromPrevious?: string;
   // vibe
   vibeLabel?: VibeLabel;
+  // media & social proof
+  videoUrl?: string;
+  reviews?: string[];
 }
 
 export interface DiningSpot {
