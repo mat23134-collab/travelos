@@ -409,13 +409,20 @@ export default function PlanPage() {
         throw new Error('Server error (non-JSON response): ' + rawText.slice(0, 300));
       }
 
-      if (!res.ok || !result.id) {
-        throw new Error(result.error || 'Failed to start generation');
+      if (!res.ok) {
+        throw new Error(result.error || `Server returned ${res.status}`);
+      }
+
+      const itineraryId = result.id;
+      const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!itineraryId || !UUID_RE.test(itineraryId)) {
+        console.error('[plan] Phase 1 returned invalid id:', itineraryId, '| full result:', result);
+        throw new Error('Server returned an invalid itinerary ID. Check Vercel logs.');
       }
 
       // Redirect immediately — itinerary page will fire the worker and poll
-      console.log('[plan] Redirecting to /itinerary/' + result.id);
-      router.push('/itinerary/' + result.id);
+      console.log('[plan] Redirecting to /itinerary/' + itineraryId);
+      router.push('/itinerary/' + itineraryId);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
       setIsSubmitting(false);

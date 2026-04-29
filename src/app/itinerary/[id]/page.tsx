@@ -14,7 +14,7 @@ export default async function ItineraryByIdPage({ params }: PageProps) {
   const { id } = await params;
   console.log('[itinerary/id] Fetching id:', id);
 
-  if (!id || !UUID_RE.test(id)) {
+  if (!id || id === 'undefined' || id === 'null' || !UUID_RE.test(id)) {
     console.error('[itinerary/id] Invalid or missing id param:', id);
     return notFound();
   }
