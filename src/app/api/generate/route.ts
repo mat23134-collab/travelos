@@ -49,15 +49,18 @@ export async function POST(req: NextRequest) {
 
   let itinerary;
   try {
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
-      generationConfig: {
-        responseMimeType: 'application/json',
-        temperature: 0.7,
-        maxOutputTokens: 8192,
+    const model = genAI.getGenerativeModel(
+      {
+        model: 'gemini-2.0-flash',
+        generationConfig: {
+          responseMimeType: 'application/json',
+          temperature: 0.7,
+          maxOutputTokens: 8192,
+        },
+        systemInstruction: SYSTEM_PROMPT,
       },
-      systemInstruction: SYSTEM_PROMPT,
-    });
+      { apiVersion: 'v1beta' },
+    );
 
     const result = await model.generateContent(
       buildUserPrompt(profile, classifiedResults, hotelContext)
