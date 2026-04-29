@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
 
     const raw = content.text;
 
-    // Strip BOM and markdown fences, then extract the outermost JSON object
+    // 1. Strip BOM and markdown fences
     let cleaned = raw.replace(/^﻿/, '').trim();
     if (cleaned.startsWith('```')) {
       cleaned = cleaned.replace(/^```(?:json)?/i, '');
@@ -73,20 +73,24 @@ export async function POST(req: NextRequest) {
     }
     cleaned = cleaned.trim();
 
+    // 2. Extract the outermost { … } block — ignores any prose before/after
     const start = cleaned.indexOf('{');
     const end = cleaned.lastIndexOf('}');
     const jsonText = (start !== -1 && end > start) ? cleaned.slice(start, end + 1) : cleaned;
 
+    // 3. Parse, with truncation-repair fallback
     try {
       itinerary = JSON.parse(jsonText);
     } catch (parseErr) {
       const pos = (parseErr as SyntaxError).message.match(/position (\d+)/)?.[1];
       console.error(
-        '[generate] JSON parse failed — length: ' + raw.length +
+        '[generate] JSON parse failed — raw length: ' + raw.length + ' chars' +
         (pos ? ', error near position ' + pos : '') +
-        '\nFirst 300: ' + raw.slice(0, 300)
+        '\n--- FIRST 500 ---\n' + raw.slice(0, 500) +
+        '\n--- LAST 500 ---\n' + raw.slice(-500)
       );
 
+      // Walk backwards to find the last complete closing brace
       let repaired: unknown = null;
       for (let i = jsonText.length - 1; i > 0; i--) {
         if (jsonText[i] === '}') {
@@ -95,10 +99,11 @@ export async function POST(req: NextRequest) {
       }
       if (!repaired) {
         return NextResponse.json(
-          { error: 'Malformed AI response. Check server logs for details.' },
+          { error: 'Malformed AI response (length ' + raw.length + '). Check Vercel logs for first/last 500 chars.' },
           { status: 500 }
         );
       }
+      console.warn('[generate] Repaired truncated JSON successfully');
       itinerary = repaired;
     }
   } catch (err) {

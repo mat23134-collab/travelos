@@ -132,20 +132,22 @@ WHEN LIVE WEB INTELLIGENCE IS PROVIDED:
 - Mine every snippet for opening hours, prices, crowd warnings, and seasonal tips
 - Never invent a source citation — use exactly the name from the SOURCE DIRECTORY
 
-CONCISENESS RULES (critical — output must stay under 12 000 chars to parse cleanly):
-- description: 1 sentence, max 20 words
-- whyThis: max 18 words, MUST end with (Source: Name, Year)
-- bestTimeToVisit: max 12 words (specific crowd/timing tip only)
+CONCISENESS RULES (critical — total JSON output MUST stay under 7 500 characters):
+- description: max 12 words
+- whyThis: max 12 words, MUST end with (Source: Name, Year)
+- bestTimeToVisit: max 10 words
 - tags: exactly 3 items
-- webInsights: exactly 2 per day, no more
-- packingTips: exactly 5 items
-- bestLocalTips: exactly 5 items
-- transportTip: max 15 words
-- basecamp.booked.neighborhoodInsight: max 20 words — strategic location advantage
-- basecamp.recommendations[].whyItFits: max 12 words — tie to traveler interests
-- basecamp.recommendations[].neighborhoodInsight: max 15 words — strategic advantage
+- webInsights: exactly 1 per day — most important insight only
+- packingTips: exactly 4 items
+- bestLocalTips: exactly 4 items
+- transportTip: max 12 words
+- strategicOverview: max 20 words
+- basecamp.booked.neighborhoodInsight: max 15 words
+- basecamp.recommendations[].whyItFits: max 10 words
+- basecamp.recommendations[].neighborhoodInsight: max 12 words
 - basecamp.recommendations[].neighborhoodVibe: 2–3 words only
 - No trailing commas, no comments, no prose outside the JSON object
+- If in doubt, write LESS — a parseable short response beats an unparseable long one
 
 CRITICAL: Return ONLY a valid JSON object — no markdown fences, no prose. Structure:
 
