@@ -130,55 +130,39 @@ export async function POST(req: NextRequest) {
   */
 
   // ── Persist to Supabase ────────────────────────────────────────────────────
-  const itineraryIsValid =
-    typeof itinerary.destination === 'string' &&
-    itinerary.destination.trim().length > 0 &&
-    Array.isArray(itinerary.days) &&
-    itinerary.days.length > 0;
+  const insertPayload = {
+    destination: itinerary.destination,
+    hotel_info: null,
+    itinerary_json: { ...itinerary, _profile: profile },
+  };
 
-  const destinationMatches =
-    itinerary.destination?.toLowerCase().includes(profile.destination.toLowerCase()) ||
-    profile.destination.toLowerCase().includes(itinerary.destination?.toLowerCase() ?? '');
+  console.log('Inserting to Supabase...', JSON.stringify(insertPayload, null, 2));
 
-  let savedId: string | null = null;
-  if (itineraryIsValid && destinationMatches) {
-    console.log(
-      `[generate] Attempting to save to Supabase... destination="${itinerary.destination}", days=${itinerary.days.length}`
-    );
-    try {
-      const hotelInfo =
-        (itinerary as Record<string, unknown> & { basecamp?: { booked?: { name?: string }; recommendations?: { name?: string }[] } })
-          .basecamp?.booked?.name ??
-        (itinerary as Record<string, unknown> & { basecamp?: { recommendations?: { name?: string }[] } })
-          .basecamp?.recommendations?.[0]?.name ??
-        null;
+  const { data: saved, error: dbErr } = await supabase
+    .from('itineraries')
+    .insert(insertPayload)
+    .select('id')
+    .single();
 
-      const { data: saved, error: dbErr } = await supabase
-        .from('itineraries')
-        .insert({
-          destination: itinerary.destination,
-          hotel_info: hotelInfo,
-          itinerary_json: { ...itinerary, _profile: profile },
-        })
-        .select('id')
-        .single();
+  console.log('Supabase Response:', dbErr ? JSON.stringify(dbErr) : 'no error');
+  console.log('Supabase Data:', JSON.stringify(saved));
 
-      console.log('[generate] Supabase raw response — data:', JSON.stringify(saved), '| error:', JSON.stringify(dbErr));
-      if (dbErr) {
-        console.error('[generate] Supabase insert error:', dbErr);
-      } else if (saved) {
-        savedId = saved.id as string;
-        console.log(`[generate] Supabase save succeeded — id: ${savedId}`);
-      }
-    } catch (dbException) {
-      console.error('[generate] Supabase insert threw an exception:', dbException);
-    }
-  } else {
-    console.warn(
-      `[generate] Supabase insert skipped — destination mismatch or empty itinerary.` +
-      ` Requested: "${profile.destination}", got: "${itinerary.destination}", days: ${itinerary.days?.length ?? 0}`
+  if (dbErr) {
+    return NextResponse.json(
+      { error: `Supabase insert failed: ${dbErr.message}`, details: dbErr },
+      { status: 500 }
     );
   }
 
-  return NextResponse.json(savedId ? { id: savedId, ...itinerary } : itinerary);
+  if (!saved?.id) {
+    return NextResponse.json(
+      { error: 'Supabase insert returned no ID — row may not have been created' },
+      { status: 500 }
+    );
+  }
+
+  const savedId = saved.id as string;
+  console.log(`[generate] Supabase save succeeded — id: ${savedId}`);
+
+  return NextResponse.json({ id: savedId, ...itinerary });
 }

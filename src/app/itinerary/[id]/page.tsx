@@ -9,11 +9,22 @@ interface PageProps {
 }
 
 export default async function ItineraryByIdPage({ params }: PageProps) {
-  const { data, error } = await supabase
-    .from('itineraries')
-    .select('itinerary_json')
-    .eq('id', params.id)
-    .single();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+
+  let data, error;
+  try {
+    ({ data, error } = await supabase
+      .from('itineraries')
+      .select('itinerary_json')
+      .eq('id', params.id)
+      .abortSignal(controller.signal)
+      .single());
+  } catch {
+    return notFound();
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (error || !data?.itinerary_json) return notFound();
 
