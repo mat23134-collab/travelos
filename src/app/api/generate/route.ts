@@ -149,7 +149,7 @@ export async function POST(req: NextRequest) {
           .insert({
             destination: itinerary.destination,
             hotel_info: hotelInfo,
-            itinerary: { ...itinerary, _profile: profile },
+            itinerary_json: { ...itinerary, _profile: profile },
           })
           .select('id')
           .single();

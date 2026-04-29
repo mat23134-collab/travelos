@@ -11,14 +11,14 @@ interface PageProps {
 export default async function ItineraryByIdPage({ params }: PageProps) {
   const { data, error } = await supabase
     .from('itineraries')
-    .select('itinerary')
+    .select('itinerary_json')
     .eq('id', params.id)
     .single();
 
-  if (error || !data?.itinerary) return notFound();
+  if (error || !data?.itinerary_json) return notFound();
 
   // Profile was embedded under _profile when the row was inserted
-  const { _profile, ...itinerary } = data.itinerary as Itinerary & { _profile?: TravelerProfile };
+  const { _profile, ...itinerary } = data.itinerary_json as Itinerary & { _profile?: TravelerProfile };
 
   return (
     <ItineraryClient

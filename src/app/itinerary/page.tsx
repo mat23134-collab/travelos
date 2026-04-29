@@ -1,16 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Itinerary, TravelerProfile } from '@/lib/types';
 import { ItineraryClient } from '@/components/ItineraryClient';
 import { ItinerarySkeleton } from '@/components/ItinerarySkeleton';
-import { MOCK_ITINERARY, MOCK_PROFILE } from '@/lib/mockData';
 
 export default function ItineraryPage() {
+  const router = useRouter();
   const [itinerary, setItinerary] = useState<Itinerary | null>(null);
   const [profile, setProfile] = useState<TravelerProfile | null>(null);
-  const [initialViewMode, setInitialViewMode] = useState<'draft' | 'final'>('draft');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -18,9 +18,7 @@ export default function ItineraryPage() {
       const raw = sessionStorage.getItem('travelos_itinerary');
       const rawProfile = sessionStorage.getItem('travelos_profile');
       if (!raw) {
-        setItinerary(MOCK_ITINERARY);
-        setProfile(MOCK_PROFILE);
-        setInitialViewMode('final');
+        router.replace('/plan');
         return;
       }
       setItinerary(JSON.parse(raw));
@@ -28,7 +26,7 @@ export default function ItineraryPage() {
     } catch {
       setError('Could not load your itinerary. Please try again.');
     }
-  }, []);
+  }, [router]);
 
   if (error) {
     return (
@@ -63,7 +61,7 @@ export default function ItineraryPage() {
     <ItineraryClient
       initialItinerary={itinerary}
       initialProfile={profile}
-      initialViewMode={initialViewMode}
+      initialViewMode="draft"
     />
   );
 }
