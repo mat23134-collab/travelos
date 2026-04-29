@@ -135,6 +135,9 @@ export async function POST(req: NextRequest) {
 
     let savedId: string | null = null;
     if (itineraryIsValid && destinationMatches) {
+      console.log(
+        `[generate] Attempting to save to Supabase... destination="${itinerary.destination}", days=${itinerary.days.length}`
+      );
       try {
         const hotelInfo =
           itinerary.basecamp?.booked?.name ??
@@ -151,8 +154,15 @@ export async function POST(req: NextRequest) {
           .select('id')
           .single();
 
-        if (!dbErr && saved) savedId = saved.id as string;
-      } catch { /* non-critical — still return itinerary even if DB save fails */ }
+        if (dbErr) {
+          console.error('[generate] Supabase insert error:', dbErr);
+        } else if (saved) {
+          savedId = saved.id as string;
+          console.log(`[generate] Supabase save succeeded — id: ${savedId}`);
+        }
+      } catch (dbException) {
+        console.error('[generate] Supabase insert threw an exception:', dbException);
+      }
     } else {
       console.warn(
         `[generate] Supabase insert skipped — destination mismatch or empty itinerary.` +
