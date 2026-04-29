@@ -8,9 +8,16 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default async function ItineraryByIdPage({ params }: PageProps) {
   const { id } = await params;
   console.log('[itinerary/id] Fetching id:', id);
+
+  if (!id || !UUID_RE.test(id)) {
+    console.error('[itinerary/id] Invalid or missing id param:', id);
+    return notFound();
+  }
 
   const { data, error } = await supabase
     .from('itineraries')

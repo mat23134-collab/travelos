@@ -411,8 +411,11 @@ export default function PlanPage() {
       sessionStorage.setItem('travelos_itinerary', JSON.stringify(itinerary));
       sessionStorage.setItem('travelos_profile', JSON.stringify(profile));
       localStorage.removeItem(STORAGE_KEY);
-      const destination = id ? `/itinerary/${id}` : '/itinerary';
-      console.log('[plan] Redirecting to:', destination, '| id:', id ?? 'none (fallback route)');
+      // Guard: reject undefined, null, or the literal string "undefined"
+      const validId = id && id !== 'undefined' && id !== 'null' ? id : null;
+      const destination = validId ? `/itinerary/${validId}` : '/itinerary';
+      console.log('[plan] Redirecting to:', destination, '| raw id from API:', id);
+      if (!validId) console.error('[plan] No valid ID returned from API — falling back to sessionStorage route');
       router.push(destination);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');

@@ -191,5 +191,8 @@ export async function POST(req: NextRequest) {
   const savedId = saved.id as string;
   console.log('[generate] Supabase save succeeded — id: ' + savedId);
 
-  return NextResponse.json({ id: savedId, ...itinerary });
+  // Strip any `id` field the AI may have generated so the Supabase UUID always wins
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { id: _drop, ...safeItinerary } = itinerary as Record<string, unknown>;
+  return NextResponse.json({ id: savedId, ...safeItinerary });
 }
