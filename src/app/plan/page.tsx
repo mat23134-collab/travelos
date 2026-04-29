@@ -362,6 +362,13 @@ export default function PlanPage() {
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
+    // Clear stale trip data immediately so a failed or slow generation never
+    // shows old content on the itinerary routes.
+    try {
+      sessionStorage.removeItem('travelos_itinerary');
+      sessionStorage.removeItem('travelos_profile');
+    } catch { /* ignore */ }
+
     const start = form['startDate'] as string;
     const end = form['endDate'] as string;
     const duration =

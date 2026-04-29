@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -268,10 +268,25 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
   const [mobileMapOpen, setMobileMapOpen] = useState(false);
   const [focusedNeighborhood, setFocusedNeighborhood] = useState<string | undefined>();
 
+  // If React reuses this component instance during client-side navigation (e.g.
+  // /itinerary → /itinerary/[id]), useState won't reinitialise. Sync from props
+  // so server-fetched Supabase data always wins over any stale local state.
+  useEffect(() => {
+    setItinerary(initialItinerary);
+    setViewMode(initialViewMode ?? 'draft');
+  }, [initialItinerary, initialViewMode]);
+
+  // Only write back to sessionStorage for the sessionStorage-backed route
+  // (/itinerary). The [id] route always re-fetches from Supabase, so writing
+  // here would pollute sessionStorage with a different trip's data.
+  const sessionPersist = initialViewMode !== 'final';
+
   const persistAndSet = useCallback((updated: Itinerary) => {
     setItinerary(updated);
-    try { sessionStorage.setItem('travelos_itinerary', JSON.stringify(updated)); } catch { /* ignore */ }
-  }, []);
+    if (sessionPersist) {
+      try { sessionStorage.setItem('travelos_itinerary', JSON.stringify(updated)); } catch { /* ignore */ }
+    }
+  }, [sessionPersist]);
 
   const handleQuickEditUpdate = useCallback((updated: Itinerary, summary: string) => {
     persistAndSet(updated);

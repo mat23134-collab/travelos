@@ -120,27 +120,45 @@ export async function POST(req: NextRequest) {
     };
 
     // ── Persist to Supabase ────────────────────────────────────────────────────
-    // Profile is stored inside the itinerary JSONB so the [id] route can
-    // reconstruct the full view without a separate table join.
+    // Guards: only insert when the AI produced a real itinerary that actually
+    // matches the requested destination. This prevents stale mock data or a
+    // partial/failed generation from being written to the database.
+    const itineraryIsValid =
+      typeof itinerary.destination === 'string' &&
+      itinerary.destination.trim().length > 0 &&
+      Array.isArray(itinerary.days) &&
+      itinerary.days.length > 0;
+
+    const destinationMatches =
+      itinerary.destination?.toLowerCase().includes(profile.destination.toLowerCase()) ||
+      profile.destination.toLowerCase().includes(itinerary.destination?.toLowerCase() ?? '');
+
     let savedId: string | null = null;
-    try {
-      const hotelInfo =
-        itinerary.basecamp?.booked?.name ??
-        itinerary.basecamp?.recommendations?.[0]?.name ??
-        null;
+    if (itineraryIsValid && destinationMatches) {
+      try {
+        const hotelInfo =
+          itinerary.basecamp?.booked?.name ??
+          itinerary.basecamp?.recommendations?.[0]?.name ??
+          null;
 
-      const { data: saved, error: dbErr } = await supabase
-        .from('itineraries')
-        .insert({
-          destination: itinerary.destination ?? null,
-          hotel_info: hotelInfo,
-          itinerary: { ...itinerary, _profile: profile },
-        })
-        .select('id')
-        .single();
+        const { data: saved, error: dbErr } = await supabase
+          .from('itineraries')
+          .insert({
+            destination: itinerary.destination,
+            hotel_info: hotelInfo,
+            itinerary: { ...itinerary, _profile: profile },
+          })
+          .select('id')
+          .single();
 
-      if (!dbErr && saved) savedId = saved.id as string;
-    } catch { /* non-critical — still return itinerary even if DB save fails */ }
+        if (!dbErr && saved) savedId = saved.id as string;
+      } catch { /* non-critical — still return itinerary even if DB save fails */ }
+    } else {
+      console.warn(
+        `[generate] Supabase insert skipped — destination mismatch or empty itinerary.` +
+        ` Requested: "${profile.destination}", got: "${itinerary.destination}", days: ${itinerary.days?.length ?? 0}`
+      );
+    }
 
     return NextResponse.json(savedId ? { id: savedId, ...itinerary } : itinerary);
   } catch (err) {
