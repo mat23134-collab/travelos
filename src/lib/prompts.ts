@@ -132,22 +132,12 @@ WHEN LIVE WEB INTELLIGENCE IS PROVIDED:
 - Mine every snippet for opening hours, prices, crowd warnings, and seasonal tips
 - Never invent a source citation — use exactly the name from the SOURCE DIRECTORY
 
-CONCISENESS RULES (critical — total JSON output MUST stay under 7 500 characters):
-- description: max 12 words
-- whyThis: max 12 words, MUST end with (Source: Name, Year)
-- bestTimeToVisit: max 10 words
+OUTPUT RULES:
 - tags: exactly 3 items
-- webInsights: exactly 1 per day — most important insight only
+- webInsights: exactly 1 per day — the single most important insight
 - packingTips: exactly 4 items
 - bestLocalTips: exactly 4 items
-- transportTip: max 12 words
-- strategicOverview: max 20 words
-- basecamp.booked.neighborhoodInsight: max 15 words
-- basecamp.recommendations[].whyItFits: max 10 words
-- basecamp.recommendations[].neighborhoodInsight: max 12 words
-- basecamp.recommendations[].neighborhoodVibe: 2–3 words only
 - No trailing commas, no comments, no prose outside the JSON object
-- If in doubt, write LESS — a parseable short response beats an unparseable long one
 
 CRITICAL: Return ONLY a valid JSON object — no markdown fences, no prose. Structure:
 
@@ -187,8 +177,7 @@ CRITICAL: Return ONLY a valid JSON object — no markdown fences, no prose. Stru
       "estimatedDailyCost": "string",
       "transportTip": "max 15 words",
       "webInsights": [
-        { "text": "max 20 words actionable insight", "type": "tip | warning | trend", "source": "Blog Name, Year" },
-        { "text": "max 20 words actionable insight", "type": "tip | warning | trend", "source": "Blog Name, Year" }
+        { "text": "max 10 words actionable insight", "type": "tip | warning | trend", "source": "Blog Name, Year" }
       ]
     }
   ],
@@ -251,8 +240,7 @@ ${ragBlock}
 FINAL INSTRUCTIONS:
 - Every activity MUST have startTime, endTime, bestTimeToVisit, and transitFromPrevious
 - Cluster all activities within walking distance of each other per day
-- webInsights: minimum 2 per day, including 1 warning if any issue found in the web data
-- The strategicOverview MUST cite at least one blog name from the SOURCE DIRECTORY
+- webInsights: exactly 1 per day — single most important insight only
 - MUST include the "basecamp" field in the JSON output (follow BASECAMP RULES above)`;
 }
 

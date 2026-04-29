@@ -1,3 +1,5 @@
+export const runtime = 'edge';
+
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NextRequest, NextResponse } from 'next/server';
 import { TravelerProfile } from '@/lib/types';
@@ -77,7 +79,6 @@ export async function POST(req: NextRequest) {
           'IMPORTANT: Your output MUST be a raw JSON object only. ' +
           'Do NOT include markdown blocks, backticks, or any text outside the curly braces. ' +
           'Start your response immediately with { and end with }. ' +
-          'Keep every string field under 10 words. Total output must be under 9000 characters. ' +
           SYSTEM_PROMPT,
       },
       { apiVersion: 'v1beta' },
@@ -89,6 +90,7 @@ export async function POST(req: NextRequest) {
 
     const raw = result.response.text();
     console.log('[generate] Gemini raw length:', raw.length, 'chars');
+    console.log('[generate] RAW AI RESPONSE:', raw);
     console.log('[generate] Gemini raw start:', raw.slice(0, 300));
 
     try {
