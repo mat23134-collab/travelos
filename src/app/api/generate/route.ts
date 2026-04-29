@@ -5,6 +5,10 @@ import { SYSTEM_PROMPT, buildUserPrompt } from '@/lib/prompts';
 import { runChainOfThoughtSearch, searchWeb } from '@/lib/rag';
 import { supabase } from '@/lib/supabase';
 
+// Model name is read at request time so you can change it in Vercel env vars
+// without a redeploy. Set GEMINI_MODEL to the exact name shown in your model list.
+// Fallback order tried historically: gemini-1.5-flash → gemini-2.0-flash →
+// gemini-3-flash → gemini-2.5-flash (all on v1beta with systemInstruction support)
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
 
 const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').replace(/\/+$/, '');
@@ -69,9 +73,12 @@ export async function POST(req: NextRequest) {
 
   let itinerary;
   try {
+    const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    console.log('[generate] Using model:', modelName, '| API: v1beta');
+
     const model = genAI.getGenerativeModel(
       {
-        model: 'gemini-3-flash',
+        model: modelName,
         generationConfig: {
           responseMimeType: 'application/json',
           temperature: 0.7,
