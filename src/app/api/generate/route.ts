@@ -1,18 +1,18 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NextRequest, NextResponse } from 'next/server';
 import { TravelerProfile } from '@/lib/types';
 import { SYSTEM_PROMPT, buildUserPrompt } from '@/lib/prompts';
 import { runChainOfThoughtSearch, searchWeb } from '@/lib/rag';
 import { supabase } from '@/lib/supabase';
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
 
 const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').replace(/\/+$/, '');
 
 export async function POST(req: NextRequest) {
-  if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY.includes('your_')) {
+  if (!process.env.GEMINI_API_KEY) {
     return NextResponse.json(
-      { error: 'ANTHROPIC_API_KEY is not configured. Add it to .env.local.' },
+      { error: 'GEMINI_API_KEY is not configured.' },
       { status: 500 }
     );
   }
@@ -49,38 +49,25 @@ export async function POST(req: NextRequest) {
 
   let itinerary;
   try {
-    const message = await client.messages.create({
-      model: 'claude-opus-4-7',
-      max_tokens: 8192,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: buildUserPrompt(profile, classifiedResults, hotelContext) }],
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-1.5-flash',
+      generationConfig: {
+        responseMimeType: 'application/json',
+        temperature: 0.7,
+        maxOutputTokens: 8192,
+      },
+      systemInstruction: SYSTEM_PROMPT,
     });
 
-    const content = message.content[0];
-    if (content.type !== 'text') {
-      return NextResponse.json({ error: 'Unexpected response type from AI' }, { status: 500 });
-    }
+    const result = await model.generateContent(
+      buildUserPrompt(profile, classifiedResults, hotelContext)
+    );
 
-    const raw = content.text;
+    const raw = result.response.text();
+    console.log('[generate] Gemini response length:', raw.length, 'chars');
 
-    // 1. Strip BOM and markdown fences
-    let cleaned = raw.replace(/^﻿/, '').trim();
-    if (cleaned.startsWith('```')) {
-      cleaned = cleaned.replace(/^```(?:json)?/i, '');
-    }
-    if (cleaned.endsWith('```')) {
-      cleaned = cleaned.replace(/```$/, '');
-    }
-    cleaned = cleaned.trim();
-
-    // 2. Extract the outermost { … } block — ignores any prose before/after
-    const start = cleaned.indexOf('{');
-    const end = cleaned.lastIndexOf('}');
-    const jsonText = (start !== -1 && end > start) ? cleaned.slice(start, end + 1) : cleaned;
-
-    // 3. Parse, with truncation-repair fallback
     try {
-      itinerary = JSON.parse(jsonText);
+      itinerary = JSON.parse(raw);
     } catch (parseErr) {
       const pos = (parseErr as SyntaxError).message.match(/position (\d+)/)?.[1];
       console.error(
@@ -89,22 +76,10 @@ export async function POST(req: NextRequest) {
         '\n--- FIRST 500 ---\n' + raw.slice(0, 500) +
         '\n--- LAST 500 ---\n' + raw.slice(-500)
       );
-
-      // Walk backwards to find the last complete closing brace
-      let repaired: unknown = null;
-      for (let i = jsonText.length - 1; i > 0; i--) {
-        if (jsonText[i] === '}') {
-          try { repaired = JSON.parse(jsonText.slice(0, i + 1)); break; } catch { /* keep walking */ }
-        }
-      }
-      if (!repaired) {
-        return NextResponse.json(
-          { error: 'Malformed AI response (length ' + raw.length + '). Check Vercel logs for first/last 500 chars.' },
-          { status: 500 }
-        );
-      }
-      console.warn('[generate] Repaired truncated JSON successfully');
-      itinerary = repaired;
+      return NextResponse.json(
+        { error: 'Malformed AI response (length ' + raw.length + '). Check Vercel logs.' },
+        { status: 500 }
+      );
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
@@ -143,18 +118,16 @@ export async function POST(req: NextRequest) {
     itinerary.basecamp?.recommendations?.[0]?.name ??
     null;
 
-  const insertPayload = {
-    destination: itinerary.destination,
-    hotel_info: hotelInfo,
-    itinerary_json: { ...itinerary, _profile: profile },
-  };
-
   console.log('[generate] Supabase URL:', SUPABASE_URL || 'MISSING');
   console.log('[generate] Inserting to Supabase...', itinerary.destination);
 
   const { data: saved, error: dbErr } = await supabase
     .from('itineraries')
-    .insert(insertPayload)
+    .insert({
+      destination: itinerary.destination,
+      hotel_info: hotelInfo,
+      itinerary_json: { ...itinerary, _profile: profile },
+    })
     .select('id')
     .single();
 
