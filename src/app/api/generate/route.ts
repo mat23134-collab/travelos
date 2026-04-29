@@ -13,19 +13,12 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
 
 const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').replace(/\/+$/, '');
 
-function repairJson(raw: string): string {
-  // Strip BOM if present as very first character
-  const s = raw.charCodeAt(0) === 0xFEFF ? raw.slice(1) : raw;
-  // Find the absolute first { and absolute last } in the entire string.
-  // Everything before the first { and after the last } is noise
-  // (markdown fences, prose, model preamble) — discard it all.
-  const first = s.indexOf('{');
-  const last = s.lastIndexOf('}');
-  if (first === -1 || last <= first) {
-    console.error('[repairJson] No valid JSON object boundaries found. Raw start:', s.slice(0, 200));
-    return s; // return as-is so the parse error is surfaced with full detail
-  }
-  return s.slice(first, last + 1);
+function parseGeminiJson(rawText: string): unknown {
+  // Use a greedy regex to grab the outermost {...} block — handles BOM,
+  // markdown fences, and any preamble/postamble the model adds.
+  const match = rawText.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error('No JSON object found in response. Raw start: ' + rawText.slice(0, 200));
+  return JSON.parse(match[0]);
 }
 
 export async function POST(req: NextRequest) {
@@ -66,7 +59,8 @@ export async function POST(req: NextRequest) {
     } catch { /* non-critical */ }
   }
 
-  let itinerary;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let itinerary: any;
   try {
     const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
     console.log('[generate] Using model:', modelName, '| API: v1beta');
@@ -95,29 +89,17 @@ export async function POST(req: NextRequest) {
 
     const raw = result.response.text();
     console.log('[generate] Gemini raw length:', raw.length, 'chars');
-
-    // Repair: strip markdown fences if the model added them despite responseMimeType
-    const cleaned = repairJson(raw);
+    console.log('[generate] Gemini raw start:', raw.slice(0, 300));
 
     try {
-      itinerary = JSON.parse(cleaned);
+      itinerary = parseGeminiJson(raw);
     } catch (parseErr) {
-      const pos = (parseErr as SyntaxError).message.match(/position (\d+)/)?.[1];
-      const posNum = pos ? parseInt(pos, 10) : -1;
-      const snippet = posNum > -1
-        ? cleaned.slice(Math.max(0, posNum - 120), posNum + 120)
-        : '(position unknown)';
-      console.error(
-        '[generate] JSON parse failed\n' +
-        '  raw length : ' + raw.length + ' chars\n' +
-        '  cleaned len: ' + cleaned.length + ' chars\n' +
-        (pos ? '  error pos : ' + pos + '\n' : '') +
-        '  snippet    : ...>' + snippet + '<...\n' +
-        '  first 500  : ' + cleaned.slice(0, 500) + '\n' +
-        '  last  500  : ' + cleaned.slice(-500)
-      );
+      const msg = parseErr instanceof Error ? parseErr.message : String(parseErr);
+      console.error('[generate] JSON parse failed — ' + msg);
+      console.error('[generate] First 500:', raw.slice(0, 500));
+      console.error('[generate] Last  500:', raw.slice(-500));
       return NextResponse.json(
-        { error: 'Malformed AI response (' + raw.length + ' chars). Check Vercel logs for snippet.' },
+        { error: 'Malformed AI response (' + raw.length + ' chars): ' + msg },
         { status: 500 }
       );
     }
@@ -161,35 +143,44 @@ export async function POST(req: NextRequest) {
   console.log('[generate] Supabase URL:', SUPABASE_URL || 'MISSING');
   console.log('[generate] Inserting to Supabase...', itinerary.destination);
 
-  const { data: insertedRows, error: dbErr } = await supabase
-    .from('itineraries')
-    .insert([{
-      destination: itinerary.destination,
-      hotel_info: hotelInfo,
-      itinerary_json: { ...itinerary, _profile: profile },
-    }])
-    .select('id');
+  try {
+    const { data: insertedRows, error: dbErr } = await supabase
+      .from('itineraries')
+      .insert([{
+        destination: itinerary.destination,
+        hotel_info: hotelInfo,
+        itinerary_json: { ...itinerary, _profile: profile },
+      }])
+      .select('id');
 
-  console.log('Supabase insert error:', dbErr ? JSON.stringify(dbErr) : 'none');
-  console.log('Supabase insert data:', JSON.stringify(insertedRows));
+    console.log('Supabase insert error:', dbErr ? JSON.stringify(dbErr) : 'none');
+    console.log('Supabase insert data:', JSON.stringify(insertedRows));
 
-  if (dbErr) {
+    if (dbErr) {
+      return NextResponse.json(
+        { error: 'Supabase insert failed: ' + dbErr.message, details: dbErr },
+        { status: 500 }
+      );
+    }
+
+    const insertedId = insertedRows?.[0]?.id as string | undefined;
+    console.log('[generate] insertedId:', insertedId);
+
+    if (!insertedId) {
+      return NextResponse.json(
+        { error: 'Supabase insert returned no ID', raw: insertedRows },
+        { status: 500 }
+      );
+    }
+
+    // Return id at the top level, itinerary nested — no spread collision possible
+    return NextResponse.json({ id: insertedId, itinerary });
+  } catch (dbException) {
+    const msg = dbException instanceof Error ? dbException.message : String(dbException);
+    console.error('[generate] Supabase insert threw an exception:', msg);
     return NextResponse.json(
-      { error: 'Supabase insert failed: ' + dbErr.message, details: dbErr },
+      { error: 'Supabase insert exception: ' + msg },
       { status: 500 }
     );
   }
-
-  const insertedId = insertedRows?.[0]?.id as string | undefined;
-  console.log('[generate] insertedId:', insertedId);
-
-  if (!insertedId) {
-    return NextResponse.json(
-      { error: 'Supabase insert returned no ID', raw: insertedRows },
-      { status: 500 }
-    );
-  }
-
-  // Return id at the top level, itinerary nested — no spread collision possible
-  return NextResponse.json({ id: insertedId, itinerary });
 }
