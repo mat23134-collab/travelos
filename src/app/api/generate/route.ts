@@ -9,6 +9,26 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
 
 const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').replace(/\/+$/, '');
 
+function repairJson(raw: string): string {
+  let s = raw.trim();
+  // Strip BOM
+  if (s.charCodeAt(0) === 0xFEFF) s = s.slice(1);
+  // Strip opening fence (```json or ```)
+  if (s.startsWith('```')) {
+    s = s.replace(/^```(?:json)?[ \t]*\r?\n?/i, '');
+  }
+  // Strip closing fence
+  if (s.endsWith('```')) {
+    s = s.replace(/\r?\n?[ \t]*```[ \t]*$/, '');
+  }
+  s = s.trim();
+  // Extract outermost { ... } in case there is still leading/trailing prose
+  const first = s.indexOf('{');
+  const last = s.lastIndexOf('}');
+  if (first !== -1 && last > first) s = s.slice(first, last + 1);
+  return s;
+}
+
 export async function POST(req: NextRequest) {
   if (!process.env.GEMINI_API_KEY) {
     return NextResponse.json(
@@ -57,7 +77,10 @@ export async function POST(req: NextRequest) {
           temperature: 0.7,
           maxOutputTokens: 8192,
         },
-        systemInstruction: SYSTEM_PROMPT,
+        systemInstruction:
+          'Respond ONLY with a compact JSON object. No markdown fences, no intro text, no outro text. ' +
+          'Keep every string field under 10 words. The entire JSON must be under 9000 characters. ' +
+          'SYSTEM CONTEXT: ' + SYSTEM_PROMPT,
       },
       { apiVersion: 'v1' },
     );
@@ -67,20 +90,30 @@ export async function POST(req: NextRequest) {
     );
 
     const raw = result.response.text();
-    console.log('[generate] Gemini response length:', raw.length, 'chars');
+    console.log('[generate] Gemini raw length:', raw.length, 'chars');
+
+    // Repair: strip markdown fences if the model added them despite responseMimeType
+    const cleaned = repairJson(raw);
 
     try {
-      itinerary = JSON.parse(raw);
+      itinerary = JSON.parse(cleaned);
     } catch (parseErr) {
       const pos = (parseErr as SyntaxError).message.match(/position (\d+)/)?.[1];
+      const posNum = pos ? parseInt(pos, 10) : -1;
+      const snippet = posNum > -1
+        ? cleaned.slice(Math.max(0, posNum - 120), posNum + 120)
+        : '(position unknown)';
       console.error(
-        '[generate] JSON parse failed — raw length: ' + raw.length + ' chars' +
-        (pos ? ', error near position ' + pos : '') +
-        '\n--- FIRST 500 ---\n' + raw.slice(0, 500) +
-        '\n--- LAST 500 ---\n' + raw.slice(-500)
+        '[generate] JSON parse failed\n' +
+        '  raw length : ' + raw.length + ' chars\n' +
+        '  cleaned len: ' + cleaned.length + ' chars\n' +
+        (pos ? '  error pos : ' + pos + '\n' : '') +
+        '  snippet    : ...>' + snippet + '<...\n' +
+        '  first 500  : ' + cleaned.slice(0, 500) + '\n' +
+        '  last  500  : ' + cleaned.slice(-500)
       );
       return NextResponse.json(
-        { error: 'Malformed AI response (length ' + raw.length + '). Check Vercel logs.' },
+        { error: 'Malformed AI response (' + raw.length + ' chars). Check Vercel logs for snippet.' },
         { status: 500 }
       );
     }
