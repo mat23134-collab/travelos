@@ -161,18 +161,17 @@ export async function POST(req: NextRequest) {
   console.log('[generate] Supabase URL:', SUPABASE_URL || 'MISSING');
   console.log('[generate] Inserting to Supabase...', itinerary.destination);
 
-  const { data: saved, error: dbErr } = await supabase
+  const { data: insertedRows, error: dbErr } = await supabase
     .from('itineraries')
-    .insert({
+    .insert([{
       destination: itinerary.destination,
       hotel_info: hotelInfo,
       itinerary_json: { ...itinerary, _profile: profile },
-    })
-    .select('id')
-    .single();
+    }])
+    .select('id');
 
-  console.log('Supabase Response:', dbErr ? JSON.stringify(dbErr) : 'no error');
-  console.log('Supabase Data:', JSON.stringify(saved));
+  console.log('Supabase insert error:', dbErr ? JSON.stringify(dbErr) : 'none');
+  console.log('Supabase insert data:', JSON.stringify(insertedRows));
 
   if (dbErr) {
     return NextResponse.json(
@@ -181,18 +180,16 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (!saved?.id) {
+  const insertedId = insertedRows?.[0]?.id as string | undefined;
+  console.log('[generate] insertedId:', insertedId);
+
+  if (!insertedId) {
     return NextResponse.json(
-      { error: 'Supabase insert returned no ID' },
+      { error: 'Supabase insert returned no ID', raw: insertedRows },
       { status: 500 }
     );
   }
 
-  const savedId = saved.id as string;
-  console.log('[generate] Supabase save succeeded — id: ' + savedId);
-
-  // Strip any `id` field the AI may have generated so the Supabase UUID always wins
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { id: _drop, ...safeItinerary } = itinerary as Record<string, unknown>;
-  return NextResponse.json({ id: savedId, ...safeItinerary });
+  // Return id at the top level, itinerary nested — no spread collision possible
+  return NextResponse.json({ id: insertedId, itinerary });
 }

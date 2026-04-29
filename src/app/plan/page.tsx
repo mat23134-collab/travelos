@@ -405,18 +405,22 @@ export default function PlanPage() {
         throw new Error(data.error || 'Generation failed');
       }
 
-      const data = await res.json();
-      // API returns { id?, ...itinerary } — id is present when Supabase save succeeded
-      const { id, ...itinerary } = data as { id?: string } & Record<string, unknown>;
+      const result = await res.json();
+      console.log('DEBUG: API Result:', result);
+
+      // API now returns { id: string, itinerary: {...} }
+      const itinerary = result.itinerary ?? result;
       sessionStorage.setItem('travelos_itinerary', JSON.stringify(itinerary));
       sessionStorage.setItem('travelos_profile', JSON.stringify(profile));
       localStorage.removeItem(STORAGE_KEY);
-      // Guard: reject undefined, null, or the literal string "undefined"
-      const validId = id && id !== 'undefined' && id !== 'null' ? id : null;
-      const destination = validId ? `/itinerary/${validId}` : '/itinerary';
-      console.log('[plan] Redirecting to:', destination, '| raw id from API:', id);
-      if (!validId) console.error('[plan] No valid ID returned from API — falling back to sessionStorage route');
-      router.push(destination);
+
+      if (typeof result.id === 'string' && result.id.length > 10) {
+        console.log('[plan] Navigating to /itinerary/' + result.id);
+        router.push('/itinerary/' + result.id);
+      } else {
+        console.error('[plan] No valid id in API response — raw result:', result);
+        router.push('/itinerary');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
       setIsSubmitting(false);
