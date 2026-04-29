@@ -402,25 +402,26 @@ export default function PlanPage() {
       const rawText = await res.text();
       console.log('[plan] Phase 1 raw response:', rawText.slice(0, 500));
 
-      let result: { id?: string; error?: string };
+      // Always try to parse as JSON; if it fails, surface the raw text
+      let result: { id?: string; error?: string } = {};
       try {
         result = JSON.parse(rawText);
       } catch {
-        throw new Error('Server error (non-JSON response): ' + rawText.slice(0, 300));
+        throw new Error('Non-JSON response from server: ' + rawText.slice(0, 300));
       }
 
-      if (!res.ok) {
-        throw new Error(result.error || `Server returned ${res.status}`);
+      // Surface server-side errors directly on screen
+      if (!res.ok || result.error) {
+        throw new Error(result.error || `Server error ${res.status}`);
       }
 
-      const itineraryId = result.id;
       const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (!itineraryId || !UUID_RE.test(itineraryId)) {
-        console.error('[plan] Phase 1 returned invalid id:', itineraryId, '| full result:', result);
-        throw new Error('Server returned an invalid itinerary ID. Check Vercel logs.');
+      const itineraryId = result.id ?? '';
+      if (!UUID_RE.test(itineraryId)) {
+        throw new Error('Server returned an invalid ID: "' + itineraryId + '". Check Vercel logs for the insert error.');
       }
 
-      // Redirect immediately — itinerary page will fire the worker and poll
+      // Redirect immediately — itinerary page fires the worker and polls
       console.log('[plan] Redirecting to /itinerary/' + itineraryId);
       router.push('/itinerary/' + itineraryId);
     } catch (err) {
