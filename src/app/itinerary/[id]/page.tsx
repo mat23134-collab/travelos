@@ -21,7 +21,7 @@ export default async function ItineraryByIdPage({ params }: PageProps) {
 
   const { data, error } = await supabase
     .from('itineraries')
-    .select('itinerary_json')
+    .select('itinerary_json, status, destination')
     .eq('id', id)
     .single();
 
@@ -30,12 +30,41 @@ export default async function ItineraryByIdPage({ params }: PageProps) {
     return notFound();
   }
 
-  if (!data?.itinerary_json) {
-    console.error('[itinerary/id] Row found but itinerary_json is empty. data:', JSON.stringify(data));
+  if (!data) {
+    console.error('[itinerary/id] Row not found for id:', id);
     return notFound();
   }
 
-  // Profile was embedded under _profile when the row was inserted
+  // Still generating — render polling UI; worker will be fired from the client
+  if (!data.itinerary_json || data.status === 'generating') {
+    console.log('[itinerary/id] Status is generating — rendering polling UI');
+    return (
+      <ItineraryClient
+        initialItinerary={null}
+        initialProfile={null}
+        initialViewMode="final"
+        itineraryId={id}
+        isGenerating={true}
+        generatingDestination={data.destination ?? ''}
+      />
+    );
+  }
+
+  // Generation previously failed
+  if (data.status === 'failed') {
+    return (
+      <div className="min-h-screen bg-[#f8f7f2] flex flex-col items-center justify-center px-6 text-center">
+        <div className="text-4xl mb-4">⚠️</div>
+        <h2 className="text-xl font-bold text-[#111827] mb-2">Generation failed</h2>
+        <p className="text-[#6b7280] mb-6">Something went wrong building your itinerary. Please try again.</p>
+        <Link href="/plan" className="px-6 py-3 rounded-xl bg-[#ff5a5f] text-white font-semibold text-sm hover:bg-[#e04a4f] transition-colors">
+          Plan a New Trip ✈️
+        </Link>
+      </div>
+    );
+  }
+
+  // Done — render normally
   const { _profile, ...itinerary } = data.itinerary_json as Itinerary & { _profile?: TravelerProfile };
 
   return (

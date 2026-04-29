@@ -12,6 +12,7 @@ import { SharePanel } from '@/components/SharePanel';
 import { LogisticsDashboard } from '@/components/LogisticsDashboard';
 import { DraftOverview } from '@/components/DraftOverview';
 import type { SwapResult } from '@/app/api/swap/route';
+import { supabase } from '@/lib/supabase';
 
 const ItineraryMap = dynamic(
   () => import('@/components/ItineraryMap').then((m) => m.ItineraryMap),
@@ -252,27 +253,194 @@ function MobileMapOverlay({
   );
 }
 
+// ─── Generating / polling screen ─────────────────────────────────────────────
+
+const POLL_STEPS = [
+  { icon: '📱', label: 'Scanning 2026 TikTok trends…' },
+  { icon: '🍜', label: 'Cross-referencing local food blogs…' },
+  { icon: '🗺', label: 'Optimizing neighborhood clusters…' },
+  { icon: '✨', label: 'Vibe-checking for your squad…' },
+  { icon: '💎', label: 'Filtering tourist traps…' },
+];
+
+function GeneratingScreen({ destination, error }: { destination: string; error: string }) {
+  const [activeStep, setActiveStep] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(
+      () => setActiveStep((s) => Math.min(s + 1, POLL_STEPS.length - 1)),
+      5400,
+    );
+    return () => clearInterval(id);
+  }, []);
+
+  const pct = Math.round(((activeStep + 1) / POLL_STEPS.length) * 100);
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#080b12] flex flex-col items-center justify-center px-6 text-center">
+        <div className="text-4xl mb-4">⚠️</div>
+        <h2 className="text-xl font-bold text-white mb-2">Generation failed</h2>
+        <p className="text-white/50 mb-6">{error}</p>
+        <Link href="/plan" className="px-6 py-3 rounded-xl bg-[#ff5a5f] text-white font-semibold text-sm">
+          Try Again ✈️
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#080b12] flex flex-col items-center justify-center px-6 text-center relative overflow-hidden">
+      <div className="noise absolute w-[560px] h-[560px] rounded-full bg-[#ff5a5f]/10 blur-[130px] top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none animate-orb-float" />
+      <div className="noise absolute w-[320px] h-[320px] rounded-full bg-[#8b5cf6]/10 blur-[100px] bottom-1/4 right-1/4 pointer-events-none" style={{ animationDelay: '-5s' }} />
+
+      <motion.div
+        initial={{ opacity: 0, scale: 0.7, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 22 }}
+        className="mb-8"
+      >
+        <div className="w-20 h-20 rounded-[1.5rem] bg-[#ff5a5f]/15 border border-[#ff5a5f]/25 flex items-center justify-center text-4xl shadow-xl shadow-[#ff5a5f]/20 animate-glow-pulse">
+          ✈️
+        </div>
+      </motion.div>
+
+      <div className="text-[10px] font-semibold text-[#ff5a5f] uppercase tracking-widest mb-3">
+        {destination ? `Building your ${destination} itinerary` : 'Building your squad\'s master plan'}
+      </div>
+
+      <div className="h-16 flex items-center justify-center mb-8 w-full max-w-sm">
+        <AnimatePresence mode="wait">
+          <motion.p
+            key={activeStep}
+            initial={{ opacity: 0, y: 18, filter: 'blur(4px)' }}
+            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, y: -14, filter: 'blur(4px)' }}
+            transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+            className="text-lg sm:text-xl font-bold text-white leading-snug"
+          >
+            {POLL_STEPS[activeStep].icon}&nbsp;&nbsp;{POLL_STEPS[activeStep].label}
+          </motion.p>
+        </AnimatePresence>
+      </div>
+
+      <div className="flex flex-col gap-2 w-full max-w-xs mb-8">
+        {POLL_STEPS.map((step, i) => {
+          const done = i < activeStep;
+          const active = i === activeStep;
+          return (
+            <motion.div
+              key={step.label}
+              initial={{ opacity: 0, x: -16 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.09, type: 'spring', stiffness: 380, damping: 28 }}
+              className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all text-left ${
+                done   ? 'bg-white/4 border border-white/8' :
+                active ? 'bg-[#ff5a5f]/12 border border-[#ff5a5f]/30' :
+                         'opacity-25'
+              }`}
+            >
+              <span className="text-base flex-shrink-0">{done ? '✓' : step.icon}</span>
+              <span className={`text-xs flex-1 leading-snug ${
+                done   ? 'text-white/35 line-through' :
+                active ? 'text-white font-medium' :
+                         'text-white/30'
+              }`}>
+                {step.label}
+              </span>
+              {active && <span className="w-1.5 h-1.5 rounded-full bg-[#ff5a5f] animate-pulse flex-shrink-0" />}
+            </motion.div>
+          );
+        })}
+      </div>
+
+      <div className="w-full max-w-xs h-1 bg-white/8 rounded-full overflow-hidden mb-3">
+        <motion.div
+          className="h-full rounded-full"
+          animate={{ width: `${pct}%` }}
+          transition={{ type: 'spring', stiffness: 200, damping: 28 }}
+          style={{ background: 'linear-gradient(90deg, #ff5a5f, #00d4ff)' }}
+        />
+      </div>
+      <p className="text-white/20 text-[10px] tabular-nums">{pct}% · ~30 seconds · AI-powered</p>
+    </div>
+  );
+}
+
 // ─── Main client component ────────────────────────────────────────────────────
 
 interface Props {
-  initialItinerary: Itinerary;
+  initialItinerary: Itinerary | null;
   initialProfile: TravelerProfile | null;
   initialViewMode?: ViewMode;
+  itineraryId?: string;
+  isGenerating?: boolean;
+  generatingDestination?: string;
 }
 
-export function ItineraryClient({ initialItinerary, initialProfile, initialViewMode = 'draft' }: Props) {
-  const [itinerary, setItinerary] = useState<Itinerary>(initialItinerary);
+export function ItineraryClient({
+  initialItinerary,
+  initialProfile,
+  initialViewMode = 'draft',
+  itineraryId,
+  isGenerating,
+  generatingDestination = '',
+}: Props) {
+  const [itinerary, setItinerary] = useState<Itinerary | null>(initialItinerary);
   const [profile] = useState<TravelerProfile | null>(initialProfile);
   const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
   const [editBanner, setEditBanner] = useState('');
   const [mobileMapOpen, setMobileMapOpen] = useState(false);
   const [focusedNeighborhood, setFocusedNeighborhood] = useState<string | undefined>();
+  const [isPolling, setIsPolling] = useState(isGenerating ?? false);
+  const [pollError, setPollError] = useState('');
+
+  // ── Polling: fire worker + poll Supabase every 3s ─────────────────────────
+  useEffect(() => {
+    if (!isPolling || !itineraryId) return;
+
+    // Ask the browser to call the worker — it will hold the connection open
+    // while Gemini generates (~40-50s). The worker updates Supabase when done.
+    fetch('/api/generate-worker', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: itineraryId }),
+    }).catch((err) => console.error('[poll] Worker fetch error:', err));
+
+    const interval = setInterval(async () => {
+      try {
+        const { data } = await supabase
+          .from('itineraries')
+          .select('itinerary_json, status')
+          .eq('id', itineraryId)
+          .single();
+
+        if (data?.status === 'failed') {
+          clearInterval(interval);
+          setPollError('Generation failed. Please try again.');
+          setIsPolling(false);
+          return;
+        }
+
+        if (data?.itinerary_json) {
+          clearInterval(interval);
+          const { _profile: _p, ...itin } = data.itinerary_json as Itinerary & { _profile?: TravelerProfile };
+          setItinerary(itin);
+          setIsPolling(false);
+        }
+      } catch (err) {
+        console.error('[poll] Supabase poll error:', err);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [isPolling, itineraryId]);
 
   // If React reuses this component instance during client-side navigation (e.g.
   // /itinerary → /itinerary/[id]), useState won't reinitialise. Sync from props
   // so server-fetched Supabase data always wins over any stale local state.
   useEffect(() => {
-    setItinerary(initialItinerary);
+    if (initialItinerary) setItinerary(initialItinerary);
     setViewMode(initialViewMode ?? 'draft');
   }, [initialItinerary, initialViewMode]);
 
@@ -322,6 +490,15 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
     setFocusedNeighborhood(neighborhood);
     setMobileMapOpen(true);
   }, []);
+
+  // ── GENERATING / POLLING MODE ────────────────────────────────────────────────
+  if (isPolling || (!itinerary && !pollError)) {
+    return <GeneratingScreen destination={generatingDestination} error={pollError} />;
+  }
+
+  if (!itinerary) {
+    return <GeneratingScreen destination={generatingDestination} error={pollError || 'No itinerary data'} />;
+  }
 
   // ── DRAFT MODE ──────────────────────────────────────────────────────────────
   if (viewMode === 'draft') {

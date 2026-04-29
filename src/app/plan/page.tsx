@@ -362,12 +362,6 @@ export default function PlanPage() {
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
-    // Clear stale trip data immediately so a failed or slow generation never
-    // shows old content on the itinerary routes.
-    try {
-      sessionStorage.removeItem('travelos_itinerary');
-      sessionStorage.removeItem('travelos_profile');
-    } catch { /* ignore */ }
 
     const start = form['startDate'] as string;
     const end = form['endDate'] as string;
@@ -393,34 +387,26 @@ export default function PlanPage() {
     };
 
     try {
+      // Store profile so the itinerary page can show it during polling
       sessionStorage.setItem('travelos_profile', JSON.stringify(profile));
+      localStorage.removeItem(STORAGE_KEY);
+
+      // Phase 1: create the Supabase row, get id immediately
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(profile),
       });
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Generation failed');
-      }
-
       const result = await res.json();
-      console.log('DEBUG: API Result:', result);
 
-      // API now returns { id: string, itinerary: {...} }
-      const itinerary = result.itinerary ?? result;
-      sessionStorage.setItem('travelos_itinerary', JSON.stringify(itinerary));
-      sessionStorage.setItem('travelos_profile', JSON.stringify(profile));
-      localStorage.removeItem(STORAGE_KEY);
-
-      if (typeof result.id === 'string' && result.id.length > 10) {
-        console.log('[plan] Navigating to /itinerary/' + result.id);
-        router.push('/itinerary/' + result.id);
-      } else {
-        console.error('[plan] No valid id in API response — raw result:', result);
-        router.push('/itinerary');
+      if (!res.ok || !result.id) {
+        throw new Error(result.error || 'Failed to start generation');
       }
+
+      // Redirect immediately — itinerary page will fire the worker and poll
+      console.log('[plan] Redirecting to /itinerary/' + result.id);
+      router.push('/itinerary/' + result.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
       setIsSubmitting(false);
