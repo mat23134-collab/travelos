@@ -411,7 +411,9 @@ export default function PlanPage() {
       sessionStorage.setItem('travelos_itinerary', JSON.stringify(itinerary));
       sessionStorage.setItem('travelos_profile', JSON.stringify(profile));
       localStorage.removeItem(STORAGE_KEY);
-      router.push(id ? `/itinerary/${id}` : '/itinerary');
+      const destination = id ? `/itinerary/${id}` : '/itinerary';
+      console.log('[plan] Redirecting to:', destination, '| id:', id ?? 'none (fallback route)');
+      router.push(destination);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
       setIsSubmitting(false);

@@ -5,14 +5,17 @@ import { ItineraryClient } from '@/components/ItineraryClient';
 import { Itinerary, TravelerProfile } from '@/lib/types';
 
 interface PageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default async function ItineraryByIdPage({ params }: PageProps) {
+  const { id } = await params;
+  console.log('[itinerary/id] Fetching id:', id);
+
   const { data, error } = await supabase
     .from('itineraries')
     .select('itinerary_json')
-    .eq('id', params.id)
+    .eq('id', id)
     .single();
 
   if (error) {
@@ -38,10 +41,11 @@ export default async function ItineraryByIdPage({ params }: PageProps) {
 }
 
 export async function generateMetadata({ params }: PageProps) {
+  const { id } = await params;
   const { data } = await supabase
     .from('itineraries')
     .select('destination')
-    .eq('id', params.id)
+    .eq('id', id)
     .single();
 
   const destination = data?.destination ?? 'Your Trip';
