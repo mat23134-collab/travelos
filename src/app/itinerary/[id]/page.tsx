@@ -25,9 +25,45 @@ export default async function ItineraryByIdPage({ params }: PageProps) {
     .eq('id', id)
     .single();
 
+  // Log but don't 404 on column-missing errors — the status column may not
+  // exist yet if the migration hasn't been run. Fall back to checking itinerary_json.
   if (error) {
     console.error('[itinerary/id] Supabase select error:', JSON.stringify(error));
-    return notFound();
+
+    // Try a narrower select that only needs the original columns
+    const { data: fallback, error: fallbackErr } = await supabase
+      .from('itineraries')
+      .select('itinerary_json, destination')
+      .eq('id', id)
+      .single();
+
+    if (fallbackErr || !fallback) {
+      console.error('[itinerary/id] Fallback select also failed:', JSON.stringify(fallbackErr));
+      return notFound();
+    }
+
+    if (!fallback.itinerary_json) {
+      // Row exists but no data yet — treat as generating
+      return (
+        <ItineraryClient
+          initialItinerary={null}
+          initialProfile={null}
+          initialViewMode="final"
+          itineraryId={id}
+          isGenerating={true}
+          generatingDestination={fallback.destination ?? ''}
+        />
+      );
+    }
+
+    const { _profile: _p2, ...itin2 } = fallback.itinerary_json as Itinerary & { _profile?: TravelerProfile };
+    return (
+      <ItineraryClient
+        initialItinerary={itin2}
+        initialProfile={_p2 ?? null}
+        initialViewMode="final"
+      />
+    );
   }
 
   if (!data) {
