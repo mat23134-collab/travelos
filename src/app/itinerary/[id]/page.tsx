@@ -9,24 +9,21 @@ interface PageProps {
 }
 
 export default async function ItineraryByIdPage({ params }: PageProps) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000);
+  const { data, error } = await supabase
+    .from('itineraries')
+    .select('itinerary_json')
+    .eq('id', params.id)
+    .single();
 
-  let data, error;
-  try {
-    ({ data, error } = await supabase
-      .from('itineraries')
-      .select('itinerary_json')
-      .eq('id', params.id)
-      .abortSignal(controller.signal)
-      .single());
-  } catch {
+  if (error) {
+    console.error('[itinerary/id] Supabase select error:', JSON.stringify(error));
     return notFound();
-  } finally {
-    clearTimeout(timeout);
   }
 
-  if (error || !data?.itinerary_json) return notFound();
+  if (!data?.itinerary_json) {
+    console.error('[itinerary/id] Row found but itinerary_json is empty. data:', JSON.stringify(data));
+    return notFound();
+  }
 
   // Profile was embedded under _profile when the row was inserted
   const { _profile, ...itinerary } = data.itinerary_json as Itinerary & { _profile?: TravelerProfile };
