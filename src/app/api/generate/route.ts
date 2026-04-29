@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
           'Keep every string field under 10 words. The entire JSON must be under 9000 characters. ' +
           'SYSTEM CONTEXT: ' + SYSTEM_PROMPT,
       },
-      { apiVersion: 'v1' },
+      { apiVersion: 'v1beta' },
     );
 
     const result = await model.generateContent(
