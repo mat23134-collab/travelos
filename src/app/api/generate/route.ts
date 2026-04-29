@@ -14,23 +14,18 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
 const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').replace(/\/+$/, '');
 
 function repairJson(raw: string): string {
-  let s = raw.trim();
-  // Strip BOM
-  if (s.charCodeAt(0) === 0xFEFF) s = s.slice(1);
-  // Strip opening fence (```json or ```)
-  if (s.startsWith('```')) {
-    s = s.replace(/^```(?:json)?[ \t]*\r?\n?/i, '');
-  }
-  // Strip closing fence
-  if (s.endsWith('```')) {
-    s = s.replace(/\r?\n?[ \t]*```[ \t]*$/, '');
-  }
-  s = s.trim();
-  // Extract outermost { ... } in case there is still leading/trailing prose
+  // Strip BOM if present as very first character
+  const s = raw.charCodeAt(0) === 0xFEFF ? raw.slice(1) : raw;
+  // Find the absolute first { and absolute last } in the entire string.
+  // Everything before the first { and after the last } is noise
+  // (markdown fences, prose, model preamble) — discard it all.
   const first = s.indexOf('{');
   const last = s.lastIndexOf('}');
-  if (first !== -1 && last > first) s = s.slice(first, last + 1);
-  return s;
+  if (first === -1 || last <= first) {
+    console.error('[repairJson] No valid JSON object boundaries found. Raw start:', s.slice(0, 200));
+    return s; // return as-is so the parse error is surfaced with full detail
+  }
+  return s.slice(first, last + 1);
 }
 
 export async function POST(req: NextRequest) {
@@ -85,9 +80,11 @@ export async function POST(req: NextRequest) {
           maxOutputTokens: 8192,
         },
         systemInstruction:
-          'Respond ONLY with a compact JSON object. No markdown fences, no intro text, no outro text. ' +
-          'Keep every string field under 10 words. The entire JSON must be under 9000 characters. ' +
-          'SYSTEM CONTEXT: ' + SYSTEM_PROMPT,
+          'IMPORTANT: Your output MUST be a raw JSON object only. ' +
+          'Do NOT include markdown blocks, backticks, or any text outside the curly braces. ' +
+          'Start your response immediately with { and end with }. ' +
+          'Keep every string field under 10 words. Total output must be under 9000 characters. ' +
+          SYSTEM_PROMPT,
       },
       { apiVersion: 'v1beta' },
     );
