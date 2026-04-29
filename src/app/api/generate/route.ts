@@ -50,84 +50,49 @@ export async function POST(req: NextRequest) {
   console.log('[generate] TEST MODE — skipping AI call, using mock itinerary for Supabase test');
   // ── END SUPABASE TEST MODE ──────────────────────────────────────────────────
 
-  /*
-  // Three-phase chain-of-thought search: trend research → blog mining → contradiction detection
-  const classifiedResults = await runChainOfThoughtSearch(profile).catch(() => []);
-
-  // Hotel search: only runs when the user hasn't pre-booked a hotel
-  let hotelContext: string | undefined;
-  if (!profile.hotelBooked?.trim()) {
-    try {
-      const accommodation = profile.accommodation?.replace(/-/g, ' ') ?? 'boutique hotel';
-      const query = `best ${accommodation} ${profile.destination} ${profile.budget} neighborhood review 2025 2026`;
-      const results = await searchWeb(query);
-      if (results.length > 0) {
-        hotelContext = results
-          .slice(0, 4)
-          .map((r) => `• ${r.title}: ${r.snippet.slice(0, 220)}`)
-          .join('\n');
-      }
-    } catch {}
-  }
-
-  const message = await client.messages.create({
-    model: 'claude-opus-4-7',
-    max_tokens: 8192,
-    system: SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: buildUserPrompt(profile, classifiedResults, hotelContext) }],
-  });
-
-  const content = message.content[0];
-  if (content.type !== 'text') {
-    return NextResponse.json({ error: 'Unexpected response type from AI' }, { status: 500 });
-  }
-
-  const raw = content.text;
-  const cleaned = raw
-    .replace(/^﻿/, '')
-    .replace(/^```(?:json)?\s*/i, '')
-    .replace(/\s*```\s*$/i, '')
-    .replace(/```(?:json)?\s*/gi, '')
-    .trim();
-
-  const start = cleaned.indexOf('{');
-  const end   = cleaned.lastIndexOf('}');
-  const jsonText = (start !== -1 && end > start) ? cleaned.slice(start, end + 1) : cleaned;
-
-  let itinerary;
-  try {
-    itinerary = JSON.parse(jsonText);
-  } catch (parseErr) {
-    const pos = (parseErr as SyntaxError).message.match(/position (\d+)/)?.[1];
-    console.error(
-      `[generate] JSON parse failed — raw length: ${raw.length} chars` +
-      (pos ? `, error near position ${pos}` : '') +
-      `\nFirst 300 chars: ${raw.slice(0, 300)}` +
-      `\nLast 300 chars:  ${raw.slice(-300)}`
-    );
-    let repaired: unknown = null;
-    for (let i = jsonText.length - 1; i > 0; i--) {
-      if (jsonText[i] === '}') {
-        try { repaired = JSON.parse(jsonText.slice(0, i + 1)); break; } catch {}
-      }
-    }
-    if (!repaired) {
-      return NextResponse.json(
-        { error: `Malformed AI response (length ${raw.length}). Check server logs for details.` },
-        { status: 500 }
-      );
-    }
-    itinerary = repaired;
-  }
-
-  itinerary._meta = {
-    searchEnabled: classifiedResults.length > 0,
-    sourcesFound: classifiedResults.length,
-    hiddenGems: classifiedResults.filter((r) => r.vibeScore === 'hidden-gem').length,
-    trapsFiltered: classifiedResults.filter((r) => r.vibeScore === 'tourist-trap').length,
-    contradictionsFound: classifiedResults.filter((r) => r.contradictionNote).length,
-  };
-  */
+  // ── REAL AI GENERATION (disabled during Supabase test) ──────────────────────
+  // Restore by removing the mock block above and uncommenting everything below.
+  //
+  // const classifiedResults = await runChainOfThoughtSearch(profile).catch(() => []);
+  // let hotelContext: string | undefined;
+  // if (!profile.hotelBooked?.trim()) {
+  //   try {
+  //     const accommodation = profile.accommodation?.replace(/-/g, ' ') ?? 'boutique hotel';
+  //     const query = 'best ' + accommodation + ' ' + profile.destination + ' ' + profile.budget + ' neighborhood review 2025 2026';
+  //     const results = await searchWeb(query);
+  //     if (results.length > 0) {
+  //       hotelContext = results.slice(0, 4).map((r) => '- ' + r.title + ': ' + r.snippet.slice(0, 220)).join('\n');
+  //     }
+  //   } catch {}
+  // }
+  // const message = await client.messages.create({
+  //   model: 'claude-opus-4-7',
+  //   max_tokens: 8192,
+  //   system: SYSTEM_PROMPT,
+  //   messages: [{ role: 'user', content: buildUserPrompt(profile, classifiedResults, hotelContext) }],
+  // });
+  // const content = message.content[0];
+  // if (content.type !== 'text') {
+  //   return NextResponse.json({ error: 'Unexpected response type from AI' }, { status: 500 });
+  // }
+  // const raw = content.text;
+  // Strip BOM, opening/closing fences, any embedded fences, then parse
+  // const fenceRe = /^(```+|~~~+)(json)?\s*/i;
+  // const cleaned = raw.replace(/^﻿/, '').replace(fenceRe, '').replace(/\s*(```+|~~~+)\s*$/, '').trim();
+  // const start = cleaned.indexOf('{');
+  // const end = cleaned.lastIndexOf('}');
+  // const jsonText = (start !== -1 && end > start) ? cleaned.slice(start, end + 1) : cleaned;
+  // let itinerary;
+  // try { itinerary = JSON.parse(jsonText); }
+  // catch { return NextResponse.json({ error: 'Malformed AI response' }, { status: 500 }); }
+  // itinerary._meta = {
+  //   searchEnabled: classifiedResults.length > 0,
+  //   sourcesFound: classifiedResults.length,
+  //   hiddenGems: classifiedResults.filter((r) => r.vibeScore === 'hidden-gem').length,
+  //   trapsFiltered: classifiedResults.filter((r) => r.vibeScore === 'tourist-trap').length,
+  //   contradictionsFound: classifiedResults.filter((r) => r.contradictionNote).length,
+  // };
+  // ── END REAL AI GENERATION ───────────────────────────────────────────────────
 
   // ── Persist to Supabase ────────────────────────────────────────────────────
   const insertPayload = {
