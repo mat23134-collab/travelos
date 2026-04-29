@@ -141,6 +141,10 @@ CONCISENESS RULES (critical — output must stay under 12 000 chars to parse cle
 - packingTips: exactly 5 items
 - bestLocalTips: exactly 5 items
 - transportTip: max 15 words
+- basecamp.booked.neighborhoodInsight: max 20 words — strategic location advantage
+- basecamp.recommendations[].whyItFits: max 12 words — tie to traveler interests
+- basecamp.recommendations[].neighborhoodInsight: max 15 words — strategic advantage
+- basecamp.recommendations[].neighborhoodVibe: 2–3 words only
 - No trailing commas, no comments, no prose outside the JSON object
 
 CRITICAL: Return ONLY a valid JSON object — no markdown fences, no prose. Structure:
@@ -187,8 +191,16 @@ CRITICAL: Return ONLY a valid JSON object — no markdown fences, no prose. Stru
     }
   ],
   "packingTips": ["tip1","tip2","tip3","tip4","tip5"],
-  "bestLocalTips": ["tip1","tip2","tip3","tip4","tip5"]
+  "bestLocalTips": ["tip1","tip2","tip3","tip4","tip5"],
+  "basecamp": {
+    "type": "booked",
+    "booked": { "name": "string", "neighborhood": "string", "neighborhoodInsight": "max 20 words" }
+  }
 }
+
+BASECAMP RULES (critical):
+- If HOTEL_BOOKED is provided: set basecamp.type="booked", populate booked{} with name + neighborhood from user input, write a neighborhoodInsight explaining why this neighborhood is strategically ideal for this specific trip
+- If no hotel: set basecamp.type="recommendations", omit booked{}, provide exactly 3 hotel recommendations in recommendations[] based on HOTEL_SEARCH_DATA (if available) or expertise. Each must have: name, neighborhood, neighborhoodVibe (2-3 words), whyItFits (tie to traveler interests, max 12 words), priceRange (e.g. "$$"), neighborhoodInsight (max 15 words strategic advantage)
 
 PACE RULES:
 - relaxed: morning + evening only; omit afternoon key entirely
@@ -202,7 +214,7 @@ BUDGET RULES:
 
 // ─── User prompt ──────────────────────────────────────────────────────────────
 
-export function buildUserPrompt(profile: TravelerProfile, searchResults?: ClassifiedResult[]): string {
+export function buildUserPrompt(profile: TravelerProfile, searchResults?: ClassifiedResult[], hotelContext?: string): string {
   const days = profile.duration || calculateDays(profile.startDate, profile.endDate);
   const interestsList = profile.interests.length ? profile.interests.join(', ') : 'general sightseeing';
 
@@ -211,6 +223,12 @@ export function buildUserPrompt(profile: TravelerProfile, searchResults?: Classi
     : '\n[No live web data — use expertise. Write "(Source: TravelOS expertise)" in whyThis fields.]\n';
 
   const vibeDirective = buildVibeDirective(profile);
+
+  const hotelBlock = profile.hotelBooked?.trim()
+    ? `\nHOTEL_BOOKED: ${profile.hotelBooked.trim()}\n(Use this for basecamp.type="booked" — extract name and neighborhood from the text above)`
+    : hotelContext
+      ? `\nHOTEL_SEARCH_DATA (use to generate 3 squad-approved recommendations for basecamp.recommendations[]):\n${hotelContext}`
+      : `\nHOTEL_BOOKED: none — generate 3 squad-approved hotel recommendations for basecamp.recommendations[] based on expertise`;
 
   return `Generate a ${days}-day itinerary for this traveler:
 
@@ -223,6 +241,7 @@ INTERESTS: ${interestsList}
 ACCOMMODATION: ${profile.accommodation}
 DIETARY: ${profile.dietaryRestrictions || 'none'}
 MUST-HAVES: ${profile.mustHave || 'none specified'}
+${hotelBlock}
 
 VIBE TARGETING:
 ${vibeDirective}
@@ -231,7 +250,8 @@ FINAL INSTRUCTIONS:
 - Every activity MUST have startTime, endTime, bestTimeToVisit, and transitFromPrevious
 - Cluster all activities within walking distance of each other per day
 - webInsights: minimum 2 per day, including 1 warning if any issue found in the web data
-- The strategicOverview MUST cite at least one blog name from the SOURCE DIRECTORY`;
+- The strategicOverview MUST cite at least one blog name from the SOURCE DIRECTORY
+- MUST include the "basecamp" field in the JSON output (follow BASECAMP RULES above)`;
 }
 
 // ─── Vibe directive builder ───────────────────────────────────────────────────

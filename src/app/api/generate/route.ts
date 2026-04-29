@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { NextRequest, NextResponse } from 'next/server';
 import { TravelerProfile } from '@/lib/types';
 import { SYSTEM_PROMPT, buildUserPrompt } from '@/lib/prompts';
-import { runChainOfThoughtSearch } from '@/lib/rag';
+import { runChainOfThoughtSearch, searchWeb } from '@/lib/rag';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -28,12 +28,28 @@ export async function POST(req: NextRequest) {
   // Three-phase chain-of-thought search: trend research → blog mining → contradiction detection
   const classifiedResults = await runChainOfThoughtSearch(profile).catch(() => []);
 
+  // Hotel search: only runs when the user hasn't pre-booked a hotel
+  let hotelContext: string | undefined;
+  if (!profile.hotelBooked?.trim()) {
+    try {
+      const accommodation = profile.accommodation?.replace(/-/g, ' ') ?? 'boutique hotel';
+      const query = `best ${accommodation} ${profile.destination} ${profile.budget} neighborhood review 2025 2026`;
+      const results = await searchWeb(query);
+      if (results.length > 0) {
+        hotelContext = results
+          .slice(0, 4)
+          .map((r) => `• ${r.title}: ${r.snippet.slice(0, 220)}`)
+          .join('\n');
+      }
+    } catch { /* non-critical — fall through to AI expertise */ }
+  }
+
   try {
     const message = await client.messages.create({
       model: 'claude-opus-4-7',
       max_tokens: 8192,
       system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: buildUserPrompt(profile, classifiedResults) }],
+      messages: [{ role: 'user', content: buildUserPrompt(profile, classifiedResults, hotelContext) }],
     });
 
     const content = message.content[0];

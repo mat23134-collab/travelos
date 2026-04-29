@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Itinerary, TravelerProfile } from '@/lib/types';
+import { Itinerary, TravelerProfile, Basecamp, HotelRecommendation } from '@/lib/types';
 import { DayCard } from '@/components/DayCard';
 import { DayPhoto } from '@/components/DayPhoto';
 import { QuickEdit } from '@/components/QuickEdit';
@@ -22,6 +22,129 @@ const ItineraryMap = dynamic(
 );
 
 type ViewMode = 'draft' | 'final';
+
+// ─── Basecamp section ─────────────────────────────────────────────────────────
+
+function HotelCard({ hotel }: { hotel: HotelRecommendation }) {
+  return (
+    <div
+      className="relative flex flex-col rounded-2xl border border-white/10 overflow-hidden transition-all duration-200 hover:-translate-y-1 hover:border-[#ff5a5f]/40"
+      style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(12px)' }}
+    >
+      {/* Subtle coral glow top edge */}
+      <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#ff5a5f]/50 to-transparent" />
+
+      <div className="p-4 flex flex-col gap-3 flex-1">
+        {/* Neighborhood vibe badge */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-[#ff5a5f] bg-[#ff5a5f]/12 px-2 py-0.5 rounded-full">
+            {hotel.neighborhoodVibe}
+          </span>
+          <span className="text-[10px] text-white/40 font-mono">{hotel.priceRange}</span>
+        </div>
+
+        {/* Hotel name */}
+        <div>
+          <p className="text-sm font-bold text-white leading-tight">{hotel.name}</p>
+          <p className="text-[11px] text-white/45 mt-0.5">📍 {hotel.neighborhood}</p>
+        </div>
+
+        {/* Why it fits */}
+        <p className="text-xs text-white/65 leading-relaxed">{hotel.whyItFits}</p>
+
+        {/* Neighborhood insight */}
+        <div
+          className="mt-auto rounded-xl px-3 py-2"
+          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+        >
+          <p className="text-[10px] text-white/40 uppercase tracking-widest mb-0.5">Neighborhood Edge</p>
+          <p className="text-[11px] text-white/60 leading-relaxed">{hotel.neighborhoodInsight}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BasecampSection({ basecamp }: { basecamp: Basecamp }) {
+  if (basecamp.type === 'booked' && basecamp.booked) {
+    const { name, neighborhood, neighborhoodInsight } = basecamp.booked;
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1, type: 'spring', stiffness: 280, damping: 26 }}
+        className="relative rounded-2xl overflow-hidden mb-8"
+        style={{ background: '#0f1117', border: '1px solid rgba(255,255,255,0.08)' }}
+      >
+        {/* Background orb */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-[#ff5a5f]/10 rounded-full blur-[80px] pointer-events-none" />
+        <div className="absolute bottom-0 left-1/4 w-40 h-40 bg-[#8b5cf6]/10 rounded-full blur-[60px] pointer-events-none" />
+
+        <div className="relative z-10 p-5 sm:p-6">
+          {/* Header */}
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#ff5a5f]">🏠 Your Basecamp</span>
+            <span className="text-[10px] text-white/30 bg-white/8 px-2 py-0.5 rounded-full border border-white/10">Pre-booked</span>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-xl font-bold text-white tracking-tight">{name}</h3>
+              <p className="text-sm text-white/45 mt-0.5">📍 {neighborhood}</p>
+            </div>
+          </div>
+
+          {/* Neighborhood insight */}
+          <div
+            className="mt-4 rounded-xl px-4 py-3"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.10)' }}
+          >
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-[#ff8c8f] mb-1">Neighborhood Strategy</p>
+            <p className="text-sm text-white/75 leading-relaxed">{neighborhoodInsight}</p>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  if (basecamp.type === 'recommendations' && basecamp.recommendations?.length) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1, type: 'spring', stiffness: 280, damping: 26 }}
+        className="relative rounded-2xl overflow-hidden mb-8"
+        style={{ background: '#0f1117', border: '1px solid rgba(255,255,255,0.08)' }}
+      >
+        {/* Background orbs */}
+        <div className="absolute top-0 right-0 w-80 h-80 bg-[#ff5a5f]/08 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-60 h-60 bg-[#8b5cf6]/08 rounded-full blur-[80px] pointer-events-none" />
+
+        <div className="relative z-10 p-5 sm:p-6">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#ff5a5f]">🏠 Basecamp</span>
+            <span className="text-[10px] text-white/30">Squad-Approved Picks</span>
+          </div>
+          <h3 className="text-base font-bold text-white mb-4">Where should your squad stay?</h3>
+
+          {/* Hotel cards grid */}
+          <div className="grid gap-3 sm:grid-cols-3">
+            {basecamp.recommendations.map((hotel, i) => (
+              <HotelCard key={i} hotel={hotel} />
+            ))}
+          </div>
+
+          <p className="text-[10px] text-white/25 mt-4 text-center">
+            Based on your interests, budget, and optimal neighborhood positioning
+          </p>
+        </div>
+      </motion.div>
+    );
+  }
+
+  return null;
+}
 
 // ─── Trip Intelligence modal ──────────────────────────────────────────────────
 
@@ -379,6 +502,9 @@ export default function ItineraryPage() {
             )}
           </div>
         </motion.div>
+
+        {/* Basecamp — hotel booked or AI recommendations */}
+        {itinerary.basecamp && <BasecampSection basecamp={itinerary.basecamp} />}
 
         {/* Budget summary */}
         {itinerary.budgetSummary && (

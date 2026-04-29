@@ -1,4 +1,24 @@
 export type GroupType = 'solo' | 'couple' | 'family' | 'group';
+
+export interface HotelRecommendation {
+  name: string;
+  neighborhood: string;
+  neighborhoodVibe: string;
+  whyItFits: string;
+  priceRange: string;
+  neighborhoodInsight: string;
+}
+
+export interface Basecamp {
+  type: 'booked' | 'recommendations';
+  booked?: {
+    name: string;
+    neighborhood: string;
+    neighborhoodInsight: string;
+  };
+  recommendations?: HotelRecommendation[];
+}
+
 export type BudgetLevel = 'budget' | 'mid-range' | 'luxury';
 export type PaceLevel = 'relaxed' | 'moderate' | 'intense';
 export type AccommodationType = 'hostel' | 'boutique-hotel' | 'luxury-hotel' | 'airbnb' | 'resort';
@@ -19,6 +39,7 @@ export interface TravelerProfile {
   accommodation: AccommodationType;
   dietaryRestrictions: string;
   mustHave: string;
+  hotelBooked?: string;
 }
 
 export interface Activity {
@@ -86,6 +107,7 @@ export interface Itinerary {
   strategicOverview?: string;
   destination: string;
   totalDays: number;
+  basecamp?: Basecamp;
   budgetSummary?: {
     dailyAverage?: string;
     totalEstimate?: string;

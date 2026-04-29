@@ -382,6 +382,7 @@ export default function PlanPage() {
       accommodation: (form.accommodation as TravelerProfile['accommodation']) || 'boutique-hotel',
       dietaryRestrictions: (form.dietaryRestrictions as string) || '',
       mustHave: (form.mustHave as string) || '',
+      hotelBooked: (form.hotelBooked as string) || '',
     };
 
     try {

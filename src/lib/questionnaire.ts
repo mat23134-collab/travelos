@@ -137,4 +137,13 @@ export const questions: Question[] = [
     placeholder: 'e.g. "See the northern lights", "Visit Sagrada Família", "Eat at a Michelin star restaurant", "Day trip to Amalfi coast"...',
     required: false,
   },
+  {
+    id: 11,
+    key: 'hotelBooked',
+    type: 'textarea',
+    title: "Already booked a hotel?",
+    subtitle: "Tell us the name and neighborhood — we'll build the whole trip around your basecamp. Leave blank for AI-curated hotel picks.",
+    placeholder: 'e.g. "Hotel Arts, Barceloneta Beach" or "Ace Hotel, Shoreditch, London"',
+    required: false,
+  },
 ];
