@@ -398,7 +398,16 @@ export default function PlanPage() {
         body: JSON.stringify(profile),
       });
 
-      const result = await res.json();
+      // Read as text first so we can log the raw response on failure
+      const rawText = await res.text();
+      console.log('[plan] Phase 1 raw response:', rawText.slice(0, 500));
+
+      let result: { id?: string; error?: string };
+      try {
+        result = JSON.parse(rawText);
+      } catch {
+        throw new Error('Server error (non-JSON response): ' + rawText.slice(0, 300));
+      }
 
       if (!res.ok || !result.id) {
         throw new Error(result.error || 'Failed to start generation');

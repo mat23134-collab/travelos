@@ -3,6 +3,12 @@ import { TravelerProfile } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 
 export async function POST(req: NextRequest) {
+  // Surface missing env vars as a JSON error instead of an HTML crash page
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    console.error('[generate] Supabase env vars missing');
+    return NextResponse.json({ error: 'Supabase is not configured on this deployment.' }, { status: 500 });
+  }
+
   let profile: TravelerProfile;
   try {
     profile = await req.json();
