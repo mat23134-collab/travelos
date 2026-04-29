@@ -1,11 +1,6 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { NextRequest, NextResponse } from 'next/server';
 import { TravelerProfile } from '@/lib/types';
-import { SYSTEM_PROMPT, buildUserPrompt } from '@/lib/prompts';
-import { runChainOfThoughtSearch, searchWeb } from '@/lib/rag';
 import { supabase } from '@/lib/supabase';
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export async function POST(req: NextRequest) {
   // Temporarily disabled for Supabase connection test
@@ -50,49 +45,6 @@ export async function POST(req: NextRequest) {
   console.log('[generate] TEST MODE — skipping AI call, using mock itinerary for Supabase test');
   // ── END SUPABASE TEST MODE ──────────────────────────────────────────────────
 
-  // ── REAL AI GENERATION (disabled during Supabase test) ──────────────────────
-  // Restore by removing the mock block above and uncommenting everything below.
-  //
-  // const classifiedResults = await runChainOfThoughtSearch(profile).catch(() => []);
-  // let hotelContext: string | undefined;
-  // if (!profile.hotelBooked?.trim()) {
-  //   try {
-  //     const accommodation = profile.accommodation?.replace(/-/g, ' ') ?? 'boutique hotel';
-  //     const query = 'best ' + accommodation + ' ' + profile.destination + ' ' + profile.budget + ' neighborhood review 2025 2026';
-  //     const results = await searchWeb(query);
-  //     if (results.length > 0) {
-  //       hotelContext = results.slice(0, 4).map((r) => '- ' + r.title + ': ' + r.snippet.slice(0, 220)).join('\n');
-  //     }
-  //   } catch {}
-  // }
-  // const message = await client.messages.create({
-  //   model: 'claude-opus-4-7',
-  //   max_tokens: 8192,
-  //   system: SYSTEM_PROMPT,
-  //   messages: [{ role: 'user', content: buildUserPrompt(profile, classifiedResults, hotelContext) }],
-  // });
-  // const content = message.content[0];
-  // if (content.type !== 'text') {
-  //   return NextResponse.json({ error: 'Unexpected response type from AI' }, { status: 500 });
-  // }
-  // const raw = content.text;
-  // Strip BOM, opening/closing fences, any embedded fences, then parse
-  // const fenceRe = /^(```+|~~~+)(json)?\s*/i;
-  // const cleaned = raw.replace(/^﻿/, '').replace(fenceRe, '').replace(/\s*(```+|~~~+)\s*$/, '').trim();
-  // const start = cleaned.indexOf('{');
-  // const end = cleaned.lastIndexOf('}');
-  // const jsonText = (start !== -1 && end > start) ? cleaned.slice(start, end + 1) : cleaned;
-  // let itinerary;
-  // try { itinerary = JSON.parse(jsonText); }
-  // catch { return NextResponse.json({ error: 'Malformed AI response' }, { status: 500 }); }
-  // itinerary._meta = {
-  //   searchEnabled: classifiedResults.length > 0,
-  //   sourcesFound: classifiedResults.length,
-  //   hiddenGems: classifiedResults.filter((r) => r.vibeScore === 'hidden-gem').length,
-  //   trapsFiltered: classifiedResults.filter((r) => r.vibeScore === 'tourist-trap').length,
-  //   contradictionsFound: classifiedResults.filter((r) => r.contradictionNote).length,
-  // };
-  // ── END REAL AI GENERATION ───────────────────────────────────────────────────
 
   // ── Persist to Supabase ────────────────────────────────────────────────────
   const insertPayload = {
