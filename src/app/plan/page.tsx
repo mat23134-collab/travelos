@@ -398,10 +398,13 @@ export default function PlanPage() {
         throw new Error(data.error || 'Generation failed');
       }
 
-      const itinerary = await res.json();
+      const data = await res.json();
+      // API returns { id?, ...itinerary } — id is present when Supabase save succeeded
+      const { id, ...itinerary } = data as { id?: string } & Record<string, unknown>;
       sessionStorage.setItem('travelos_itinerary', JSON.stringify(itinerary));
+      sessionStorage.setItem('travelos_profile', JSON.stringify(profile));
       localStorage.removeItem(STORAGE_KEY);
-      router.push('/itinerary');
+      router.push(id ? `/itinerary/${id}` : '/itinerary');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
       setIsSubmitting(false);

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { TravelerProfile } from '@/lib/types';
 import { SYSTEM_PROMPT, buildUserPrompt } from '@/lib/prompts';
 import { runChainOfThoughtSearch, searchWeb } from '@/lib/rag';
+import { supabase } from '@/lib/supabase';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -118,7 +119,30 @@ export async function POST(req: NextRequest) {
       contradictionsFound: classifiedResults.filter((r) => r.contradictionNote).length,
     };
 
-    return NextResponse.json(itinerary);
+    // ── Persist to Supabase ────────────────────────────────────────────────────
+    // Profile is stored inside the itinerary JSONB so the [id] route can
+    // reconstruct the full view without a separate table join.
+    let savedId: string | null = null;
+    try {
+      const hotelInfo =
+        itinerary.basecamp?.booked?.name ??
+        itinerary.basecamp?.recommendations?.[0]?.name ??
+        null;
+
+      const { data: saved, error: dbErr } = await supabase
+        .from('itineraries')
+        .insert({
+          destination: itinerary.destination ?? null,
+          hotel_info: hotelInfo,
+          itinerary: { ...itinerary, _profile: profile },
+        })
+        .select('id')
+        .single();
+
+      if (!dbErr && saved) savedId = saved.id as string;
+    } catch { /* non-critical — still return itinerary even if DB save fails */ }
+
+    return NextResponse.json(savedId ? { id: savedId, ...itinerary } : itinerary);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     return NextResponse.json({ error: `AI generation failed: ${message}` }, { status: 500 });
