@@ -154,6 +154,7 @@ export async function POST(req: NextRequest) {
           .select('id')
           .single();
 
+        console.log('[generate] Supabase raw response — data:', JSON.stringify(saved), '| error:', JSON.stringify(dbErr));
         if (dbErr) {
           console.error('[generate] Supabase insert error:', dbErr);
         } else if (saved) {
