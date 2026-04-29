@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { TravelerProfile } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 
+const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').replace(/\/+$/, '');
+
 export async function POST(req: NextRequest) {
   // Temporarily disabled for Supabase connection test
   // if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY.includes('your_')) {
@@ -53,6 +55,8 @@ export async function POST(req: NextRequest) {
     itinerary_json: { ...itinerary, _profile: profile },
   };
 
+  console.log('[generate] Supabase URL in use:', SUPABASE_URL || '✗ MISSING');
+  console.log('[generate] Target:', SUPABASE_URL + '/rest/v1/itineraries');
   console.log('Inserting to Supabase...', JSON.stringify(insertPayload, null, 2));
 
   const { data: saved, error: dbErr } = await supabase
