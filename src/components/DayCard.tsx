@@ -231,11 +231,13 @@ interface ModalProps {
 }
 
 function ActivityModal({ activity, slot, destination, onClose, onSwap, swapping }: ModalProps) {
-  const { body, citation } = parseCitation(activity.whyThis);
-  const photoQuery = destination ? `${activity.neighborhood} ${destination}` : activity.neighborhood;
-  const vibeIcon   = getVibeIcon(activity.tags ?? [], activity.name);
-  const vibeCfg    = activity.vibeLabel ? VIBE_CONFIG[activity.vibeLabel] : null;
-  const liveBuzz   = hasLiveBuzz(activity.tags ?? [], activity.name, activity.description);
+  const { body, citation } = parseCitation(activity?.whyThis ?? '');
+  const photoQuery = destination
+    ? `${activity?.neighborhood ?? ''} ${destination}`.trim()
+    : (activity?.neighborhood ?? 'travel');
+  const vibeIcon   = getVibeIcon(activity?.tags ?? [], activity?.name ?? '');
+  const vibeCfg    = activity?.vibeLabel ? VIBE_CONFIG[activity.vibeLabel] : null;
+  const liveBuzz   = hasLiveBuzz(activity?.tags ?? [], activity?.name ?? '', activity?.description);
   const slotMeta   = SLOT_META[slot as Slot];
 
   return (
@@ -299,8 +301,8 @@ function ActivityModal({ activity, slot, destination, onClose, onSwap, swapping 
             {/* Title row */}
             <div className="flex items-start justify-between gap-3 mb-3">
               <div>
-                <h3 className="text-white font-bold text-xl tracking-tight leading-tight">{activity.name}</h3>
-                <p className="text-white/45 text-sm mt-1">📍 {activity.neighborhood}</p>
+                <h3 className="text-white font-bold text-xl tracking-tight leading-tight">{activity?.name ?? 'Activity'}</h3>
+                <p className="text-white/45 text-sm mt-1">📍 {activity?.neighborhood ?? '—'}</p>
               </div>
               <span className="text-4xl flex-shrink-0 mt-0.5 select-none">{vibeIcon}</span>
             </div>
@@ -327,17 +329,23 @@ function ActivityModal({ activity, slot, destination, onClose, onSwap, swapping 
 
             {/* Meta pills */}
             <div className="flex flex-wrap gap-2 mb-4">
-              {activity.startTime && activity.endTime && (
+              {activity?.startTime && activity?.endTime && (
                 <span className="text-[10px] font-mono font-semibold text-[#ff8c8f] bg-[#ff5a5f]/10 px-2.5 py-1 rounded-lg border border-[#ff5a5f]/15">
                   {activity.startTime} – {activity.endTime}
                 </span>
               )}
-              <span className="text-xs text-white/40 bg-white/5 px-2.5 py-1 rounded-lg">⏱ {activity.duration}</span>
-              <span className="text-xs text-white/40 bg-white/5 px-2.5 py-1 rounded-lg">💳 {activity.estimatedCost}</span>
+              {activity?.duration && (
+                <span className="text-xs text-white/40 bg-white/5 px-2.5 py-1 rounded-lg">⏱ {activity.duration}</span>
+              )}
+              {activity?.estimatedCost && (
+                <span className="text-xs text-white/40 bg-white/5 px-2.5 py-1 rounded-lg">💳 {activity.estimatedCost}</span>
+              )}
             </div>
 
             {/* Description */}
-            <p className="text-white/65 text-sm leading-relaxed mb-4">{activity.description}</p>
+            {activity?.description && (
+              <p className="text-white/65 text-sm leading-relaxed mb-4">{activity.description}</p>
+            )}
 
             {/* Best time */}
             {activity.bestTimeToVisit && (
@@ -349,9 +357,9 @@ function ActivityModal({ activity, slot, destination, onClose, onSwap, swapping 
             )}
 
             {/* Tags */}
-            {activity.tags?.length > 0 && (
+            {(activity?.tags?.length ?? 0) > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-4">
-                {activity.tags.map((tag) => (
+                {(activity?.tags ?? []).map((tag) => (
                   <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/35 border border-white/8">
                     {tag}
                   </span>
@@ -360,22 +368,24 @@ function ActivityModal({ activity, slot, destination, onClose, onSwap, swapping 
             )}
 
             {/* Why this */}
-            <div className="rounded-2xl px-4 py-3 border-l-2 border-[#ff5a5f]/40 mb-4"
-              style={{ background: 'rgba(255,255,255,0.04)' }}>
-              <span className="text-[10px] font-semibold text-[#ff5a5f] uppercase tracking-wide block mb-1">Why this?</span>
-              <p className="text-xs text-white/55 leading-relaxed">{body}</p>
-              {citation && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[#ff8c8f] bg-[#ff5a5f]/10 border border-[#ff5a5f]/15 px-2 py-0.5 rounded-full mt-1.5">
-                  <span className="opacity-60">📖</span>{citation}
-                </span>
-              )}
-            </div>
+            {body && (
+              <div className="rounded-2xl px-4 py-3 border-l-2 border-[#ff5a5f]/40 mb-4"
+                style={{ background: 'rgba(255,255,255,0.04)' }}>
+                <span className="text-[10px] font-semibold text-[#ff5a5f] uppercase tracking-wide block mb-1">Why this?</span>
+                <p className="text-xs text-white/55 leading-relaxed">{body}</p>
+                {citation && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[#ff8c8f] bg-[#ff5a5f]/10 border border-[#ff5a5f]/15 px-2 py-0.5 rounded-full mt-1.5">
+                    <span className="opacity-60">📖</span>{citation}
+                  </span>
+                )}
+              </div>
+            )}
 
             {/* Video */}
-            <VideoPreview videoUrl={activity.videoUrl} activityName={activity.name} />
+            <VideoPreview videoUrl={activity?.videoUrl} activityName={activity?.name ?? ''} />
 
             {/* Reviews */}
-            {activity.reviews?.length > 0 && <ReviewsCarousel reviews={activity.reviews} />}
+            {(activity?.reviews?.length ?? 0) > 0 && <ReviewsCarousel reviews={activity!.reviews!} />}
 
             {/* Reactions */}
             <ReactionBar />
@@ -418,12 +428,14 @@ interface BentoTileProps {
 function BentoTile({ slot, activity, height, destination, onRefresh, refreshing }: BentoTileProps) {
   const [modalOpen, setModalOpen] = useState(false);
 
-  const photoQuery = destination ? `${activity.neighborhood} ${destination}` : activity.neighborhood;
-  const vibeIcon   = getVibeIcon(activity.tags ?? [], activity.name);
-  const vibeMatch  = getVibeMatch(activity.vibeLabel, activity.isHiddenGem);
-  const squad      = isSquadFriendly(activity.tags ?? []);
-  const vibeCfg    = activity.vibeLabel ? VIBE_CONFIG[activity.vibeLabel] : null;
-  const liveBuzz   = hasLiveBuzz(activity.tags ?? [], activity.name, activity.description);
+  const photoQuery = destination
+    ? `${activity?.neighborhood ?? ''} ${destination}`.trim()
+    : (activity?.neighborhood ?? destination ?? 'travel');
+  const vibeIcon   = getVibeIcon(activity?.tags ?? [], activity?.name ?? '');
+  const vibeMatch  = getVibeMatch(activity?.vibeLabel, activity?.isHiddenGem);
+  const squad      = isSquadFriendly(activity?.tags ?? []);
+  const vibeCfg    = activity?.vibeLabel ? VIBE_CONFIG[activity.vibeLabel] : null;
+  const liveBuzz   = hasLiveBuzz(activity?.tags ?? [], activity?.name ?? '', activity?.description);
   const meta       = SLOT_META[slot];
 
   return (
@@ -458,7 +470,7 @@ function BentoTile({ slot, activity, height, destination, onRefresh, refreshing 
 
         {/* Photo background */}
         <div className="absolute inset-0 pointer-events-none">
-          <DayPhoto query={photoQuery} alt={activity.name} height={height} />
+          <DayPhoto query={photoQuery} alt={activity?.name ?? 'Activity'} height={height} />
         </div>
 
         {/* Slot-colour wash — subtle tint so photo colours stay vivid */}
@@ -530,10 +542,10 @@ function BentoTile({ slot, activity, height, destination, onRefresh, refreshing 
         {/* Bottom: name + location + tap hint */}
         <div className="absolute bottom-0 inset-x-0 px-3.5 pb-3.5 z-10">
           <h4 className="font-bold text-white text-sm tracking-tight leading-tight line-clamp-1 drop-shadow">
-            {activity.name}
+            {activity?.name ?? 'Activity'}
           </h4>
           <div className="flex items-center justify-between mt-0.5">
-            <p className="text-white/55 text-[11px] leading-tight">📍 {activity.neighborhood}</p>
+            <p className="text-white/55 text-[11px] leading-tight">📍 {activity?.neighborhood ?? '—'}</p>
             <span className="text-white/25 text-[10px] group-hover:text-white/55 transition-colors">
               tap →
             </span>
@@ -657,7 +669,15 @@ function BentoGrid({ day, destination, onSwapSlot }: BentoGridProps) {
 
 // ─── Dining section (dark) ────────────────────────────────────────────────────
 
-function DiningBlock({ meal, spot }: { meal: string; spot: DiningSpot }) {
+function DiningBlock({ meal, spot }: { meal: string; spot?: DiningSpot }) {
+  if (!spot) return (
+    <div className="flex gap-3 items-start p-3 rounded-2xl border border-dashed border-white/10"
+      style={{ background: 'rgba(255,255,255,0.02)' }}>
+      <span className="text-lg flex-shrink-0 opacity-30">{meal === 'Lunch' ? '🍽️' : '🌙'}</span>
+      <span className="text-xs text-white/25 mt-0.5">{meal} — not listed</span>
+    </div>
+  );
+
   return (
     <div className="flex gap-3 items-start p-3 rounded-2xl border border-white/8"
       style={{ background: 'rgba(255,255,255,0.04)' }}>
@@ -665,10 +685,12 @@ function DiningBlock({ meal, spot }: { meal: string; spot: DiningSpot }) {
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-[10px] font-semibold uppercase tracking-widest text-white/30">{meal}</span>
-          <span className="text-xs text-white/25">{spot.priceRange}</span>
+          {spot.priceRange && <span className="text-xs text-white/25">{spot.priceRange}</span>}
         </div>
-        <div className="font-semibold text-sm text-white/85 tracking-tight">{spot.name}</div>
-        <div className="text-xs text-white/35 mt-0.5">{spot.cuisine} · {spot.neighborhood}</div>
+        <div className="font-semibold text-sm text-white/85 tracking-tight">{spot.name ?? '—'}</div>
+        <div className="text-xs text-white/35 mt-0.5">
+          {[spot.cuisine, spot.neighborhood].filter(Boolean).join(' · ') || '—'}
+        </div>
         {spot.mustTry && <div className="text-xs text-[#ff8c8f] mt-1">✦ Must try: {spot.mustTry}</div>}
       </div>
     </div>
@@ -765,8 +787,8 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
         {/* Header background photo */}
         <div className="absolute inset-0 pointer-events-none">
           <DayPhoto
-            query={destination ? `${destination} ${day.theme}` : day.theme}
-            alt={day.theme}
+            query={destination ? `${destination} ${day.theme ?? ''}`.trim() : (day.theme ?? destination ?? 'travel')}
+            alt={day.theme ?? `Day ${index + 1}`}
             height={90}
             dark
           />
@@ -792,13 +814,13 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
               {index + 1}
             </div>
             <div>
-              <div className="text-[11px] text-white/35 font-medium tracking-wide">{day.date}</div>
-              <h3 className="font-bold text-white tracking-tight text-sm">{day.theme}</h3>
+              <div className="text-[11px] text-white/35 font-medium tracking-wide">{day.date ?? ''}</div>
+              <h3 className="font-bold text-white tracking-tight text-sm">{day.theme ?? `Day ${index + 1}`}</h3>
             </div>
           </div>
           <div className="text-right">
             <div className="text-[10px] text-white/25 uppercase tracking-wide">Est. spend</div>
-            <div className="text-sm font-bold text-white/80 tracking-tight">{day.estimatedDailyCost}</div>
+            <div className="text-sm font-bold text-white/80 tracking-tight">{day.estimatedDailyCost ?? '—'}</div>
           </div>
         </div>
       </div>
@@ -823,13 +845,15 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
       </div>
 
       {/* Dining */}
-      <div className="relative z-10 px-4 pb-4">
-        <div className="text-[10px] font-semibold uppercase tracking-widest text-white/25 mb-2">Squad Eats</div>
-        <div className="grid sm:grid-cols-2 gap-2">
-          <DiningBlock meal="Lunch" spot={day.lunch} />
-          <DiningBlock meal="Dinner" spot={day.dinner} />
+      {(day.lunch || day.dinner) && (
+        <div className="relative z-10 px-4 pb-4">
+          <div className="text-[10px] font-semibold uppercase tracking-widest text-white/25 mb-2">Squad Eats</div>
+          <div className="grid sm:grid-cols-2 gap-2">
+            <DiningBlock meal="Lunch" spot={day.lunch} />
+            <DiningBlock meal="Dinner" spot={day.dinner} />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Transport tip */}
       {day.transportTip && (

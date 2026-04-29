@@ -16,7 +16,7 @@ type Slot = keyof typeof SLOT_CONFIG;
 
 interface SlotRowProps {
   slot: Slot;
-  activity: Activity;
+  activity: Activity | null | undefined;
   onRefresh: (prompt?: string) => void;
   swapping: boolean;
   justSwapped: boolean;
@@ -33,6 +33,16 @@ function SlotRow({ slot, activity, onRefresh, swapping, justSwapped }: SlotRowPr
     setPromptText('');
   };
 
+  // Activity missing entirely (e.g. relaxed pace has no afternoon)
+  if (!activity) {
+    return (
+      <div className="rounded-xl border border-dashed border-[#e5e7eb] bg-[#fafafa] px-3.5 py-3 flex items-center gap-2">
+        <span className="text-base flex-shrink-0 opacity-30">{icon}</span>
+        <span className="text-xs text-[#9ca3af]">{label} — not planned</span>
+      </div>
+    );
+  }
+
   return (
     <div className={`group relative rounded-xl border transition-all duration-200 ${
       justSwapped
@@ -44,7 +54,7 @@ function SlotRow({ slot, activity, onRefresh, swapping, justSwapped }: SlotRowPr
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-0.5 flex-wrap">
             <span className="text-[10px] font-semibold uppercase tracking-widest text-[#9ca3af]">{label}</span>
-            {activity.startTime && (
+            {activity?.startTime && (
               <span className="text-[10px] font-mono text-[#ff5a5f] bg-[#fff0f0] px-1.5 py-0.5 rounded">
                 {activity.startTime}
               </span>
@@ -55,8 +65,8 @@ function SlotRow({ slot, activity, onRefresh, swapping, justSwapped }: SlotRowPr
               </span>
             )}
           </div>
-          <p className="text-sm font-semibold text-[#111827] leading-tight">{activity.name}</p>
-          <p className="text-xs text-[#9ca3af] mt-0.5">📍 {activity.neighborhood}</p>
+          <p className="text-sm font-semibold text-[#111827] leading-tight">{activity?.name ?? 'Activity TBD'}</p>
+          <p className="text-xs text-[#9ca3af] mt-0.5">📍 {activity?.neighborhood ?? '—'}</p>
         </div>
 
         {/* Swap controls */}
@@ -117,6 +127,8 @@ interface DayColumnProps {
 }
 
 function DayColumn({ day, dayIndex, swappingKey, swappedKeys, onSwap }: DayColumnProps) {
+  if (!day) return null;
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2 mb-1">
@@ -124,8 +136,8 @@ function DayColumn({ day, dayIndex, swappingKey, swappedKeys, onSwap }: DayColum
           {dayIndex + 1}
         </div>
         <div className="min-w-0">
-          <div className="text-xs font-bold text-[#111827] truncate">{day.theme}</div>
-          <div className="text-[10px] text-[#9ca3af]">{day.date}</div>
+          <div className="text-xs font-bold text-[#111827] truncate">{day.theme ?? `Day ${dayIndex + 1}`}</div>
+          <div className="text-[10px] text-[#9ca3af]">{day.date ?? ''}</div>
         </div>
       </div>
 
@@ -204,7 +216,7 @@ export function DraftOverview({ itinerary, onUpdate, onFinalize }: Props) {
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
               <span className="text-sm font-bold text-[#111827]">Review Draft</span>
-              <span className="text-xs text-[#9ca3af]">— {itinerary.destination}, {itinerary.totalDays} days</span>
+              <span className="text-xs text-[#9ca3af]">— {itinerary.destination ?? '—'}, {itinerary.totalDays ?? '?'} days</span>
             </div>
             <p className="text-xs text-[#9ca3af] mt-0.5">
               Tap ↻ Swap on any activity you don't like, then finalize when ready.
@@ -225,7 +237,7 @@ export function DraftOverview({ itinerary, onUpdate, onFinalize }: Props) {
         {/* Strategic overview */}
         <div className="bg-[#0f1117] rounded-2xl px-5 py-4 mb-6 text-white">
           <div className="text-xs font-semibold uppercase tracking-widest text-[#ff5a5f] mb-1.5">AI Strategy</div>
-          <p className="text-sm text-white/70 leading-relaxed">{itinerary.strategicOverview}</p>
+          <p className="text-sm text-white/70 leading-relaxed">{itinerary.strategicOverview ?? 'Generating your plan…'}</p>
         </div>
 
         {error && (

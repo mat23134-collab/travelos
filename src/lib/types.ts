@@ -23,12 +23,12 @@ export interface TravelerProfile {
 
 export interface Activity {
   name: string;
-  description: string;
-  neighborhood: string;
-  duration: string;
-  whyThis: string;
-  estimatedCost: string;
-  tags: string[];
+  description?: string;
+  neighborhood?: string;
+  duration?: string;
+  whyThis?: string;
+  estimatedCost?: string;
+  tags?: string[];
   isHiddenGem?: boolean;
   // timing
   startTime?: string;
@@ -43,11 +43,11 @@ export interface Activity {
 }
 
 export interface DiningSpot {
-  name: string;
-  cuisine: string;
-  priceRange: string;
-  mustTry: string;
-  neighborhood: string;
+  name?: string;
+  cuisine?: string;
+  priceRange?: string;
+  mustTry?: string;
+  neighborhood?: string;
 }
 
 export interface WebInsight {
@@ -58,16 +58,16 @@ export interface WebInsight {
 
 export interface DayPlan {
   day: number;
-  date: string;
-  theme: string;
-  morning: Activity;
-  afternoon: Activity;
-  evening: Activity;
-  lunch: DiningSpot;
-  dinner: DiningSpot;
-  estimatedDailyCost: string;
-  transportTip: string;
-  webInsights: WebInsight[];
+  date?: string;
+  theme?: string;
+  morning?: Activity;
+  afternoon?: Activity;
+  evening?: Activity;
+  lunch?: DiningSpot;
+  dinner?: DiningSpot;
+  estimatedDailyCost?: string;
+  transportTip?: string;
+  webInsights?: WebInsight[];
 }
 
 export interface SearchResult {
@@ -83,17 +83,17 @@ export interface ClassifiedResult extends SearchResult {
 }
 
 export interface Itinerary {
-  strategicOverview: string;
+  strategicOverview?: string;
   destination: string;
   totalDays: number;
-  budgetSummary: {
-    dailyAverage: string;
-    totalEstimate: string;
-    includes: string;
+  budgetSummary?: {
+    dailyAverage?: string;
+    totalEstimate?: string;
+    includes?: string;
   };
   days: DayPlan[];
-  packingTips: string[];
-  bestLocalTips: string[];
+  packingTips?: string[];
+  bestLocalTips?: string[];
   _meta?: {
     searchEnabled: boolean;
     sourcesFound: number;

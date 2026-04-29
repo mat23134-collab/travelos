@@ -358,23 +358,25 @@ export default function ItineraryPage() {
               </div>
               {itinerary._meta && <TripIntelligenceButton meta={itinerary._meta} />}
             </div>
-            <h1 className="text-3xl sm:text-5xl font-bold mb-2 tracking-tight drop-shadow-lg">{itinerary.destination}</h1>
+            <h1 className="text-3xl sm:text-5xl font-bold mb-2 tracking-tight drop-shadow-lg">{itinerary.destination ?? 'Your Trip'}</h1>
             <p className="text-white/65 text-sm mb-6">
-              {itinerary.totalDays}-day itinerary
+              {itinerary.totalDays ?? '?'}-day itinerary
               {profile && ` · ${profile.groupType} · ${profile.budget} budget · ${profile.pace} pace`}
             </p>
             {/* Glassmorphic overview panel */}
-            <div
-              className="rounded-xl p-4"
-              style={{
-                background: 'rgba(255,255,255,0.08)',
-                backdropFilter: 'blur(20px) saturate(160%)',
-                border: '1px solid rgba(255,255,255,0.15)',
-              }}
-            >
-              <div className="text-xs font-semibold uppercase tracking-widest text-[#ff8c8f] mb-2">Your Squad's Master Plan</div>
-              <p className="text-white/85 text-sm leading-relaxed">{itinerary.strategicOverview}</p>
-            </div>
+            {itinerary.strategicOverview && (
+              <div
+                className="rounded-xl p-4"
+                style={{
+                  background: 'rgba(255,255,255,0.08)',
+                  backdropFilter: 'blur(20px) saturate(160%)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                }}
+              >
+                <div className="text-xs font-semibold uppercase tracking-widest text-[#ff8c8f] mb-2">Your Squad's Master Plan</div>
+                <p className="text-white/85 text-sm leading-relaxed">{itinerary.strategicOverview}</p>
+              </div>
+            )}
           </div>
         </motion.div>
 
@@ -389,15 +391,15 @@ export default function ItineraryPage() {
           >
             <div className="text-center p-4 rounded-xl bg-[#f8f7f2] border border-[#ede9e0]">
               <div className="text-xs text-[#9ca3af] uppercase tracking-widest mb-1">Daily Average</div>
-              <div className="text-xl font-bold text-[#111827] tracking-tight">{itinerary.budgetSummary.dailyAverage}</div>
+              <div className="text-xl font-bold text-[#111827] tracking-tight">{itinerary.budgetSummary.dailyAverage ?? '—'}</div>
             </div>
             <div className="text-center p-4 rounded-xl bg-[#fff5f5] border border-[#ffd6d7]">
               <div className="text-xs text-[#9ca3af] uppercase tracking-widest mb-1">Total Estimate</div>
-              <div className="text-xl font-bold text-[#ff5a5f] tracking-tight">{itinerary.budgetSummary.totalEstimate}</div>
+              <div className="text-xl font-bold text-[#ff5a5f] tracking-tight">{itinerary.budgetSummary.totalEstimate ?? '—'}</div>
             </div>
             <div className="text-center p-4 rounded-xl bg-[#f8f7f2] border border-[#ede9e0]">
               <div className="text-xs text-[#9ca3af] uppercase tracking-widest mb-1">Includes</div>
-              <div className="text-sm text-[#6b7280] leading-relaxed">{itinerary.budgetSummary.includes}</div>
+              <div className="text-sm text-[#6b7280] leading-relaxed">{itinerary.budgetSummary.includes ?? '—'}</div>
             </div>
           </motion.div>
         )}
@@ -448,7 +450,7 @@ export default function ItineraryPage() {
 
         {/* Packing + tips */}
         <div className="grid sm:grid-cols-2 gap-6 mb-8">
-          {itinerary.packingTips?.length > 0 && (
+          {(itinerary.packingTips?.length ?? 0) > 0 && (
             <motion.div
               initial={{ opacity: 0, y: 24 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -459,7 +461,7 @@ export default function ItineraryPage() {
             >
               <h3 className="font-bold text-[#111827] mb-4 flex items-center gap-2 tracking-tight"><span>🎒</span> Squad Packing List</h3>
               <ul className="flex flex-col gap-2">
-                {itinerary.packingTips.map((tip, i) => (
+                {(itinerary.packingTips ?? []).map((tip, i) => (
                   <li key={i} className="flex gap-2 text-sm text-[#4b5563]">
                     <span className="text-[#ff5a5f] flex-shrink-0 mt-0.5">✓</span>{tip}
                   </li>
@@ -467,7 +469,7 @@ export default function ItineraryPage() {
               </ul>
             </motion.div>
           )}
-          {itinerary.bestLocalTips?.length > 0 && (
+          {(itinerary.bestLocalTips?.length ?? 0) > 0 && (
             <motion.div
               initial={{ opacity: 0, y: 24 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -478,7 +480,7 @@ export default function ItineraryPage() {
             >
               <h3 className="font-bold text-[#111827] mb-4 flex items-center gap-2 tracking-tight"><span>🗝️</span> Insider Intel</h3>
               <ul className="flex flex-col gap-2">
-                {itinerary.bestLocalTips.map((tip, i) => (
+                {(itinerary.bestLocalTips ?? []).map((tip, i) => (
                   <li key={i} className="flex gap-2 text-sm text-[#4b5563]">
                     <span className="text-[#ff5a5f] flex-shrink-0 mt-0.5">✦</span>{tip}
                   </li>
