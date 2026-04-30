@@ -766,7 +766,9 @@ export default function PlanPage() {
                       exit={{ opacity: 0, y: -8 }}
                       className="mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm"
                     >
-                      {error}
+                      {/503|overloaded|service unavailable/i.test(error)
+                        ? 'Google is a bit busy right now — we retried 3 times. Please wait a moment and try again.'
+                        : error}
                     </motion.div>
                   )}
                 </AnimatePresence>

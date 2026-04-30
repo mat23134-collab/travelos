@@ -7,6 +7,27 @@ import { supabase } from '@/lib/supabase';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
 
+function is503(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return msg.includes('503') || msg.includes('overloaded') || msg.toLowerCase().includes('service unavailable');
+}
+
+async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (!is503(err) || attempt === maxAttempts) throw err;
+      const delay = attempt * 2000; // 2 s, 4 s
+      console.warn(`[generate] Gemini 503 — retrying in ${delay}ms (attempt ${attempt}/${maxAttempts})`);
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  throw lastErr;
+}
+
 function parseGeminiJson(rawText: string): unknown {
   const match = rawText.match(/\{[\s\S]*\}/);
   if (!match) throw new Error('No JSON object found in AI response. Start: ' + rawText.slice(0, 200));
@@ -63,14 +84,15 @@ export async function POST(req: NextRequest) {
       { apiVersion: 'v1beta' },
     );
 
-    const aiResult = await model.generateContent(
-      buildUserPrompt(profile, classifiedResults, hotelContext)
+    const aiResult = await withRetry(() =>
+      model.generateContent(buildUserPrompt(profile, classifiedResults, hotelContext))
     );
+
     const raw = aiResult.response.text();
     const finishReason = aiResult.response.candidates?.[0]?.finishReason ?? 'UNKNOWN';
     console.log('Gemini Raw Output Length:', raw.length, 'chars | finishReason:', finishReason);
     if (finishReason === 'MAX_TOKENS') {
-      console.warn('[generate] WARNING: response was cut off by token limit — JSON may be incomplete');
+      console.warn('[generate] WARNING: response cut off by token limit — JSON may be incomplete');
     }
     console.log('[generate] raw start:', raw.slice(0, 200));
     console.log('[generate] raw end:  ', raw.slice(-200));
