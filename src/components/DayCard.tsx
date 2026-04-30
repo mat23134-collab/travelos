@@ -770,8 +770,14 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
 
   return (
     <div
-      className="rounded-3xl overflow-hidden border border-white/8 relative"
-      style={{ background: '#0f1117', boxShadow: '0 4px 40px -8px rgba(0,0,0,0.6)' }}
+      className="rounded-3xl overflow-hidden relative"
+      style={{
+        background: 'rgba(13, 15, 20, 0.82)',
+        backdropFilter: 'blur(20px) saturate(160%)',
+        WebkitBackdropFilter: 'blur(20px) saturate(160%)',
+        border: '1px solid rgba(255,255,255,0.09)',
+        boxShadow: '0 8px 48px -12px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.06)',
+      }}
     >
       {/* Card-level noise grain */}
       <div

@@ -405,7 +405,10 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
               </div>
               {itinerary._meta && <TripIntelligenceButton meta={itinerary._meta} />}
             </div>
-            <h1 className="text-3xl sm:text-5xl font-bold mb-2 tracking-tight drop-shadow-lg">
+            <h1
+              className="text-6xl sm:text-8xl font-black mb-3 tracking-tighter leading-none"
+              style={{ textShadow: '0 4px 40px rgba(0,0,0,0.55), 0 1px 2px rgba(0,0,0,0.8)' }}
+            >
               {itinerary.destination ?? 'Your Trip'}
             </h1>
             <p className="text-white/65 text-sm mb-6">
@@ -469,16 +472,25 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
           />
         </section>
 
-        {/* Day cards */}
-        <div className="flex flex-col gap-6 mb-8" style={{ perspective: '1200px' }}>
+        {/* Day cards — staggered fade-in */}
+        <motion.div
+          className="flex flex-col gap-6 mb-8"
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: '-40px' }}
+          variants={{ hidden: {}, show: { transition: { staggerChildren: 0.13 } } }}
+        >
           {itinerary.days.map((day, i) => (
             <motion.div
               key={`${day.day}-${i}`}
-              initial={{ opacity: 0, y: 48, rotateX: 6 }}
-              whileInView={{ opacity: 1, y: 0, rotateX: 0 }}
-              viewport={{ once: true, margin: '-60px' }}
-              transition={{ type: 'spring', stiffness: 280, damping: 26, delay: Math.min(i * 0.06, 0.2) }}
-              style={{ transformOrigin: 'top center', willChange: 'transform, opacity' }}
+              variants={{
+                hidden: { opacity: 0, y: 56, scale: 0.97 },
+                show: {
+                  opacity: 1, y: 0, scale: 1,
+                  transition: { type: 'spring', stiffness: 260, damping: 28 },
+                },
+              }}
+              style={{ willChange: 'transform, opacity' }}
             >
               <DayCard
                 day={day}
@@ -489,7 +501,7 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
               />
             </motion.div>
           ))}
-        </div>
+        </motion.div>
 
         {/* Packing + tips */}
         <div className="grid sm:grid-cols-2 gap-6 mb-8">

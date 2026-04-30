@@ -90,27 +90,42 @@ export function LogisticsDashboard({ profile }: { profile: TravelerProfile }) {
   const [data, setData] = useState<LogisticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25_000);
+    setLoading(true);
+    setError('');
+
     fetch('/api/logistics', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         destination: profile.destination,
-        startDate: profile.startDate,
-        endDate: profile.endDate,
+        startDate: profile.startDate || '',
+        endDate: profile.endDate || '',
         groupType: profile.groupType,
         budget: profile.budget,
       }),
+      signal: controller.signal,
     })
       .then((r) => r.json())
       .then((d) => {
-        if (d.error) setError(d.error);
+        if (d.error) setError('Logistics unavailable — ' + d.error);
         else setData(d);
       })
-      .catch(() => setError('Could not load logistics data.'))
-      .finally(() => setLoading(false));
-  }, [profile]);
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : '';
+        setError(msg.includes('abort') ? 'Request timed out — tap Retry.' : 'Could not load logistics data.');
+      })
+      .finally(() => {
+        clearTimeout(timeout);
+        setLoading(false);
+      });
+
+    return () => { clearTimeout(timeout); controller.abort(); };
+  }, [profile, attempt]);
 
   return (
     <section className="mb-8">
@@ -136,8 +151,14 @@ export function LogisticsDashboard({ profile }: { profile: TravelerProfile }) {
       )}
 
       {error && !loading && (
-        <div className="text-sm text-[#9ca3af] py-4 text-center">
-          Could not load logistics data — check your API key.
+        <div className="flex flex-col items-center gap-3 py-6 text-center">
+          <p className="text-sm text-[#9ca3af]">{error}</p>
+          <button
+            onClick={() => setAttempt((n) => n + 1)}
+            className="px-4 py-2 text-xs font-semibold rounded-xl border border-[#e5e7eb] text-[#6b7280] hover:bg-[#f3f4f6] transition-colors"
+          >
+            Retry
+          </button>
         </div>
       )}
 
