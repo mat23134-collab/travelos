@@ -61,7 +61,9 @@ async function withRetry<T>(fn: () => Promise<T>, label: string, maxAttempts = 3
 function isProviderFailure(err: unknown): boolean {
   if (isRetryable(err)) return true;
   const msg = err instanceof Error ? err.message : String(err);
-  return msg.includes('JSON') || msg.includes('parse') || msg.includes('token');
+  // PROVIDER_SKIP = missing key → skip to next provider
+  // JSON/parse/token = malformed output → try next provider
+  return msg.includes('PROVIDER_SKIP') || msg.includes('JSON') || msg.includes('parse') || msg.includes('token');
 }
 
 // ── Provider 1: Claude (PRIMARY) ──────────────────────────────────────────────
@@ -71,9 +73,10 @@ async function callClaude(
   classifiedResults: ClassifiedResult[],
   hotelContext: string | undefined,
 ): Promise<string> {
-  if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not set');
+  if (!process.env.ANTHROPIC_API_KEY) throw new Error('PROVIDER_SKIP: ANTHROPIC_API_KEY is not set');
 
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  console.log('[generate] Anthropic client initialised — key prefix:', process.env.ANTHROPIC_API_KEY.slice(0, 7));
   const modelName = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
 
   const message = await client.messages.create({
@@ -96,7 +99,7 @@ async function callOpenAI(
   classifiedResults: ClassifiedResult[],
   hotelContext: string | undefined,
 ): Promise<string> {
-  if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is not set');
+  if (!process.env.OPENAI_API_KEY) throw new Error('PROVIDER_SKIP: OPENAI_API_KEY is not set');
 
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const completion = await client.chat.completions.create({
@@ -120,7 +123,7 @@ async function callGemini(
   classifiedResults: ClassifiedResult[],
   hotelContext: string | undefined,
 ): Promise<string> {
-  if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY is not set');
+  if (!process.env.GEMINI_API_KEY) throw new Error('PROVIDER_SKIP: GEMINI_API_KEY is not set');
 
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
   const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
@@ -245,7 +248,9 @@ export async function POST(req: NextRequest) {
 
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error('[generate] all providers failed:', msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error('Full Error Trace:', err);
+    console.error('[generate] unhandled error:', msg);
+    // Always return JSON — never let Next.js render an HTML error page
+    return NextResponse.json({ error: 'Server Error', details: msg }, { status: 500 });
   }
 }

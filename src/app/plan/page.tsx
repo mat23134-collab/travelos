@@ -401,7 +401,7 @@ export default function PlanPage() {
       const rawText = await res.text();
       console.log('[plan] /api/generate response:', rawText.slice(0, 300));
 
-      let result: { id?: string; itinerary?: unknown; error?: string } = {};
+      let result: { id?: string; itinerary?: unknown; error?: string; details?: string } = {};
       try {
         result = JSON.parse(rawText);
       } catch {
@@ -409,7 +409,8 @@ export default function PlanPage() {
       }
 
       if (!res.ok || result.error) {
-        throw new Error(result.error || `Server error ${res.status}`);
+        const detail = result.details ? ` (${result.details})` : '';
+        throw new Error((result.error || `Server error ${res.status}`) + detail);
       }
 
       const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
