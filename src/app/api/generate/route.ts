@@ -7,9 +7,16 @@ import { supabase } from '@/lib/supabase';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
 
-function is503(err: unknown): boolean {
+// 503 = overloaded, 429 = rate-limited — both warrant a retry / fallback
+function isRetryable(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
-  return msg.includes('503') || msg.includes('overloaded') || msg.toLowerCase().includes('service unavailable');
+  return (
+    msg.includes('503') ||
+    msg.includes('429') ||
+    msg.includes('overloaded') ||
+    msg.toLowerCase().includes('service unavailable') ||
+    msg.toLowerCase().includes('rate limit')
+  );
 }
 
 async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
@@ -19,13 +26,56 @@ async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
       return await fn();
     } catch (err) {
       lastErr = err;
-      if (!is503(err) || attempt === maxAttempts) throw err;
+      if (!isRetryable(err) || attempt === maxAttempts) throw err;
       const delay = attempt * 2000; // 2 s, 4 s
-      console.warn(`[generate] Gemini 503 — retrying in ${delay}ms (attempt ${attempt}/${maxAttempts})`);
+      console.warn(`[generate] Gemini retryable error — waiting ${delay}ms (attempt ${attempt}/${maxAttempts})`);
       await new Promise((r) => setTimeout(r, delay));
     }
   }
   throw lastErr;
+}
+
+// ── OpenAI fallback (plain fetch — no extra dependency) ───────────────────────
+async function callOpenAI(
+  profile: TravelerProfile,
+  classifiedResults: import('@/lib/types').ClassifiedResult[],
+  hotelContext: string | undefined,
+): Promise<string> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error('OPENAI_API_KEY is not set — cannot use OpenAI fallback');
+
+  const systemMsg =
+    'You are a travel itinerary AI. Return ONLY a valid JSON object — no markdown, no prose. ' +
+    'Your response must start with { and end with }. ' +
+    SYSTEM_PROMPT;
+
+  const userMsg = buildUserPrompt(profile, classifiedResults, hotelContext);
+
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + apiKey,
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      response_format: { type: 'json_object' },
+      temperature: 0.7,
+      max_tokens: 16384,
+      messages: [
+        { role: 'system', content: systemMsg },
+        { role: 'user', content: userMsg },
+      ],
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`OpenAI error ${res.status}: ${text.slice(0, 200)}`);
+  }
+
+  const json = await res.json() as { choices: { message: { content: string } }[] };
+  return json.choices[0]?.message?.content ?? '';
 }
 
 function parseGeminiJson(rawText: string): unknown {
@@ -84,18 +134,30 @@ export async function POST(req: NextRequest) {
       { apiVersion: 'v1beta' },
     );
 
-    const aiResult = await withRetry(() =>
-      model.generateContent(buildUserPrompt(profile, classifiedResults, hotelContext))
-    );
+    let raw: string;
+    let provider = 'gemini';
 
-    const raw = aiResult.response.text();
-    const finishReason = aiResult.response.candidates?.[0]?.finishReason ?? 'UNKNOWN';
-    console.log('Gemini Raw Output Length:', raw.length, 'chars | finishReason:', finishReason);
-    if (finishReason === 'MAX_TOKENS') {
-      console.warn('[generate] WARNING: response cut off by token limit — JSON may be incomplete');
+    try {
+      const aiResult = await withRetry(() =>
+        model.generateContent(buildUserPrompt(profile, classifiedResults, hotelContext))
+      );
+      raw = aiResult.response.text();
+      const finishReason = aiResult.response.candidates?.[0]?.finishReason ?? 'UNKNOWN';
+      console.log('Gemini Raw Output Length:', raw.length, 'chars | finishReason:', finishReason);
+      if (finishReason === 'MAX_TOKENS') {
+        console.warn('[generate] WARNING: Gemini response cut off by token limit');
+      }
+    } catch (geminiErr) {
+      if (!isRetryable(geminiErr)) throw geminiErr; // hard error — don't fall back
+      console.warn('[generate] FALLBACK: Gemini unavailable after 3 retries — switching to OpenAI gpt-4o-mini');
+      console.warn('[generate] Gemini error was:', geminiErr instanceof Error ? geminiErr.message : String(geminiErr));
+      raw = await callOpenAI(profile, classifiedResults, hotelContext);
+      provider = 'openai';
+      console.log('OpenAI Raw Output Length:', raw.length, 'chars');
     }
-    console.log('[generate] raw start:', raw.slice(0, 200));
-    console.log('[generate] raw end:  ', raw.slice(-200));
+
+    console.log(`[generate] provider: ${provider} | raw start:`, raw.slice(0, 200));
+    console.log('[generate] raw end:', raw.slice(-200));
 
     // ── Parse JSON ──────────────────────────────────────────────────────────────
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -107,6 +169,7 @@ export async function POST(req: NextRequest) {
       hiddenGems: classifiedResults.filter((r) => r.vibeScore === 'hidden-gem').length,
       trapsFiltered: classifiedResults.filter((r) => r.vibeScore === 'tourist-trap').length,
       contradictionsFound: classifiedResults.filter((r) => r.contradictionNote).length,
+      provider,
     };
 
     // ── Save to Supabase ────────────────────────────────────────────────────────
