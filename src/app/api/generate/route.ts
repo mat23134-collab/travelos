@@ -1,13 +1,15 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
 import { NextRequest, NextResponse } from 'next/server';
-import { TravelerProfile } from '@/lib/types';
+import { TravelerProfile, ClassifiedResult } from '@/lib/types';
 import { SYSTEM_PROMPT, buildUserPrompt } from '@/lib/prompts';
 import { runChainOfThoughtSearch, searchWeb } from '@/lib/rag';
 import { supabase } from '@/lib/supabase';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
 
-// 503 = overloaded, 429 = rate-limited — both warrant a retry / fallback
+// ── Retry helpers ─────────────────────────────────────────────────────────────
+
 function isRetryable(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
   return (
@@ -27,7 +29,7 @@ async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
     } catch (err) {
       lastErr = err;
       if (!isRetryable(err) || attempt === maxAttempts) throw err;
-      const delay = attempt * 2000; // 2 s, 4 s
+      const delay = attempt * 2000;
       console.warn(`[generate] Gemini retryable error — waiting ${delay}ms (attempt ${attempt}/${maxAttempts})`);
       await new Promise((r) => setTimeout(r, delay));
     }
@@ -35,54 +37,47 @@ async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
   throw lastErr;
 }
 
-// ── OpenAI fallback (plain fetch — no extra dependency) ───────────────────────
+// ── JSON parser ───────────────────────────────────────────────────────────────
+
+function parseAIJson(rawText: string): unknown {
+  const match = rawText.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error('No JSON object found in AI response. Start: ' + rawText.slice(0, 200));
+  return JSON.parse(match[0]);
+}
+
+// ── OpenAI fallback (official SDK) ────────────────────────────────────────────
+
 async function callOpenAI(
   profile: TravelerProfile,
-  classifiedResults: import('@/lib/types').ClassifiedResult[],
+  classifiedResults: ClassifiedResult[],
   hotelContext: string | undefined,
 ): Promise<string> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error('OPENAI_API_KEY is not set — cannot use OpenAI fallback');
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY is not set — cannot use OpenAI fallback');
+  }
+
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   const systemMsg =
     'You are a travel itinerary AI. Return ONLY a valid JSON object — no markdown, no prose. ' +
     'Your response must start with { and end with }. ' +
     SYSTEM_PROMPT;
 
-  const userMsg = buildUserPrompt(profile, classifiedResults, hotelContext);
-
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: 'Bearer ' + apiKey,
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      response_format: { type: 'json_object' },
-      temperature: 0.7,
-      max_tokens: 16384,
-      messages: [
-        { role: 'system', content: systemMsg },
-        { role: 'user', content: userMsg },
-      ],
-    }),
+  const completion = await client.chat.completions.create({
+    model: 'gpt-4o-mini',
+    response_format: { type: 'json_object' },
+    temperature: 0.7,
+    max_tokens: 16384,
+    messages: [
+      { role: 'system', content: systemMsg },
+      { role: 'user', content: buildUserPrompt(profile, classifiedResults, hotelContext) },
+    ],
   });
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`OpenAI error ${res.status}: ${text.slice(0, 200)}`);
-  }
-
-  const json = await res.json() as { choices: { message: { content: string } }[] };
-  return json.choices[0]?.message?.content ?? '';
+  return completion.choices[0]?.message?.content ?? '';
 }
 
-function parseGeminiJson(rawText: string): unknown {
-  const match = rawText.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error('No JSON object found in AI response. Start: ' + rawText.slice(0, 200));
-  return JSON.parse(match[0]);
-}
+// ── Main route ────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
   try {
@@ -110,11 +105,11 @@ export async function POST(req: NextRequest) {
       } catch { /* non-critical */ }
     }
 
-    // ── Gemini generation ───────────────────────────────────────────────────────
+    // ── Gemini (primary) ────────────────────────────────────────────────────────
     const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-    console.log('[generate] model:', modelName, '| dest:', profile.destination);
+    console.log('[generate] primary model:', modelName, '| dest:', profile.destination);
 
-    const model = genAI.getGenerativeModel(
+    const geminiModel = genAI.getGenerativeModel(
       {
         model: modelName,
         generationConfig: {
@@ -134,35 +129,41 @@ export async function POST(req: NextRequest) {
       { apiVersion: 'v1beta' },
     );
 
-    let raw: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let itinerary: any;
     let provider = 'gemini';
 
     try {
+      // Primary: Gemini with exponential-backoff retries
       const aiResult = await withRetry(() =>
-        model.generateContent(buildUserPrompt(profile, classifiedResults, hotelContext))
+        geminiModel.generateContent(buildUserPrompt(profile, classifiedResults, hotelContext))
       );
-      raw = aiResult.response.text();
+      const raw = aiResult.response.text();
       const finishReason = aiResult.response.candidates?.[0]?.finishReason ?? 'UNKNOWN';
       console.log('Gemini Raw Output Length:', raw.length, 'chars | finishReason:', finishReason);
       if (finishReason === 'MAX_TOKENS') {
-        console.warn('[generate] WARNING: Gemini response cut off by token limit');
+        console.warn('[generate] Gemini response cut off by token limit — attempting parse anyway');
       }
+      // Parse inside the try block so malformed JSON also triggers the fallback
+      itinerary = parseAIJson(raw);
     } catch (geminiErr) {
-      if (!isRetryable(geminiErr)) throw geminiErr; // hard error — don't fall back
-      console.warn('[generate] FALLBACK: Gemini unavailable after 3 retries — switching to OpenAI gpt-4o-mini');
-      console.warn('[generate] Gemini error was:', geminiErr instanceof Error ? geminiErr.message : String(geminiErr));
-      raw = await callOpenAI(profile, classifiedResults, hotelContext);
+      const errMsg = geminiErr instanceof Error ? geminiErr.message : String(geminiErr);
+      const shouldFallback = isRetryable(geminiErr) || errMsg.includes('JSON') || errMsg.includes('parse') || errMsg.includes('token');
+      if (!shouldFallback) throw geminiErr;
+
+      console.warn('Google failed, switching to OpenAI fallback');
+      console.warn('[generate] Gemini error:', errMsg);
+
+      // Fallback: OpenAI gpt-4o-mini (same prompt, same schema)
+      const openaiRaw = await callOpenAI(profile, classifiedResults, hotelContext);
+      console.log('OpenAI Raw Output Length:', openaiRaw.length, 'chars');
+      itinerary = parseAIJson(openaiRaw);
       provider = 'openai';
-      console.log('OpenAI Raw Output Length:', raw.length, 'chars');
     }
 
-    console.log(`[generate] provider: ${provider} | raw start:`, raw.slice(0, 200));
-    console.log('[generate] raw end:', raw.slice(-200));
+    console.log(`[generate] provider used: ${provider}`);
 
-    // ── Parse JSON ──────────────────────────────────────────────────────────────
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const itinerary: any = parseGeminiJson(raw);
-
+    // ── Attach metadata ─────────────────────────────────────────────────────────
     itinerary._meta = {
       searchEnabled: classifiedResults.length > 0,
       sourcesFound: classifiedResults.length,
