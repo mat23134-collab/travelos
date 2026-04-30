@@ -1,13 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk';
-import OpenAI from 'openai';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NextRequest, NextResponse } from 'next/server';
 import { TravelerProfile, ClassifiedResult } from '@/lib/types';
 import { SYSTEM_PROMPT, buildUserPrompt } from '@/lib/prompts';
 import { runChainOfThoughtSearch, searchWeb } from '@/lib/rag';
 import { supabase } from '@/lib/supabase';
 
-// ── Shared system instruction (identical across all providers) ────────────────
+// ── JSON instruction prepended to every system prompt ────────────────────────
 
 const JSON_PREAMBLE =
   'IMPORTANT: Your output MUST be a raw JSON object only. ' +
@@ -19,30 +17,29 @@ const JSON_PREAMBLE =
 // ── JSON parser ───────────────────────────────────────────────────────────────
 
 function parseAIJson(rawText: string): unknown {
-  // Direct parse first — Claude returns clean JSON so this usually succeeds
   try {
     return JSON.parse(rawText.trim());
   } catch { /* fall through to extraction */ }
-  // Extract outermost {...} block (handles any preamble/postamble)
   const match = rawText.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error('No JSON object found. Response start: ' + rawText.slice(0, 200));
+  if (!match) throw new Error('No JSON object found in response. Start: ' + rawText.slice(0, 200));
   return JSON.parse(match[0]);
 }
 
-// ── Retry helper ──────────────────────────────────────────────────────────────
+// ── Retry helper (handles 529 overload / 529 / rate-limit) ───────────────────
 
 function isRetryable(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
   return (
+    msg.includes('529') ||
     msg.includes('503') ||
     msg.includes('429') ||
-    msg.includes('overloaded') ||
+    msg.toLowerCase().includes('overloaded') ||
     msg.toLowerCase().includes('service unavailable') ||
     msg.toLowerCase().includes('rate limit')
   );
 }
 
-async function withRetry<T>(fn: () => Promise<T>, label: string, maxAttempts = 3): Promise<T> {
+async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
   let lastErr: unknown;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
@@ -51,33 +48,27 @@ async function withRetry<T>(fn: () => Promise<T>, label: string, maxAttempts = 3
       lastErr = err;
       if (!isRetryable(err) || attempt === maxAttempts) throw err;
       const delay = attempt * 2000;
-      console.warn(`[generate] ${label} retryable error — waiting ${delay}ms (attempt ${attempt}/${maxAttempts})`);
+      console.warn(`[generate] Claude transient error — retrying in ${delay}ms (attempt ${attempt}/${maxAttempts})`);
       await new Promise((r) => setTimeout(r, delay));
     }
   }
   throw lastErr;
 }
 
-function isProviderFailure(err: unknown): boolean {
-  if (isRetryable(err)) return true;
-  const msg = err instanceof Error ? err.message : String(err);
-  // PROVIDER_SKIP = missing key → skip to next provider
-  // JSON/parse/token = malformed output → try next provider
-  return msg.includes('PROVIDER_SKIP') || msg.includes('JSON') || msg.includes('parse') || msg.includes('token');
-}
-
-// ── Provider 1: Claude (PRIMARY) ──────────────────────────────────────────────
+// ── Claude call ───────────────────────────────────────────────────────────────
 
 async function callClaude(
   profile: TravelerProfile,
   classifiedResults: ClassifiedResult[],
   hotelContext: string | undefined,
 ): Promise<string> {
-  if (!process.env.ANTHROPIC_API_KEY) throw new Error('PROVIDER_SKIP: ANTHROPIC_API_KEY is not set');
+  if (!process.env.ANTHROPIC_API_KEY) {
+    throw new Error('ANTHROPIC_API_KEY is not set — add it to Railway Variables');
+  }
 
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  console.log('[generate] Anthropic client initialised — key prefix:', process.env.ANTHROPIC_API_KEY.slice(0, 7));
   const modelName = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
+  console.log(`[generate] Claude ${modelName} — key prefix: ${process.env.ANTHROPIC_API_KEY.slice(0, 8)}`);
 
   const message = await client.messages.create({
     model: modelName,
@@ -89,56 +80,9 @@ async function callClaude(
   });
 
   const block = message.content[0];
-  return block.type === 'text' ? block.text : '';
-}
-
-// ── Provider 2: OpenAI gpt-4o-mini (BACKUP 1) ────────────────────────────────
-
-async function callOpenAI(
-  profile: TravelerProfile,
-  classifiedResults: ClassifiedResult[],
-  hotelContext: string | undefined,
-): Promise<string> {
-  if (!process.env.OPENAI_API_KEY) throw new Error('PROVIDER_SKIP: OPENAI_API_KEY is not set');
-
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  const completion = await client.chat.completions.create({
-    model: 'gpt-4o-mini',
-    response_format: { type: 'json_object' },
-    temperature: 0.7,
-    max_tokens: 16384,
-    messages: [
-      { role: 'system', content: JSON_PREAMBLE + SYSTEM_PROMPT },
-      { role: 'user', content: buildUserPrompt(profile, classifiedResults, hotelContext) },
-    ],
-  });
-
-  return completion.choices[0]?.message?.content ?? '';
-}
-
-// ── Provider 3: Gemini (FINAL BACKUP) ────────────────────────────────────────
-
-async function callGemini(
-  profile: TravelerProfile,
-  classifiedResults: ClassifiedResult[],
-  hotelContext: string | undefined,
-): Promise<string> {
-  if (!process.env.GEMINI_API_KEY) throw new Error('PROVIDER_SKIP: GEMINI_API_KEY is not set');
-
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-
-  const model = genAI.getGenerativeModel(
-    {
-      model: modelName,
-      generationConfig: { responseMimeType: 'application/json', temperature: 0.7, maxOutputTokens: 65536 },
-      systemInstruction: JSON_PREAMBLE + SYSTEM_PROMPT,
-    },
-    { apiVersion: 'v1beta' },
-  );
-
-  const result = await model.generateContent(buildUserPrompt(profile, classifiedResults, hotelContext));
-  return result.response.text();
+  const raw = block.type === 'text' ? block.text : '';
+  console.log(`[generate] Claude response: ${raw.length} chars | stop_reason: ${message.stop_reason}`);
+  return raw;
 }
 
 // ── Main route ────────────────────────────────────────────────────────────────
@@ -169,48 +113,10 @@ export async function POST(req: NextRequest) {
       } catch { /* non-critical */ }
     }
 
+    // ── Generate itinerary ──────────────────────────────────────────────────────
+    const raw = await withRetry(() => callClaude(profile, classifiedResults, hotelContext));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let itinerary: any;
-    let provider = 'claude';
-
-    // ── 1. Claude (primary) ─────────────────────────────────────────────────────
-    try {
-      const raw = await withRetry(
-        () => callClaude(profile, classifiedResults, hotelContext),
-        'Claude',
-      );
-      console.log('Claude Raw Output Length:', raw.length, 'chars');
-      itinerary = parseAIJson(raw);
-    } catch (claudeErr) {
-      if (!isProviderFailure(claudeErr)) throw claudeErr;
-      console.warn('[generate] Claude failed — switching to OpenAI backup');
-      console.warn('[generate] Claude error:', claudeErr instanceof Error ? claudeErr.message : String(claudeErr));
-
-      // ── 2. OpenAI (backup 1) ──────────────────────────────────────────────────
-      try {
-        const raw = await withRetry(
-          () => callOpenAI(profile, classifiedResults, hotelContext),
-          'OpenAI',
-        );
-        console.log('OpenAI Raw Output Length:', raw.length, 'chars');
-        itinerary = parseAIJson(raw);
-        provider = 'openai';
-      } catch (openaiErr) {
-        console.warn('[generate] OpenAI also failed — switching to Gemini final backup');
-        console.warn('[generate] OpenAI error:', openaiErr instanceof Error ? openaiErr.message : String(openaiErr));
-
-        // ── 3. Gemini (final backup) ────────────────────────────────────────────
-        const raw = await withRetry(
-          () => callGemini(profile, classifiedResults, hotelContext),
-          'Gemini',
-        );
-        console.log('Gemini Raw Output Length:', raw.length, 'chars');
-        itinerary = parseAIJson(raw);
-        provider = 'gemini';
-      }
-    }
-
-    console.log(`[generate] provider used: ${provider}`);
+    const itinerary: any = parseAIJson(raw);
 
     // ── Metadata ────────────────────────────────────────────────────────────────
     itinerary._meta = {
@@ -219,7 +125,7 @@ export async function POST(req: NextRequest) {
       hiddenGems: classifiedResults.filter((r) => r.vibeScore === 'hidden-gem').length,
       trapsFiltered: classifiedResults.filter((r) => r.vibeScore === 'tourist-trap').length,
       contradictionsFound: classifiedResults.filter((r) => r.contradictionNote).length,
-      provider,
+      provider: 'claude',
     };
 
     // ── Save to Supabase ────────────────────────────────────────────────────────
@@ -248,9 +154,7 @@ export async function POST(req: NextRequest) {
 
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error('Full Error Trace:', err);
-    console.error('[generate] unhandled error:', msg);
-    // Always return JSON — never let Next.js render an HTML error page
-    return NextResponse.json({ error: 'Server Error', details: msg }, { status: 500 });
+    console.error('[generate] error:', msg);
+    return NextResponse.json({ error: 'Generation failed', details: msg }, { status: 500 });
   }
 }

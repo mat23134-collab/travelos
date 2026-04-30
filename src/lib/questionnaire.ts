@@ -23,9 +23,8 @@ export const questions: Question[] = [
     id: 1,
     key: 'destination',
     type: 'text',
-    title: "Where are you dreaming of going?",
-    subtitle: 'City, region, or country — be as specific or broad as you like',
-    placeholder: 'e.g. Tokyo, Tuscany, Morocco, Southeast Asia...',
+    title: 'Pick your destination.',
+    subtitle: 'Tap a city to get started — your itinerary is built around it.',
     required: true,
   },
   {
