@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 import { NextRequest, NextResponse } from 'next/server';
 import { TravelerProfile, ClassifiedResult } from '@/lib/types';
 import { SYSTEM_PROMPT, buildUserPrompt } from '@/lib/prompts';
@@ -21,6 +22,15 @@ function isRetryable(err: unknown): boolean {
   );
 }
 
+function isProviderFailure(err: unknown): boolean {
+  return isRetryable(err) ||
+    (err instanceof Error && (
+      err.message.includes('JSON') ||
+      err.message.includes('parse') ||
+      err.message.includes('token')
+    ));
+}
+
 async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
   let lastErr: unknown;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -37,7 +47,7 @@ async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
   throw lastErr;
 }
 
-// ── JSON parser ───────────────────────────────────────────────────────────────
+// ── JSON parser (works for all three providers) ───────────────────────────────
 
 function parseAIJson(rawText: string): unknown {
   const match = rawText.match(/\{[\s\S]*\}/);
@@ -45,36 +55,61 @@ function parseAIJson(rawText: string): unknown {
   return JSON.parse(match[0]);
 }
 
-// ── OpenAI fallback (official SDK) ────────────────────────────────────────────
+// ── Shared system instruction ─────────────────────────────────────────────────
+
+const JSON_PREAMBLE =
+  'IMPORTANT: Your output MUST be a raw JSON object only. ' +
+  'Do NOT include markdown blocks, backticks, or any text outside the curly braces. ' +
+  'Start your response immediately with { and end with }. ' +
+  'Your response must be a COMPLETE, valid JSON object. ' +
+  'If the itinerary is long, prioritize quality over quantity to ensure the JSON structure is NEVER broken or truncated. ' +
+  'Always close every array bracket and every object brace before finishing. ';
+
+// ── Provider: OpenAI gpt-4o-mini ──────────────────────────────────────────────
 
 async function callOpenAI(
   profile: TravelerProfile,
   classifiedResults: ClassifiedResult[],
   hotelContext: string | undefined,
 ): Promise<string> {
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error('OPENAI_API_KEY is not set — cannot use OpenAI fallback');
-  }
+  if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is not set');
 
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-  const systemMsg =
-    'You are a travel itinerary AI. Return ONLY a valid JSON object — no markdown, no prose. ' +
-    'Your response must start with { and end with }. ' +
-    SYSTEM_PROMPT;
-
   const completion = await client.chat.completions.create({
     model: 'gpt-4o-mini',
     response_format: { type: 'json_object' },
     temperature: 0.7,
     max_tokens: 16384,
     messages: [
-      { role: 'system', content: systemMsg },
+      { role: 'system', content: JSON_PREAMBLE + SYSTEM_PROMPT },
       { role: 'user', content: buildUserPrompt(profile, classifiedResults, hotelContext) },
     ],
   });
 
   return completion.choices[0]?.message?.content ?? '';
+}
+
+// ── Provider: Claude claude-haiku-4-5 ────────────────────────────────────────
+
+async function callClaude(
+  profile: TravelerProfile,
+  classifiedResults: ClassifiedResult[],
+  hotelContext: string | undefined,
+): Promise<string> {
+  if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not set');
+
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const message = await client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 16384,
+    system: JSON_PREAMBLE + SYSTEM_PROMPT,
+    messages: [
+      { role: 'user', content: buildUserPrompt(profile, classifiedResults, hotelContext) },
+    ],
+  });
+
+  const block = message.content[0];
+  return block.type === 'text' ? block.text : '';
 }
 
 // ── Main route ────────────────────────────────────────────────────────────────
@@ -112,19 +147,8 @@ export async function POST(req: NextRequest) {
     const geminiModel = genAI.getGenerativeModel(
       {
         model: modelName,
-        generationConfig: {
-          responseMimeType: 'application/json',
-          temperature: 0.7,
-          maxOutputTokens: 65536,
-        },
-        systemInstruction:
-          'IMPORTANT: Your output MUST be a raw JSON object only. ' +
-          'Do NOT include markdown blocks, backticks, or any text outside the curly braces. ' +
-          'Start your response immediately with { and end with }. ' +
-          'Your response must be a COMPLETE, valid JSON object. ' +
-          'If the itinerary is long, prioritize quality over quantity to ensure the JSON structure is NEVER broken or truncated. ' +
-          'Always close every array bracket and every object brace before finishing. ' +
-          SYSTEM_PROMPT,
+        generationConfig: { responseMimeType: 'application/json', temperature: 0.7, maxOutputTokens: 65536 },
+        systemInstruction: JSON_PREAMBLE + SYSTEM_PROMPT,
       },
       { apiVersion: 'v1beta' },
     );
@@ -133,32 +157,36 @@ export async function POST(req: NextRequest) {
     let itinerary: any;
     let provider = 'gemini';
 
+    // ── Try Gemini ──────────────────────────────────────────────────────────────
     try {
-      // Primary: Gemini with exponential-backoff retries
       const aiResult = await withRetry(() =>
         geminiModel.generateContent(buildUserPrompt(profile, classifiedResults, hotelContext))
       );
       const raw = aiResult.response.text();
       const finishReason = aiResult.response.candidates?.[0]?.finishReason ?? 'UNKNOWN';
       console.log('Gemini Raw Output Length:', raw.length, 'chars | finishReason:', finishReason);
-      if (finishReason === 'MAX_TOKENS') {
-        console.warn('[generate] Gemini response cut off by token limit — attempting parse anyway');
-      }
-      // Parse inside the try block so malformed JSON also triggers the fallback
       itinerary = parseAIJson(raw);
     } catch (geminiErr) {
-      const errMsg = geminiErr instanceof Error ? geminiErr.message : String(geminiErr);
-      const shouldFallback = isRetryable(geminiErr) || errMsg.includes('JSON') || errMsg.includes('parse') || errMsg.includes('token');
-      if (!shouldFallback) throw geminiErr;
-
+      if (!isProviderFailure(geminiErr)) throw geminiErr;
       console.warn('Google failed, switching to OpenAI fallback');
-      console.warn('[generate] Gemini error:', errMsg);
+      console.warn('[generate] Gemini error:', geminiErr instanceof Error ? geminiErr.message : String(geminiErr));
 
-      // Fallback: OpenAI gpt-4o-mini (same prompt, same schema)
-      const openaiRaw = await callOpenAI(profile, classifiedResults, hotelContext);
-      console.log('OpenAI Raw Output Length:', openaiRaw.length, 'chars');
-      itinerary = parseAIJson(openaiRaw);
-      provider = 'openai';
+      // ── Try OpenAI ────────────────────────────────────────────────────────────
+      try {
+        const openaiRaw = await callOpenAI(profile, classifiedResults, hotelContext);
+        console.log('OpenAI Raw Output Length:', openaiRaw.length, 'chars');
+        itinerary = parseAIJson(openaiRaw);
+        provider = 'openai';
+      } catch (openaiErr) {
+        console.warn('[generate] OpenAI also failed — switching to Claude final fallback');
+        console.warn('[generate] OpenAI error:', openaiErr instanceof Error ? openaiErr.message : String(openaiErr));
+
+        // ── Try Claude (final fallback) ───────────────────────────────────────
+        const claudeRaw = await callClaude(profile, classifiedResults, hotelContext);
+        console.log('Claude Raw Output Length:', claudeRaw.length, 'chars');
+        itinerary = parseAIJson(claudeRaw);
+        provider = 'claude';
+      }
     }
 
     console.log(`[generate] provider used: ${provider}`);
@@ -199,7 +227,7 @@ export async function POST(req: NextRequest) {
 
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error('[generate] unhandled error:', msg);
+    console.error('[generate] all providers failed:', msg);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
