@@ -1,15 +1,35 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NextRequest, NextResponse } from 'next/server';
 import { TravelerProfile, ClassifiedResult } from '@/lib/types';
 import { SYSTEM_PROMPT, buildUserPrompt } from '@/lib/prompts';
 import { runChainOfThoughtSearch, searchWeb } from '@/lib/rag';
 import { supabase } from '@/lib/supabase';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
+// ── Shared system instruction (identical across all providers) ────────────────
 
-// ── Retry helpers ─────────────────────────────────────────────────────────────
+const JSON_PREAMBLE =
+  'IMPORTANT: Your output MUST be a raw JSON object only. ' +
+  'Do NOT include markdown blocks, backticks, or any text outside the curly braces. ' +
+  'Start your response immediately with { and end with }. ' +
+  'Your response must be a COMPLETE, valid JSON object. ' +
+  'Always close every array bracket and every object brace before finishing. ';
+
+// ── JSON parser ───────────────────────────────────────────────────────────────
+
+function parseAIJson(rawText: string): unknown {
+  // Direct parse first — Claude returns clean JSON so this usually succeeds
+  try {
+    return JSON.parse(rawText.trim());
+  } catch { /* fall through to extraction */ }
+  // Extract outermost {...} block (handles any preamble/postamble)
+  const match = rawText.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error('No JSON object found. Response start: ' + rawText.slice(0, 200));
+  return JSON.parse(match[0]);
+}
+
+// ── Retry helper ──────────────────────────────────────────────────────────────
 
 function isRetryable(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
@@ -22,16 +42,7 @@ function isRetryable(err: unknown): boolean {
   );
 }
 
-function isProviderFailure(err: unknown): boolean {
-  return isRetryable(err) ||
-    (err instanceof Error && (
-      err.message.includes('JSON') ||
-      err.message.includes('parse') ||
-      err.message.includes('token')
-    ));
-}
-
-async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
+async function withRetry<T>(fn: () => Promise<T>, label: string, maxAttempts = 3): Promise<T> {
   let lastErr: unknown;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
@@ -40,32 +51,45 @@ async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
       lastErr = err;
       if (!isRetryable(err) || attempt === maxAttempts) throw err;
       const delay = attempt * 2000;
-      console.warn(`[generate] Gemini retryable error — waiting ${delay}ms (attempt ${attempt}/${maxAttempts})`);
+      console.warn(`[generate] ${label} retryable error — waiting ${delay}ms (attempt ${attempt}/${maxAttempts})`);
       await new Promise((r) => setTimeout(r, delay));
     }
   }
   throw lastErr;
 }
 
-// ── JSON parser (works for all three providers) ───────────────────────────────
-
-function parseAIJson(rawText: string): unknown {
-  const match = rawText.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error('No JSON object found in AI response. Start: ' + rawText.slice(0, 200));
-  return JSON.parse(match[0]);
+function isProviderFailure(err: unknown): boolean {
+  if (isRetryable(err)) return true;
+  const msg = err instanceof Error ? err.message : String(err);
+  return msg.includes('JSON') || msg.includes('parse') || msg.includes('token');
 }
 
-// ── Shared system instruction ─────────────────────────────────────────────────
+// ── Provider 1: Claude (PRIMARY) ──────────────────────────────────────────────
 
-const JSON_PREAMBLE =
-  'IMPORTANT: Your output MUST be a raw JSON object only. ' +
-  'Do NOT include markdown blocks, backticks, or any text outside the curly braces. ' +
-  'Start your response immediately with { and end with }. ' +
-  'Your response must be a COMPLETE, valid JSON object. ' +
-  'If the itinerary is long, prioritize quality over quantity to ensure the JSON structure is NEVER broken or truncated. ' +
-  'Always close every array bracket and every object brace before finishing. ';
+async function callClaude(
+  profile: TravelerProfile,
+  classifiedResults: ClassifiedResult[],
+  hotelContext: string | undefined,
+): Promise<string> {
+  if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not set');
 
-// ── Provider: OpenAI gpt-4o-mini ──────────────────────────────────────────────
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const modelName = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
+
+  const message = await client.messages.create({
+    model: modelName,
+    max_tokens: 16000,
+    system: JSON_PREAMBLE + SYSTEM_PROMPT,
+    messages: [
+      { role: 'user', content: buildUserPrompt(profile, classifiedResults, hotelContext) },
+    ],
+  });
+
+  const block = message.content[0];
+  return block.type === 'text' ? block.text : '';
+}
+
+// ── Provider 2: OpenAI gpt-4o-mini (BACKUP 1) ────────────────────────────────
 
 async function callOpenAI(
   profile: TravelerProfile,
@@ -89,27 +113,29 @@ async function callOpenAI(
   return completion.choices[0]?.message?.content ?? '';
 }
 
-// ── Provider: Claude claude-haiku-4-5 ────────────────────────────────────────
+// ── Provider 3: Gemini (FINAL BACKUP) ────────────────────────────────────────
 
-async function callClaude(
+async function callGemini(
   profile: TravelerProfile,
   classifiedResults: ClassifiedResult[],
   hotelContext: string | undefined,
 ): Promise<string> {
-  if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not set');
+  if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY is not set');
 
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const message = await client.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 16384,
-    system: JSON_PREAMBLE + SYSTEM_PROMPT,
-    messages: [
-      { role: 'user', content: buildUserPrompt(profile, classifiedResults, hotelContext) },
-    ],
-  });
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
-  const block = message.content[0];
-  return block.type === 'text' ? block.text : '';
+  const model = genAI.getGenerativeModel(
+    {
+      model: modelName,
+      generationConfig: { responseMimeType: 'application/json', temperature: 0.7, maxOutputTokens: 65536 },
+      systemInstruction: JSON_PREAMBLE + SYSTEM_PROMPT,
+    },
+    { apiVersion: 'v1beta' },
+  );
+
+  const result = await model.generateContent(buildUserPrompt(profile, classifiedResults, hotelContext));
+  return result.response.text();
 }
 
 // ── Main route ────────────────────────────────────────────────────────────────
@@ -140,58 +166,50 @@ export async function POST(req: NextRequest) {
       } catch { /* non-critical */ }
     }
 
-    // ── Gemini (primary) ────────────────────────────────────────────────────────
-    const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-    console.log('[generate] primary model:', modelName, '| dest:', profile.destination);
-
-    const geminiModel = genAI.getGenerativeModel(
-      {
-        model: modelName,
-        generationConfig: { responseMimeType: 'application/json', temperature: 0.7, maxOutputTokens: 65536 },
-        systemInstruction: JSON_PREAMBLE + SYSTEM_PROMPT,
-      },
-      { apiVersion: 'v1beta' },
-    );
-
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let itinerary: any;
-    let provider = 'gemini';
+    let provider = 'claude';
 
-    // ── Try Gemini ──────────────────────────────────────────────────────────────
+    // ── 1. Claude (primary) ─────────────────────────────────────────────────────
     try {
-      const aiResult = await withRetry(() =>
-        geminiModel.generateContent(buildUserPrompt(profile, classifiedResults, hotelContext))
+      const raw = await withRetry(
+        () => callClaude(profile, classifiedResults, hotelContext),
+        'Claude',
       );
-      const raw = aiResult.response.text();
-      const finishReason = aiResult.response.candidates?.[0]?.finishReason ?? 'UNKNOWN';
-      console.log('Gemini Raw Output Length:', raw.length, 'chars | finishReason:', finishReason);
+      console.log('Claude Raw Output Length:', raw.length, 'chars');
       itinerary = parseAIJson(raw);
-    } catch (geminiErr) {
-      if (!isProviderFailure(geminiErr)) throw geminiErr;
-      console.warn('Google failed, switching to OpenAI fallback');
-      console.warn('[generate] Gemini error:', geminiErr instanceof Error ? geminiErr.message : String(geminiErr));
+    } catch (claudeErr) {
+      if (!isProviderFailure(claudeErr)) throw claudeErr;
+      console.warn('[generate] Claude failed — switching to OpenAI backup');
+      console.warn('[generate] Claude error:', claudeErr instanceof Error ? claudeErr.message : String(claudeErr));
 
-      // ── Try OpenAI ────────────────────────────────────────────────────────────
+      // ── 2. OpenAI (backup 1) ──────────────────────────────────────────────────
       try {
-        const openaiRaw = await callOpenAI(profile, classifiedResults, hotelContext);
-        console.log('OpenAI Raw Output Length:', openaiRaw.length, 'chars');
-        itinerary = parseAIJson(openaiRaw);
+        const raw = await withRetry(
+          () => callOpenAI(profile, classifiedResults, hotelContext),
+          'OpenAI',
+        );
+        console.log('OpenAI Raw Output Length:', raw.length, 'chars');
+        itinerary = parseAIJson(raw);
         provider = 'openai';
       } catch (openaiErr) {
-        console.warn('[generate] OpenAI also failed — switching to Claude final fallback');
+        console.warn('[generate] OpenAI also failed — switching to Gemini final backup');
         console.warn('[generate] OpenAI error:', openaiErr instanceof Error ? openaiErr.message : String(openaiErr));
 
-        // ── Try Claude (final fallback) ───────────────────────────────────────
-        const claudeRaw = await callClaude(profile, classifiedResults, hotelContext);
-        console.log('Claude Raw Output Length:', claudeRaw.length, 'chars');
-        itinerary = parseAIJson(claudeRaw);
-        provider = 'claude';
+        // ── 3. Gemini (final backup) ────────────────────────────────────────────
+        const raw = await withRetry(
+          () => callGemini(profile, classifiedResults, hotelContext),
+          'Gemini',
+        );
+        console.log('Gemini Raw Output Length:', raw.length, 'chars');
+        itinerary = parseAIJson(raw);
+        provider = 'gemini';
       }
     }
 
     console.log(`[generate] provider used: ${provider}`);
 
-    // ── Attach metadata ─────────────────────────────────────────────────────────
+    // ── Metadata ────────────────────────────────────────────────────────────────
     itinerary._meta = {
       searchEnabled: classifiedResults.length > 0,
       sourcesFound: classifiedResults.length,
