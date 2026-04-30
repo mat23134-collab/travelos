@@ -1,32 +1,107 @@
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NextRequest, NextResponse } from 'next/server';
+import { TravelerProfile } from '@/lib/types';
+import { SYSTEM_PROMPT, buildUserPrompt } from '@/lib/prompts';
+import { runChainOfThoughtSearch, searchWeb } from '@/lib/rag';
 import { supabase } from '@/lib/supabase';
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
+
+function parseGeminiJson(rawText: string): unknown {
+  const match = rawText.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error('No JSON object found in AI response. Start: ' + rawText.slice(0, 200));
+  return JSON.parse(match[0]);
+}
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const destination = body?.destination ?? '';
+    const profile: TravelerProfile = await req.json();
 
-    if (!destination) {
+    if (!profile.destination) {
       return NextResponse.json({ error: 'Destination is required' }, { status: 400 });
     }
 
-    const { data, error } = await supabase
+    // ── RAG search ──────────────────────────────────────────────────────────────
+    const classifiedResults = await runChainOfThoughtSearch(profile).catch(() => []);
+
+    let hotelContext: string | undefined;
+    if (!profile.hotelBooked?.trim()) {
+      try {
+        const accommodation = profile.accommodation?.replace(/-/g, ' ') ?? 'boutique hotel';
+        const query = 'best ' + accommodation + ' ' + profile.destination + ' ' + profile.budget + ' neighborhood review 2025 2026';
+        const results = await searchWeb(query);
+        if (results.length > 0) {
+          hotelContext = results
+            .slice(0, 4)
+            .map((r) => '- ' + r.title + ': ' + r.snippet.slice(0, 220))
+            .join('\n');
+        }
+      } catch { /* non-critical */ }
+    }
+
+    // ── Gemini generation ───────────────────────────────────────────────────────
+    const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    console.log('[generate] model:', modelName, '| dest:', profile.destination);
+
+    const model = genAI.getGenerativeModel(
+      {
+        model: modelName,
+        generationConfig: {
+          responseMimeType: 'application/json',
+          temperature: 0.7,
+          maxOutputTokens: 8192,
+        },
+        systemInstruction:
+          'IMPORTANT: Your output MUST be a raw JSON object only. ' +
+          'Do NOT include markdown blocks, backticks, or any text outside the curly braces. ' +
+          'Start your response immediately with { and end with }. ' +
+          SYSTEM_PROMPT,
+      },
+      { apiVersion: 'v1beta' },
+    );
+
+    const aiResult = await model.generateContent(
+      buildUserPrompt(profile, classifiedResults, hotelContext)
+    );
+    const raw = aiResult.response.text();
+    console.log('[generate] AI response length:', raw.length, 'chars');
+
+    // ── Parse JSON ──────────────────────────────────────────────────────────────
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const itinerary: any = parseGeminiJson(raw);
+
+    itinerary._meta = {
+      searchEnabled: classifiedResults.length > 0,
+      sourcesFound: classifiedResults.length,
+      hiddenGems: classifiedResults.filter((r) => r.vibeScore === 'hidden-gem').length,
+      trapsFiltered: classifiedResults.filter((r) => r.vibeScore === 'tourist-trap').length,
+      contradictionsFound: classifiedResults.filter((r) => r.contradictionNote).length,
+    };
+
+    // ── Save to Supabase ────────────────────────────────────────────────────────
+    const hotelInfo =
+      itinerary.basecamp?.booked?.name ??
+      itinerary.basecamp?.recommendations?.[0]?.name ??
+      null;
+
+    const { data, error: dbErr } = await supabase
       .from('itineraries')
-      .insert([{ destination, status: 'generating', profile_json: body }])
+      .insert([{
+        destination: itinerary.destination || profile.destination,
+        hotel_info: hotelInfo,
+        itinerary_json: { ...itinerary, _profile: profile },
+      }])
       .select('id')
       .single();
 
-    if (error) {
-      console.error('[generate] insert error:', error.message);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (dbErr) {
+      console.error('[generate] Supabase insert error:', dbErr.message);
+      return NextResponse.json({ error: 'Database error: ' + dbErr.message }, { status: 500 });
     }
 
-    if (!data?.id) {
-      return NextResponse.json({ error: 'Insert returned no ID' }, { status: 500 });
-    }
+    console.log('[generate] saved row id:', data.id);
+    return NextResponse.json({ id: data.id, itinerary });
 
-    console.log('[generate] created row id:', data.id);
-    return NextResponse.json({ id: data.id });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('[generate] unhandled error:', msg);

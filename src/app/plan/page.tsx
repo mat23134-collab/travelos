@@ -387,30 +387,27 @@ export default function PlanPage() {
     };
 
     try {
-      // Store profile so the itinerary page can show it during polling
       sessionStorage.setItem('travelos_profile', JSON.stringify(profile));
       localStorage.removeItem(STORAGE_KEY);
 
-      // Phase 1: create the Supabase row, get id immediately
+      // Single blocking request — Railway has no timeout, LoadingScreen shows while we wait
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(profile),
       });
 
-      // Read as text first so we can log the raw response on failure
+      // Read as text first so a non-JSON response surfaces cleanly
       const rawText = await res.text();
-      console.log('[plan] Phase 1 raw response:', rawText.slice(0, 500));
+      console.log('[plan] /api/generate response:', rawText.slice(0, 300));
 
-      // Always try to parse as JSON; if it fails, surface the raw text
-      let result: { id?: string; error?: string } = {};
+      let result: { id?: string; itinerary?: unknown; error?: string } = {};
       try {
         result = JSON.parse(rawText);
       } catch {
-        throw new Error('Non-JSON response from server: ' + rawText.slice(0, 300));
+        throw new Error('Server returned a non-JSON response: ' + rawText.slice(0, 200));
       }
 
-      // Surface server-side errors directly on screen
       if (!res.ok || result.error) {
         throw new Error(result.error || `Server error ${res.status}`);
       }
@@ -418,11 +415,14 @@ export default function PlanPage() {
       const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       const itineraryId = result.id ?? '';
       if (!UUID_RE.test(itineraryId)) {
-        throw new Error('Server returned an invalid ID: "' + itineraryId + '". Check Vercel logs for the insert error.');
+        throw new Error('Invalid ID returned: "' + itineraryId + '"');
       }
 
-      // Redirect immediately — itinerary page fires the worker and polls
-      console.log('[plan] Redirecting to /itinerary/' + itineraryId);
+      // Cache itinerary locally so the non-id /itinerary route also works
+      if (result.itinerary) {
+        sessionStorage.setItem('travelos_itinerary', JSON.stringify(result.itinerary));
+      }
+
       router.push('/itinerary/' + itineraryId);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
