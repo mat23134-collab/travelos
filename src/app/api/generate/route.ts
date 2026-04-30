@@ -49,12 +49,15 @@ export async function POST(req: NextRequest) {
         generationConfig: {
           responseMimeType: 'application/json',
           temperature: 0.7,
-          maxOutputTokens: 8192,
+          maxOutputTokens: 65536,
         },
         systemInstruction:
           'IMPORTANT: Your output MUST be a raw JSON object only. ' +
           'Do NOT include markdown blocks, backticks, or any text outside the curly braces. ' +
           'Start your response immediately with { and end with }. ' +
+          'Your response must be a COMPLETE, valid JSON object. ' +
+          'If the itinerary is long, prioritize quality over quantity to ensure the JSON structure is NEVER broken or truncated. ' +
+          'Always close every array bracket and every object brace before finishing. ' +
           SYSTEM_PROMPT,
       },
       { apiVersion: 'v1beta' },
@@ -64,7 +67,13 @@ export async function POST(req: NextRequest) {
       buildUserPrompt(profile, classifiedResults, hotelContext)
     );
     const raw = aiResult.response.text();
-    console.log('[generate] AI response length:', raw.length, 'chars');
+    const finishReason = aiResult.response.candidates?.[0]?.finishReason ?? 'UNKNOWN';
+    console.log('Gemini Raw Output Length:', raw.length, 'chars | finishReason:', finishReason);
+    if (finishReason === 'MAX_TOKENS') {
+      console.warn('[generate] WARNING: response was cut off by token limit — JSON may be incomplete');
+    }
+    console.log('[generate] raw start:', raw.slice(0, 200));
+    console.log('[generate] raw end:  ', raw.slice(-200));
 
     // ── Parse JSON ──────────────────────────────────────────────────────────────
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
