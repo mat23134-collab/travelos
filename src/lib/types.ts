@@ -128,5 +128,6 @@ export interface Itinerary {
     hiddenGems?: number;
     trapsFiltered?: number;
     contradictionsFound?: number;
+    provider?: string;   // e.g. 'claude' — written by generate route
   };
 }

@@ -772,11 +772,13 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
   const warnings    = day.webInsights?.filter((i) => i.type === 'warning') ?? [];
   const tipInsights = (day.webInsights ?? []).filter((i) => i.type !== 'warning');
 
-  const slotPreviews = [
-    day.morning   && { icon: '🌅', name: day.morning.name   },
-    day.afternoon && { icon: '☀️',  name: day.afternoon.name },
-    day.evening   && { icon: '🌙', name: day.evening.name   },
-  ].filter(Boolean) as { icon: string; name: string }[];
+  // Ternary + typed predicate — avoids the `&&` → `undefined` narrowing
+  // problem that breaks strict-mode builds with `.filter(Boolean) as T[]`.
+  const slotPreviews: { icon: string; name: string }[] = [
+    day.morning   ? { icon: '🌅', name: day.morning.name   } : null,
+    day.afternoon ? { icon: '☀️',  name: day.afternoon.name } : null,
+    day.evening   ? { icon: '🌙', name: day.evening.name   } : null,
+  ].filter((e): e is { icon: string; name: string } => e !== null);
 
   return (
     <div

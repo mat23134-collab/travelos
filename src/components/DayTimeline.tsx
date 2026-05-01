@@ -10,11 +10,12 @@ interface TimelineEntry {
   slotColor: string;
 }
 
-const SLOT_META = {
-  morning:   { icon: '🌅', color: '#f59e0b' },
-  afternoon: { icon: '☀️',  color: '#ff5a5f' },
-  evening:   { icon: '🌙', color: '#8b5cf6' },
-} as const;
+// Keyed by slot name — fields match TimelineEntry exactly (slotIcon / slotColor)
+const SLOT_META: Record<'morning' | 'afternoon' | 'evening', { slotIcon: string; slotColor: string }> = {
+  morning:   { slotIcon: '🌅', slotColor: '#f59e0b' },
+  afternoon: { slotIcon: '☀️',  slotColor: '#ff5a5f' },
+  evening:   { slotIcon: '🌙', slotColor: '#8b5cf6' },
+};
 
 function formatTimeSlot(activity: Activity, slot: string): string {
   if (activity.time_slot) return activity.time_slot;
@@ -23,13 +24,14 @@ function formatTimeSlot(activity: Activity, slot: string): string {
 }
 
 export function DayTimeline({ day }: { day: DayPlan }) {
-  const entries: TimelineEntry[] = (
-    [
-      day.morning   && { slot: 'morning'   as const, activity: day.morning,   ...SLOT_META.morning   },
-      day.afternoon && { slot: 'afternoon' as const, activity: day.afternoon, ...SLOT_META.afternoon },
-      day.evening   && { slot: 'evening'   as const, activity: day.evening,   ...SLOT_META.evening   },
-    ] as (TimelineEntry | false)[]
-  ).filter((e): e is TimelineEntry => Boolean(e));
+  // Use ternary (not &&) so the array never contains `undefined`.
+  // Explicit field names (slotIcon / slotColor) avoid the structural mismatch
+  // that broke the build when SLOT_META used icon/color key names.
+  const entries: TimelineEntry[] = [
+    day.morning   ? { slot: 'morning'   as const, activity: day.morning,   ...SLOT_META.morning   } : null,
+    day.afternoon ? { slot: 'afternoon' as const, activity: day.afternoon, ...SLOT_META.afternoon } : null,
+    day.evening   ? { slot: 'evening'   as const, activity: day.evening,   ...SLOT_META.evening   } : null,
+  ].filter((e): e is TimelineEntry => e !== null);
 
   if (entries.length === 0) return null;
 
