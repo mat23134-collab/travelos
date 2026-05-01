@@ -11,6 +11,7 @@ import { QuickEdit } from '@/components/QuickEdit';
 import { SharePanel } from '@/components/SharePanel';
 import { LogisticsDashboard } from '@/components/LogisticsDashboard';
 import { DraftOverview } from '@/components/DraftOverview';
+import { TrendingTicker } from '@/components/TrendingTicker';
 import type { SwapResult } from '@/app/api/swap/route';
 
 const ItineraryMap = dynamic(
@@ -374,6 +375,9 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
           </div>
         </div>
       </nav>
+
+      {/* Trending Now ticker — social proof belt below nav */}
+      <TrendingTicker destination={itinerary.destination} />
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
 

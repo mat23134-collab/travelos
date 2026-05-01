@@ -766,7 +766,15 @@ interface DayCardProps {
 }
 
 export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
-  const warnings = day.webInsights?.filter((i) => i.type === 'warning') ?? [];
+  const [open, setOpen] = useState(false);
+  const warnings    = day.webInsights?.filter((i) => i.type === 'warning') ?? [];
+  const tipInsights = (day.webInsights ?? []).filter((i) => i.type !== 'warning');
+
+  const slotPreviews = [
+    day.morning   && { icon: '🌅', name: day.morning.name   },
+    day.afternoon && { icon: '☀️',  name: day.afternoon.name },
+    day.evening   && { icon: '🌙', name: day.evening.name   },
+  ].filter(Boolean) as { icon: string; name: string }[];
 
   return (
     <div
@@ -788,28 +796,29 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
         }}
       />
 
-      {/* Day header — themed photo with glassmorphism */}
-      <div className="relative z-10 border-b border-white/6 overflow-hidden">
-        {/* Header background photo */}
-        <div className="absolute inset-0 pointer-events-none">
-          <DayPhoto
-            query={destination ? `${destination} ${day.theme ?? ''}`.trim() : (day.theme ?? destination ?? 'travel')}
-            alt={day.theme ?? `Day ${index + 1}`}
-            height={90}
-            dark
+      {/* ── Accordion Header (always visible, tap to expand) ─────────── */}
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full text-left focus:outline-none relative z-10"
+      >
+        <div className="relative overflow-hidden border-b border-white/6">
+          {/* Themed photo background */}
+          <div className="absolute inset-0 pointer-events-none">
+            <DayPhoto
+              query={destination ? `${destination} ${day.theme ?? ''}`.trim() : (day.theme ?? 'travel')}
+              alt={day.theme ?? `Day ${index + 1}`}
+              height={90}
+              dark
+            />
+          </div>
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{ background: 'rgba(10,12,18,0.78)', backdropFilter: 'blur(4px)' }}
           />
-        </div>
-        {/* Glassmorphic dark overlay */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background: 'rgba(10,12,18,0.78)',
-            backdropFilter: 'blur(4px)',
-          }}
-        />
-        {/* Content */}
-        <div className="relative z-10 px-4 pt-4 pb-3 flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-3">
+
+          {/* Header content */}
+          <div className="relative z-10 px-4 pt-4 pb-3 flex items-center gap-3">
+            {/* Day number badge */}
             <div
               className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
               style={{
@@ -819,62 +828,186 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
             >
               {index + 1}
             </div>
-            <div>
-              <div className="text-[11px] text-white/35 font-medium tracking-wide">{day.date ?? ''}</div>
-              <h3 className="font-bold text-white tracking-tight text-sm">{day.theme ?? `Day ${index + 1}`}</h3>
+
+            {/* Title + slot preview */}
+            <div className="flex-1 min-w-0">
+              {day.date && (
+                <div className="text-[10px] text-white/35 font-medium tracking-wide leading-none mb-0.5">
+                  {day.date}
+                </div>
+              )}
+              <h3 className="font-bold text-white tracking-tight text-sm leading-snug truncate">
+                {day.theme ?? `Day ${index + 1}`}
+              </h3>
+              {/* Slot emoji preview — fades out when open */}
+              <AnimatePresence initial={false}>
+                {!open && slotPreviews.length > 0 && (
+                  <motion.div
+                    key="preview"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.18 }}
+                    className="flex items-center gap-1.5 mt-1 overflow-hidden"
+                  >
+                    {slotPreviews.map((s, i) => (
+                      <span key={i} className="text-[11px]">{s.icon}</span>
+                    ))}
+                    <span className="text-[10px] text-white/25 truncate">
+                      {slotPreviews.map((s) => s.name).join(' · ')}
+                    </span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Right: cost pill + rotating chevron */}
+            <div className="flex items-center gap-2.5 flex-shrink-0">
+              {day.estimatedDailyCost && (
+                <div className="text-right hidden sm:block">
+                  <div className="text-[10px] text-white/25 uppercase tracking-wide leading-none mb-0.5">
+                    Est. spend
+                  </div>
+                  <div className="text-sm font-bold text-white/75 tracking-tight">
+                    {day.estimatedDailyCost}
+                  </div>
+                </div>
+              )}
+              <motion.div
+                animate={{ rotate: open ? 180 : 0 }}
+                transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+                className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{
+                  background: open ? 'rgba(255,90,95,0.15)' : 'rgba(255,255,255,0.08)',
+                  border: open ? '1px solid rgba(255,90,95,0.3)' : '1px solid rgba(255,255,255,0.12)',
+                }}
+              >
+                <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
+                  <path
+                    d="M1 1.5L6 6.5L11 1.5"
+                    stroke={open ? 'rgba(255,140,143,0.9)' : 'rgba(255,255,255,0.5)'}
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </motion.div>
             </div>
           </div>
-          <div className="text-right">
-            <div className="text-[10px] text-white/25 uppercase tracking-wide">Est. spend</div>
-            <div className="text-sm font-bold text-white/80 tracking-tight">{day.estimatedDailyCost ?? '—'}</div>
-          </div>
         </div>
-      </div>
+      </button>
 
-      {/* Warnings */}
-      {warnings.length > 0 && (
-        <div className="relative z-10 px-4 pt-3 flex flex-col gap-1.5">
-          {warnings.map((w, i) => (
-            <WebInsightBadge key={i} insight={w} />
-          ))}
-        </div>
-      )}
-
-      {/* Bento grid */}
-      <div className="pt-3 relative z-10">
-        <BentoGrid day={day} destination={destination} onSwapSlot={onSwapSlot} />
-      </div>
-
-      {/* Insider reveal */}
-      <div className="relative z-10">
-        <InsiderReveal insights={day.webInsights ?? []} />
-      </div>
-
-      {/* Dining */}
-      {(day.lunch || day.dinner) && (
-        <div className="relative z-10 px-4 pb-4">
-          <div className="text-[10px] font-semibold uppercase tracking-widest text-white/25 mb-2">Squad Eats</div>
-          <div className="grid sm:grid-cols-2 gap-2">
-            <DiningBlock meal="Lunch" spot={day.lunch} />
-            <DiningBlock meal="Dinner" spot={day.dinner} />
-          </div>
-        </div>
-      )}
-
-      {/* Transport tip */}
-      {day.transportTip && (
-        <div className="relative z-10 px-4 pb-4">
-          <div
-            className="p-3 rounded-2xl border border-blue-500/15"
-            style={{ background: 'rgba(59,130,246,0.07)' }}
+      {/* ── Accordion Body (collapses / expands) ─────────────────────── */}
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key="body"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 30 }}
+            className="overflow-hidden relative z-10"
           >
-            <div className="text-[10px] font-semibold uppercase tracking-widest text-blue-400/60 mb-1">
-              🚌 Getting Around
+            {/* Warnings */}
+            {warnings.length > 0 && (
+              <div className="px-4 pt-3 flex flex-col gap-1.5">
+                {warnings.map((w, i) => (
+                  <WebInsightBadge key={i} insight={w} />
+                ))}
+              </div>
+            )}
+
+            {/* ── 🗺️ Sightseeing Cube ──────────────────────────────── */}
+            <div className="px-4 pt-4">
+              <div
+                className="rounded-2xl overflow-hidden"
+                style={{
+                  background: 'rgba(59,130,246,0.07)',
+                  border: '1px solid rgba(59,130,246,0.16)',
+                  boxShadow: '0 2px 16px -4px rgba(59,130,246,0.12)',
+                }}
+              >
+                <div className="px-4 pt-3 pb-1 flex items-center gap-1.5">
+                  <span className="text-sm leading-none">🗺️</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-blue-400/80">
+                    Sightseeing
+                  </span>
+                </div>
+                <BentoGrid day={day} destination={destination} onSwapSlot={onSwapSlot} />
+              </div>
             </div>
-            <p className="text-xs text-blue-300/55 leading-relaxed">{day.transportTip}</p>
-          </div>
-        </div>
-      )}
+
+            {/* ── 🤫 Insider Intel Cube ────────────────────────────── */}
+            {tipInsights.length > 0 && (
+              <div className="px-4 pt-3">
+                <div
+                  className="rounded-2xl overflow-hidden"
+                  style={{
+                    background: 'rgba(139,92,246,0.07)',
+                    border: '1px solid rgba(139,92,246,0.16)',
+                    boxShadow: '0 2px 16px -4px rgba(139,92,246,0.12)',
+                  }}
+                >
+                  <div className="px-4 pt-3 pb-0 flex items-center gap-1.5">
+                    <span className="text-sm leading-none">🤫</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-violet-400/80">
+                      Insider Intel
+                    </span>
+                  </div>
+                  <InsiderReveal insights={day.webInsights ?? []} />
+                </div>
+              </div>
+            )}
+
+            {/* ── 🍽️ Food & Dining Cube ────────────────────────────── */}
+            {(day.lunch || day.dinner) && (
+              <div className="px-4 pt-3">
+                <div
+                  className="rounded-2xl p-4"
+                  style={{
+                    background: 'rgba(249,115,22,0.07)',
+                    border: '1px solid rgba(249,115,22,0.16)',
+                    boxShadow: '0 2px 16px -4px rgba(249,115,22,0.12)',
+                  }}
+                >
+                  <div className="flex items-center gap-1.5 mb-3">
+                    <span className="text-sm leading-none">🍽️</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-orange-400/80">
+                      Food & Dining
+                    </span>
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-2">
+                    <DiningBlock meal="Lunch" spot={day.lunch} />
+                    <DiningBlock meal="Dinner" spot={day.dinner} />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── 🚌 Getting Around Cube ───────────────────────────── */}
+            {day.transportTip && (
+              <div className="px-4 pt-3 pb-4">
+                <div
+                  className="rounded-2xl p-4"
+                  style={{
+                    background: 'rgba(16,185,129,0.07)',
+                    border: '1px solid rgba(16,185,129,0.16)',
+                    boxShadow: '0 2px 16px -4px rgba(16,185,129,0.12)',
+                  }}
+                >
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <span className="text-sm leading-none">🚌</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400/80">
+                      Getting Around
+                    </span>
+                  </div>
+                  <p className="text-xs text-emerald-300/60 leading-relaxed">{day.transportTip}</p>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
