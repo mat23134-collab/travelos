@@ -58,6 +58,12 @@ export interface Activity {
   transitFromPrevious?: string;
   // vibe
   vibeLabel?: VibeLabel;
+  // geo — used for day-level map pins
+  latitude?: number;
+  longitude?: number;
+  // UI helpers
+  time_slot?: string;       // formatted range e.g. "09:00 – 11:30"
+  category_emoji?: string;  // single emoji e.g. "🏛️" matching cube category
   // media & social proof
   videoUrl?: string;
   reviews?: string[];

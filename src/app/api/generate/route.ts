@@ -17,12 +17,18 @@ const JSON_PREAMBLE =
 // ── JSON parser ───────────────────────────────────────────────────────────────
 
 function parseAIJson(rawText: string): unknown {
-  try {
-    return JSON.parse(rawText.trim());
-  } catch { /* fall through to extraction */ }
-  const match = rawText.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error('No JSON object found in response. Start: ' + rawText.slice(0, 200));
-  return JSON.parse(match[0]);
+  const text = rawText.trim();
+  // Fast path — already clean JSON
+  try { return JSON.parse(text); } catch { /* fall through */ }
+  // Strict extraction: first { to last } (handles any preamble / postamble
+  // that Claude occasionally emits before the opening brace, and any trailing
+  // prose after the closing brace — common with large payloads).
+  const start = text.indexOf('{');
+  const end   = text.lastIndexOf('}');
+  if (start === -1 || end === -1 || end <= start) {
+    throw new Error('No JSON object found in AI response. Preview: ' + text.slice(0, 300));
+  }
+  return JSON.parse(text.slice(start, end + 1));
 }
 
 // ── Retry helper (handles 529 overload / 529 / rate-limit) ───────────────────
@@ -134,12 +140,18 @@ export async function POST(req: NextRequest) {
       itinerary.basecamp?.recommendations?.[0]?.name ??
       null;
 
+    // Normalise start_date: accept ISO string or "YYYY-MM-DD", coerce to date-only
+    const rawDate = profile.startDate?.trim();
+    const startDate = rawDate ? rawDate.slice(0, 10) : null;   // "YYYY-MM-DD" or null
+
     const { data, error: dbErr } = await supabase
       .from('itineraries')
       .insert([{
-        destination: itinerary.destination || profile.destination,
-        hotel_info: hotelInfo,
-        itinerary_json: { ...itinerary, _profile: profile },
+        destination:      itinerary.destination || profile.destination,
+        destination_city: itinerary.destination || profile.destination,
+        start_date:       startDate,
+        hotel_info:       hotelInfo,
+        itinerary_json:   { ...itinerary, _profile: profile },
       }])
       .select('id')
       .single();

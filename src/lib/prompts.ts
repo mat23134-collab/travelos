@@ -120,6 +120,15 @@ TIMING RULES (critical):
 - Morning slot: typically 08:30–12:00. Afternoon: 13:30–17:30. Evening: 19:00–22:00
 - The bestTimeToVisit field MUST contain a specific insight (e.g., "Arrive at 09:00 to beat the tour buses that arrive at 11 AM")
 - transitFromPrevious = estimated travel time from the previous slot's activity
+- time_slot = startTime + " – " + endTime as a single formatted string, e.g. "09:00 – 11:30"
+
+GEO RULES (critical — used for map rendering):
+- Every activity MUST include latitude and longitude as floats with 4 decimal places
+- Coordinates must be accurate GPS locations for the specific venue/neighborhood, NOT the city centre
+- category_emoji: one emoji that best matches the activity type:
+  🏛️ Historic/Monuments  🎨 Art/Museums  🌿 Parks/Nature  🛍️ Shopping/Markets
+  🎶 Music/Nightlife     🌊 Beaches/Water  🏰 Castles/Palaces  🍕 Street Food
+  ☕ Cafés/Coffee  🍷 Wine/Bars  🎭 Shows/Theatre  🚶 Walking/Scenic
 
 VIBE RULES:
 - vibeLabel must be one of: hidden-gem | local-favorite | viral-trend | classic | luxury-pick | budget-pick
@@ -161,6 +170,7 @@ CRITICAL: Return ONLY a valid JSON object — no markdown fences, no prose. Stru
         "neighborhood": "string",
         "startTime": "09:00",
         "endTime": "11:30",
+        "time_slot": "09:00 – 11:30",
         "bestTimeToVisit": "max 12 words",
         "transitFromPrevious": null,
         "duration": "2.5 hours",
@@ -168,10 +178,13 @@ CRITICAL: Return ONLY a valid JSON object — no markdown fences, no prose. Stru
         "estimatedCost": "Free / $15",
         "tags": ["tag1", "tag2", "tag3"],
         "isHiddenGem": false,
-        "vibeLabel": "hidden-gem | local-favorite | viral-trend | classic | luxury-pick | budget-pick"
+        "vibeLabel": "hidden-gem | local-favorite | viral-trend | classic | luxury-pick | budget-pick",
+        "latitude": 41.9028,
+        "longitude": 12.4964,
+        "category_emoji": "🏛️"
       },
-      "afternoon": { "same fields as morning, transitFromPrevious: '12 min walk'" },
-      "evening":   { "same fields as morning, transitFromPrevious: '20 min metro'" },
+      "afternoon": { "same fields as morning including latitude, longitude, time_slot, category_emoji — transitFromPrevious: '12 min walk'" },
+      "evening":   { "same fields as morning including latitude, longitude, time_slot, category_emoji — transitFromPrevious: '20 min metro'" },
       "lunch":  { "name": "string", "cuisine": "string", "priceRange": "$$", "mustTry": "one dish", "neighborhood": "string" },
       "dinner": { "name": "string", "cuisine": "string", "priceRange": "$$", "mustTry": "one dish", "neighborhood": "string" },
       "estimatedDailyCost": "string",
@@ -239,6 +252,7 @@ ${vibeDirective}
 ${ragBlock}
 FINAL INSTRUCTIONS:
 - Every activity MUST have startTime, endTime, bestTimeToVisit, and transitFromPrevious
+- Every activity MUST have latitude, longitude (accurate GPS, 4 dp), time_slot, and category_emoji
 - Cluster all activities within walking distance of each other per day
 - webInsights: exactly 1 per day — single most important insight only
 - MUST include the "basecamp" field in the JSON output (follow BASECAMP RULES above)`;

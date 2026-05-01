@@ -6,6 +6,8 @@ import { DayPlan, Activity, DiningSpot, VibeLabel, WebInsight } from '@/lib/type
 import { DayPhoto } from './DayPhoto';
 import { VideoPreview } from './VideoPreview';
 import { WebInsightBadge } from './WebInsightBadge';
+import { DayTimeline } from './DayTimeline';
+import { DayMapPlaceholder } from './DayMapPlaceholder';
 
 // ─── Spring preset ────────────────────────────────────────────────────────────
 
@@ -934,6 +936,48 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
                   </span>
                 </div>
                 <BentoGrid day={day} destination={destination} onSwapSlot={onSwapSlot} />
+              </div>
+            </div>
+
+            {/* ── 📅 Day Timeline Cube ─────────────────────────────── */}
+            <div className="px-4 pt-3">
+              <div
+                className="rounded-2xl p-4"
+                style={{
+                  background: 'rgba(239,68,68,0.07)',
+                  border: '1px solid rgba(239,68,68,0.15)',
+                  boxShadow: '0 2px 16px -4px rgba(239,68,68,0.10)',
+                }}
+              >
+                <div className="flex items-center gap-1.5 mb-3">
+                  <span className="text-sm leading-none">📅</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-rose-400/80">
+                    Day Timeline
+                  </span>
+                </div>
+                <DayTimeline day={day} />
+              </div>
+            </div>
+
+            {/* ── 📍 Day Route / Map Cube ───────────────────────────── */}
+            <div className="px-4 pt-3">
+              <div
+                className="rounded-2xl overflow-hidden"
+                style={{
+                  background: 'rgba(99,102,241,0.07)',
+                  border: '1px solid rgba(99,102,241,0.15)',
+                  boxShadow: '0 2px 16px -4px rgba(99,102,241,0.10)',
+                }}
+              >
+                <div className="px-4 pt-3 pb-2 flex items-center gap-1.5">
+                  <span className="text-sm leading-none">📍</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-400/80">
+                    Day Route
+                  </span>
+                </div>
+                <div className="px-4 pb-4">
+                  <DayMapPlaceholder day={day} />
+                </div>
               </div>
             </div>
 
