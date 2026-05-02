@@ -369,6 +369,12 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
               </motion.button>
             )}
             <SharePanel itinerary={itinerary} profile={profile} />
+            <Link
+              href={`/explore/${encodeURIComponent(itinerary.destination)}`}
+              className="text-sm font-medium px-4 py-2 rounded-lg border border-[#e5e7eb] text-[#374151] hover:bg-[#f3f4f6] transition-colors"
+            >
+              Scout Picks 💎
+            </Link>
             <Link href="/plan" className="text-sm font-medium px-4 py-2 rounded-lg border border-[#e5e7eb] text-[#374151] hover:bg-[#f3f4f6] transition-colors">
               ← New Trip
             </Link>
