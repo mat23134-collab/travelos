@@ -20,6 +20,9 @@ export interface Place {
   category_emoji: string;     // single emoji
   social_proof_url: string | null; // TikTok / Instagram URL if known
   vibe_label: string;         // hidden-gem | local-favorite | viral-trend | …
+  // Reliability fields — written by Janitor (scripts/scout-agent.ts --janitor)
+  status?: 'open' | 'closed' | 'renovating' | 'unverified'; // current venue status
+  last_verified_at?: string;  // ISO-8601 — when Exa last confirmed status
   created_at?: string;
 }
 

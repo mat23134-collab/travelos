@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { DayPlan, Activity } from '@/lib/types';
+import { VerificationBadge } from '@/components/VerificationBadge';
 
 interface TimelineEntry {
   slot: 'morning' | 'afternoon' | 'evening';
@@ -80,9 +81,15 @@ export function DayTimeline({ day }: { day: DayPlan }) {
                 {formatTimeSlot(activity, slot)}
               </span>
 
-              {/* Activity name */}
-              <div className="font-semibold text-white/90 text-sm tracking-tight leading-snug">
-                {activity.name}
+              {/* Activity name + verification badge */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="font-semibold text-white/90 text-sm tracking-tight leading-snug">
+                  {activity.name}
+                </div>
+                <VerificationBadge
+                  status={activity.verificationStatus}
+                  verifiedAt={activity.verifiedAt}
+                />
               </div>
 
               {/* Neighborhood */}

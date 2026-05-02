@@ -1,23 +1,18 @@
 /**
- * TravelOS Scout Agent — v2 (Exa-powered)
+ * TravelOS Scout Agent — v3 (Exa-powered + Janitor mode)
  * ─────────────────────────────────────────────────────────────────────────────
  * Standalone CLI script — runs outside the Next.js app.
  *
- * Search priority:
- *   1. Exa  (neural + social search — best for underground/viral discovery)
- *   2. Tavily (broad web search — fallback if no Exa key)
- *   3. Mock  (built-in rich data — for offline testing)
- *
- * Usage:
+ * SCOUT MODE (default): discover & insert new places for a city
  *   npx tsx scripts/scout-agent.ts <city>            # auto-select best engine
  *   npx tsx scripts/scout-agent.ts <city> --mock     # force mock (offline)
  *   npx tsx scripts/scout-agent.ts <city> --tavily   # force Tavily even if Exa set
- *   npx tsx scripts/scout-agent.ts <city> --verbose  # print raw content before extraction
+ *   npx tsx scripts/scout-agent.ts <city> --verbose  # print raw content
  *
- * Examples:
- *   npx tsx scripts/scout-agent.ts Rome
- *   npx tsx scripts/scout-agent.ts Tokyo --verbose
- *   npx tsx scripts/scout-agent.ts Paris --mock
+ * JANITOR MODE: re-verify stale places (last_verified_at > 30 days or NULL)
+ *   npx tsx scripts/scout-agent.ts --janitor             # all stale places
+ *   npx tsx scripts/scout-agent.ts --janitor --city Rome # stale places for one city
+ *   npx tsx scripts/scout-agent.ts --janitor --dry-run   # preview without writing
  *
  * Required env vars (in .env.local):
  *   ANTHROPIC_API_KEY           — Claude API key
@@ -25,9 +20,13 @@
  *   SUPABASE_SERVICE_ROLE_KEY   — Service-role key (bypasses Row-Level Security)
  *
  * Optional:
- *   EXA_API_KEY                 — Exa neural search (primary engine)
+ *   EXA_API_KEY                 — Exa neural search (required for janitor mode)
  *   TAVILY_API_KEY              — Tavily web search (fallback engine)
  *   ANTHROPIC_MODEL             — override Claude model (default: claude-haiku-4-5-20251001)
+ *
+ * Supabase migration (run once before janitor mode):
+ *   ALTER TABLE places ADD COLUMN IF NOT EXISTS last_verified_at timestamptz;
+ *   ALTER TABLE places ADD COLUMN IF NOT EXISTS status text DEFAULT 'unverified';
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -548,27 +547,230 @@ async function upsertPlaces(
   return { inserted, skipped, errors };
 }
 
+// ── Janitor: verify stale places ──────────────────────────────────────────────
+
+interface StalePlace {
+  id: string;
+  name: string;
+  city: string;
+  category_emoji: string;
+  vibe_label: string;
+  last_verified_at: string | null;
+  status: string | null;
+}
+
+async function runJanitor(filterCity: string | undefined, dryRun: boolean): Promise<void> {
+  const apiKey = process.env.EXA_API_KEY ?? '';
+  if (!apiKey || apiKey.includes('your_')) {
+    console.error('✗ Janitor mode requires EXA_API_KEY to be set in .env.local');
+    process.exit(1);
+  }
+
+  const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').replace(/\/+$/, '');
+  const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
+  const supabase    = createClient(supabaseUrl, serviceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
+  // 30-day staleness cutoff
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  // Query stale places
+  let query = supabase
+    .from('places')
+    .select('id, name, city, category_emoji, vibe_label, last_verified_at, status')
+    .or(`last_verified_at.is.null,last_verified_at.lt.${cutoff}`)
+    .order('last_verified_at', { ascending: true });
+
+  if (filterCity) {
+    query = query.ilike('city', filterCity);
+  }
+
+  const { data: stalePlaces, error } = await query;
+  if (error) {
+    console.error(`✗ Supabase query error: ${error.message}`);
+    process.exit(1);
+  }
+
+  const places = (stalePlaces ?? []) as StalePlace[];
+  console.log(`   Found ${places.length} stale place${places.length !== 1 ? 's' : ''} (unverified or last checked > 30 days ago)\n`);
+
+  if (places.length === 0) {
+    console.log('✅ All places are up-to-date. Nothing to do.');
+    return;
+  }
+
+  let verified = 0;
+  let flagged  = 0;
+  let errors   = 0;
+
+  for (const place of places) {
+    const age = place.last_verified_at
+      ? Math.floor((Date.now() - new Date(place.last_verified_at).getTime()) / (1000 * 60 * 60 * 24))
+      : null;
+    const ageLabel = age !== null ? `${age}d ago` : 'never verified';
+
+    process.stdout.write(`  🔍 ${place.category_emoji} ${place.name.padEnd(36)} [${ageLabel}] → `);
+
+    try {
+      const result = await verifyWithExa(place.name, place.city, apiKey);
+
+      const statusMap: Record<string, string> = {
+        'verified-open':      'open',
+        'flagged-closed':     'closed',
+        'flagged-renovating': 'renovating',
+        'unverified':         'unverified',
+      };
+      const newStatus = statusMap[result.status] ?? 'unverified';
+      const icon =
+        result.status === 'verified-open'      ? '✓ OPEN' :
+        result.status === 'flagged-closed'     ? '⚠ CLOSED' :
+        result.status === 'flagged-renovating' ? '🔧 RENOVATING' : '? UNKNOWN';
+
+      console.log(icon);
+      if (result.signal) console.log(`       Signal: "${result.signal}"`);
+
+      if (dryRun) {
+        verified++;
+        if (result.status !== 'verified-open' && result.status !== 'unverified') flagged++;
+        continue;
+      }
+
+      const { error: updateErr } = await supabase
+        .from('places')
+        .update({
+          last_verified_at: result.checkedAt,
+          status:           newStatus,
+        })
+        .eq('id', place.id);
+
+      if (updateErr) {
+        console.error(`       ✗ Update failed: ${updateErr.message}`);
+        errors++;
+      } else {
+        verified++;
+        if (result.status !== 'verified-open' && result.status !== 'unverified') flagged++;
+      }
+    } catch (err) {
+      console.log('✗ ERROR');
+      console.error(`       ${err instanceof Error ? err.message : String(err)}`);
+      errors++;
+    }
+
+    // Small delay to avoid hammering Exa
+    await new Promise((r) => setTimeout(r, 300));
+  }
+
+  console.log('');
+  console.log(dryRun ? '✅ Janitor dry-run complete (no writes)!' : '✅ Janitor complete!');
+  console.log(`   Verified : ${verified} (${verified - flagged} open, ${flagged} flagged)`);
+  console.log(`   Errors   : ${errors}`);
+  if (flagged > 0 && !dryRun) {
+    console.log(`\n   ⚠  ${flagged} place${flagged !== 1 ? 's' : ''} flagged — check Supabase and remove or update them`);
+  }
+}
+
+// Lightweight inline Exa call — avoids importing src/lib/verification.ts
+// (keeps the script self-contained; the logic mirrors verification.ts exactly)
+async function verifyWithExa(
+  name: string,
+  city: string,
+  apiKey: string,
+): Promise<{ status: string; signal?: string; checkedAt: string }> {
+  const checkedAt = new Date().toISOString();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5000);
+
+  try {
+    const res = await fetch('https://api.exa.ai/search', {
+      method: 'POST',
+      signal: controller.signal,
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
+      body: JSON.stringify({
+        query: `"${name}" ${city} closed renovating construction 2025 2026`,
+        num_results: 5,
+        type: 'keyword',
+        use_autoprompt: false,
+        contents: {
+          highlights: {
+            query: `${name} closed OR renovating OR construction OR temporarily closed`,
+            numSentences: 2,
+            highlightsPerUrl: 2,
+          },
+        },
+      }),
+    });
+    clearTimeout(timer);
+    if (!res.ok) return { status: 'unverified', checkedAt };
+
+    const data = (await res.json()) as { results: Array<{ highlights?: string[] }> };
+    const highlights = data.results.flatMap((r) => r.highlights ?? []);
+    const HOURS = /close[sd]?\s+at\s+\d|closes?\s+\d|open\s+until|\d\s*[ap]m|\d{1,2}:\d{2}/i;
+
+    const patterns: Array<{ re: RegExp; status: string; lowConf: boolean }> = [
+      { re: /permanently\s+closed/i,               status: 'flagged-closed',      lowConf: false },
+      { re: /closed\s+permanently/i,               status: 'flagged-closed',      lowConf: false },
+      { re: /no\s+longer\s+(open|operating)/i,     status: 'flagged-closed',      lowConf: false },
+      { re: /temporarily\s+closed/i,               status: 'flagged-closed',      lowConf: false },
+      { re: /closed\s+for\s+renovation/i,          status: 'flagged-renovating',  lowConf: false },
+      { re: /under\s+(major\s+)?renovation/i,      status: 'flagged-renovating',  lowConf: false },
+      { re: /\bclosed\b/i,                         status: 'flagged-closed',      lowConf: true  },
+      { re: /\bconstruction\b/i,                   status: 'flagged-renovating',  lowConf: true  },
+    ];
+
+    for (const h of highlights) {
+      for (const { re, status, lowConf } of patterns) {
+        if (!re.test(h)) continue;
+        if (lowConf && HOURS.test(h)) continue;
+        return { status, signal: h.slice(0, 120).trim(), checkedAt };
+      }
+    }
+    return { status: 'verified-open', checkedAt };
+  } catch {
+    clearTimeout(timer);
+    return { status: 'unverified', checkedAt };
+  }
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
   loadDotEnv();
 
-  const args       = process.argv.slice(2);
-  const city       = args.find((a) => !a.startsWith('--'));
-  const forceMock  = args.includes('--mock');
+  const args        = process.argv.slice(2);
+  const isJanitor   = args.includes('--janitor');
+  const dryRun      = args.includes('--dry-run');
+  const forceMock   = args.includes('--mock');
   const forceTavily = args.includes('--tavily');
-  const verbose    = args.includes('--verbose');
+  const verbose     = args.includes('--verbose');
 
-  if (!city) {
+  // --city flag works in both modes
+  const cityFlagIdx = args.indexOf('--city');
+  const cityFlag    = cityFlagIdx !== -1 ? args[cityFlagIdx + 1] : undefined;
+
+  // In scout mode, city is the first non-flag argument
+  const city = isJanitor
+    ? (cityFlag ?? undefined)
+    : (args.find((a) => !a.startsWith('--')) ?? cityFlag);
+
+  if (!isJanitor && !city) {
     console.error(
       [
         '',
-        'Usage:   npx tsx scripts/scout-agent.ts <city> [options]',
+        'SCOUT MODE (discover new places):',
+        '  npx tsx scripts/scout-agent.ts <city> [options]',
         '',
-        'Options:',
-        '  --mock     Force mock data (no API keys needed, offline)',
-        '  --tavily   Force Tavily even if EXA_API_KEY is set',
-        '  --verbose  Print raw search content before extraction',
+        '  Options:',
+        '    --mock        Force mock data (offline, no API keys needed)',
+        '    --tavily      Force Tavily even if EXA_API_KEY is set',
+        '    --verbose     Print raw search content before extraction',
+        '',
+        'JANITOR MODE (re-verify stale places):',
+        '  npx tsx scripts/scout-agent.ts --janitor [options]',
+        '',
+        '  Options:',
+        '    --city <name> Filter to one city (default: all cities)',
+        '    --dry-run     Preview without writing to Supabase',
         '',
         'Engine priority:  Exa (neural) → Tavily → Mock',
         '',
@@ -576,7 +778,8 @@ async function main(): Promise<void> {
         '  npx tsx scripts/scout-agent.ts Rome',
         '  npx tsx scripts/scout-agent.ts Tokyo --verbose',
         '  npx tsx scripts/scout-agent.ts Paris --mock',
-        '  npx tsx scripts/scout-agent.ts London --tavily',
+        '  npx tsx scripts/scout-agent.ts --janitor',
+        '  npx tsx scripts/scout-agent.ts --janitor --city Rome --dry-run',
         '',
       ].join('\n'),
     );
@@ -585,15 +788,26 @@ async function main(): Promise<void> {
 
   // Guard required env vars up-front
   const missing: string[] = [];
-  if (!process.env.ANTHROPIC_API_KEY)         missing.push('ANTHROPIC_API_KEY');
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL)   missing.push('NEXT_PUBLIC_SUPABASE_URL');
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY)  missing.push('SUPABASE_SERVICE_ROLE_KEY');
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL)  missing.push('NEXT_PUBLIC_SUPABASE_URL');
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) missing.push('SUPABASE_SERVICE_ROLE_KEY');
+  if (!isJanitor && !process.env.ANTHROPIC_API_KEY) missing.push('ANTHROPIC_API_KEY');
   if (missing.length) {
     console.error(`✗ Missing required env vars: ${missing.join(', ')}`);
     console.error('  Add them to .env.local then retry.');
     process.exit(1);
   }
 
+  // ── Janitor mode ─────────────────────────────────────────────────────────────
+  if (isJanitor) {
+    console.log(`\n🧹 TravelOS Scout Agent — Janitor Mode`);
+    console.log(`   City   : ${city ?? 'ALL cities'}`);
+    console.log(`   Dry-run: ${dryRun ? 'YES (no writes)' : 'no'}`);
+    console.log('');
+    await runJanitor(city, dryRun);
+    return;
+  }
+
+  // ── Scout mode ───────────────────────────────────────────────────────────────
   const hasExa    = !!process.env.EXA_API_KEY    && !process.env.EXA_API_KEY.includes('your_');
   const hasTavily = !!process.env.TAVILY_API_KEY && !process.env.TAVILY_API_KEY.includes('your_');
   const engineLabel = forceMock
@@ -606,8 +820,8 @@ async function main(): Promise<void> {
           ? 'TAVILY (Exa key not set)'
           : 'MOCK (no API keys)';
 
-  console.log(`\n🔍 TravelOS Scout Agent v2`);
-  console.log(`   City   : ${city}`);
+  console.log(`\n🔍 TravelOS Scout Agent v3 — Scout Mode`);
+  console.log(`   City   : ${city!}`);
   console.log(`   Engine : ${engineLabel}`);
   console.log(`   Model  : ${process.env.ANTHROPIC_MODEL ?? 'claude-haiku-4-5-20251001'}`);
   console.log('');
@@ -615,7 +829,7 @@ async function main(): Promise<void> {
   try {
     // ── Phase 1: gather raw content ──────────────────────────────────────────
     console.log('📡 Phase 1 — Gathering research content…');
-    const { content: rawContent, engine } = await gatherRawContent(city, forceMock, forceTavily);
+    const { content: rawContent, engine } = await gatherRawContent(city!, forceMock, forceTavily);
     console.log(`   ${rawContent.length.toLocaleString()} chars via ${engine.toUpperCase()}\n`);
 
     if (verbose) {
@@ -626,7 +840,7 @@ async function main(): Promise<void> {
 
     // ── Phase 2: Claude extraction ───────────────────────────────────────────
     console.log('🤖 Phase 2 — Claude extraction…');
-    const places = await extractPlacesWithClaude(city, rawContent);
+    const places = await extractPlacesWithClaude(city!, rawContent);
     console.log(`   ${places.length} valid places extracted\n`);
 
     if (places.length === 0) {

@@ -67,6 +67,10 @@ export interface Activity {
   // media & social proof
   videoUrl?: string;
   reviews?: string[];
+  // JIT verification (populated by api/generate after Claude call)
+  verificationStatus?: 'verified-open' | 'flagged-closed' | 'flagged-renovating' | 'unverified';
+  verifiedAt?: string;          // ISO-8601 timestamp from live Exa check
+  verificationSignal?: string;  // excerpt that triggered a flag (for debugging)
 }
 
 export interface DiningSpot {
@@ -128,6 +132,8 @@ export interface Itinerary {
     hiddenGems?: number;
     trapsFiltered?: number;
     contradictionsFound?: number;
-    provider?: string;   // e.g. 'claude' — written by generate route
+    provider?: string;      // e.g. 'claude' — written by generate route
+    jitVerified?: number;   // activities checked by JIT Shield
+    jitFlagged?: number;    // activities with closure/renovation signals
   };
 }

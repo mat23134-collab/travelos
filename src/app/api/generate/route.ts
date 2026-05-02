@@ -5,6 +5,7 @@ import { SYSTEM_PROMPT, buildUserPrompt } from '@/lib/prompts';
 import { runChainOfThoughtSearch, searchWeb } from '@/lib/rag';
 import { supabase } from '@/lib/supabase';
 import { queryPlacesForCity, formatPlacesForPrompt } from '@/lib/places';
+import { batchVerifyPlaces } from '@/lib/verification';
 
 // ── JSON instruction prepended to every system prompt ────────────────────────
 
@@ -140,6 +141,54 @@ export async function POST(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const itinerary: any = parseAIJson(raw);
 
+    // ── JIT Verification Shield ─────────────────────────────────────────────────
+    // Run Exa highlights checks on every selected activity in parallel.
+    // Non-blocking: errors are caught per-place; shield never fails the request.
+    const exaKey = process.env.EXA_API_KEY;
+    let jitChecked = 0;
+    let jitFlagged = 0;
+
+    if (exaKey) {
+      try {
+        // Collect all (day, slot, activity) triples that have a name
+        type ActivityRef = { dayIdx: number; slot: 'morning' | 'afternoon' | 'evening'; name: string };
+        const refs: ActivityRef[] = [];
+
+        for (let di = 0; di < (itinerary.days ?? []).length; di++) {
+          const day = itinerary.days[di];
+          for (const slot of ['morning', 'afternoon', 'evening'] as const) {
+            const act = day?.[slot];
+            if (act?.name) refs.push({ dayIdx: di, slot, name: act.name });
+          }
+        }
+
+        if (refs.length > 0) {
+          const results = await batchVerifyPlaces(
+            refs.map((r) => ({ name: r.name, city: profile.destination })),
+            exaKey,
+            7000, // 7-second wall-clock cap for the whole batch
+          );
+
+          results.forEach((vr, i) => {
+            const { dayIdx, slot } = refs[i];
+            const act = itinerary.days[dayIdx]?.[slot];
+            if (!act) return;
+            act.verificationStatus = vr.status;
+            act.verifiedAt         = vr.checkedAt;
+            if (vr.signal) act.verificationSignal = vr.signal;
+            jitChecked++;
+            if (vr.status === 'flagged-closed' || vr.status === 'flagged-renovating') jitFlagged++;
+          });
+
+          console.log(`[generate] JIT Shield: ${jitChecked} checked, ${jitFlagged} flagged`);
+        }
+      } catch (err) {
+        console.warn('[generate] JIT Shield failed (non-critical):', err instanceof Error ? err.message : err);
+      }
+    } else {
+      console.log('[generate] JIT Shield: skipped (EXA_API_KEY not set)');
+    }
+
     // ── Metadata ────────────────────────────────────────────────────────────────
     itinerary._meta = {
       searchEnabled: classifiedResults.length > 0,
@@ -148,6 +197,8 @@ export async function POST(req: NextRequest) {
       trapsFiltered: classifiedResults.filter((r) => r.vibeScore === 'tourist-trap').length,
       contradictionsFound: classifiedResults.filter((r) => r.contradictionNote).length,
       provider: 'claude',
+      jitVerified: jitChecked,
+      jitFlagged,
     };
 
     // ── Save to Supabase ────────────────────────────────────────────────────────
