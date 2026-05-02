@@ -4,6 +4,7 @@ import { TravelerProfile, ClassifiedResult } from '@/lib/types';
 import { SYSTEM_PROMPT, buildUserPrompt } from '@/lib/prompts';
 import { runChainOfThoughtSearch, searchWeb } from '@/lib/rag';
 import { supabase } from '@/lib/supabase';
+import { queryPlacesForCity, formatPlacesForPrompt } from '@/lib/places';
 
 // ── JSON instruction prepended to every system prompt ────────────────────────
 
@@ -67,6 +68,7 @@ async function callClaude(
   profile: TravelerProfile,
   classifiedResults: ClassifiedResult[],
   hotelContext: string | undefined,
+  internalPlaces: string | undefined,
 ): Promise<string> {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error('ANTHROPIC_API_KEY is not set — add it to Railway Variables');
@@ -81,7 +83,7 @@ async function callClaude(
     max_tokens: 16000,
     system: JSON_PREAMBLE + SYSTEM_PROMPT,
     messages: [
-      { role: 'user', content: buildUserPrompt(profile, classifiedResults, hotelContext) },
+      { role: 'user', content: buildUserPrompt(profile, classifiedResults, hotelContext, internalPlaces) },
     ],
   });
 
@@ -99,6 +101,20 @@ export async function POST(req: NextRequest) {
 
     if (!profile.destination) {
       return NextResponse.json({ error: 'Destination is required' }, { status: 400 });
+    }
+
+    // ── Hybrid RAG: pre-scouted places from Supabase ───────────────────────────
+    let internalPlaces: string | undefined;
+    try {
+      const scoutedPlaces = await queryPlacesForCity(profile.destination);
+      if (scoutedPlaces.length > 0) {
+        internalPlaces = formatPlacesForPrompt(scoutedPlaces);
+        console.log(`[generate] Hybrid RAG: injecting ${scoutedPlaces.length} scouted places for ${profile.destination}`);
+      } else {
+        console.log(`[generate] Hybrid RAG: no pre-scouted places found for ${profile.destination}`);
+      }
+    } catch (err) {
+      console.warn('[generate] Hybrid RAG query failed (non-critical):', err);
     }
 
     // ── RAG search ──────────────────────────────────────────────────────────────
@@ -120,7 +136,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Generate itinerary ──────────────────────────────────────────────────────
-    const raw = await withRetry(() => callClaude(profile, classifiedResults, hotelContext));
+    const raw = await withRetry(() => callClaude(profile, classifiedResults, hotelContext, internalPlaces));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const itinerary: any = parseAIJson(raw);
 

@@ -218,7 +218,7 @@ BUDGET RULES:
 
 // ─── User prompt ──────────────────────────────────────────────────────────────
 
-export function buildUserPrompt(profile: TravelerProfile, searchResults?: ClassifiedResult[], hotelContext?: string): string {
+export function buildUserPrompt(profile: TravelerProfile, searchResults?: ClassifiedResult[], hotelContext?: string, internalPlaces?: string): string {
   const days = profile.duration || calculateDays(profile.startDate, profile.endDate);
   const interestsList = profile.interests.length ? profile.interests.join(', ') : 'general sightseeing';
 
@@ -233,6 +233,10 @@ export function buildUserPrompt(profile: TravelerProfile, searchResults?: Classi
     : hotelContext
       ? `\nHOTEL_SEARCH_DATA (use to generate 3 squad-approved recommendations for basecamp.recommendations[]):\n${hotelContext}`
       : `\nHOTEL_BOOKED: none — generate 3 squad-approved hotel recommendations for basecamp.recommendations[] based on expertise`;
+
+  const internalPlacesBlock = internalPlaces
+    ? `\n${internalPlaces}\n`
+    : '';
 
   return `Generate a ${days}-day itinerary for this traveler:
 
@@ -249,7 +253,7 @@ ${hotelBlock}
 
 VIBE TARGETING:
 ${vibeDirective}
-${ragBlock}
+${internalPlacesBlock}${ragBlock}
 FINAL INSTRUCTIONS:
 - Every activity MUST have startTime, endTime, bestTimeToVisit, and transitFromPrevious
 - Every activity MUST have latitude, longitude (accurate GPS, 4 dp), time_slot, and category_emoji
