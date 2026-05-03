@@ -1,7 +1,37 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+/**
+ * ItineraryMap — full-trip overview map (Mapbox GL, dark-v11)
+ *
+ * Migrated from Leaflet + Nominatim geocoding to react-map-gl + mapbox-gl.
+ * Uses lat/lng already embedded on Activity objects — no external geocoding call.
+ * Same public interface as the old Leaflet version so ItineraryClient.tsx is unchanged.
+ */
+
+import { useRef, useState, useEffect, useCallback, memo } from 'react';
+import Map, { Marker, Popup, NavigationControl, type MapRef } from 'react-map-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import { DayPlan } from '@/lib/types';
+
+// ── Types ────────────────────────────────────────────────────────────────────
+
+interface MarkerData {
+  id: string;
+  lat: number;
+  lng: number;
+  label: string;
+  dayIndex: number;
+  time: string;
+  neighborhood: string;
+}
+
+export interface Props {
+  days: DayPlan[];
+  destination: string;
+  focusedNeighborhood?: string;
+}
+
+// ── Constants ────────────────────────────────────────────────────────────────
 
 const DAY_COLORS = [
   '#ff5a5f', '#3b82f6', '#10b981', '#8b5cf6',
@@ -9,239 +39,240 @@ const DAY_COLORS = [
   '#f97316', '#6366f1',
 ];
 
-interface MarkerData {
-  lat: number;
-  lon: number;
-  label: string;
-  dayIndex: number;
-  time: string;
-  neighborhood: string;
-}
+const TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? '';
 
-interface Props {
-  days: DayPlan[];
-  destination: string;
-  focusedNeighborhood?: string;
-}
+// Module-level Promise — tells react-map-gl v8 to use mapbox-gl (not maplibre)
+const MAPBOX_LIB = import('mapbox-gl');
 
-const geocodeCache = new Map<string, { lat: number; lon: number } | null>();
+// ── Build marker list from DayPlan array ─────────────────────────────────────
 
-async function geocode(query: string): Promise<{ lat: number; lon: number } | null> {
-  if (geocodeCache.has(query)) return geocodeCache.get(query)!;
-  try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`,
-      { headers: { 'User-Agent': 'TravelOS/1.0 (travel planning app)' } }
-    );
-    const data = await res.json();
-    const result = data[0] ? { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) } : null;
-    geocodeCache.set(query, result);
-    return result;
-  } catch {
-    geocodeCache.set(query, null);
-    return null;
-  }
-}
+function buildMarkers(days: DayPlan[]): MarkerData[] {
+  const out: MarkerData[] = [];
+  days.forEach((day, di) => {
+    const slots = [
+      { act: day.morning,   time: 'Morning'   },
+      { act: day.afternoon, time: 'Afternoon' },
+      { act: day.evening,   time: 'Evening'   },
+    ] as const;
 
-function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
-export function ItineraryMap({ days, destination, focusedNeighborhood }: Props) {
-  const mapRef = useRef<HTMLDivElement>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mapInstanceRef = useRef<any>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const markersByNeighborhood = useRef<Map<string, { marker: any; iconEl: HTMLElement }>>(new Map());
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
-  const [progress, setProgress] = useState(0);
-
-  // Focus a neighborhood: pan, open popup, bounce the icon
-  useEffect(() => {
-    if (!focusedNeighborhood || !mapInstanceRef.current) return;
-
-    // Normalize: try exact match first, then partial
-    const key = [...markersByNeighborhood.current.keys()].find(
-      (k) => k.toLowerCase().includes(focusedNeighborhood.toLowerCase())
-    );
-    if (!key) return;
-
-    const { marker, iconEl } = markersByNeighborhood.current.get(key)!;
-    mapInstanceRef.current.flyTo(marker.getLatLng(), 15, { animate: true, duration: 0.8 });
-    marker.openPopup();
-
-    // Trigger CSS bounce animation
-    iconEl.classList.remove('animate-bounce-pin');
-    void iconEl.offsetWidth; // force reflow
-    iconEl.classList.add('animate-bounce-pin');
-    const timer = setTimeout(() => iconEl.classList.remove('animate-bounce-pin'), 800);
-    return () => clearTimeout(timer);
-  }, [focusedNeighborhood]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function init() {
-      if (!mapRef.current || mapInstanceRef.current) return;
-
-      try {
-        const L = (await import('leaflet')).default;
-        await import('leaflet/dist/leaflet.css');
-
-        if (cancelled || !mapRef.current) return;
-
-        const centerResult = await geocode(destination);
-        if (cancelled) return;
-
-        const center: [number, number] = centerResult
-          ? [centerResult.lat, centerResult.lon]
-          : [35.6762, 139.6503];
-
-        const map = L.map(mapRef.current, { zoomControl: true, scrollWheelZoom: false });
-        mapInstanceRef.current = map;
-
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-          subdomains: 'abcd',
-          maxZoom: 19,
-        }).addTo(map);
-
-        const activitySlots: { neighborhood: string; name: string; time: string; dayIndex: number }[] = [];
-        days.forEach((day, di) => {
-          const slots = [
-            { act: day.morning, time: 'Morning' },
-            { act: day.afternoon, time: 'Afternoon' },
-            { act: day.evening, time: 'Evening' },
-          ];
-          slots.forEach(({ act, time }) => {
-            if (act?.neighborhood) {
-              activitySlots.push({ neighborhood: act.neighborhood, name: act.name, time, dayIndex: di });
-            }
-          });
+    slots.forEach(({ act, time }) => {
+      if (
+        act &&
+        Number.isFinite(act.latitude) &&
+        Number.isFinite(act.longitude)
+      ) {
+        out.push({
+          id:           `day${di}-${time.toLowerCase()}-${(act.name ?? '').replace(/\s+/g, '-').toLowerCase()}`,
+          lat:          act.latitude!,
+          lng:          act.longitude!,
+          label:        act.name ?? time,
+          dayIndex:     di,
+          time,
+          neighborhood: act.neighborhood ?? '',
         });
-
-        const markers: MarkerData[] = [];
-        const total = activitySlots.length + 1;
-        let done = 0;
-
-        for (const slot of activitySlots) {
-          if (cancelled) return;
-          const query = `${slot.neighborhood}, ${destination}`;
-          const coords = await geocode(query);
-          done++;
-          setProgress(Math.round((done / total) * 100));
-
-          if (coords) {
-            markers.push({
-              lat: coords.lat,
-              lon: coords.lon,
-              label: slot.name,
-              dayIndex: slot.dayIndex,
-              time: slot.time,
-              neighborhood: slot.neighborhood,
-            });
-          }
-          await sleep(350);
-        }
-
-        if (cancelled) return;
-
-        if (markers.length === 0) {
-          map.setView(center, 12);
-          setStatus('ready');
-          return;
-        }
-
-        const latLngs: [number, number][] = [];
-        markers.forEach((m) => {
-          const color = DAY_COLORS[m.dayIndex % DAY_COLORS.length];
-
-          // Create a wrapper so we can grab the DOM element for animation
-          const wrapper = document.createElement('div');
-          wrapper.style.cssText = 'width:26px;height:26px;border-radius:50%;background:' + color + ';border:2.5px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:10px;';
-          wrapper.textContent = String(m.dayIndex + 1);
-
-          const icon = L.divIcon({
-            className: '',
-            html: wrapper.outerHTML,
-            iconSize: [26, 26],
-            iconAnchor: [13, 13],
-          });
-
-          const leafletMarker = L.marker([m.lat, m.lon], { icon })
-            .addTo(map)
-            .bindPopup(
-              `<div style="font-family:sans-serif;min-width:160px">
-                <div style="font-size:10px;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Day ${m.dayIndex + 1} · ${m.time}</div>
-                <div style="font-weight:600;font-size:13px;color:#111">${m.label}</div>
-                <div style="font-size:11px;color:#9ca3af;margin-top:2px">📍 ${m.neighborhood}</div>
-              </div>`,
-              { maxWidth: 220 }
-            );
-
-          // Store ref for focus behavior — the icon el is in the marker's _icon property
-          const getIconEl = () => (leafletMarker as unknown as { _icon?: HTMLElement })._icon;
-          markersByNeighborhood.current.set(m.neighborhood, {
-            marker: leafletMarker,
-            get iconEl() { return getIconEl() ?? wrapper; },
-          });
-
-          latLngs.push([m.lat, m.lon]);
-        });
-
-        map.fitBounds(L.latLngBounds(latLngs), { padding: [40, 40], maxZoom: 14 });
-        setStatus('ready');
-        setProgress(100);
-      } catch {
-        if (!cancelled) setStatus('error');
       }
-    }
+    });
+  });
+  return out;
+}
 
-    init();
-    return () => {
-      cancelled = true;
-      markersByNeighborhood.current.clear();
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
-    };
-  }, [days, destination]);
+// ── Day-number pin ───────────────────────────────────────────────────────────
 
+const DayPin = memo(function DayPin({
+  marker,
+  active,
+}: {
+  marker: MarkerData;
+  active: boolean;
+}) {
+  const color = DAY_COLORS[marker.dayIndex % DAY_COLORS.length];
   return (
-    <div className="relative w-full rounded-2xl overflow-hidden border border-[#e5e7eb] shadow-sm bg-[#f0ede4]" style={{ height: 380 }}>
-      <div ref={mapRef} className="w-full h-full" />
+    <div
+      style={{
+        width: 26, height: 26,
+        borderRadius: '50%',
+        background: color,
+        border: `2.5px solid ${active ? '#fff' : 'rgba(255,255,255,0.7)'}`,
+        boxShadow: active
+          ? `0 0 0 3px ${color}55, 0 2px 8px rgba(0,0,0,0.4)`
+          : '0 2px 8px rgba(0,0,0,0.25)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: '#fff', fontWeight: 700, fontSize: 10,
+        cursor: 'pointer',
+        transition: 'box-shadow 0.2s',
+      }}
+    >
+      {marker.dayIndex + 1}
+    </div>
+  );
+});
 
-      {status === 'loading' && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#f8f7f2]/90 gap-3 z-[1000]">
-          <div className="w-10 h-10 rounded-full border-t-[#ff5a5f] border-[#ff5a5f]/30 animate-spin" style={{ borderWidth: 3 }} />
-          <p className="text-sm text-[#6b7280]">Mapping your route{progress > 0 ? ` · ${progress}%` : '...'}</p>
-        </div>
-      )}
+// ── Empty state ──────────────────────────────────────────────────────────────
 
-      {status === 'error' && (
-        <div className="absolute inset-0 flex items-center justify-center bg-[#f8f7f2]/90 z-[1000]">
-          <p className="text-sm text-[#9ca3af]">Map unavailable — check your connection</p>
-        </div>
-      )}
-
-      {status === 'ready' && (
-        <div className="absolute bottom-3 left-3 z-[1000] flex flex-wrap gap-1.5 max-w-xs">
-          {days.map((day, i) => (
-            <div
-              key={i}
-              className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/90 shadow-sm text-[10px] font-semibold"
-              style={{ color: DAY_COLORS[i % DAY_COLORS.length] }}
-            >
-              <span
-                className="w-2 h-2 rounded-full flex-shrink-0"
-                style={{ background: DAY_COLORS[i % DAY_COLORS.length] }}
-              />
-              Day {i + 1}
-            </div>
-          ))}
-        </div>
-      )}
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div
+      className="w-full rounded-2xl flex flex-col items-center justify-center gap-2"
+      style={{
+        height: 380,
+        background: 'rgba(255,255,255,0.03)',
+        border: '1px dashed rgba(255,255,255,0.10)',
+      }}
+    >
+      <span className="text-3xl opacity-20 select-none">🗺️</span>
+      <p className="text-xs text-white/25 text-center px-8 max-w-xs leading-relaxed">{message}</p>
     </div>
   );
 }
+
+// ── ItineraryMap ─────────────────────────────────────────────────────────────
+
+function ItineraryMapInner({ days, destination, focusedNeighborhood }: Props) {
+  const mapRef = useRef<MapRef>(null);
+  const markers = buildMarkers(days);
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  // ── Fit all markers on first load ────────────────────────────────────────
+  const handleLoad = useCallback(() => {
+    const map = mapRef.current;
+    if (!map || markers.length === 0) return;
+    if (markers.length === 1) {
+      map.flyTo({ center: [markers[0].lng, markers[0].lat], zoom: 13, duration: 800 });
+      return;
+    }
+    const lngs = markers.map((m) => m.lng);
+    const lats  = markers.map((m) => m.lat);
+    map.fitBounds(
+      [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+      { padding: 48, duration: 900, maxZoom: 14 },
+    );
+  }, [markers]);
+
+  // ── focusedNeighborhood → flyTo + open popup ─────────────────────────────
+  useEffect(() => {
+    if (!focusedNeighborhood) return;
+    const map = mapRef.current;
+    const target = markers.find((m) =>
+      m.neighborhood.toLowerCase().includes(focusedNeighborhood.toLowerCase()),
+    );
+    if (!map || !target) return;
+    map.flyTo({ center: [target.lng, target.lat], zoom: 15, duration: 800 });
+    setActiveId(target.id);
+  }, [focusedNeighborhood, markers]);
+
+  // ── Guards ───────────────────────────────────────────────────────────────
+  if (!TOKEN) {
+    return <EmptyState message="Add NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN to enable the trip map." />;
+  }
+  if (markers.length === 0) {
+    return (
+      <EmptyState message="Trip map will appear once activities have GPS coordinates. Expand a day card to see the per-day map." />
+    );
+  }
+
+  const initLng = markers.reduce((s, m) => s + m.lng, 0) / markers.length;
+  const initLat  = markers.reduce((s, m) => s + m.lat, 0) / markers.length;
+
+  const activeMarker = activeId ? markers.find((m) => m.id === activeId) ?? null : null;
+  const activeColor  = activeMarker
+    ? DAY_COLORS[activeMarker.dayIndex % DAY_COLORS.length]
+    : '#fff';
+
+  return (
+    <div
+      className="relative w-full rounded-2xl overflow-hidden border border-white/8 shadow-sm"
+      style={{ height: 380 }}
+    >
+      <Map
+        ref={mapRef}
+        mapLib={MAPBOX_LIB}
+        mapboxAccessToken={TOKEN}
+        initialViewState={{ longitude: initLng, latitude: initLat, zoom: 11 }}
+        style={{ width: '100%', height: '100%' }}
+        mapStyle="mapbox://styles/mapbox/dark-v11"
+        onLoad={handleLoad}
+        cooperativeGestures={false}
+        attributionControl
+      >
+        <NavigationControl position="top-right" showCompass={false} />
+
+        {/* Day markers */}
+        {markers.map((m) => (
+          <Marker
+            key={m.id}
+            latitude={m.lat}
+            longitude={m.lng}
+            anchor="center"
+            onClick={(e) => {
+              e.originalEvent.stopPropagation();
+              setActiveId((prev) => (prev === m.id ? null : m.id));
+            }}
+          >
+            <DayPin marker={m} active={m.id === activeId} />
+          </Marker>
+        ))}
+
+        {/* Active popup */}
+        {activeMarker && (
+          <Popup
+            latitude={activeMarker.lat}
+            longitude={activeMarker.lng}
+            anchor="bottom"
+            offset={20}
+            closeButton={false}
+            closeOnClick={false}
+            onClose={() => setActiveId(null)}
+          >
+            <div
+              className="px-3 py-2 rounded-xl text-xs text-white min-w-[160px]"
+              style={{
+                background: 'rgba(8,10,18,0.97)',
+                border: `1px solid ${activeColor}45`,
+                boxShadow: `0 0 16px ${activeColor}25`,
+              }}
+            >
+              <div
+                className="text-[10px] font-bold uppercase tracking-wider mb-1"
+                style={{ color: activeColor }}
+              >
+                Day {activeMarker.dayIndex + 1} · {activeMarker.time}
+              </div>
+              <div className="font-semibold text-white/90 text-[13px] leading-tight">
+                {activeMarker.label}
+              </div>
+              {activeMarker.neighborhood && (
+                <div className="text-[11px] text-white/40 mt-0.5">
+                  📍 {activeMarker.neighborhood}
+                </div>
+              )}
+            </div>
+          </Popup>
+        )}
+      </Map>
+
+      {/* Day legend */}
+      <div className="absolute bottom-3 left-3 z-10 flex flex-wrap gap-1.5 max-w-xs">
+        {days.map((day, i) => (
+          <div
+            key={i}
+            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"
+            style={{
+              background: 'rgba(8,10,18,0.82)',
+              backdropFilter: 'blur(8px)',
+              border: `1px solid ${DAY_COLORS[i % DAY_COLORS.length]}40`,
+              color: DAY_COLORS[i % DAY_COLORS.length],
+            }}
+          >
+            <span
+              className="w-2 h-2 rounded-full flex-shrink-0"
+              style={{ background: DAY_COLORS[i % DAY_COLORS.length] }}
+            />
+            Day {i + 1}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export const ItineraryMap = memo(ItineraryMapInner);
