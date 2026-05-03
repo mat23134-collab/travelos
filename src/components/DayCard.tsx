@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Map, Link2, Check } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DayPlan, Activity, DiningSpot, VibeLabel, WebInsight } from '@/lib/types';
@@ -874,7 +875,8 @@ interface DayCardProps {
 }
 
 export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen]     = useState(false);
+  const [copied, setCopied] = useState(false);
   const warnings    = day.webInsights?.filter((i) => i.type === 'warning') ?? [];
   const tipInsights = (day.webInsights ?? []).filter((i) => i.type !== 'warning');
 
@@ -1149,26 +1151,54 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
         </div>
       </button>
 
-      {/* ── Start Day Route ────────────────────────────────────────────── */}
+      {/* ── Route Action Buttons ────────────────────────────────────────── */}
       {routeInfo && (
-        <div className="px-4 py-2.5 border-b border-white/6">
+        <div className="px-4 py-2.5 border-b border-white/6 flex gap-2">
+          {/* Start Day Route — opens Google Maps */}
           <a
             href={routeInfo.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all hover:brightness-110 active:scale-95"
+            className="flex items-center justify-center gap-1.5 flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all hover:brightness-125 active:scale-95"
             style={{
-              background: 'linear-gradient(135deg, rgba(255,90,95,0.10), rgba(139,92,246,0.10))',
-              border: '1px solid rgba(255,90,95,0.28)',
+              background: 'linear-gradient(135deg, rgba(255,90,95,0.12), rgba(139,92,246,0.12))',
+              border: '1px solid rgba(255,90,95,0.30)',
               color: '#ff8c8f',
             }}
           >
-            <span>🗺️</span>
-            <span>
-              Start Day Route · {routeInfo.stopCount} Stop{routeInfo.stopCount !== 1 ? 's' : ''}
+            <Map size={12} />
+            <span>Start Day Route</span>
+            <span
+              className="ml-0.5 tabular-nums rounded-full px-1.5 py-0.5 text-[9px] font-bold"
+              style={{ background: 'rgba(255,90,95,0.18)', color: '#ffaaac' }}
+            >
+              {routeInfo.stopCount}
             </span>
-            <span style={{ opacity: 0.45, fontSize: '10px' }}>↗</span>
           </a>
+
+          {/* Copy Route Link — clipboard + toast */}
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(routeInfo.url).then(() => {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+              });
+            }}
+            className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all hover:brightness-125 active:scale-95"
+            style={{
+              background: copied
+                ? 'rgba(16,185,129,0.12)'
+                : 'rgba(255,255,255,0.04)',
+              border: copied
+                ? '1px solid rgba(16,185,129,0.35)'
+                : '1px solid rgba(255,255,255,0.12)',
+              color: copied ? '#34d399' : 'rgba(255,255,255,0.38)',
+              minWidth: 110,
+            }}
+          >
+            {copied ? <Check size={12} /> : <Link2 size={12} />}
+            <span>{copied ? 'Copied!' : 'Copy Link'}</span>
+          </button>
         </div>
       )}
 
