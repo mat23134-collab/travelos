@@ -3,11 +3,9 @@
 /**
  * InteractiveMap — Mapbox GL dark-v11, react-map-gl v7
  *
- * react-map-gl v8 uses maplibre-gl by default; passing mapLib={MAPBOX_LIB}
- * switches the renderer to mapbox-gl without using the /mapbox subpath
- * (which Railway's webpack cannot resolve).
- * Loaded via dynamic import (ssr:false) in DayCard to avoid mapbox-gl
- * touching window during SSR.
+ * react-map-gl v7 uses mapbox-gl as its default renderer — no mapLib prop
+ * needed. Loaded via dynamic import (ssr:false) in DayCard to avoid
+ * mapbox-gl touching window during SSR.
  *
  * Exports:
  *   default export  → for Next.js dynamic()
@@ -22,10 +20,6 @@ import Map, {
   type MapRef,
 } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-
-// Module-level Promise — stable across renders.
-// Tells react-map-gl v8 to use mapbox-gl instead of its default maplibre-gl.
-const MAPBOX_LIB = import('mapbox-gl');
 
 // ── Public interface ──────────────────────────────────────────────────────────
 
@@ -238,7 +232,6 @@ function InteractiveMapInner({ places, flyToId, height = 280, className = '' }: 
     >
       <Map
         ref={mapRef}
-        mapLib={MAPBOX_LIB}
         mapboxAccessToken={TOKEN}
         initialViewState={{ longitude: initLng, latitude: initLat, zoom: 12 }}
         style={{ width: '100%', height: '100%' }}
