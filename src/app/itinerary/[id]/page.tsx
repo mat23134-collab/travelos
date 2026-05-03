@@ -58,7 +58,7 @@ export async function generateMetadata({ params }: PageProps) {
   };
 }
 
-export function NotFound() {
+function NotFound() {
   return (
     <div className="min-h-screen bg-[#f8f7f2] flex flex-col items-center justify-center px-6 text-center">
       <div className="text-4xl mb-4">🗺️</div>
