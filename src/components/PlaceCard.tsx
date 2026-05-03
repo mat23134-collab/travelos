@@ -37,6 +37,7 @@ export interface PlaceCardData {
   neighborhood?: string;
   category?: string;
   estimatedCost?: string;
+  mealSlot?: 'breakfast' | 'lunch' | 'dinner';  // 3-Meal Rule — controls ordering + badge in Food cube
   verificationStatus?: 'verified-open' | 'flagged-closed' | 'flagged-renovating' | 'unverified';
   verifiedAt?: string;
 }
@@ -82,6 +83,14 @@ function buildHighlights(description: string, provided?: string[]): string[] {
     .slice(0, 3);
 }
 
+// ── Meal slot config (3-Meal Rule) ───────────────────────────────────────────
+
+const MEAL_SLOT_CFG: Record<'breakfast' | 'lunch' | 'dinner', { icon: string; label: string; color: string }> = {
+  breakfast: { icon: '🌅', label: 'Breakfast', color: '#f59e0b' },
+  lunch:     { icon: '☀️',  label: 'Lunch',     color: '#f97316' },
+  dinner:    { icon: '🌙', label: 'Dinner',    color: '#8b5cf6' },
+};
+
 // ── Collapsed tile (in grid) ──────────────────────────────────────────────────
 
 interface TileProps {
@@ -123,7 +132,7 @@ function PlaceTile({ data, onClick, isSelected }: TileProps) {
 
       <div className="p-4">
         {/* Row 1 — emoji + vibe badge */}
-        <div className="flex items-start justify-between gap-2 mb-3">
+        <div className="flex items-start justify-between gap-2 mb-2">
           <span className="text-3xl leading-none select-none">{data.emoji}</span>
           <span
             className="text-[9px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-full whitespace-nowrap"
@@ -137,6 +146,26 @@ function PlaceTile({ data, onClick, isSelected }: TileProps) {
             {vibe.icon} {vibe.label}
           </span>
         </div>
+
+        {/* Meal slot badge (Breakfast / Lunch / Dinner) — only shown inside Food cube */}
+        {data.mealSlot && (() => {
+          const ms = MEAL_SLOT_CFG[data.mealSlot];
+          return (
+            <div className="mb-2.5">
+              <span
+                className="inline-flex items-center gap-1 text-[9px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-full"
+                style={{
+                  background: `${ms.color}18`,
+                  border: `1px solid ${ms.color}42`,
+                  color: ms.color,
+                  boxShadow: `0 0 8px ${ms.color}30`,
+                }}
+              >
+                {ms.icon} {ms.label}
+              </span>
+            </div>
+          );
+        })()}
 
         {/* Name */}
         <h3
@@ -267,6 +296,23 @@ function PlaceModal({ data, onClose }: ModalProps) {
 
             {/* Badge row */}
             <div className="flex flex-wrap gap-2 mb-4">
+              {/* Meal slot (shown first when present) */}
+              {data.mealSlot && (() => {
+                const ms = MEAL_SLOT_CFG[data.mealSlot!];
+                return (
+                  <span
+                    className="inline-flex items-center gap-1.5 text-[11px] font-extrabold px-3 py-1 rounded-full"
+                    style={{
+                      background: `${ms.color}18`,
+                      border: `1px solid ${ms.color}50`,
+                      color: ms.color,
+                      boxShadow: `0 0 14px ${ms.color}35`,
+                    }}
+                  >
+                    {ms.icon} {ms.label}
+                  </span>
+                );
+              })()}
               <span
                 className="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1 rounded-full"
                 style={{
@@ -395,7 +441,7 @@ function PlaceModal({ data, onClose }: ModalProps) {
 
 interface PlacesGridProps {
   places: PlaceCardData[];
-  columns?: 2 | 3;
+  columns?: 1 | 2 | 3;
   className?: string;
 }
 
@@ -404,9 +450,9 @@ export function PlacesGrid({ places, columns = 2, className = '' }: PlacesGridPr
   const selected = places.find((p) => p.id === selectedId) ?? null;
 
   const colClass =
-    columns === 3
-      ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
-      : 'grid-cols-1 sm:grid-cols-2';
+    columns === 3 ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' :
+    columns === 1 ? 'grid-cols-1' :
+                    'grid-cols-1 sm:grid-cols-2';
 
   return (
     <LayoutGroup>

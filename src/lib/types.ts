@@ -94,6 +94,7 @@ export interface DayPlan {
   morning?: Activity;
   afternoon?: Activity;
   evening?: Activity;
+  breakfast?: DiningSpot;   // optional — populated from morning food activities or future prompt support
   lunch?: DiningSpot;
   dinner?: DiningSpot;
   estimatedDailyCost?: string;

@@ -106,7 +106,13 @@ function classifyActivity(activity: Activity): GenreKey {
   return 'sightseeing';
 }
 
-function activityToCard(activity: Activity, slot: Slot, dayIdx: number): PlaceCardData {
+// Optional mealSlot lets callers attach a Breakfast / Lunch / Dinner label.
+function activityToCard(
+  activity: Activity,
+  slot: Slot,
+  dayIdx: number,
+  mealSlot?: 'breakfast' | 'lunch' | 'dinner',
+): PlaceCardData {
   return {
     id:          `day${dayIdx}-${slot}-${(activity.name ?? 'act').replace(/\s+/g, '-').toLowerCase()}`,
     name:        activity.name ?? 'Activity',
@@ -117,16 +123,24 @@ function activityToCard(activity: Activity, slot: Slot, dayIdx: number): PlaceCa
     neighborhood: activity.neighborhood,
     category:    slot,
     estimatedCost: activity.estimatedCost,
+    mealSlot,
     verificationStatus: activity.verificationStatus,
     verifiedAt:  activity.verifiedAt,
   };
 }
 
-function diningToCard(spot: DiningSpot, meal: 'lunch' | 'dinner', dayIdx: number): PlaceCardData {
+function diningToCard(
+  spot: DiningSpot,
+  meal: 'breakfast' | 'lunch' | 'dinner',
+  dayIdx: number,
+): PlaceCardData {
+  const MEAL_EMOJI: Record<'breakfast' | 'lunch' | 'dinner', string> = {
+    breakfast: '☕', lunch: '🍽️', dinner: '🌙',
+  };
   return {
     id:          `day${dayIdx}-${meal}-${(spot.name ?? 'dining').replace(/\s+/g, '-').toLowerCase()}`,
-    name:        spot.name ?? (meal === 'lunch' ? 'Lunch Spot' : 'Dinner Spot'),
-    emoji:       meal === 'lunch' ? '🍽️' : '🌙',
+    name:        spot.name ?? (meal === 'breakfast' ? 'Breakfast Spot' : meal === 'lunch' ? 'Lunch Spot' : 'Dinner Spot'),
+    emoji:       MEAL_EMOJI[meal],
     vibeLabel:   'local-favorite',
     description: [
       spot.mustTry ? `Must try: ${spot.mustTry}` : '',
@@ -135,6 +149,38 @@ function diningToCard(spot: DiningSpot, meal: 'lunch' | 'dinner', dayIdx: number
     neighborhood: spot.neighborhood,
     category:    spot.cuisine,
     estimatedCost: spot.priceRange,
+    mealSlot:    meal,
+  };
+}
+
+// Soft placeholder shown when a meal slot has no data — tells the traveller
+// to ask locally rather than leaving a blank gap in the Food cube.
+function makeMealPlaceholder(meal: 'breakfast' | 'lunch' | 'dinner', dayIdx: number): PlaceCardData {
+  const CFG = {
+    breakfast: {
+      emoji: '☕', vibeLabel: 'budget-pick' as const,
+      name: 'Breakfast — Ask Locally',
+      description: 'Head to a nearby café or convenience store. Your hotel concierge can point you to the best local morning spot.',
+    },
+    lunch: {
+      emoji: '🍱', vibeLabel: 'local-favorite' as const,
+      name: 'Lunch — Scout the Block',
+      description: 'No fixed plan — wander the neighbourhood and follow the lunch crowds. The best finds are unscripted.',
+    },
+    dinner: {
+      emoji: '🌃', vibeLabel: 'classic' as const,
+      name: 'Dinner — Your Choice',
+      description: 'Open evening. Use Google Maps or ask a local guide for a reservation that fits the mood.',
+    },
+  } as const;
+  const c = CFG[meal];
+  return {
+    id:          `day${dayIdx}-${meal}-placeholder`,
+    name:        c.name,
+    emoji:       c.emoji,
+    vibeLabel:   c.vibeLabel,
+    description: c.description,
+    mealSlot:    meal,
   };
 }
 
@@ -836,17 +882,55 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
   const byGenre: Record<GenreKey, PlaceCardData[]> = {
     sightseeing: [], food: [], shopping: [], nightlife: [],
   };
+
+  // Classify each time-slot activity; food items are handled below via the
+  // 3-Meal Rule so we skip them here to avoid double-counting.
   const dayActivities: { activity: Activity; slot: Slot }[] = [
     day.morning   ? { activity: day.morning,   slot: 'morning'   as const } : null,
     day.afternoon ? { activity: day.afternoon, slot: 'afternoon' as const } : null,
     day.evening   ? { activity: day.evening,   slot: 'evening'   as const } : null,
   ].filter((e): e is { activity: Activity; slot: Slot } => e !== null);
 
-  dayActivities.forEach(({ activity, slot }) =>
-    byGenre[classifyActivity(activity)].push(activityToCard(activity, slot, index))
-  );
-  if (day.lunch)  byGenre.food.push(diningToCard(day.lunch,  'lunch',  index));
-  if (day.dinner) byGenre.food.push(diningToCard(day.dinner, 'dinner', index));
+  dayActivities.forEach(({ activity, slot }) => {
+    const genre = classifyActivity(activity);
+    if (genre !== 'food') byGenre[genre].push(activityToCard(activity, slot, index));
+  });
+
+  // ── 3-Meal Rule: always produce Breakfast → Lunch → Dinner in Food cube ─────
+  //
+  //  Priority order per slot:
+  //    Breakfast : explicit day.breakfast DiningSpot → morning food Activity → placeholder
+  //    Lunch     : explicit day.lunch DiningSpot → afternoon food Activity  → placeholder
+  //    Dinner    : explicit day.dinner DiningSpot → evening food Activity   → placeholder
+  //
+  const morningIsFood   = day.morning   && classifyActivity(day.morning)   === 'food';
+  const afternoonIsFood = day.afternoon && classifyActivity(day.afternoon) === 'food';
+  const eveningIsFood   = day.evening   && classifyActivity(day.evening)   === 'food';
+
+  const mealCards: Record<'breakfast' | 'lunch' | 'dinner', PlaceCardData> = {
+    breakfast:
+      day.breakfast
+        ? diningToCard(day.breakfast, 'breakfast', index)
+        : morningIsFood && day.morning
+          ? activityToCard(day.morning,   'morning',   index, 'breakfast')
+          : makeMealPlaceholder('breakfast', index),
+
+    lunch:
+      day.lunch
+        ? diningToCard(day.lunch, 'lunch', index)
+        : afternoonIsFood && day.afternoon
+          ? activityToCard(day.afternoon, 'afternoon', index, 'lunch')
+          : makeMealPlaceholder('lunch', index),
+
+    dinner:
+      day.dinner
+        ? diningToCard(day.dinner, 'dinner', index)
+        : eveningIsFood && day.evening
+          ? activityToCard(day.evening,   'evening',   index, 'dinner')
+          : makeMealPlaceholder('dinner', index),
+  };
+
+  byGenre.food = [mealCards.breakfast, mealCards.lunch, mealCards.dinner];
 
   // Ternary + typed predicate — avoids the `&&` → `undefined` narrowing
   // problem that breaks strict-mode builds with `.filter(Boolean) as T[]`.
@@ -1048,6 +1132,9 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
               .filter(([, places]) => places.length > 0)
               .map(([key, places]) => {
                 const cfg = GENRE_CONFIG[key];
+                // Food cube: always 3 cards (Breakfast → Lunch → Dinner), laid out
+                // in a single-column stack so meal labels are clearly readable.
+                const cols = key === 'food' ? (1 as const) : (2 as const);
                 return (
                   <div key={key} className="px-4 pt-3">
                     <GenreCube
@@ -1055,6 +1142,7 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
                       label={cfg.label}
                       accent={cfg.accent}
                       places={places}
+                      columns={cols}
                     />
                   </div>
                 );

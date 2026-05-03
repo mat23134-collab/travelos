@@ -22,6 +22,7 @@ export interface GenreCubeProps {
   label: string;
   accent: string;         // hex — drives the cube border + badge + header tint
   places: PlaceCardData[];
+  columns?: 1 | 2 | 3;   // passed straight to PlacesGrid (default: 2)
   defaultOpen?: boolean;
 }
 
@@ -33,6 +34,7 @@ export function GenreCube({
   label,
   accent,
   places,
+  columns = 2,
   defaultOpen = false,
 }: GenreCubeProps) {
   const [open, setOpen] = useState(defaultOpen);
@@ -128,7 +130,7 @@ export function GenreCube({
               style={{ background: `${accent}20` }}
             />
             <div className="p-4">
-              <PlacesGrid places={places} columns={2} />
+              <PlacesGrid places={places} columns={columns} />
             </div>
           </motion.div>
         )}
