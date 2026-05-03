@@ -24,6 +24,12 @@ export interface GenreCubeProps {
   places: PlaceCardData[];
   columns?: 1 | 2 | 3;   // passed straight to PlacesGrid (default: 2)
   defaultOpen?: boolean;
+  /** Fired when the cube expands — receives the cube's places so the caller
+   *  can fly the day map to the first place with coordinates. */
+  onOpen?: (places: PlaceCardData[]) => void;
+  /** Bubbled up from PlacesGrid tile clicks — lets the day map fly to a
+   *  specific place when its card is tapped. */
+  onSelect?: (placeId: string) => void;
 }
 
 // Spring for the height accordion
@@ -36,6 +42,8 @@ export function GenreCube({
   places,
   columns = 2,
   defaultOpen = false,
+  onOpen,
+  onSelect,
 }: GenreCubeProps) {
   const [open, setOpen] = useState(defaultOpen);
 
@@ -53,7 +61,11 @@ export function GenreCube({
     >
       {/* ── Header (always visible) ───────────────────────────────────── */}
       <button
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          const next = !open;
+          setOpen(next);
+          if (next) onOpen?.(places);
+        }}
         className="w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors focus:outline-none"
         style={{
           background: open ? `${accent}12` : 'transparent',
@@ -130,7 +142,7 @@ export function GenreCube({
               style={{ background: `${accent}20` }}
             />
             <div className="p-4">
-              <PlacesGrid places={places} columns={columns} />
+              <PlacesGrid places={places} columns={columns} onSelect={onSelect} />
             </div>
           </motion.div>
         )}

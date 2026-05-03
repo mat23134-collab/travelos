@@ -1,15 +1,30 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DayPlan, Activity, DiningSpot, VibeLabel, WebInsight } from '@/lib/types';
 import { DayPhoto } from './DayPhoto';
 import { VideoPreview } from './VideoPreview';
 import { WebInsightBadge } from './WebInsightBadge';
 import { DayTimeline } from './DayTimeline';
-import { DayMapPlaceholder } from './DayMapPlaceholder';
 import { GenreCube } from './GenreCube';
 import type { PlaceCardData } from '@/components/PlaceCard';
+import type { MapPlace } from '@/components/InteractiveMap';
+
+// Dynamically import the map so mapbox-gl never runs during SSR
+const InteractiveMap = dynamic(
+  () => import('@/components/InteractiveMap').then((m) => ({ default: m.InteractiveMap })),
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        className="rounded-2xl animate-pulse"
+        style={{ height: 280, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+      />
+    ),
+  },
+);
 
 // ─── Spring preset ────────────────────────────────────────────────────────────
 
@@ -123,6 +138,9 @@ function activityToCard(
     neighborhood: activity.neighborhood,
     category:    slot,
     estimatedCost: activity.estimatedCost,
+    // Map lat/lng from Activity's coordinate fields so the day map can pin them
+    lat:         activity.latitude,
+    lng:         activity.longitude,
     mealSlot,
     verificationStatus: activity.verificationStatus,
     verifiedAt:  activity.verifiedAt,
@@ -932,6 +950,46 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
 
   byGenre.food = [mealCards.breakfast, mealCards.lunch, mealCards.dinner];
 
+  // ── Map layer: places with GPS coords (stable across renders via useMemo) ───
+  const mapPlaces = useMemo<MapPlace[]>(() => {
+    const slotMap: [Slot, Activity | undefined][] = [
+      ['morning',   day.morning],
+      ['afternoon', day.afternoon],
+      ['evening',   day.evening],
+    ];
+    return slotMap
+      .filter((e): e is [Slot, Activity] =>
+        !!e[1] && Number.isFinite(e[1].latitude) && Number.isFinite(e[1].longitude)
+      )
+      .map(([slot, act]) => ({
+        id:        `day${index}-${slot}-${(act.name ?? 'act').replace(/\s+/g, '-').toLowerCase()}`,
+        name:      act.name ?? slot,
+        emoji:     getVibeIcon(act.tags ?? [], act.name ?? ''),
+        lat:       act.latitude!,
+        lng:       act.longitude!,
+        vibeLabel: act.vibeLabel ?? 'classic',
+      }));
+  // day.morning/afternoon/evening are plain objects from props — safe deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [day.morning, day.afternoon, day.evening, index]);
+
+  // ── Fly-to: updated when a GenreCube opens or a PlaceCard is selected ───────
+  const [flyToId, setFlyToId] = useState<string | null>(null);
+
+  const handleGenreOpen = useCallback((cubePlaces: PlaceCardData[]) => {
+    const withCoords = cubePlaces.find(
+      (p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)
+    );
+    if (withCoords) setFlyToId(withCoords.id);
+  }, []);
+
+  const handlePlaceSelect = useCallback((placeId: string) => {
+    // Only fly if that place actually has GPS coords in mapPlaces
+    if (mapPlaces.some((mp) => mp.id === placeId)) {
+      setFlyToId(placeId);
+    }
+  }, [mapPlaces]);
+
   // Ternary + typed predicate — avoids the `&&` → `undefined` narrowing
   // problem that breaks strict-mode builds with `.filter(Boolean) as T[]`.
   const slotPreviews: { icon: string; name: string }[] = [
@@ -1143,6 +1201,8 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
                       accent={cfg.accent}
                       places={places}
                       columns={cols}
+                      onOpen={handleGenreOpen}
+                      onSelect={handlePlaceSelect}
                     />
                   </div>
                 );
@@ -1168,7 +1228,7 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
               </div>
             </div>
 
-            {/* ── 📍 Day Route / Map Cube ───────────────────────────── */}
+            {/* ── 📍 Day Route / Interactive Map ───────────────────── */}
             <div className="px-4 pt-3">
               <div
                 className="rounded-2xl overflow-hidden"
@@ -1178,14 +1238,25 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
                   boxShadow: '0 2px 16px -4px rgba(99,102,241,0.10)',
                 }}
               >
-                <div className="px-4 pt-3 pb-2 flex items-center gap-1.5">
-                  <span className="text-sm leading-none">📍</span>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-400/80">
-                    Day Route
-                  </span>
+                <div className="px-4 pt-3 pb-2 flex items-center justify-between gap-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm leading-none">📍</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-400/80">
+                      Day Route
+                    </span>
+                  </div>
+                  {mapPlaces.length > 0 && (
+                    <span className="text-[9px] text-indigo-400/45 font-medium">
+                      {mapPlaces.length} location{mapPlaces.length !== 1 ? 's' : ''}
+                    </span>
+                  )}
                 </div>
                 <div className="px-4 pb-4">
-                  <DayMapPlaceholder day={day} />
+                  <InteractiveMap
+                    places={mapPlaces}
+                    flyToId={flyToId}
+                    height={280}
+                  />
                 </div>
               </div>
             </div>

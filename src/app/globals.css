@@ -217,6 +217,31 @@ p { line-height: 1.65; }
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
+/* ── Mapbox GL — popup neon reset ──────────────────────────────────────────── */
+/* Strip the default white box so our custom PlacePopup component takes over.  */
+.mapboxgl-popup-content {
+  background: transparent !important;
+  padding:    0          !important;
+  box-shadow: none       !important;
+  border-radius: 0       !important;
+}
+.mapboxgl-popup-tip { display: none !important; }
+
+/* Navigation control — dark pill style */
+.mapboxgl-ctrl-group {
+  background: rgba(10,12,20,0.82)    !important;
+  border:     1px solid rgba(255,255,255,0.10) !important;
+  backdrop-filter: blur(10px)        !important;
+  border-radius: 10px                !important;
+  box-shadow: none                   !important;
+}
+.mapboxgl-ctrl-group button {
+  background: transparent !important;
+  border: none !important;
+}
+.mapboxgl-ctrl-icon { filter: invert(1) opacity(0.55); }
+.mapboxgl-ctrl-icon:hover { filter: invert(1) opacity(0.9); }
+
 /* ── Print ──────────────────────────────────────────────────────────────────── */
 @media print {
   nav, .print\:hidden, [data-print-hide] { display: none !important; }

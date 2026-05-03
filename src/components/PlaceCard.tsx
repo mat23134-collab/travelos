@@ -443,9 +443,11 @@ interface PlacesGridProps {
   places: PlaceCardData[];
   columns?: 1 | 2 | 3;
   className?: string;
+  /** Called when a tile is clicked — useful for wiring fly-to on the day map. */
+  onSelect?: (placeId: string) => void;
 }
 
-export function PlacesGrid({ places, columns = 2, className = '' }: PlacesGridProps) {
+export function PlacesGrid({ places, columns = 2, className = '', onSelect }: PlacesGridProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = places.find((p) => p.id === selectedId) ?? null;
 
@@ -461,7 +463,10 @@ export function PlacesGrid({ places, columns = 2, className = '' }: PlacesGridPr
           <PlaceTile
             key={place.id}
             data={place}
-            onClick={() => setSelectedId(place.id)}
+            onClick={() => {
+              setSelectedId(place.id);
+              onSelect?.(place.id);
+            }}
             isSelected={selectedId === place.id}
           />
         ))}
