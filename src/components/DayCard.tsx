@@ -869,18 +869,19 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
       ['evening',   day.evening],
     ];
     return slotMap
-      .filter((e): e is [Slot, Activity] =>
-        !!e[1] &&
-        Number.isFinite(e[1].latitude) &&
-        Number.isFinite(e[1].longitude),
-      )
+      .filter((e): e is [Slot, Activity] => {
+        if (!e[1]) return false;
+        const lat = Number(e[1].latitude);
+        const lng = Number(e[1].longitude);
+        return Number.isFinite(lat) && Number.isFinite(lng);
+      })
       .map(([slot, act]) => ({
         // ID must match activityToCard so flyToId lookup works
         id:        `day${index}-${slot}-${(act.name ?? 'act').replace(/\s+/g, '-').toLowerCase()}`,
         name:      act.name ?? slot,
         emoji:     getVibeIcon(act.tags ?? [], act.name ?? ''),
-        lat:       act.latitude!,
-        lng:       act.longitude!,
+        lat:       Number(act.latitude!),
+        lng:       Number(act.longitude!),
         vibeLabel: act.vibeLabel ?? 'classic',
       }));
   // eslint-disable-next-line react-hooks/exhaustive-deps

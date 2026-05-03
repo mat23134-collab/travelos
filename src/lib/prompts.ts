@@ -337,6 +337,7 @@ CONSTRAINTS — the replacement MUST:
    - morning: 08:30–12:00
    - afternoon: 13:30–17:30
    - evening: 19:00–22:00
+5. MUST include latitude and longitude — accurate GPS coordinates (float, 4 decimal places) for the specific venue, NOT the city centre
 
 Return ONLY a JSON object — no markdown, no prose:
 {
@@ -353,7 +354,10 @@ Return ONLY a JSON object — no markdown, no prose:
     "estimatedCost": "string",
     "tags": ["string"],
     "isHiddenGem": false,
-    "vibeLabel": "hidden-gem | local-favorite | viral-trend | classic | luxury-pick | budget-pick"
+    "vibeLabel": "hidden-gem | local-favorite | viral-trend | classic | luxury-pick | budget-pick",
+    "latitude": 48.8584,
+    "longitude": 2.2945,
+    "category_emoji": "🏛️"
   },
   "summary": "One sentence: what changed and why it fits better"
 }`;

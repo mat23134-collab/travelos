@@ -53,15 +53,17 @@ function buildMarkers(days: DayPlan[]): MarkerData[] {
     ] as const;
 
     slots.forEach(({ act, time }) => {
+      const lat = act ? Number(act.latitude) : NaN;
+      const lng = act ? Number(act.longitude) : NaN;
       if (
         act &&
-        Number.isFinite(act.latitude) &&
-        Number.isFinite(act.longitude)
+        Number.isFinite(lat) &&
+        Number.isFinite(lng)
       ) {
         out.push({
           id:           `day${di}-${time.toLowerCase()}-${(act.name ?? '').replace(/\s+/g, '-').toLowerCase()}`,
-          lat:          act.latitude!,
-          lng:          act.longitude!,
+          lat,
+          lng,
           label:        act.name ?? time,
           dayIndex:     di,
           time,

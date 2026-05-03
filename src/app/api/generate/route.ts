@@ -189,6 +189,19 @@ export async function POST(req: NextRequest) {
       console.log('[generate] JIT Shield: skipped (EXA_API_KEY not set)');
     }
 
+    // ── Normalise coordinates → always store as numbers ─────────────────────────
+    // Claude occasionally returns lat/lng as JSON strings ("41.9028") instead of
+    // floats. Coerce here so every stored activity has numeric coordinates.
+    for (const day of (itinerary.days ?? [])) {
+      for (const slot of ['morning', 'afternoon', 'evening'] as const) {
+        const act = day?.[slot];
+        if (act) {
+          if (act.latitude  !== undefined && act.latitude  !== null) act.latitude  = Number(act.latitude);
+          if (act.longitude !== undefined && act.longitude !== null) act.longitude = Number(act.longitude);
+        }
+      }
+    }
+
     // ── Metadata ────────────────────────────────────────────────────────────────
     itinerary._meta = {
       searchEnabled: classifiedResults.length > 0,
