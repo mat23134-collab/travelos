@@ -12,7 +12,7 @@ import { GenreCube } from './GenreCube';
 import type { PlaceCardData } from '@/components/PlaceCard';
 import type { MapPlace } from '@/components/InteractiveMap';
 
-// Dynamically import the map so mapbox-gl never runs during SSR
+// ── Interactive map — SSR disabled (mapbox-gl touches window) ─────────────────
 const InteractiveMap = dynamic(
   () => import('@/components/InteractiveMap').then((m) => ({ default: m.InteractiveMap })),
   {
@@ -20,7 +20,11 @@ const InteractiveMap = dynamic(
     loading: () => (
       <div
         className="rounded-2xl animate-pulse"
-        style={{ height: 280, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+        style={{
+          height: 280,
+          background: 'rgba(255,255,255,0.04)',
+          border: '1px solid rgba(255,255,255,0.07)',
+        }}
       />
     ),
   },
@@ -112,6 +116,7 @@ function classifyActivity(activity: Activity): GenreKey {
     activity.name ?? '',
     activity.description ?? '',
   ].join(' ').toLowerCase();
+
   if (/shop|vintage|market|fashion|style|boutique|mall|brand|cloth|accessor/.test(t))
     return 'shopping';
   if (/bar|cocktail|beer|sake|nightlife|club|disco|live\s*music|jazz|concert|karaoke|speakeasy|alley|yokocho/.test(t))
@@ -121,7 +126,9 @@ function classifyActivity(activity: Activity): GenreKey {
   return 'sightseeing';
 }
 
-// Optional mealSlot lets callers attach a Breakfast / Lunch / Dinner label.
+// ─── Card builders ────────────────────────────────────────────────────────────
+
+/** Convert an Activity slot into a PlaceCardData. */
 function activityToCard(
   activity: Activity,
   slot: Slot,
@@ -138,7 +145,6 @@ function activityToCard(
     neighborhood: activity.neighborhood,
     category:    slot,
     estimatedCost: activity.estimatedCost,
-    // Map lat/lng from Activity's coordinate fields so the day map can pin them
     lat:         activity.latitude,
     lng:         activity.longitude,
     mealSlot,
@@ -147,6 +153,7 @@ function activityToCard(
   };
 }
 
+/** Convert an explicit DiningSpot into a PlaceCardData with meal badge. */
 function diningToCard(
   spot: DiningSpot,
   meal: 'breakfast' | 'lunch' | 'dinner',
@@ -171,8 +178,11 @@ function diningToCard(
   };
 }
 
-// Soft placeholder shown when a meal slot has no data — tells the traveller
-// to ask locally rather than leaving a blank gap in the Food cube.
+/**
+ * 3-Meal Rule: when neither a DiningSpot nor a food-classified Activity exists
+ * for a meal slot, render a soft placeholder so the Food cube always shows
+ * Breakfast → Lunch → Dinner (never a blank or missing slot).
+ */
 function makeMealPlaceholder(meal: 'breakfast' | 'lunch' | 'dinner', dayIdx: number): PlaceCardData {
   const CFG = {
     breakfast: {
@@ -221,8 +231,7 @@ function ParticleBurst({ active }: { active: boolean }) {
                 width: i % 2 === 0 ? 7 : 5,
                 height: i % 2 === 0 ? 7 : 5,
                 background: BURST_COLORS[i % BURST_COLORS.length],
-                top: '50%',
-                left: '50%',
+                top: '50%', left: '50%',
                 marginLeft: i % 2 === 0 ? -3.5 : -2.5,
                 marginTop: i % 2 === 0 ? -3.5 : -2.5,
               }}
@@ -345,7 +354,7 @@ function ReviewsCarousel({ reviews }: { reviews: string[] }) {
   );
 }
 
-// ─── Activity Modal (box-in-box expansion) ────────────────────────────────────
+// ─── Activity Modal ───────────────────────────────────────────────────────────
 
 interface ModalProps {
   activity: Activity;
@@ -361,10 +370,10 @@ function ActivityModal({ activity, slot, destination, onClose, onSwap, swapping 
   const photoQuery = destination
     ? `${activity?.neighborhood ?? ''} ${destination}`.trim()
     : (activity?.neighborhood ?? 'travel');
-  const vibeIcon   = getVibeIcon(activity?.tags ?? [], activity?.name ?? '');
-  const vibeCfg    = activity?.vibeLabel ? VIBE_CONFIG[activity.vibeLabel] : null;
-  const liveBuzz   = hasLiveBuzz(activity?.tags ?? [], activity?.name ?? '', activity?.description);
-  const slotMeta   = SLOT_META[slot as Slot];
+  const vibeIcon  = getVibeIcon(activity?.tags ?? [], activity?.name ?? '');
+  const vibeCfg   = activity?.vibeLabel ? VIBE_CONFIG[activity.vibeLabel] : null;
+  const liveBuzz  = hasLiveBuzz(activity?.tags ?? [], activity?.name ?? '', activity?.description);
+  const slotMeta  = SLOT_META[slot as Slot];
 
   return (
     <motion.div
@@ -373,10 +382,8 @@ function ActivityModal({ activity, slot, destination, onClose, onSwap, swapping 
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
     >
-      {/* Backdrop */}
       <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} />
 
-      {/* Panel */}
       <motion.div
         className="relative w-full sm:max-w-md rounded-t-[2rem] sm:rounded-[2rem] overflow-hidden flex flex-col"
         style={{
@@ -390,17 +397,14 @@ function ActivityModal({ activity, slot, destination, onClose, onSwap, swapping 
         exit={{ y: '60%', opacity: 0, scale: 0.94 }}
         transition={SPRING}
       >
-        {/* Ambient orb */}
         <div
           className="absolute top-0 right-0 w-64 h-64 rounded-full pointer-events-none"
           style={{ background: SLOT_GRADIENT[slot] ?? SLOT_GRADIENT.morning, opacity: 0.06, filter: 'blur(60px)' }}
         />
 
-        {/* Hero photo — fixed height, not scrollable */}
         <div className="relative flex-shrink-0">
           <DayPhoto query={photoQuery} alt={activity.name} height={260} />
 
-          {/* Close */}
           <motion.button
             onClick={onClose}
             whileTap={{ scale: 0.85 }}
@@ -410,7 +414,6 @@ function ActivityModal({ activity, slot, destination, onClose, onSwap, swapping 
             ✕
           </motion.button>
 
-          {/* Slot label */}
           {slotMeta && (
             <div
               className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-white text-[10px] font-bold uppercase tracking-wide z-10"
@@ -421,10 +424,8 @@ function ActivityModal({ activity, slot, destination, onClose, onSwap, swapping 
           )}
         </div>
 
-        {/* Scrollable body */}
         <div className="overflow-y-auto flex-1 relative z-10">
           <div className="px-5 pt-5 pb-8">
-            {/* Title row */}
             <div className="flex items-start justify-between gap-3 mb-3">
               <div>
                 <h3 className="text-white font-bold text-xl tracking-tight leading-tight">{activity?.name ?? 'Activity'}</h3>
@@ -433,7 +434,6 @@ function ActivityModal({ activity, slot, destination, onClose, onSwap, swapping 
               <span className="text-4xl flex-shrink-0 mt-0.5 select-none">{vibeIcon}</span>
             </div>
 
-            {/* Badges */}
             <div className="flex flex-wrap gap-1.5 mb-4">
               {vibeCfg && (
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${vibeCfg.cls}`}>
@@ -453,7 +453,6 @@ function ActivityModal({ activity, slot, destination, onClose, onSwap, swapping 
               )}
             </div>
 
-            {/* Meta pills */}
             <div className="flex flex-wrap gap-2 mb-4">
               {activity?.startTime && activity?.endTime && (
                 <span className="text-[10px] font-mono font-semibold text-[#ff8c8f] bg-[#ff5a5f]/10 px-2.5 py-1 rounded-lg border border-[#ff5a5f]/15">
@@ -468,12 +467,10 @@ function ActivityModal({ activity, slot, destination, onClose, onSwap, swapping 
               )}
             </div>
 
-            {/* Description */}
             {activity?.description && (
               <p className="text-white/65 text-sm leading-relaxed mb-4">{activity.description}</p>
             )}
 
-            {/* Best time */}
             {activity.bestTimeToVisit && (
               <div className="flex items-start gap-2 mb-4 px-3 py-2.5 rounded-2xl border border-amber-500/15"
                 style={{ background: 'rgba(245,158,11,0.07)' }}>
@@ -482,7 +479,6 @@ function ActivityModal({ activity, slot, destination, onClose, onSwap, swapping 
               </div>
             )}
 
-            {/* Tags */}
             {(activity?.tags?.length ?? 0) > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-4">
                 {(activity?.tags ?? []).map((tag) => (
@@ -493,7 +489,6 @@ function ActivityModal({ activity, slot, destination, onClose, onSwap, swapping 
               </div>
             )}
 
-            {/* Why this */}
             {body && (
               <div className="rounded-2xl px-4 py-3 border-l-2 border-[#ff5a5f]/40 mb-4"
                 style={{ background: 'rgba(255,255,255,0.04)' }}>
@@ -507,16 +502,12 @@ function ActivityModal({ activity, slot, destination, onClose, onSwap, swapping 
               </div>
             )}
 
-            {/* Video */}
             <VideoPreview videoUrl={activity?.videoUrl} activityName={activity?.name ?? ''} />
 
-            {/* Reviews */}
             {(activity?.reviews?.length ?? 0) > 0 && <ReviewsCarousel reviews={activity!.reviews!} />}
 
-            {/* Reactions */}
             <ReactionBar />
 
-            {/* Swap CTA */}
             {onSwap && (
               <motion.button
                 onClick={onSwap}
@@ -554,15 +545,15 @@ interface BentoTileProps {
 function BentoTile({ slot, activity, height, destination, onRefresh, refreshing }: BentoTileProps) {
   const [modalOpen, setModalOpen] = useState(false);
 
-  const photoQuery = destination
+  const photoQuery  = destination
     ? `${activity?.neighborhood ?? ''} ${destination}`.trim()
     : (activity?.neighborhood ?? destination ?? 'travel');
-  const vibeIcon   = getVibeIcon(activity?.tags ?? [], activity?.name ?? '');
-  const vibeMatch  = getVibeMatch(activity?.vibeLabel, activity?.isHiddenGem);
-  const squad      = isSquadFriendly(activity?.tags ?? []);
-  const vibeCfg    = activity?.vibeLabel ? VIBE_CONFIG[activity.vibeLabel] : null;
-  const liveBuzz   = hasLiveBuzz(activity?.tags ?? [], activity?.name ?? '', activity?.description);
-  const meta       = SLOT_META[slot];
+  const vibeIcon    = getVibeIcon(activity?.tags ?? [], activity?.name ?? '');
+  const vibeMatch   = getVibeMatch(activity?.vibeLabel, activity?.isHiddenGem);
+  const squad       = isSquadFriendly(activity?.tags ?? []);
+  const vibeCfg     = activity?.vibeLabel ? VIBE_CONFIG[activity.vibeLabel] : null;
+  const liveBuzz    = hasLiveBuzz(activity?.tags ?? [], activity?.name ?? '', activity?.description);
+  const meta        = SLOT_META[slot];
 
   return (
     <>
@@ -574,13 +565,10 @@ function BentoTile({ slot, activity, height, destination, onRefresh, refreshing 
         transition={SPRING}
         onClick={() => setModalOpen(true)}
       >
-        {/* Swap shimmer overlay */}
         <AnimatePresence>
           {refreshing && (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="absolute inset-0 z-30 pointer-events-none"
             >
               <div
@@ -594,18 +582,13 @@ function BentoTile({ slot, activity, height, destination, onRefresh, refreshing 
           )}
         </AnimatePresence>
 
-        {/* Photo background */}
         <div className="absolute inset-0 pointer-events-none">
           <DayPhoto query={photoQuery} alt={activity?.name ?? 'Activity'} height={height} />
         </div>
-
-        {/* Slot-colour wash — subtle tint so photo colours stay vivid */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{ background: SLOT_GRADIENT[slot], opacity: 0.28, mixBlendMode: 'multiply' }}
         />
-
-        {/* Grain texture */}
         <div
           className="absolute inset-0 pointer-events-none opacity-[0.08] mix-blend-overlay"
           style={{
@@ -613,11 +596,8 @@ function BentoTile({ slot, activity, height, destination, onRefresh, refreshing 
               "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
           }}
         />
-
-        {/* Dark bottom scrim — stronger for photo legibility */}
         <div className="absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-black/92 via-black/40 to-transparent pointer-events-none" />
 
-        {/* Top-right: match score */}
         <div className="absolute top-2.5 right-2.5 z-10">
           <span
             className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white"
@@ -627,7 +607,6 @@ function BentoTile({ slot, activity, height, destination, onRefresh, refreshing 
           </span>
         </div>
 
-        {/* Top-left: badges */}
         <div className="absolute top-2.5 left-2.5 z-10 flex gap-1 flex-wrap">
           <span
             className="text-[9px] font-bold px-2 py-0.5 rounded-full text-white"
@@ -653,7 +632,6 @@ function BentoTile({ slot, activity, height, destination, onRefresh, refreshing 
           )}
         </div>
 
-        {/* Centre: pulsing vibe emoji */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <motion.span
             className="text-5xl select-none"
@@ -665,27 +643,20 @@ function BentoTile({ slot, activity, height, destination, onRefresh, refreshing 
           </motion.span>
         </div>
 
-        {/* Bottom: name + location + tap hint */}
         <div className="absolute bottom-0 inset-x-0 px-3.5 pb-3.5 z-10">
           <h4 className="font-bold text-white text-sm tracking-tight leading-tight line-clamp-1 drop-shadow">
             {activity?.name ?? 'Activity'}
           </h4>
           <div className="flex items-center justify-between mt-0.5">
             <p className="text-white/55 text-[11px] leading-tight">📍 {activity?.neighborhood ?? '—'}</p>
-            <span className="text-white/25 text-[10px] group-hover:text-white/55 transition-colors">
-              tap →
-            </span>
+            <span className="text-white/25 text-[10px] group-hover:text-white/55 transition-colors">tap →</span>
           </div>
         </div>
 
-        {/* Swap button — hover-reveal bottom-right */}
         {onRefresh && (
           <div className="absolute bottom-3 right-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
             <motion.button
-              onClick={(e) => {
-                e.stopPropagation();
-                onRefresh();
-              }}
+              onClick={(e) => { e.stopPropagation(); onRefresh(); }}
               disabled={refreshing}
               whileTap={{ scale: 0.82 }}
               animate={refreshing ? { rotate: 360 } : { rotate: 0 }}
@@ -699,7 +670,6 @@ function BentoTile({ slot, activity, height, destination, onRefresh, refreshing 
         )}
       </motion.button>
 
-      {/* Box-in-box modal */}
       <AnimatePresence>
         {modalOpen && (
           <ActivityModal
@@ -707,14 +677,7 @@ function BentoTile({ slot, activity, height, destination, onRefresh, refreshing 
             slot={slot}
             destination={destination}
             onClose={() => setModalOpen(false)}
-            onSwap={
-              onRefresh
-                ? () => {
-                    onRefresh();
-                    setModalOpen(false);
-                  }
-                : undefined
-            }
+            onSwap={onRefresh ? () => { onRefresh(); setModalOpen(false); } : undefined}
             swapping={refreshing}
           />
         )}
@@ -737,55 +700,32 @@ function BentoGrid({ day, destination, onSwapSlot }: BentoGridProps) {
   const handleSwap = async (slot: Slot) => {
     if (!onSwapSlot || swapping) return;
     setSwapping(slot);
-    try {
-      await onSwapSlot(slot);
-    } finally {
-      setSwapping(null);
-    }
+    try { await onSwapSlot(slot); }
+    finally { setSwapping(null); }
   };
 
   return (
     <div className="px-4 pb-4">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {/* Morning — wide (2/3) */}
         {day.morning && (
           <div className="sm:col-span-2">
-            <BentoTile
-              slot="morning"
-              activity={day.morning}
-              height={240}
-              destination={destination}
+            <BentoTile slot="morning" activity={day.morning} height={240} destination={destination}
               onRefresh={onSwapSlot ? () => handleSwap('morning') : undefined}
-              refreshing={swapping === 'morning'}
-            />
+              refreshing={swapping === 'morning'} />
           </div>
         )}
-
-        {/* Afternoon — square (1/3) */}
         {day.afternoon && (
           <div className="sm:col-span-1">
-            <BentoTile
-              slot="afternoon"
-              activity={day.afternoon}
-              height={240}
-              destination={destination}
+            <BentoTile slot="afternoon" activity={day.afternoon} height={240} destination={destination}
               onRefresh={onSwapSlot ? () => handleSwap('afternoon') : undefined}
-              refreshing={swapping === 'afternoon'}
-            />
+              refreshing={swapping === 'afternoon'} />
           </div>
         )}
-
-        {/* Evening — full width */}
         {day.evening && (
           <div className="sm:col-span-3">
-            <BentoTile
-              slot="evening"
-              activity={day.evening}
-              height={200}
-              destination={destination}
+            <BentoTile slot="evening" activity={day.evening} height={200} destination={destination}
               onRefresh={onSwapSlot ? () => handleSwap('evening') : undefined}
-              refreshing={swapping === 'evening'}
-            />
+              refreshing={swapping === 'evening'} />
           </div>
         )}
       </div>
@@ -793,37 +733,7 @@ function BentoGrid({ day, destination, onSwapSlot }: BentoGridProps) {
   );
 }
 
-// ─── Dining section (dark) ────────────────────────────────────────────────────
-
-function DiningBlock({ meal, spot }: { meal: string; spot?: DiningSpot }) {
-  if (!spot) return (
-    <div className="flex gap-3 items-start p-3 rounded-2xl border border-dashed border-white/10"
-      style={{ background: 'rgba(255,255,255,0.02)' }}>
-      <span className="text-lg flex-shrink-0 opacity-30">{meal === 'Lunch' ? '🍽️' : '🌙'}</span>
-      <span className="text-xs text-white/25 mt-0.5">{meal} — not listed</span>
-    </div>
-  );
-
-  return (
-    <div className="flex gap-3 items-start p-3 rounded-2xl border border-white/8"
-      style={{ background: 'rgba(255,255,255,0.04)' }}>
-      <span className="text-lg flex-shrink-0">{meal === 'Lunch' ? '🍽️' : '🌙'}</span>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-white/30">{meal}</span>
-          {spot.priceRange && <span className="text-xs text-white/25">{spot.priceRange}</span>}
-        </div>
-        <div className="font-semibold text-sm text-white/85 tracking-tight">{spot.name ?? '—'}</div>
-        <div className="text-xs text-white/35 mt-0.5">
-          {[spot.cuisine, spot.neighborhood].filter(Boolean).join(' · ') || '—'}
-        </div>
-        {spot.mustTry && <div className="text-xs text-[#ff8c8f] mt-1">✦ Must try: {spot.mustTry}</div>}
-      </div>
-    </div>
-  );
-}
-
-// ─── Insider Reveal (dark) ────────────────────────────────────────────────────
+// ─── Insider Reveal ───────────────────────────────────────────────────────────
 
 const insightStagger = { hidden: {}, show: { transition: { staggerChildren: 0.07 } } };
 const insightItem = {
@@ -850,9 +760,7 @@ function InsiderReveal({ insights }: { insights: WebInsight[] }) {
       >
         <span className="flex items-center gap-2">
           <span>🤫</span>
-          {open
-            ? 'Hide intel'
-            : `Pro Move · ${tipInsights.length} insider secret${tipInsights.length > 1 ? 's' : ''}`}
+          {open ? 'Hide intel' : `Pro Move · ${tipInsights.length} insider secret${tipInsights.length > 1 ? 's' : ''}`}
         </span>
         <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ type: 'spring', stiffness: 400, damping: 28 }}>
           ▾
@@ -896,30 +804,32 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
   const warnings    = day.webInsights?.filter((i) => i.type === 'warning') ?? [];
   const tipInsights = (day.webInsights ?? []).filter((i) => i.type !== 'warning');
 
-  // ── Genre buckets (built once per render) ────────────────────────────────────
+  // ── Genre buckets ─────────────────────────────────────────────────────────
   const byGenre: Record<GenreKey, PlaceCardData[]> = {
     sightseeing: [], food: [], shopping: [], nightlife: [],
   };
 
-  // Classify each time-slot activity; food items are handled below via the
-  // 3-Meal Rule so we skip them here to avoid double-counting.
   const dayActivities: { activity: Activity; slot: Slot }[] = [
     day.morning   ? { activity: day.morning,   slot: 'morning'   as const } : null,
     day.afternoon ? { activity: day.afternoon, slot: 'afternoon' as const } : null,
     day.evening   ? { activity: day.evening,   slot: 'evening'   as const } : null,
   ].filter((e): e is { activity: Activity; slot: Slot } => e !== null);
 
+  // Non-food activities → their genre bucket (food handled separately below)
   dayActivities.forEach(({ activity, slot }) => {
     const genre = classifyActivity(activity);
     if (genre !== 'food') byGenre[genre].push(activityToCard(activity, slot, index));
   });
 
-  // ── 3-Meal Rule: always produce Breakfast → Lunch → Dinner in Food cube ─────
+  // ── 3-Meal Rule ───────────────────────────────────────────────────────────
   //
-  //  Priority order per slot:
-  //    Breakfast : explicit day.breakfast DiningSpot → morning food Activity → placeholder
-  //    Lunch     : explicit day.lunch DiningSpot → afternoon food Activity  → placeholder
-  //    Dinner    : explicit day.dinner DiningSpot → evening food Activity   → placeholder
+  //  The Food & Dining Genre Cube always shows exactly 3 ordered cards:
+  //    Breakfast → Lunch → Dinner
+  //
+  //  Priority per slot:
+  //    1. Explicit DiningSpot (day.breakfast / day.lunch / day.dinner)
+  //    2. Activity in that time slot that classifies as food
+  //    3. Soft placeholder ("Ask Locally", "Scout the Block", "Your Choice")
   //
   const morningIsFood   = day.morning   && classifyActivity(day.morning)   === 'food';
   const afternoonIsFood = day.afternoon && classifyActivity(day.afternoon) === 'food';
@@ -948,9 +858,10 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
           : makeMealPlaceholder('dinner', index),
   };
 
+  // Always exactly [Breakfast, Lunch, Dinner] — never empty, never out of order
   byGenre.food = [mealCards.breakfast, mealCards.lunch, mealCards.dinner];
 
-  // ── Map layer: places with GPS coords (stable across renders via useMemo) ───
+  // ── Map layer: activities that have real GPS coordinates ──────────────────
   const mapPlaces = useMemo<MapPlace[]>(() => {
     const slotMap: [Slot, Activity | undefined][] = [
       ['morning',   day.morning],
@@ -959,9 +870,12 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
     ];
     return slotMap
       .filter((e): e is [Slot, Activity] =>
-        !!e[1] && Number.isFinite(e[1].latitude) && Number.isFinite(e[1].longitude)
+        !!e[1] &&
+        Number.isFinite(e[1].latitude) &&
+        Number.isFinite(e[1].longitude),
       )
       .map(([slot, act]) => ({
+        // ID must match activityToCard so flyToId lookup works
         id:        `day${index}-${slot}-${(act.name ?? 'act').replace(/\s+/g, '-').toLowerCase()}`,
         name:      act.name ?? slot,
         emoji:     getVibeIcon(act.tags ?? [], act.name ?? ''),
@@ -969,29 +883,29 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
         lng:       act.longitude!,
         vibeLabel: act.vibeLabel ?? 'classic',
       }));
-  // day.morning/afternoon/evening are plain objects from props — safe deps
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [day.morning, day.afternoon, day.evening, index]);
 
-  // ── Fly-to: updated when a GenreCube opens or a PlaceCard is selected ───────
+  // ── Fly-to wiring ─────────────────────────────────────────────────────────
+  //   GenreCube.onOpen  → first place in that cube with GPS → flyToId
+  //   PlaceCard.onSelect → clicked place id → flyToId (if it has GPS)
   const [flyToId, setFlyToId] = useState<string | null>(null);
 
   const handleGenreOpen = useCallback((cubePlaces: PlaceCardData[]) => {
-    const withCoords = cubePlaces.find(
-      (p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)
+    const first = cubePlaces.find(
+      (p) => Number.isFinite(p.lat) && Number.isFinite(p.lng),
     );
-    if (withCoords) setFlyToId(withCoords.id);
+    if (first) setFlyToId(first.id);
   }, []);
 
-  const handlePlaceSelect = useCallback((placeId: string) => {
-    // Only fly if that place actually has GPS coords in mapPlaces
-    if (mapPlaces.some((mp) => mp.id === placeId)) {
-      setFlyToId(placeId);
-    }
-  }, [mapPlaces]);
+  const handlePlaceSelect = useCallback(
+    (placeId: string) => {
+      if (mapPlaces.some((mp) => mp.id === placeId)) setFlyToId(placeId);
+    },
+    [mapPlaces],
+  );
 
-  // Ternary + typed predicate — avoids the `&&` → `undefined` narrowing
-  // problem that breaks strict-mode builds with `.filter(Boolean) as T[]`.
+  // Slot preview pills shown in the collapsed header
   const slotPreviews: { icon: string; name: string }[] = [
     day.morning   ? { icon: '🌅', name: day.morning.name   } : null,
     day.afternoon ? { icon: '☀️',  name: day.afternoon.name } : null,
@@ -1009,7 +923,7 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
         boxShadow: '0 8px 48px -12px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.06)',
       }}
     >
-      {/* Card-level noise grain */}
+      {/* Card noise grain */}
       <div
         className="absolute inset-0 pointer-events-none opacity-[0.025] mix-blend-overlay"
         style={{
@@ -1018,13 +932,12 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
         }}
       />
 
-      {/* ── Accordion Header (always visible, tap to expand) ─────────── */}
+      {/* ── Accordion Header ───────────────────────────────────────────── */}
       <button
         onClick={() => setOpen((o) => !o)}
         className="w-full text-left focus:outline-none relative z-10"
       >
         <div className="relative overflow-hidden border-b border-white/6">
-          {/* Themed photo background */}
           <div className="absolute inset-0 pointer-events-none">
             <DayPhoto
               query={destination ? `${destination} ${day.theme ?? ''}`.trim() : (day.theme ?? 'travel')}
@@ -1038,9 +951,7 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
             style={{ background: 'rgba(10,12,18,0.78)', backdropFilter: 'blur(4px)' }}
           />
 
-          {/* Header content */}
           <div className="relative z-10 px-4 pt-4 pb-3 flex items-center gap-3">
-            {/* Day number badge */}
             <div
               className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
               style={{
@@ -1051,7 +962,6 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
               {index + 1}
             </div>
 
-            {/* Title + slot preview */}
             <div className="flex-1 min-w-0">
               {day.date && (
                 <div className="text-[10px] text-white/35 font-medium tracking-wide leading-none mb-0.5">
@@ -1061,7 +971,6 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
               <h3 className="font-bold text-white tracking-tight text-sm leading-snug truncate">
                 {day.theme ?? `Day ${index + 1}`}
               </h3>
-              {/* Slot emoji preview — fades out when open */}
               <AnimatePresence initial={false}>
                 {!open && slotPreviews.length > 0 && (
                   <motion.div
@@ -1083,16 +992,11 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
               </AnimatePresence>
             </div>
 
-            {/* Right: cost pill + rotating chevron */}
             <div className="flex items-center gap-2.5 flex-shrink-0">
               {day.estimatedDailyCost && (
                 <div className="text-right hidden sm:block">
-                  <div className="text-[10px] text-white/25 uppercase tracking-wide leading-none mb-0.5">
-                    Est. spend
-                  </div>
-                  <div className="text-sm font-bold text-white/75 tracking-tight">
-                    {day.estimatedDailyCost}
-                  </div>
+                  <div className="text-[10px] text-white/25 uppercase tracking-wide leading-none mb-0.5">Est. spend</div>
+                  <div className="text-sm font-bold text-white/75 tracking-tight">{day.estimatedDailyCost}</div>
                 </div>
               )}
               <motion.div
@@ -1108,9 +1012,7 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
                   <path
                     d="M1 1.5L6 6.5L11 1.5"
                     stroke={open ? 'rgba(255,140,143,0.9)' : 'rgba(255,255,255,0.5)'}
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+                    strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
                   />
                 </svg>
               </motion.div>
@@ -1119,7 +1021,7 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
         </div>
       </button>
 
-      {/* ── Accordion Body (collapses / expands) ─────────────────────── */}
+      {/* ── Accordion Body ─────────────────────────────────────────────── */}
       <AnimatePresence initial={false}>
         {open && (
           <motion.div
@@ -1133,37 +1035,26 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
             {/* Warnings */}
             {warnings.length > 0 && (
               <div className="px-4 pt-3 flex flex-col gap-1.5">
-                {warnings.map((w, i) => (
-                  <WebInsightBadge key={i} insight={w} />
-                ))}
+                {warnings.map((w, i) => <WebInsightBadge key={i} insight={w} />)}
               </div>
             )}
 
-            {/* ── 📋 Daily Brief Strip ─────────────────────────────── */}
+            {/* ── 📋 Daily Brief Strip ──────────────────────────────── */}
             {(day.estimatedDailyCost || day.transportTip) && (
               <div className="px-4 pt-4">
                 <div
                   className="rounded-2xl px-4 py-3"
-                  style={{
-                    background: 'rgba(255,255,255,0.03)',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                  }}
+                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}
                 >
                   <div className="flex items-center gap-1.5 mb-2.5">
                     <span className="text-sm leading-none">📋</span>
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-white/35">
-                      Day Brief
-                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-white/35">Day Brief</span>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {day.estimatedDailyCost && (
                       <span
                         className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg"
-                        style={{
-                          background: 'rgba(255,90,95,0.10)',
-                          border: '1px solid rgba(255,90,95,0.22)',
-                          color: '#ff8c8f',
-                        }}
+                        style={{ background: 'rgba(255,90,95,0.10)', border: '1px solid rgba(255,90,95,0.22)', color: '#ff8c8f' }}
                       >
                         💳 {day.estimatedDailyCost}
                       </span>
@@ -1171,11 +1062,7 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
                     {day.transportTip && (
                       <span
                         className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg"
-                        style={{
-                          background: 'rgba(16,185,129,0.08)',
-                          border: '1px solid rgba(16,185,129,0.20)',
-                          color: 'rgba(52,211,153,0.85)',
-                        }}
+                        style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.20)', color: 'rgba(52,211,153,0.85)' }}
                       >
                         🚌 {day.transportTip}
                       </span>
@@ -1185,13 +1072,13 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
               </div>
             )}
 
-            {/* ── Genre Cubes ───────────────────────────────────────── */}
+            {/* ── Genre Cubes ─────────────────────────────────────────── */}
             {(Object.entries(byGenre) as [GenreKey, PlaceCardData[]][])
               .filter(([, places]) => places.length > 0)
               .map(([key, places]) => {
                 const cfg = GENRE_CONFIG[key];
-                // Food cube: always 3 cards (Breakfast → Lunch → Dinner), laid out
-                // in a single-column stack so meal labels are clearly readable.
+                // Food cube uses single-column layout so Breakfast/Lunch/Dinner
+                // stack vertically and meal badges read clearly in sequence.
                 const cols = key === 'food' ? (1 as const) : (2 as const);
                 return (
                   <div key={key} className="px-4 pt-3">
@@ -1208,7 +1095,7 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
                 );
               })}
 
-            {/* ── 📅 Day Timeline Cube ─────────────────────────────── */}
+            {/* ── 📅 Day Timeline ──────────────────────────────────────── */}
             <div className="px-4 pt-3">
               <div
                 className="rounded-2xl p-4"
@@ -1220,15 +1107,19 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
               >
                 <div className="flex items-center gap-1.5 mb-3">
                   <span className="text-sm leading-none">📅</span>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-rose-400/80">
-                    Day Timeline
-                  </span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-rose-400/80">Day Timeline</span>
                 </div>
                 <DayTimeline day={day} />
               </div>
             </div>
 
-            {/* ── 📍 Day Route / Interactive Map ───────────────────── */}
+            {/* ── 📍 Day Route — Interactive Map ───────────────────────── */}
+            {/*
+             * The map lives here in the itinerary (DayCard), not in /explore.
+             * flyToId updates when a GenreCube opens (handleGenreOpen) or a
+             * PlaceCard tile is clicked (handlePlaceSelect), triggering a
+             * smooth mapbox flyTo animation to that location.
+             */}
             <div className="px-4 pt-3">
               <div
                 className="rounded-2xl overflow-hidden"
@@ -1241,9 +1132,7 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
                 <div className="px-4 pt-3 pb-2 flex items-center justify-between gap-1.5">
                   <div className="flex items-center gap-1.5">
                     <span className="text-sm leading-none">📍</span>
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-400/80">
-                      Day Route
-                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-400/80">Day Route</span>
                   </div>
                   {mapPlaces.length > 0 && (
                     <span className="text-[9px] text-indigo-400/45 font-medium">
@@ -1261,7 +1150,7 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
               </div>
             </div>
 
-            {/* ── 🤫 Insider Intel Cube ────────────────────────────── */}
+            {/* ── 🤫 Insider Intel ─────────────────────────────────────── */}
             {tipInsights.length > 0 && (
               <div className="px-4 pt-3 pb-4">
                 <div
@@ -1274,15 +1163,12 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
                 >
                   <div className="px-4 pt-3 pb-0 flex items-center gap-1.5">
                     <span className="text-sm leading-none">🤫</span>
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-violet-400/80">
-                      Insider Intel
-                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-violet-400/80">Insider Intel</span>
                   </div>
                   <InsiderReveal insights={day.webInsights ?? []} />
                 </div>
               </div>
             )}
-            {/* Bottom spacer when no Insider Intel */}
             {tipInsights.length === 0 && <div className="pb-4" />}
 
           </motion.div>

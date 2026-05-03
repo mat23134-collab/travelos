@@ -3,30 +3,35 @@
 /**
  * InteractiveMap — Mapbox GL dark-v11 with neon vibe markers
  *
+ * Key fix (v1.10.1):
+ *   – Import from 'react-map-gl' (main entry), NOT 'react-map-gl/mapbox'.
+ *     Railway's webpack cannot resolve the /mapbox subpath export.
+ *   – Pass `mapLib={MAPBOX_LIB}` so react-map-gl v8 uses mapbox-gl
+ *     instead of its default maplibre-gl renderer.
+ *
  * Features:
- *   • Auto-fit bounding box for all places on load (and when places change)
- *   • flyToId prop: changing it triggers a smooth flyTo animation
- *   • Custom NeonPin markers — colour driven by the vibe label system
- *   • Hover popup showing emoji + place name
+ *   • Auto-fit bounding box on load / when places array changes
+ *   • flyToId prop → smooth flyTo animation to that marker
+ *   • Neon pin markers with vibe-based accent colours
+ *   • Hover popup showing emoji + name
  *   • "Fit all" re-centring button
- *   • Memoised to prevent unnecessary map re-renders
+ *   • Fully memoised to prevent spurious map re-renders
  *
- * Used via dynamic import (ssr:false) in DayCard to avoid mapbox-gl
- * touching window during SSR.
- *
- * Import:
- *   import type { MapPlace } from '@/components/InteractiveMap';
- *   const InteractiveMap = dynamic(
- *     () => import('@/components/InteractiveMap').then(m => ({ default: m.InteractiveMap })),
- *     { ssr: false }
- *   );
+ * Always loaded via dynamic import (ssr:false) from DayCard so mapbox-gl
+ * never touches `window` during SSR.
  */
 
 import { useRef, useCallback, useMemo, useState, useEffect, memo } from 'react';
-import Map, { Marker, Popup, NavigationControl, type MapRef } from 'react-map-gl/mapbox';
+import Map, { Marker, Popup, NavigationControl, type MapRef } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
-// ── Public interface ──────────────────────────────────────────────────────────
+// ── Mapbox binding ────────────────────────────────────────────────────────────
+// Evaluated once at module level (not inside the component) so the Promise is
+// stable and react-map-gl only resolves it once across the app lifetime.
+// This is what tells react-map-gl v8 to use mapbox-gl instead of maplibre-gl.
+const MAPBOX_LIB = import('mapbox-gl');
+
+// ── Public types ──────────────────────────────────────────────────────────────
 
 export interface MapPlace {
   id: string;
@@ -39,12 +44,13 @@ export interface MapPlace {
 
 interface InteractiveMapProps {
   places: MapPlace[];
-  flyToId?: string | null;   // change this prop to trigger a smooth flyTo
+  /** Changing this triggers a smooth flyTo + popup on that marker. */
+  flyToId?: string | null;
   height?: number;
   className?: string;
 }
 
-// ── Neon vibe color table ─────────────────────────────────────────────────────
+// ── Vibe → neon accent ────────────────────────────────────────────────────────
 
 const VIBE_ACCENT: Record<string, string> = {
   'viral-trend':    '#a855f7',
@@ -60,7 +66,7 @@ function accent(vibeLabel: string) {
   return VIBE_ACCENT[vibeLabel] ?? FALLBACK_ACCENT;
 }
 
-// ── NeonPin — custom marker element ──────────────────────────────────────────
+// ── NeonPin ───────────────────────────────────────────────────────────────────
 
 const NeonPin = memo(function NeonPin({
   place,
@@ -73,7 +79,7 @@ const NeonPin = memo(function NeonPin({
 
   return (
     <div className="flex flex-col items-center select-none" style={{ width: 36 }}>
-      {/* Active pulse ring */}
+      {/* Pulse ring when active */}
       {active && (
         <span
           className="absolute rounded-full animate-ping pointer-events-none"
@@ -88,7 +94,7 @@ const NeonPin = memo(function NeonPin({
 
       {/* Pin face */}
       <div
-        className="w-9 h-9 rounded-full flex items-center justify-center text-lg transition-transform duration-200 hover:scale-115 cursor-pointer"
+        className="w-9 h-9 rounded-full flex items-center justify-center text-lg transition-transform duration-200 hover:scale-110 cursor-pointer"
         style={{
           background: `radial-gradient(circle at 38% 32%, ${c}38 0%, rgba(10,12,20,0.94) 80%)`,
           border: `2px solid ${c}`,
@@ -115,13 +121,13 @@ const NeonPin = memo(function NeonPin({
   );
 });
 
-// ── Popup content ─────────────────────────────────────────────────────────────
+// ── Popup ─────────────────────────────────────────────────────────────────────
 
 function PlacePopup({ place }: { place: MapPlace }) {
   const c = accent(place.vibeLabel);
   return (
     <div
-      className="px-3 py-2 rounded-xl text-xs font-semibold text-white whitespace-nowrap flex items-center gap-2"
+      className="px-3 py-2 rounded-xl text-xs font-semibold text-white whitespace-nowrap flex items-center gap-2 relative"
       style={{
         background: 'rgba(8,10,18,0.96)',
         border: `1px solid ${c}50`,
@@ -131,6 +137,7 @@ function PlacePopup({ place }: { place: MapPlace }) {
     >
       <span>{place.emoji}</span>
       <span>{place.name}</span>
+      {/* Neon underline */}
       <div
         className="absolute -bottom-px inset-x-3 h-px rounded-full"
         style={{ background: `linear-gradient(90deg, transparent, ${c}, transparent)` }}
@@ -139,7 +146,7 @@ function PlacePopup({ place }: { place: MapPlace }) {
   );
 }
 
-// ── Empty / no-token states ───────────────────────────────────────────────────
+// ── Empty / no-token state ────────────────────────────────────────────────────
 
 function EmptyState({ message }: { message: string }) {
   return (
@@ -169,39 +176,36 @@ function InteractiveMapInner({
   height = 280,
   className = '',
 }: InteractiveMapProps) {
-  const mapRef  = useRef<MapRef>(null);
+  const mapRef = useRef<MapRef>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
-  // Discard places with missing / invalid coords
+  // Only plot places that have real GPS coordinates
   const validPlaces = useMemo(
     () => places.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)),
     [places],
   );
 
-  // ── fit all markers ─────────────────────────────────────────────────────────
+  // ── Fit all markers into view ──────────────────────────────────────────────
   const fitAll = useCallback(() => {
     const map = mapRef.current;
-    if (!map) return;
-    if (validPlaces.length === 0) return;
+    if (!map || validPlaces.length === 0) return;
+
     if (validPlaces.length === 1) {
-      map.flyTo({
-        center: [validPlaces[0].lng, validPlaces[0].lat],
-        zoom: 14, duration: 1100,
-      });
+      map.flyTo({ center: [validPlaces[0].lng, validPlaces[0].lat], zoom: 14, duration: 1100 });
       return;
     }
+
     const lngs = validPlaces.map((p) => p.lng);
-    const lats = validPlaces.map((p) => p.lat);
+    const lats  = validPlaces.map((p) => p.lat);
     map.fitBounds(
       [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
       { padding: 64, duration: 1100, maxZoom: 15 },
     );
   }, [validPlaces]);
 
-  // Re-fit when places change (e.g. switching days)
   const handleLoad = useCallback(() => fitAll(), [fitAll]);
 
-  // ── fly to a specific place ─────────────────────────────────────────────────
+  // ── Fly-to a specific place (triggered by flyToId prop change) ────────────
   useEffect(() => {
     if (!flyToId) return;
     const map    = mapRef.current;
@@ -210,34 +214,46 @@ function InteractiveMapInner({
 
     map.flyTo({
       center: [target.lng, target.lat],
-      zoom: 15, duration: 1400, essential: true,
-      offset: [0, -40],   // nudge marker above centre so popup is visible
+      zoom: 15,
+      duration: 1400,
+      essential: true,
+      offset: [0, -40],  // shift marker up so popup stays in frame
     });
     setHoveredId(target.id);
   }, [flyToId, validPlaces]);
 
-  // ── guards ──────────────────────────────────────────────────────────────────
+  // ── Guards ────────────────────────────────────────────────────────────────
   if (!TOKEN) {
-    return <EmptyState message="Set NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN in .env.local to enable the map." />;
+    return (
+      <EmptyState message="Add NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN to your Railway env vars to enable the map." />
+    );
   }
   if (validPlaces.length === 0) {
-    return <EmptyState message="Map unavailable — this day's activities have no GPS coordinates yet." />;
+    return (
+      <EmptyState message="Map unavailable — this day's activities have no GPS coordinates yet." />
+    );
   }
 
-  const hoveredPlace = hoveredId ? validPlaces.find((p) => p.id === hoveredId) ?? null : null;
+  const hoveredPlace = hoveredId
+    ? validPlaces.find((p) => p.id === hoveredId) ?? null
+    : null;
 
-  // Default centre = centroid
+  // Centroid as default camera centre
   const initLng = validPlaces.reduce((s, p) => s + p.lng, 0) / validPlaces.length;
-  const initLat = validPlaces.reduce((s, p) => s + p.lat, 0) / validPlaces.length;
+  const initLat  = validPlaces.reduce((s, p) => s + p.lat, 0) / validPlaces.length;
 
   return (
     <div
       className={`rounded-2xl overflow-hidden relative ${className}`}
       style={{ height }}
-      data-map-container
     >
+      {/*
+       * mapLib tells react-map-gl v8 to use mapbox-gl instead of maplibre-gl.
+       * MAPBOX_LIB is a module-level Promise so it is stable across renders.
+       */}
       <Map
         ref={mapRef}
+        mapLib={MAPBOX_LIB}
         mapboxAccessToken={TOKEN}
         initialViewState={{ longitude: initLng, latitude: initLat, zoom: 12 }}
         style={{ width: '100%', height: '100%' }}
@@ -246,7 +262,7 @@ function InteractiveMapInner({
         attributionControl
         cooperativeGestures={false}
       >
-        {/* Top-right zoom controls */}
+        {/* Zoom controls */}
         <NavigationControl position="top-right" showCompass={false} />
 
         {/* Neon markers */}
@@ -284,7 +300,7 @@ function InteractiveMapInner({
         )}
       </Map>
 
-      {/* Fit-all button — bottom-left overlay */}
+      {/* Fit-all button overlay */}
       <button
         onClick={fitAll}
         className="absolute bottom-3 left-3 z-10 flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-semibold transition-all hover:text-white/80"
@@ -295,9 +311,12 @@ function InteractiveMapInner({
           color: 'rgba(255,255,255,0.45)',
         }}
       >
-        {/* Four-corner icon */}
         <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
-          <path d="M1 4V1H4M7 1H10V4M10 7V10H7M4 10H1V7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+          <path
+            d="M1 4V1H4M7 1H10V4M10 7V10H7M4 10H1V7"
+            stroke="currentColor" strokeWidth="1.3"
+            strokeLinecap="round" strokeLinejoin="round"
+          />
         </svg>
         Fit all
       </button>
