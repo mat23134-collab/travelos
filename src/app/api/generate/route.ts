@@ -191,13 +191,22 @@ export async function POST(req: NextRequest) {
 
     // ── Normalise coordinates → always store as numbers ─────────────────────────
     // Claude occasionally returns lat/lng as JSON strings ("41.9028") instead of
-    // floats. Coerce here so every stored activity has numeric coordinates.
+    // floats. Coerce every coordinate field so stored data is always numeric.
     for (const day of (itinerary.days ?? [])) {
+      // Activity slots
       for (const slot of ['morning', 'afternoon', 'evening'] as const) {
         const act = day?.[slot];
         if (act) {
-          if (act.latitude  !== undefined && act.latitude  !== null) act.latitude  = Number(act.latitude);
-          if (act.longitude !== undefined && act.longitude !== null) act.longitude = Number(act.longitude);
+          if (act.latitude  != null) act.latitude  = Number(act.latitude);
+          if (act.longitude != null) act.longitude = Number(act.longitude);
+        }
+      }
+      // Dining spots (lunch / dinner have coords as of v1.10.6)
+      for (const meal of ['lunch', 'dinner', 'breakfast'] as const) {
+        const spot = day?.[meal] as { latitude?: unknown; longitude?: unknown } | undefined;
+        if (spot) {
+          if (spot.latitude  != null) spot.latitude  = Number(spot.latitude);
+          if (spot.longitude != null) spot.longitude = Number(spot.longitude);
         }
       }
     }

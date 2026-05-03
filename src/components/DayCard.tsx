@@ -175,6 +175,9 @@ function diningToCard(
     category:    spot.cuisine,
     estimatedCost: spot.priceRange,
     mealSlot:    meal,
+    // Pass GPS if the AI returned it — feeds into mapPlaces below
+    lat:         spot.latitude  != null ? Number(spot.latitude)  : undefined,
+    lng:         spot.longitude != null ? Number(spot.longitude) : undefined,
   };
 }
 
@@ -861,40 +864,71 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
   // Always exactly [Breakfast, Lunch, Dinner] — never empty, never out of order
   byGenre.food = [mealCards.breakfast, mealCards.lunch, mealCards.dinner];
 
-  // ── Map layer: ALL activities that have real GPS coordinates ─────────────
-  // Each pin carries a `category` (sightseeing | food | shopping | nightlife)
-  // and a `slotLabel` ("Morning · Sightseeing") so the popup shows full context.
+  // ── Map layer: ALL activities + dining spots with GPS ─────────────────────
+  // Sources:
+  //   1. morning / afternoon / evening Activity slots (sightseeing, shopping, etc.)
+  //   2. lunch / dinner DiningSpot objects (when Claude returned GPS coords)
+  // Each pin carries a `category` and `slotLabel` for colour + popup context.
   const mapPlaces = useMemo<MapPlace[]>(() => {
+    const pins: MapPlace[] = [];
+
+    // ── Activity slots ────────────────────────────────────────────────────
     const slotMap: [Slot, Activity | undefined][] = [
       ['morning',   day.morning],
       ['afternoon', day.afternoon],
       ['evening',   day.evening],
     ];
-    return slotMap
-      .filter((e): e is [Slot, Activity] => {
-        if (!e[1]) return false;
-        const lat = Number(e[1].latitude);
-        const lng = Number(e[1].longitude);
-        return Number.isFinite(lat) && Number.isFinite(lng);
-      })
-      .map(([slot, act]) => {
-        const genre    = classifyActivity(act);
-        const slotMeta = SLOT_META[slot];
-        const catLabel = GENRE_CONFIG[genre]?.label ?? genre;
-        return {
-          // ID must match activityToCard so flyToId lookup works
-          id:        `day${index}-${slot}-${(act.name ?? 'act').replace(/\s+/g, '-').toLowerCase()}`,
-          name:      act.name ?? slot,
-          emoji:     act.category_emoji ?? getVibeIcon(act.tags ?? [], act.name ?? ''),
-          lat:       Number(act.latitude!),
-          lng:       Number(act.longitude!),
-          vibeLabel: act.vibeLabel ?? 'classic',
-          category:  genre,
-          slotLabel: `${slotMeta.icon} ${slotMeta.label} · ${catLabel}`,
-        };
+    for (const [slot, act] of slotMap) {
+      if (!act) continue;
+      const lat = Number(act.latitude);
+      const lng = Number(act.longitude);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+      const genre    = classifyActivity(act);
+      const slotMeta = SLOT_META[slot];
+      const catLabel = GENRE_CONFIG[genre]?.label ?? genre;
+      pins.push({
+        id:        `day${index}-${slot}-${(act.name ?? 'act').replace(/\s+/g, '-').toLowerCase()}`,
+        name:      act.name ?? slot,
+        emoji:     act.category_emoji ?? getVibeIcon(act.tags ?? [], act.name ?? ''),
+        lat,
+        lng,
+        vibeLabel: act.vibeLabel ?? 'classic',
+        category:  genre,
+        slotLabel: `${slotMeta.icon} ${slotMeta.label} · ${catLabel}`,
       });
+    }
+
+    // ── Dining spots (lunch / dinner) ─────────────────────────────────────
+    const MEAL_META: { spot: DiningSpot | undefined; meal: 'breakfast' | 'lunch' | 'dinner'; icon: string; label: string }[] = [
+      { spot: day.breakfast, meal: 'breakfast', icon: '☕', label: 'Breakfast' },
+      { spot: day.lunch,     meal: 'lunch',     icon: '🍽️', label: 'Lunch'     },
+      { spot: day.dinner,    meal: 'dinner',    icon: '🌙', label: 'Dinner'    },
+    ];
+    const MEAL_EMOJI: Record<'breakfast' | 'lunch' | 'dinner', string> = {
+      breakfast: '☕', lunch: '🍽️', dinner: '🌙',
+    };
+    for (const { spot, meal, icon, label } of MEAL_META) {
+      if (!spot) continue;
+      const lat = Number(spot.latitude);
+      const lng = Number(spot.longitude);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+      // ID matches diningToCard so flyToId wiring works
+      const id = `day${index}-${meal}-${(spot.name ?? 'dining').replace(/\s+/g, '-').toLowerCase()}`;
+      pins.push({
+        id,
+        name:      spot.name ?? `${label} Spot`,
+        emoji:     MEAL_EMOJI[meal],
+        lat,
+        lng,
+        vibeLabel: 'local-favorite',
+        category:  'food',
+        slotLabel: `${icon} ${label} · Food & Dining`,
+      });
+    }
+
+    return pins;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [day.morning, day.afternoon, day.evening, index]);
+  }, [day.morning, day.afternoon, day.evening, day.lunch, day.dinner, day.breakfast, index]);
 
   // ── Fly-to wiring ─────────────────────────────────────────────────────────
   //   GenreCube.onOpen  → first place in that cube with GPS → flyToId

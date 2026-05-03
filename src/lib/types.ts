@@ -79,6 +79,9 @@ export interface DiningSpot {
   priceRange?: string;
   mustTry?: string;
   neighborhood?: string;
+  /** GPS coordinates — used to place dining spots on the day map */
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface WebInsight {
