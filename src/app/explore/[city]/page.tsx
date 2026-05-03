@@ -26,6 +26,11 @@ const DEFAULT_SECTION = { label: 'Scout Picks', icon: '📍', accent: '#ffffff',
 // ── Map Place → PlaceCardData ─────────────────────────────────────────────────
 
 function toCardData(place: Place): PlaceCardData {
+  const mapsUrl =
+    place.lat != null && place.lng != null
+      ? `https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lng}`
+      : undefined;
+
   return {
     id: place.id ?? `${place.name}__${place.city}`.replace(/\s+/g, '-').toLowerCase(),
     name: place.name,
@@ -34,6 +39,7 @@ function toCardData(place: Place): PlaceCardData {
     description: place.description,
     lat: place.lat,
     lng: place.lng,
+    mapsUrl,
     socialProofUrl: place.social_proof_url,
     neighborhood: place.city,     // places from Scout Agent use city as location
     category: place.category,

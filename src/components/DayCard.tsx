@@ -126,6 +126,18 @@ function classifyActivity(activity: Activity): GenreKey {
   return 'sightseeing';
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Build a Google Maps coordinate-pin URL when GPS is available. */
+function buildMapsUrl(lat?: number | null, lng?: number | null): string | undefined {
+  const la = Number(lat);
+  const lo = Number(lng);
+  if (Number.isFinite(la) && Number.isFinite(lo)) {
+    return `https://www.google.com/maps/search/?api=1&query=${la},${lo}`;
+  }
+  return undefined;
+}
+
 // ─── Card builders ────────────────────────────────────────────────────────────
 
 /** Convert an Activity slot into a PlaceCardData. */
@@ -147,6 +159,7 @@ function activityToCard(
     estimatedCost: activity.estimatedCost,
     lat:         activity.latitude,
     lng:         activity.longitude,
+    mapsUrl:     buildMapsUrl(activity.latitude, activity.longitude),
     mealSlot,
     verificationStatus: activity.verificationStatus,
     verifiedAt:  activity.verifiedAt,
@@ -178,6 +191,7 @@ function diningToCard(
     // Pass GPS if the AI returned it — feeds into mapPlaces below
     lat:         spot.latitude  != null ? Number(spot.latitude)  : undefined,
     lng:         spot.longitude != null ? Number(spot.longitude) : undefined,
+    mapsUrl:     buildMapsUrl(spot.latitude, spot.longitude),
   };
 }
 

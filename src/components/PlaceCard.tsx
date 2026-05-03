@@ -33,6 +33,9 @@ export interface PlaceCardData {
   highlights?: string[];    // optional bullet points; auto-extracted from description if absent
   lat?: number;
   lng?: number;
+  /** Pre-computed Google Maps URL — rendered as "Maps" link on tile + modal button.
+   *  Falls back to ?query={lat},{lng} if omitted but lat/lng are present. */
+  mapsUrl?: string;
   socialProofUrl?: string | null;
   neighborhood?: string;
   category?: string;
@@ -188,7 +191,7 @@ function PlaceTile({ data, onClick, isSelected }: TileProps) {
           {data.description}
         </p>
 
-        {/* Footer — social pulse + expand cue */}
+        {/* Footer — social pulse · maps shortcut · expand cue */}
         <div className="flex items-center justify-between pt-2 border-t border-white/6">
           {data.socialProofUrl ? (
             <span
@@ -204,7 +207,39 @@ function PlaceTile({ data, onClick, isSelected }: TileProps) {
           ) : (
             <span />
           )}
-          <span className="text-[10px]" style={{ color: `${vibe.text}55` }}>tap →</span>
+          <div className="flex items-center gap-2.5">
+            {/* Maps shortcut — only rendered when a URL is available */}
+            {(data.mapsUrl ?? (data.lat && data.lng
+              ? `https://www.google.com/maps/search/?api=1&query=${data.lat},${data.lng}`
+              : null)) && (
+              <a
+                href={data.mapsUrl ?? `https://www.google.com/maps/search/?api=1&query=${data.lat},${data.lng}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-1 text-[10px] font-semibold rounded-md px-1.5 py-0.5 transition-colors"
+                style={{
+                  color: 'rgba(255,255,255,0.38)',
+                  border: '1px solid rgba(255,255,255,0.10)',
+                  background: 'rgba(255,255,255,0.04)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = vibe.text;
+                  e.currentTarget.style.borderColor = `${vibe.border}55`;
+                  e.currentTarget.style.background = `${vibe.bg}`;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = 'rgba(255,255,255,0.38)';
+                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)';
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                }}
+              >
+                <MapPin size={8} />
+                Maps
+              </a>
+            )}
+            <span className="text-[10px]" style={{ color: `${vibe.text}55` }}>tap →</span>
+          </div>
         </div>
       </div>
     </motion.button>
@@ -221,9 +256,12 @@ interface ModalProps {
 function PlaceModal({ data, onClose }: ModalProps) {
   const vibe     = getVibe(data.vibeLabel);
   const bullets  = buildHighlights(data.description, data.highlights);
-  const mapUrl   = data.lat && data.lng
-    ? `https://www.google.com/maps/search/?api=1&query=${data.lat},${data.lng}`
-    : null;
+  // Use explicit mapsUrl when set; fall back to coordinate-based URL; null = no button
+  const mapUrl =
+    data.mapsUrl ??
+    (data.lat && data.lng
+      ? `https://www.google.com/maps/search/?api=1&query=${data.lat},${data.lng}`
+      : null);
 
   return (
     <>
@@ -400,7 +438,7 @@ function PlaceModal({ data, onClose }: ModalProps) {
                   whileTap={{ scale: 0.97 }}
                 >
                   <Navigation size={15} />
-                  View on Map
+                  Open in Google Maps
                 </motion.a>
               )}
 
