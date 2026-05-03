@@ -41,6 +41,9 @@ const DAY_COLORS = [
 
 const TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? '';
 
+// Module-level Promise — tells react-map-gl v8 to use mapbox-gl (not maplibre)
+const MAPBOX_LIB = import('mapbox-gl');
+
 // ── Build marker list from DayPlan array ─────────────────────────────────────
 
 function buildMarkers(days: DayPlan[]): MarkerData[] {
@@ -182,6 +185,7 @@ function ItineraryMapInner({ days, destination, focusedNeighborhood }: Props) {
     >
       <Map
         ref={mapRef}
+        mapLib={MAPBOX_LIB}
         mapboxAccessToken={TOKEN}
         initialViewState={{ longitude: initLng, latitude: initLat, zoom: 11 }}
         style={{ width: '100%', height: '100%' }}
