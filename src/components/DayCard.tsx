@@ -8,6 +8,8 @@ import { VideoPreview } from './VideoPreview';
 import { WebInsightBadge } from './WebInsightBadge';
 import { DayTimeline } from './DayTimeline';
 import { DayMapPlaceholder } from './DayMapPlaceholder';
+import { GenreCube } from './GenreCube';
+import type { PlaceCardData } from '@/components/PlaceCard';
 
 // ─── Spring preset ────────────────────────────────────────────────────────────
 
@@ -76,6 +78,64 @@ function parseCitation(text: string): { body: string; citation: string | null } 
   const match = text?.match(/\(Source:\s*([^)]+)\)\s*$/i);
   if (!match) return { body: text ?? '', citation: null };
   return { body: text.slice(0, match.index).trim(), citation: match[1].trim() };
+}
+
+// ─── Genre classification ─────────────────────────────────────────────────────
+
+type GenreKey = 'sightseeing' | 'food' | 'shopping' | 'nightlife';
+
+const GENRE_CONFIG: Record<GenreKey, { icon: string; label: string; accent: string }> = {
+  sightseeing: { icon: '🏛️', label: 'Sightseeing & Vibes',  accent: '#3b82f6' },
+  food:        { icon: '🍽️', label: 'Food & Dining',         accent: '#f97316' },
+  shopping:    { icon: '🛍️', label: 'Shopping & Style',      accent: '#ec4899' },
+  nightlife:   { icon: '🎶', label: 'Nightlife & Culture',   accent: '#8b5cf6' },
+};
+
+function classifyActivity(activity: Activity): GenreKey {
+  const t = [
+    ...(activity.tags ?? []),
+    activity.name ?? '',
+    activity.description ?? '',
+  ].join(' ').toLowerCase();
+  if (/shop|vintage|market|fashion|style|boutique|mall|brand|cloth|accessor/.test(t))
+    return 'shopping';
+  if (/bar|cocktail|beer|sake|nightlife|club|disco|live\s*music|jazz|concert|karaoke|speakeasy|alley|yokocho/.test(t))
+    return 'nightlife';
+  if (/ramen|sushi|food|restaurant|cafe|coffee|bakery|izakaya|dining|eat/.test(t))
+    return 'food';
+  return 'sightseeing';
+}
+
+function activityToCard(activity: Activity, slot: Slot, dayIdx: number): PlaceCardData {
+  return {
+    id:          `day${dayIdx}-${slot}-${(activity.name ?? 'act').replace(/\s+/g, '-').toLowerCase()}`,
+    name:        activity.name ?? 'Activity',
+    emoji:       getVibeIcon(activity.tags ?? [], activity.name ?? ''),
+    vibeLabel:   activity.vibeLabel ?? 'classic',
+    description: activity.description ?? '',
+    highlights:  (activity.tags ?? []).slice(0, 4),
+    neighborhood: activity.neighborhood,
+    category:    slot,
+    estimatedCost: activity.estimatedCost,
+    verificationStatus: activity.verificationStatus,
+    verifiedAt:  activity.verifiedAt,
+  };
+}
+
+function diningToCard(spot: DiningSpot, meal: 'lunch' | 'dinner', dayIdx: number): PlaceCardData {
+  return {
+    id:          `day${dayIdx}-${meal}-${(spot.name ?? 'dining').replace(/\s+/g, '-').toLowerCase()}`,
+    name:        spot.name ?? (meal === 'lunch' ? 'Lunch Spot' : 'Dinner Spot'),
+    emoji:       meal === 'lunch' ? '🍽️' : '🌙',
+    vibeLabel:   'local-favorite',
+    description: [
+      spot.mustTry ? `Must try: ${spot.mustTry}` : '',
+      spot.cuisine ?? '',
+    ].filter(Boolean).join(' · ') || 'Local dining recommendation',
+    neighborhood: spot.neighborhood,
+    category:    spot.cuisine,
+    estimatedCost: spot.priceRange,
+  };
 }
 
 // ─── Particle burst ───────────────────────────────────────────────────────────
@@ -772,6 +832,22 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
   const warnings    = day.webInsights?.filter((i) => i.type === 'warning') ?? [];
   const tipInsights = (day.webInsights ?? []).filter((i) => i.type !== 'warning');
 
+  // ── Genre buckets (built once per render) ────────────────────────────────────
+  const byGenre: Record<GenreKey, PlaceCardData[]> = {
+    sightseeing: [], food: [], shopping: [], nightlife: [],
+  };
+  const dayActivities: { activity: Activity; slot: Slot }[] = [
+    day.morning   ? { activity: day.morning,   slot: 'morning'   as const } : null,
+    day.afternoon ? { activity: day.afternoon, slot: 'afternoon' as const } : null,
+    day.evening   ? { activity: day.evening,   slot: 'evening'   as const } : null,
+  ].filter((e): e is { activity: Activity; slot: Slot } => e !== null);
+
+  dayActivities.forEach(({ activity, slot }) =>
+    byGenre[classifyActivity(activity)].push(activityToCard(activity, slot, index))
+  );
+  if (day.lunch)  byGenre.food.push(diningToCard(day.lunch,  'lunch',  index));
+  if (day.dinner) byGenre.food.push(diningToCard(day.dinner, 'dinner', index));
+
   // Ternary + typed predicate — avoids the `&&` → `undefined` narrowing
   // problem that breaks strict-mode builds with `.filter(Boolean) as T[]`.
   const slotPreviews: { icon: string; name: string }[] = [
@@ -921,25 +997,68 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
               </div>
             )}
 
-            {/* ── 🗺️ Sightseeing Cube ──────────────────────────────── */}
-            <div className="px-4 pt-4">
-              <div
-                className="rounded-2xl overflow-hidden"
-                style={{
-                  background: 'rgba(59,130,246,0.07)',
-                  border: '1px solid rgba(59,130,246,0.16)',
-                  boxShadow: '0 2px 16px -4px rgba(59,130,246,0.12)',
-                }}
-              >
-                <div className="px-4 pt-3 pb-1 flex items-center gap-1.5">
-                  <span className="text-sm leading-none">🗺️</span>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-blue-400/80">
-                    Sightseeing
-                  </span>
+            {/* ── 📋 Daily Brief Strip ─────────────────────────────── */}
+            {(day.estimatedDailyCost || day.transportTip) && (
+              <div className="px-4 pt-4">
+                <div
+                  className="rounded-2xl px-4 py-3"
+                  style={{
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                  }}
+                >
+                  <div className="flex items-center gap-1.5 mb-2.5">
+                    <span className="text-sm leading-none">📋</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-white/35">
+                      Day Brief
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {day.estimatedDailyCost && (
+                      <span
+                        className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg"
+                        style={{
+                          background: 'rgba(255,90,95,0.10)',
+                          border: '1px solid rgba(255,90,95,0.22)',
+                          color: '#ff8c8f',
+                        }}
+                      >
+                        💳 {day.estimatedDailyCost}
+                      </span>
+                    )}
+                    {day.transportTip && (
+                      <span
+                        className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg"
+                        style={{
+                          background: 'rgba(16,185,129,0.08)',
+                          border: '1px solid rgba(16,185,129,0.20)',
+                          color: 'rgba(52,211,153,0.85)',
+                        }}
+                      >
+                        🚌 {day.transportTip}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <BentoGrid day={day} destination={destination} onSwapSlot={onSwapSlot} />
               </div>
-            </div>
+            )}
+
+            {/* ── Genre Cubes ───────────────────────────────────────── */}
+            {(Object.entries(byGenre) as [GenreKey, PlaceCardData[]][])
+              .filter(([, places]) => places.length > 0)
+              .map(([key, places]) => {
+                const cfg = GENRE_CONFIG[key];
+                return (
+                  <div key={key} className="px-4 pt-3">
+                    <GenreCube
+                      icon={cfg.icon}
+                      label={cfg.label}
+                      accent={cfg.accent}
+                      places={places}
+                    />
+                  </div>
+                );
+              })}
 
             {/* ── 📅 Day Timeline Cube ─────────────────────────────── */}
             <div className="px-4 pt-3">
@@ -985,7 +1104,7 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
 
             {/* ── 🤫 Insider Intel Cube ────────────────────────────── */}
             {tipInsights.length > 0 && (
-              <div className="px-4 pt-3">
+              <div className="px-4 pt-3 pb-4">
                 <div
                   className="rounded-2xl overflow-hidden"
                   style={{
@@ -1004,53 +1123,9 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
                 </div>
               </div>
             )}
+            {/* Bottom spacer when no Insider Intel */}
+            {tipInsights.length === 0 && <div className="pb-4" />}
 
-            {/* ── 🍽️ Food & Dining Cube ────────────────────────────── */}
-            {(day.lunch || day.dinner) && (
-              <div className="px-4 pt-3">
-                <div
-                  className="rounded-2xl p-4"
-                  style={{
-                    background: 'rgba(249,115,22,0.07)',
-                    border: '1px solid rgba(249,115,22,0.16)',
-                    boxShadow: '0 2px 16px -4px rgba(249,115,22,0.12)',
-                  }}
-                >
-                  <div className="flex items-center gap-1.5 mb-3">
-                    <span className="text-sm leading-none">🍽️</span>
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-orange-400/80">
-                      Food & Dining
-                    </span>
-                  </div>
-                  <div className="grid sm:grid-cols-2 gap-2">
-                    <DiningBlock meal="Lunch" spot={day.lunch} />
-                    <DiningBlock meal="Dinner" spot={day.dinner} />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ── 🚌 Getting Around Cube ───────────────────────────── */}
-            {day.transportTip && (
-              <div className="px-4 pt-3 pb-4">
-                <div
-                  className="rounded-2xl p-4"
-                  style={{
-                    background: 'rgba(16,185,129,0.07)',
-                    border: '1px solid rgba(16,185,129,0.16)',
-                    boxShadow: '0 2px 16px -4px rgba(16,185,129,0.12)',
-                  }}
-                >
-                  <div className="flex items-center gap-1.5 mb-1.5">
-                    <span className="text-sm leading-none">🚌</span>
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400/80">
-                      Getting Around
-                    </span>
-                  </div>
-                  <p className="text-xs text-emerald-300/60 leading-relaxed">{day.transportTip}</p>
-                </div>
-              </div>
-            )}
           </motion.div>
         )}
       </AnimatePresence>
