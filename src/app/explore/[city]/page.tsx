@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Place } from '@/lib/places';
 import { PlaceCardData } from '@/components/PlaceCard';
@@ -56,6 +56,9 @@ export default async function ExploreCityPage({ params }: PageProps) {
   const cityDecoded = decodeURIComponent(city)
     .replace(/-/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase());
+
+  // ── Admin guard — redirect if ADMIN_SECRET is not configured at all ────────
+  if (!process.env.ADMIN_SECRET) redirect('/');
 
   // ── Admin check — runs before any data query ─────────────────────────────
   const isAdmin = await isAdminSession();
