@@ -128,6 +128,265 @@ const LOADING_STEPS = [
   { icon: '💎', label: 'Filtering tourist traps. You deserve better.' },
 ];
 
+// ─── Step 9 — Dietary options ─────────────────────────────────────────────────
+
+const DIETARY_OPTIONS = [
+  { value: 'Vegetarian',  label: 'Vegetarian',  icon: '🥗' },
+  { value: 'Vegan',       label: 'Vegan',        icon: '🌱' },
+  { value: 'Kosher',      label: 'Kosher',        icon: '✡️' },
+  { value: 'Halal',       label: 'Halal',         icon: '☪️' },
+  { value: 'Gluten-Free', label: 'Gluten-Free',   icon: '🌾' },
+  { value: 'Dairy-Free',  label: 'Dairy-Free',    icon: '🥛' },
+];
+
+// ─── Step 10 — City-specific must-haves ───────────────────────────────────────
+
+const CITY_PICKS: Record<string, { icon: string; label: string }[]> = {
+  Rome: [
+    { icon: '🏟️', label: 'Colosseum' },
+    { icon: '⛪',  label: 'Vatican Museums' },
+    { icon: '⛲',  label: 'Trevi Fountain' },
+    { icon: '🏛️', label: 'Pantheon' },
+    { icon: '🗺️', label: 'Roman Forum' },
+    { icon: '🛍️', label: "Campo de' Fiori Market" },
+  ],
+  Paris: [
+    { icon: '🗼',  label: 'Eiffel Tower' },
+    { icon: '🖼️', label: 'Louvre Museum' },
+    { icon: '⛪',  label: 'Notre-Dame Cathedral' },
+    { icon: '🎨',  label: "Musée d'Orsay" },
+    { icon: '🚶',  label: 'Le Marais Walk' },
+    { icon: '🏘️', label: 'Montmartre Village' },
+  ],
+  London: [
+    { icon: '🕰️', label: 'Big Ben & Parliament' },
+    { icon: '🎡',  label: 'London Eye' },
+    { icon: '🏰',  label: 'Tower of London' },
+    { icon: '🏺',  label: 'British Museum' },
+    { icon: '🌿',  label: 'Hyde Park' },
+    { icon: '🍞',  label: 'Borough Market' },
+  ],
+  Athens: [
+    { icon: '🏛️', label: 'Acropolis' },
+    { icon: '🏺',  label: 'National Archaeology Museum' },
+    { icon: '🌊',  label: 'Cape Sounion Sunset' },
+    { icon: '🛍️', label: 'Monastiraki Flea Market' },
+    { icon: '🌄',  label: 'Lycabettus Hill View' },
+    { icon: '🥙',  label: 'Central Market Food Tour' },
+  ],
+  Budapest: [
+    { icon: '🏰',  label: 'Buda Castle' },
+    { icon: '🛁',  label: 'Széchenyi Thermal Baths' },
+    { icon: '🏛️', label: 'Hungarian Parliament' },
+    { icon: '🌉',  label: 'Chain Bridge Walk' },
+    { icon: '🍺',  label: 'Ruin Bar Night Out' },
+    { icon: '🥐',  label: 'Great Market Hall' },
+  ],
+};
+
+const GENERIC_PICKS = [
+  { icon: '🏛️', label: 'Museums' },
+  { icon: '🛍️', label: 'Local Markets' },
+  { icon: '🌿',  label: 'Parks & Nature' },
+  { icon: '🏰',  label: 'Historic Sites' },
+  { icon: '🍽️', label: 'Food Tours' },
+  { icon: '🌃',  label: 'Nightlife' },
+];
+
+// ─── DietaryCubes — Step 9 ────────────────────────────────────────────────────
+
+function DietaryCubes({
+  selected,
+  onToggle,
+}: {
+  selected: string[];
+  onToggle: (value: string) => void;
+}) {
+  return (
+    <motion.div
+      className="grid grid-cols-2 sm:grid-cols-3 gap-3"
+      variants={staggerContainer}
+      initial="hidden"
+      animate="show"
+    >
+      {DIETARY_OPTIONS.map((opt) => {
+        const sel = selected.includes(opt.value);
+        return (
+          <motion.button
+            key={opt.value}
+            variants={optionVariant}
+            onClick={() => onToggle(opt.value)}
+            whileHover={{ scale: 1.06, y: -3 }}
+            whileTap={{ scale: 0.94 }}
+            animate={
+              sel
+                ? { boxShadow: '0 0 0 2px #ff5a5f, 0 8px 24px -4px rgba(255,90,95,0.20)' }
+                : { boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }
+            }
+            transition={{ type: 'spring', stiffness: 450, damping: 22 }}
+            className={`relative p-4 rounded-2xl border text-center transition-colors ${
+              sel
+                ? 'border-[#ff5a5f] bg-[#fff5f5]'
+                : 'border-[#e7e5e4] bg-white hover:border-[#ff5a5f]/30 hover:bg-[#fff8f8]'
+            }`}
+          >
+            {sel && (
+              <motion.div
+                initial={{ scale: 0, rotate: -15 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+                className="absolute top-2 right-2 w-5 h-5 rounded-full bg-[#ff5a5f] flex items-center justify-center"
+              >
+                <span className="text-white text-[9px] font-bold">✓</span>
+              </motion.div>
+            )}
+            <div className="text-2xl mb-2 leading-none">{opt.icon}</div>
+            <div className={`text-xs font-semibold leading-tight ${sel ? 'text-[#ff5a5f]' : 'text-[#57534e]'}`}>
+              {opt.label}
+            </div>
+          </motion.button>
+        );
+      })}
+    </motion.div>
+  );
+}
+
+// ─── MustHaveCubes — Step 10 ──────────────────────────────────────────────────
+
+function MustHaveCubes({
+  destination,
+  selected,
+  customText,
+  onToggle,
+  onCustomChange,
+}: {
+  destination: string;
+  selected: string[];
+  customText: string;
+  onToggle: (label: string) => void;
+  onCustomChange: (text: string) => void;
+}) {
+  const picks = CITY_PICKS[destination] ?? GENERIC_PICKS;
+  const otherSelected = selected.includes('Other');
+
+  return (
+    <div>
+      {destination && CITY_PICKS[destination] && (
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-xs font-semibold text-[#ff5a5f] uppercase tracking-widest">
+            Top picks for {destination}
+          </span>
+          <div className="flex-1 h-px bg-[#e7e5e4]" />
+        </div>
+      )}
+
+      <motion.div
+        className="grid grid-cols-2 sm:grid-cols-3 gap-3"
+        variants={staggerContainer}
+        initial="hidden"
+        animate="show"
+      >
+        {picks.map((pick) => {
+          const sel = selected.includes(pick.label);
+          return (
+            <motion.button
+              key={pick.label}
+              variants={optionVariant}
+              onClick={() => onToggle(pick.label)}
+              whileHover={{ scale: 1.06, y: -3 }}
+              whileTap={{ scale: 0.94 }}
+              animate={
+                sel
+                  ? { boxShadow: '0 0 0 2px #ff5a5f, 0 8px 24px -4px rgba(255,90,95,0.20)' }
+                  : { boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }
+              }
+              transition={{ type: 'spring', stiffness: 450, damping: 22 }}
+              className={`relative p-4 rounded-2xl border text-center transition-colors ${
+                sel
+                  ? 'border-[#ff5a5f] bg-[#fff5f5]'
+                  : 'border-[#e7e5e4] bg-white hover:border-[#ff5a5f]/30 hover:bg-[#fff8f8]'
+              }`}
+            >
+              {sel && (
+                <motion.div
+                  initial={{ scale: 0, rotate: -15 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+                  className="absolute top-2 right-2 w-5 h-5 rounded-full bg-[#ff5a5f] flex items-center justify-center"
+                >
+                  <span className="text-white text-[9px] font-bold">✓</span>
+                </motion.div>
+              )}
+              <div className="text-2xl mb-2 leading-none">{pick.icon}</div>
+              <div className={`text-xs font-semibold leading-snug ${sel ? 'text-[#ff5a5f]' : 'text-[#57534e]'}`}>
+                {pick.label}
+              </div>
+            </motion.button>
+          );
+        })}
+
+        {/* Other cube — opens a free-text input when selected */}
+        <motion.button
+          variants={optionVariant}
+          onClick={() => onToggle('Other')}
+          whileHover={{ scale: 1.06, y: -3 }}
+          whileTap={{ scale: 0.94 }}
+          animate={
+            otherSelected
+              ? { boxShadow: '0 0 0 2px #ff5a5f, 0 8px 24px -4px rgba(255,90,95,0.20)' }
+              : { boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }
+          }
+          transition={{ type: 'spring', stiffness: 450, damping: 22 }}
+          className={`relative p-4 rounded-2xl border text-center transition-colors ${
+            otherSelected
+              ? 'border-[#ff5a5f] bg-[#fff5f5]'
+              : 'border-dashed border-[#d6d3d1] bg-white hover:border-[#ff5a5f]/40 hover:bg-[#fff8f8]'
+          }`}
+        >
+          {otherSelected && (
+            <motion.div
+              initial={{ scale: 0, rotate: -15 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+              className="absolute top-2 right-2 w-5 h-5 rounded-full bg-[#ff5a5f] flex items-center justify-center"
+            >
+              <span className="text-white text-[9px] font-bold">✓</span>
+            </motion.div>
+          )}
+          <div className="text-2xl mb-2 leading-none">✏️</div>
+          <div className={`text-xs font-semibold leading-tight ${otherSelected ? 'text-[#ff5a5f]' : 'text-[#a8a29e]'}`}>
+            Other…
+          </div>
+        </motion.button>
+      </motion.div>
+
+      {/* Inline text input — animated, only when "Other" is selected */}
+      <AnimatePresence>
+        {otherSelected && (
+          <motion.div
+            initial={{ opacity: 0, height: 0, marginTop: 0 }}
+            animate={{ opacity: 1, height: 'auto', marginTop: 12 }}
+            exit={{ opacity: 0, height: 0, marginTop: 0 }}
+            transition={{ type: 'spring', stiffness: 340, damping: 28 }}
+            className="overflow-hidden"
+          >
+            <input
+              type="text"
+              autoFocus
+              placeholder='e.g. "Sagrada Família", "Northern Lights", "Michelin star dinner"…'
+              value={customText}
+              onChange={(e) => onCustomChange(e.target.value)}
+              className="w-full px-5 py-4 rounded-2xl border border-[#ff5a5f]/40 bg-[#fff5f5] shadow-sm focus:border-[#ff5a5f] focus:ring-2 focus:ring-[#ff5a5f]/10 focus:outline-none text-[#1c1917] text-sm transition-all placeholder:text-[#a8a29e]"
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ─── Loading screen ───────────────────────────────────────────────────────────
+
 function LoadingScreen({ destination }: { destination: string }) {
   const [activeStep, setActiveStep] = useState(0);
 
@@ -224,7 +483,13 @@ export default function PlanPage() {
 
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
-  const [form, setForm] = useState<FormData>({ groupSize: 2, interests: [] });
+  const [form, setForm] = useState<FormData>({
+    groupSize: 2,
+    interests: [],
+    dietaryRestrictions: [],   // string[] — joined to string on submit
+    mustHaveItems: [],          // string[] — selected city picks
+    mustHaveOther: '',          // string  — free-text from "Other" cube
+  });
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -232,7 +497,7 @@ export default function PlanPage() {
   useEffect(() => {
     localStorage.removeItem(STORAGE_KEY);
     setStep(0);
-    setForm({ groupSize: 2, interests: [] });
+    setForm({ groupSize: 2, interests: [], dietaryRestrictions: [], mustHaveItems: [], mustHaveOther: '' });
   }, []);
 
   const question = questions[step];
@@ -260,6 +525,30 @@ export default function PlanPage() {
       };
     });
     setError('');
+  }, []);
+
+  const toggleDietary = useCallback((val: string) => {
+    setForm((prev) => {
+      const current = (prev.dietaryRestrictions as string[]) || [];
+      return {
+        ...prev,
+        dietaryRestrictions: current.includes(val)
+          ? current.filter((i) => i !== val)
+          : [...current, val],
+      };
+    });
+  }, []);
+
+  const toggleMustHave = useCallback((label: string) => {
+    setForm((prev) => {
+      const current = (prev.mustHaveItems as string[]) || [];
+      return {
+        ...prev,
+        mustHaveItems: current.includes(label)
+          ? current.filter((i) => i !== label)
+          : [...current, label],
+      };
+    });
   }, []);
 
   const validate = () => {
@@ -318,8 +607,15 @@ export default function PlanPage() {
       pace: (form.pace as TravelerProfile['pace']) || 'moderate',
       interests: (form.interests as string[]) || [],
       accommodation: (form.accommodation as TravelerProfile['accommodation']) || 'boutique-hotel',
-      dietaryRestrictions: (form.dietaryRestrictions as string) || '',
-      mustHave: (form.mustHave as string) || '',
+      // Step 9 — join selected dietary cubes into a comma-separated string
+      dietaryRestrictions: ((form.dietaryRestrictions as string[]) || []).join(', '),
+      // Step 10 — merge selected city picks + optional custom "Other" text
+      mustHave: [
+        ...((form.mustHaveItems as string[]) || []),
+        ...((form.mustHaveOther as string)?.trim()
+          ? [(form.mustHaveOther as string).trim()]
+          : []),
+      ].filter(Boolean).join(', '),
       hotelBooked: (form.hotelBooked as string) || '',
     };
 
@@ -626,8 +922,29 @@ export default function PlanPage() {
                   </motion.div>
                 )}
 
-                {/* ── Textarea ── */}
-                {question.type === 'textarea' && (
+                {/* ── Step 9: Dietary Cubes ── */}
+                {question.key === 'dietaryRestrictions' && (
+                  <DietaryCubes
+                    selected={(form.dietaryRestrictions as string[]) || []}
+                    onToggle={toggleDietary}
+                  />
+                )}
+
+                {/* ── Step 10: Must-Have City Picks ── */}
+                {question.key === 'mustHave' && (
+                  <MustHaveCubes
+                    destination={(form.destination as string) || ''}
+                    selected={(form.mustHaveItems as string[]) || []}
+                    customText={(form.mustHaveOther as string) || ''}
+                    onToggle={toggleMustHave}
+                    onCustomChange={(text) => setValue('mustHaveOther', text)}
+                  />
+                )}
+
+                {/* ── Textarea (hotelBooked only — diet & mustHave replaced above) ── */}
+                {question.type === 'textarea' &&
+                  question.key !== 'dietaryRestrictions' &&
+                  question.key !== 'mustHave' && (
                   <textarea
                     placeholder={question.placeholder}
                     value={(form[question.key] as string) || ''}
