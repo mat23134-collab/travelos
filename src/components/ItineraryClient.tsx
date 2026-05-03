@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -269,6 +269,13 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
   const [mobileMapOpen, setMobileMapOpen] = useState(false);
   const [focusedNeighborhood, setFocusedNeighborhood] = useState<string | undefined>();
 
+  // Admin check — reads the client-readable cookie set by middleware on ?key= login.
+  // Used purely for UI visibility; actual data filtering happens server-side.
+  const isAdmin = useMemo(() => {
+    if (typeof document === 'undefined') return false;
+    return document.cookie.split(';').some((c) => c.trim() === 'travelos_admin_ui=1');
+  }, []);
+
   // If React reuses this component instance during client-side navigation (e.g.
   // /itinerary → /itinerary/[id]), useState won't reinitialise. Sync from props
   // so server-fetched Supabase data always wins over any stale local state.
@@ -369,12 +376,14 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
               </motion.button>
             )}
             <SharePanel itinerary={itinerary} profile={profile} />
-            <Link
-              href={`/explore/${encodeURIComponent(itinerary.destination)}`}
-              className="text-sm font-medium px-4 py-2 rounded-lg border border-[#e5e7eb] text-[#374151] hover:bg-[#f3f4f6] transition-colors"
-            >
-              Scout Picks 💎
-            </Link>
+            {isAdmin && (
+              <Link
+                href={`/explore/${encodeURIComponent(itinerary.destination)}`}
+                className="text-sm font-medium px-4 py-2 rounded-lg border border-[#e5e7eb] text-[#374151] hover:bg-[#f3f4f6] transition-colors"
+              >
+                Scout Picks 💎
+              </Link>
+            )}
             <Link href="/plan" className="text-sm font-medium px-4 py-2 rounded-lg border border-[#e5e7eb] text-[#374151] hover:bg-[#f3f4f6] transition-colors">
               ← New Trip
             </Link>

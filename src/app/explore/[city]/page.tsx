@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Place } from '@/lib/places';
 import { PlaceCardData } from '@/components/PlaceCard';
+import { isAdminSession } from '@/lib/admin';
 import { ExploreClient } from './ExploreClient';
 
 interface PageProps {
@@ -56,6 +57,9 @@ export default async function ExploreCityPage({ params }: PageProps) {
     .replace(/-/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase());
 
+  // ── Admin check — runs before any data query ─────────────────────────────
+  const isAdmin = await isAdminSession();
+
   const { data, error } = await supabase
     .from('places')
     .select('*')
@@ -67,7 +71,19 @@ export default async function ExploreCityPage({ params }: PageProps) {
     return notFound();
   }
 
-  const places = (data ?? []) as Place[];
+  const allPlaces = (data ?? []) as Place[];
+
+  // ── Public view: only show places that have been verified and aren't closed.
+  //    Admin view: everything, including unverified and flagged entries.
+  const places = isAdmin
+    ? allPlaces
+    : allPlaces.filter(
+        (p) =>
+          p.status !== 'closed' &&
+          p.status !== 'renovating' &&
+          p.last_verified_at !== null &&
+          p.last_verified_at !== undefined,
+      );
 
   // Group by vibe_label, sorted by defined section order
   const grouped: Record<string, Place[]> = {};
@@ -96,6 +112,7 @@ export default async function ExploreCityPage({ params }: PageProps) {
       city={cityDecoded}
       sections={sections}
       totalPlaces={places.length}
+      isAdmin={isAdmin}
     />
   );
 }
