@@ -3,8 +3,14 @@
 /**
  * InteractiveMap — Mapbox GL dark-v11, react-map-gl v7
  *
- * react-map-gl v7 uses mapbox-gl as its default renderer — no mapLib prop
- * needed. Loaded via dynamic import (ssr:false) in DayCard to avoid
+ * Pins are colour-coded by activity category to match the GenreCube palette:
+ *   sightseeing → blue   (#3b82f6)
+ *   food        → orange (#f97316)
+ *   shopping    → pink   (#ec4899)
+ *   nightlife   → purple (#8b5cf6)
+ *   default     → white  (rgba(255,255,255,0.6))
+ *
+ * Loaded via dynamic import (ssr:false) in DayCard to avoid
  * mapbox-gl touching window during SSR.
  *
  * Exports:
@@ -30,6 +36,10 @@ export interface MapPlace {
   lat: number;
   lng: number;
   vibeLabel: string;
+  /** GenreCube category key — drives pin colour */
+  category?: 'sightseeing' | 'food' | 'shopping' | 'nightlife' | string;
+  /** Human-readable slot label shown in popups, e.g. "Morning · Sightseeing" */
+  slotLabel?: string;
 }
 
 interface Props {
@@ -40,20 +50,38 @@ interface Props {
   className?: string;
 }
 
-// ── Neon accent colours per vibe label ───────────────────────────────────────
+// ── Category → accent colour (mirrors GenreCube GENRE_CONFIG accents) ─────────
 
-const VIBE_ACCENT: Record<string, string> = {
-  'viral-trend':    '#a855f7',
-  'hidden-gem':     '#22c55e',
-  'local-favorite': '#f97316',
-  'classic':        '#3b82f6',
-  'luxury-pick':    '#eab308',
-  'budget-pick':    '#06b6d4',
+const CATEGORY_ACCENT: Record<string, string> = {
+  sightseeing: '#3b82f6',  // blue
+  food:        '#f97316',  // orange
+  shopping:    '#ec4899',  // pink
+  nightlife:   '#8b5cf6',  // purple
 };
 
-function accent(vibe: string) {
-  return VIBE_ACCENT[vibe] ?? 'rgba(255,255,255,0.6)';
+/** Resolve pin colour: category first, vibeLabel fallback */
+function pinAccent(category?: string, vibeLabel?: string): string {
+  if (category && CATEGORY_ACCENT[category]) return CATEGORY_ACCENT[category];
+  // vibeLabel fallback palette
+  const VIBE_ACCENT: Record<string, string> = {
+    'viral-trend':    '#a855f7',
+    'hidden-gem':     '#22c55e',
+    'local-favorite': '#f97316',
+    'classic':        '#3b82f6',
+    'luxury-pick':    '#eab308',
+    'budget-pick':    '#06b6d4',
+  };
+  return VIBE_ACCENT[vibeLabel ?? ''] ?? 'rgba(255,255,255,0.6)';
 }
+
+// ── Category human labels ─────────────────────────────────────────────────────
+
+const CATEGORY_LABEL: Record<string, string> = {
+  sightseeing: 'Sightseeing',
+  food:        'Food & Dining',
+  shopping:    'Shopping',
+  nightlife:   'Nightlife',
+};
 
 // ── NeonPin marker ────────────────────────────────────────────────────────────
 
@@ -64,7 +92,7 @@ const NeonPin = memo(function NeonPin({
   place: MapPlace;
   active: boolean;
 }) {
-  const c = accent(place.vibeLabel);
+  const c = pinAccent(place.category, place.vibeLabel);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 36 }}>
       {active && (
@@ -114,11 +142,13 @@ const NeonPin = memo(function NeonPin({
 // ── Popup content ─────────────────────────────────────────────────────────────
 
 function PlacePopup({ place }: { place: MapPlace }) {
-  const c = accent(place.vibeLabel);
+  const c = pinAccent(place.category, place.vibeLabel);
+  const catLabel = place.slotLabel
+    ?? (place.category ? CATEGORY_LABEL[place.category] ?? place.category : null);
   return (
     <div
       style={{
-        padding: '6px 12px',
+        padding: '8px 12px',
         borderRadius: 12,
         background: 'rgba(8,10,18,0.96)',
         border: `1px solid ${c}50`,
@@ -129,13 +159,57 @@ function PlacePopup({ place }: { place: MapPlace }) {
         fontWeight: 600,
         whiteSpace: 'nowrap',
         display: 'flex',
-        alignItems: 'center',
-        gap: 6,
+        flexDirection: 'column',
+        gap: 3,
         position: 'relative',
+        minWidth: 140,
       }}
     >
-      <span>{place.emoji}</span>
-      <span>{place.name}</span>
+      {catLabel && (
+        <div
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: '0.07em',
+            color: c,
+            opacity: 0.85,
+          }}
+        >
+          {catLabel}
+        </div>
+      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span>{place.emoji}</span>
+        <span>{place.name}</span>
+      </div>
+    </div>
+  );
+}
+
+// ── Category legend pill ──────────────────────────────────────────────────────
+
+function LegendPill({ category, color, count }: { category: string; color: string; count: number }) {
+  const label = CATEGORY_LABEL[category] ?? category;
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 5,
+        padding: '3px 8px',
+        borderRadius: 999,
+        background: 'rgba(8,10,18,0.82)',
+        backdropFilter: 'blur(8px)',
+        border: `1px solid ${color}40`,
+        color,
+        fontSize: 10,
+        fontWeight: 600,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
+      {label} ({count})
     </div>
   );
 }
@@ -180,6 +254,20 @@ function InteractiveMapInner({ places, flyToId, height = 280, className = '' }: 
     () => places.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)),
     [places],
   );
+
+  // Build legend: unique categories present in this day's places
+  const legendItems = useMemo(() => {
+    const counts: Record<string, number> = {};
+    validPlaces.forEach((p) => {
+      const key = p.category ?? 'sightseeing';
+      counts[key] = (counts[key] ?? 0) + 1;
+    });
+    return Object.entries(counts).map(([cat, count]) => ({
+      category: cat,
+      color: CATEGORY_ACCENT[cat] ?? 'rgba(255,255,255,0.5)',
+      count,
+    }));
+  }, [validPlaces]);
 
   // Fit all markers into view
   const fitAll = useCallback(() => {
@@ -275,11 +363,31 @@ function InteractiveMapInner({ places, flyToId, height = 280, className = '' }: 
         )}
       </Map>
 
+      {/* Category legend */}
+      {legendItems.length > 0 && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 12,
+            left: 12,
+            zIndex: 10,
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 6,
+            maxWidth: 300,
+          }}
+        >
+          {legendItems.map(({ category, color, count }) => (
+            <LegendPill key={category} category={category} color={color} count={count} />
+          ))}
+        </div>
+      )}
+
       {/* Fit-all button */}
       <button
         onClick={fitAll}
         style={{
-          position: 'absolute', bottom: 12, left: 12, zIndex: 10,
+          position: 'absolute', bottom: 12, right: 12, zIndex: 10,
           display: 'flex', alignItems: 'center', gap: 6,
           padding: '6px 10px', borderRadius: 12,
           background: 'rgba(8,10,18,0.82)', backdropFilter: 'blur(10px)',

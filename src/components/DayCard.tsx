@@ -861,7 +861,9 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
   // Always exactly [Breakfast, Lunch, Dinner] — never empty, never out of order
   byGenre.food = [mealCards.breakfast, mealCards.lunch, mealCards.dinner];
 
-  // ── Map layer: activities that have real GPS coordinates ──────────────────
+  // ── Map layer: ALL activities that have real GPS coordinates ─────────────
+  // Each pin carries a `category` (sightseeing | food | shopping | nightlife)
+  // and a `slotLabel` ("Morning · Sightseeing") so the popup shows full context.
   const mapPlaces = useMemo<MapPlace[]>(() => {
     const slotMap: [Slot, Activity | undefined][] = [
       ['morning',   day.morning],
@@ -875,15 +877,22 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
         const lng = Number(e[1].longitude);
         return Number.isFinite(lat) && Number.isFinite(lng);
       })
-      .map(([slot, act]) => ({
-        // ID must match activityToCard so flyToId lookup works
-        id:        `day${index}-${slot}-${(act.name ?? 'act').replace(/\s+/g, '-').toLowerCase()}`,
-        name:      act.name ?? slot,
-        emoji:     getVibeIcon(act.tags ?? [], act.name ?? ''),
-        lat:       Number(act.latitude!),
-        lng:       Number(act.longitude!),
-        vibeLabel: act.vibeLabel ?? 'classic',
-      }));
+      .map(([slot, act]) => {
+        const genre    = classifyActivity(act);
+        const slotMeta = SLOT_META[slot];
+        const catLabel = GENRE_CONFIG[genre]?.label ?? genre;
+        return {
+          // ID must match activityToCard so flyToId lookup works
+          id:        `day${index}-${slot}-${(act.name ?? 'act').replace(/\s+/g, '-').toLowerCase()}`,
+          name:      act.name ?? slot,
+          emoji:     act.category_emoji ?? getVibeIcon(act.tags ?? [], act.name ?? ''),
+          lat:       Number(act.latitude!),
+          lng:       Number(act.longitude!),
+          vibeLabel: act.vibeLabel ?? 'classic',
+          category:  genre,
+          slotLabel: `${slotMeta.icon} ${slotMeta.label} · ${catLabel}`,
+        };
+      });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [day.morning, day.afternoon, day.evening, index]);
 
@@ -892,12 +901,18 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
   //   PlaceCard.onSelect → clicked place id → flyToId (if it has GPS)
   const [flyToId, setFlyToId] = useState<string | null>(null);
 
-  const handleGenreOpen = useCallback((cubePlaces: PlaceCardData[]) => {
-    const first = cubePlaces.find(
-      (p) => Number.isFinite(p.lat) && Number.isFinite(p.lng),
-    );
-    if (first) setFlyToId(first.id);
-  }, []);
+  const handleGenreOpen = useCallback(
+    (cubePlaces: PlaceCardData[]) => {
+      // Try to fly to the first map pin that matches one of the cube's place IDs
+      const cubeIds = new Set(cubePlaces.map((p) => p.id));
+      const match = mapPlaces.find((mp) => cubeIds.has(mp.id));
+      // Fallback: first map pin with valid coords (covers dining placeholders that
+      // have no GPS — we just keep the camera where it is in that case)
+      const target = match ?? mapPlaces.find((mp) => Number.isFinite(mp.lat) && Number.isFinite(mp.lng));
+      if (target) setFlyToId(target.id);
+    },
+    [mapPlaces],
+  );
 
   const handlePlaceSelect = useCallback(
     (placeId: string) => {
