@@ -185,6 +185,7 @@ CRITICAL: Return ONLY a valid JSON object — no markdown fences, no prose. Stru
       },
       "afternoon": { "same fields as morning including latitude, longitude, time_slot, category_emoji — transitFromPrevious: '12 min walk'" },
       "evening":   { "same fields as morning including latitude, longitude, time_slot, category_emoji — transitFromPrevious: '20 min metro'" },
+      "breakfast": { "name": "string", "cuisine": "string", "priceRange": "$", "mustTry": "one dish", "neighborhood": "string", "latitude": 41.9028, "longitude": 12.4964 },
       "lunch":  { "name": "string", "cuisine": "string", "priceRange": "$$", "mustTry": "one dish", "neighborhood": "string", "latitude": 41.9028, "longitude": 12.4964 },
       "dinner": { "name": "string", "cuisine": "string", "priceRange": "$$", "mustTry": "one dish", "neighborhood": "string", "latitude": 41.9028, "longitude": 12.4964 },
       "estimatedDailyCost": "string",
@@ -257,7 +258,7 @@ ${internalPlacesBlock}${ragBlock}
 FINAL INSTRUCTIONS:
 - Every activity MUST have startTime, endTime, bestTimeToVisit, and transitFromPrevious
 - Every activity MUST have latitude, longitude (accurate GPS, 4 dp), time_slot, and category_emoji
-- Every lunch and dinner MUST have latitude and longitude (accurate GPS, 4 dp) for the specific restaurant
+- Every breakfast, lunch, and dinner MUST have latitude and longitude (accurate GPS, 4 dp) for the specific restaurant
 - Cluster all activities within walking distance of each other per day
 - webInsights: exactly 1 per day — single most important insight only
 - MUST include the "basecamp" field in the JSON output (follow BASECAMP RULES above)`;

@@ -138,6 +138,63 @@ function buildMapsUrl(lat?: number | null, lng?: number | null): string | undefi
   return undefined;
 }
 
+// ─── Multi-stop route builder ─────────────────────────────────────────────────
+
+const ACTIVITY_CATEGORY_LABEL: Record<string, string> = {
+  sightseeing: 'Attraction',
+  food:        'Dining',
+  shopping:    'Shopping',
+  nightlife:   'Nightlife',
+};
+
+function generateFullDayRouteUrl(
+  day: DayPlan,
+  destination: string,
+): { url: string; stopCount: number } | null {
+  const city = destination || '';
+  const labels: string[] = [];
+
+  // Chronological order: breakfast → morning → lunch → afternoon → dinner → evening
+  if (day.breakfast?.name && Number.isFinite(Number(day.breakfast.latitude)) && Number(day.breakfast.latitude) !== 0) {
+    labels.push(`${day.breakfast.name} (Breakfast) ${city}`);
+  }
+  if (day.morning?.name && Number.isFinite(Number(day.morning.latitude)) && Number(day.morning.latitude) !== 0) {
+    const cat = ACTIVITY_CATEGORY_LABEL[classifyActivity(day.morning)] ?? 'Attraction';
+    labels.push(`${day.morning.name} (${cat}) ${city}`);
+  }
+  if (day.lunch?.name && Number.isFinite(Number(day.lunch.latitude)) && Number(day.lunch.latitude) !== 0) {
+    labels.push(`${day.lunch.name} (Lunch) ${city}`);
+  }
+  if (day.afternoon?.name && Number.isFinite(Number(day.afternoon.latitude)) && Number(day.afternoon.latitude) !== 0) {
+    const cat = ACTIVITY_CATEGORY_LABEL[classifyActivity(day.afternoon)] ?? 'Attraction';
+    labels.push(`${day.afternoon.name} (${cat}) ${city}`);
+  }
+  if (day.dinner?.name && Number.isFinite(Number(day.dinner.latitude)) && Number(day.dinner.latitude) !== 0) {
+    labels.push(`${day.dinner.name} (Dinner) ${city}`);
+  }
+  if (day.evening?.name && Number.isFinite(Number(day.evening.latitude)) && Number(day.evening.latitude) !== 0) {
+    const cat = ACTIVITY_CATEGORY_LABEL[classifyActivity(day.evening)] ?? 'Nightlife';
+    labels.push(`${day.evening.name} (${cat}) ${city}`);
+  }
+
+  // Safety cap: max 9 stops (Google Maps Directions limit)
+  const limited = labels.slice(0, 9);
+  if (limited.length === 0) return null;
+
+  let url: string;
+  if (limited.length === 1) {
+    url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(limited[0])}`;
+  } else {
+    const origin    = encodeURIComponent(limited[0]);
+    const dest      = encodeURIComponent(limited[limited.length - 1]);
+    const waypoints = limited.slice(1, -1).map(encodeURIComponent).join('|');
+    url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}&travelmode=walking`;
+    if (waypoints) url += `&waypoints=${waypoints}`;
+  }
+
+  return { url, stopCount: limited.length };
+}
+
 // ─── Card builders ────────────────────────────────────────────────────────────
 
 /** Convert an Activity slot into a PlaceCardData. */
@@ -944,6 +1001,13 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [day.morning, day.afternoon, day.evening, day.lunch, day.dinner, day.breakfast, index]);
 
+  // ── Multi-stop day route URL ───────────────────────────────────────────────
+  const routeInfo = useMemo(
+    () => generateFullDayRouteUrl(day, destination ?? ''),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [day.breakfast, day.morning, day.lunch, day.afternoon, day.dinner, day.evening, destination],
+  );
+
   // ── Fly-to wiring ─────────────────────────────────────────────────────────
   //   GenreCube.onOpen  → first place in that cube with GPS → flyToId
   //   PlaceCard.onSelect → clicked place id → flyToId (if it has GPS)
@@ -1084,6 +1148,29 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
           </div>
         </div>
       </button>
+
+      {/* ── Start Day Route ────────────────────────────────────────────── */}
+      {routeInfo && (
+        <div className="px-4 py-2.5 border-b border-white/6">
+          <a
+            href={routeInfo.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all hover:brightness-110 active:scale-95"
+            style={{
+              background: 'linear-gradient(135deg, rgba(255,90,95,0.10), rgba(139,92,246,0.10))',
+              border: '1px solid rgba(255,90,95,0.28)',
+              color: '#ff8c8f',
+            }}
+          >
+            <span>🗺️</span>
+            <span>
+              Start Day Route · {routeInfo.stopCount} Stop{routeInfo.stopCount !== 1 ? 's' : ''}
+            </span>
+            <span style={{ opacity: 0.45, fontSize: '10px' }}>↗</span>
+          </a>
+        </div>
+      )}
 
       {/* ── Accordion Body ─────────────────────────────────────────────── */}
       <AnimatePresence initial={false}>
