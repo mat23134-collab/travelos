@@ -203,6 +203,7 @@ function activityToCard(
   activity: Activity,
   slot: Slot,
   dayIdx: number,
+  city?: string,
   mealSlot?: 'breakfast' | 'lunch' | 'dinner',
 ): PlaceCardData {
   return {
@@ -213,6 +214,7 @@ function activityToCard(
     description: activity.description ?? '',
     highlights:  (activity.tags ?? []).slice(0, 4),
     neighborhood: activity.neighborhood,
+    city,
     category:    slot,
     estimatedCost: activity.estimatedCost,
     lat:         activity.latitude,
@@ -229,6 +231,7 @@ function diningToCard(
   spot: DiningSpot,
   meal: 'breakfast' | 'lunch' | 'dinner',
   dayIdx: number,
+  city?: string,
 ): PlaceCardData {
   const MEAL_EMOJI: Record<'breakfast' | 'lunch' | 'dinner', string> = {
     breakfast: '☕', lunch: '🍽️', dinner: '🌙',
@@ -243,6 +246,7 @@ function diningToCard(
       spot.cuisine ?? '',
     ].filter(Boolean).join(' · ') || 'Local dining recommendation',
     neighborhood: spot.neighborhood,
+    city,
     category:    spot.cuisine,
     estimatedCost: spot.priceRange,
     mealSlot:    meal,
@@ -894,7 +898,7 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
   // Non-food activities → their genre bucket (food handled separately below)
   dayActivities.forEach(({ activity, slot }) => {
     const genre = classifyActivity(activity);
-    if (genre !== 'food') byGenre[genre].push(activityToCard(activity, slot, index));
+    if (genre !== 'food') byGenre[genre].push(activityToCard(activity, slot, index, destination));
   });
 
   // ── 3-Meal Rule ───────────────────────────────────────────────────────────
@@ -914,23 +918,23 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
   const mealCards: Record<'breakfast' | 'lunch' | 'dinner', PlaceCardData> = {
     breakfast:
       day.breakfast
-        ? diningToCard(day.breakfast, 'breakfast', index)
+        ? diningToCard(day.breakfast, 'breakfast', index, destination)
         : morningIsFood && day.morning
-          ? activityToCard(day.morning,   'morning',   index, 'breakfast')
+          ? activityToCard(day.morning,   'morning',   index, destination, 'breakfast')
           : makeMealPlaceholder('breakfast', index),
 
     lunch:
       day.lunch
-        ? diningToCard(day.lunch, 'lunch', index)
+        ? diningToCard(day.lunch, 'lunch', index, destination)
         : afternoonIsFood && day.afternoon
-          ? activityToCard(day.afternoon, 'afternoon', index, 'lunch')
+          ? activityToCard(day.afternoon, 'afternoon', index, destination, 'lunch')
           : makeMealPlaceholder('lunch', index),
 
     dinner:
       day.dinner
-        ? diningToCard(day.dinner, 'dinner', index)
+        ? diningToCard(day.dinner, 'dinner', index, destination)
         : eveningIsFood && day.evening
-          ? activityToCard(day.evening,   'evening',   index, 'dinner')
+          ? activityToCard(day.evening,   'evening',   index, destination, 'dinner')
           : makeMealPlaceholder('dinner', index),
   };
 

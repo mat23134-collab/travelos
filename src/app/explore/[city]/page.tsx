@@ -42,6 +42,7 @@ function toCardData(place: Place): PlaceCardData {
     mapsUrl,
     socialProofUrl: place.social_proof_url,
     neighborhood: place.city,     // places from Scout Agent use city as location
+    city: place.city,             // used for Google Places photo lookup
     category: place.category,
     // status-aware verification fields
     verificationStatus:

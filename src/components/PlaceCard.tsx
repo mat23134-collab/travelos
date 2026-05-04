@@ -16,7 +16,7 @@
  *   budget-pick    → Cyan           #06b6d4
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { MapPin, ExternalLink, Navigation, X } from 'lucide-react';
 import { VerificationBadge } from '@/components/VerificationBadge';
@@ -38,6 +38,8 @@ export interface PlaceCardData {
   mapsUrl?: string;
   socialProofUrl?: string | null;
   neighborhood?: string;
+  /** City name — used as context for Google Places photo lookup. */
+  city?: string;
   category?: string;
   estimatedCost?: string;
   mealSlot?: 'breakfast' | 'lunch' | 'dinner';  // 3-Meal Rule — controls ordering + badge in Food cube
@@ -94,6 +96,116 @@ const MEAL_SLOT_CFG: Record<'breakfast' | 'lunch' | 'dinner', { icon: string; la
   dinner:    { icon: '🌙', label: 'Dinner',    color: '#8b5cf6' },
 };
 
+// ── Google Places photo hook ──────────────────────────────────────────────────
+// Fetches via /api/place-photo (server-side proxy — API key never exposed).
+
+function usePlacePhoto(name: string, city?: string) {
+  const [state, setState] = useState<{ url: string | null; loading: boolean }>({
+    url: null,
+    loading: true,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    setState({ url: null, loading: true });
+
+    const params = new URLSearchParams({ name: name.slice(0, 100) });
+    if (city) params.set('city', city);
+
+    fetch(`/api/place-photo?${params}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (!cancelled) setState({ url: d.photoUrl ?? null, loading: false });
+      })
+      .catch(() => {
+        if (!cancelled) setState({ url: null, loading: false });
+      });
+
+    return () => { cancelled = true; };
+  }, [name, city]);
+
+  return state;
+}
+
+// ── Photo header — shared by tile (compact) and modal (tall) ─────────────────
+
+interface PhotoHeaderProps {
+  name: string;
+  city?: string;
+  emoji: string;
+  vibe: VibeColor;
+  height: number;
+}
+
+function PlacePhotoHeader({ name, city, emoji, vibe, height }: PhotoHeaderProps) {
+  const { url, loading } = usePlacePhoto(name, city);
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgError, setImgError]   = useState(false);
+
+  const hasPhoto = !!url && !imgError;
+
+  return (
+    <div className="relative w-full overflow-hidden flex-shrink-0" style={{ height }}>
+      {/* Shimmer skeleton while loading */}
+      {loading && (
+        <div
+          className="absolute inset-0 animate-shimmer"
+          style={{
+            background:
+              'linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 100%)',
+            backgroundSize: '200% 100%',
+          }}
+        />
+      )}
+
+      {/* Real Google Places photo with fade-in */}
+      {hasPhoto && (
+        <motion.img
+          src={url!}
+          alt={name}
+          className="absolute inset-0 w-full h-full"
+          style={{ objectFit: 'cover' }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: imgLoaded ? 1 : 0 }}
+          transition={{ duration: 0.5, ease: 'easeOut' }}
+          onLoad={() => setImgLoaded(true)}
+          onError={() => setImgError(true)}
+        />
+      )}
+
+      {/* Emoji fallback when no photo is available */}
+      {!loading && !hasPhoto && (
+        <div
+          className="absolute inset-0 flex items-center justify-center"
+          style={{
+            background: `linear-gradient(135deg, ${vibe.bg} 0%, rgba(6,8,15,0.65) 100%)`,
+          }}
+        >
+          <span
+            className="text-5xl select-none"
+            style={{ filter: 'drop-shadow(0 4px 18px rgba(0,0,0,0.55))' }}
+          >
+            {emoji}
+          </span>
+        </div>
+      )}
+
+      {/* Bottom gradient for text legibility */}
+      {hasPhoto && imgLoaded && (
+        <div className="absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-black/75 via-black/20 to-transparent pointer-events-none" />
+      )}
+
+      {/* Vibe-coloured neon rule on top */}
+      <div
+        className="absolute top-0 inset-x-0 h-px z-10"
+        style={{
+          background: `linear-gradient(90deg, transparent 5%, ${vibe.border} 50%, transparent 95%)`,
+        }}
+      />
+    </div>
+  );
+}
+
 // ── Collapsed tile (in grid) ──────────────────────────────────────────────────
 
 interface TileProps {
@@ -109,7 +221,7 @@ function PlaceTile({ data, onClick, isSelected }: TileProps) {
     <motion.button
       layoutId={`pc-${data.id}`}
       onClick={onClick}
-      className="relative w-full text-left rounded-2xl overflow-hidden focus:outline-none"
+      className="relative w-full text-left rounded-2xl overflow-hidden focus:outline-none flex flex-col"
       style={{
         background: `linear-gradient(160deg, ${vibe.bg} 0%, rgba(13,15,22,0.82) 100%)`,
         backdropFilter: 'blur(18px)',
@@ -127,10 +239,13 @@ function PlaceTile({ data, onClick, isSelected }: TileProps) {
       whileTap={{ scale: 0.98 }}
       transition={{ type: 'spring', stiffness: 420, damping: 30 }}
     >
-      {/* Top neon rule */}
-      <div
-        className="absolute top-0 inset-x-0 h-px"
-        style={{ background: `linear-gradient(90deg, transparent 5%, ${vibe.border} 50%, transparent 95%)` }}
+      {/* Google Places photo header (130px) — includes neon rule */}
+      <PlacePhotoHeader
+        name={data.name}
+        city={data.city}
+        emoji={data.emoji}
+        vibe={vibe}
+        height={130}
       />
 
       <div className="p-4">
@@ -291,35 +406,38 @@ function PlaceModal({ data, onClose }: ModalProps) {
             maxHeight: '88dvh',
           }}
         >
-          {/* Bright neon top rule */}
-          <div
-            className="absolute top-0 inset-x-0 h-0.5 z-10"
-            style={{ background: `linear-gradient(90deg, transparent 5%, ${vibe.border} 50%, transparent 95%)` }}
+          {/* Google Places photo header (185px) — includes neon rule */}
+          <PlacePhotoHeader
+            name={data.name}
+            city={data.city}
+            emoji={data.emoji}
+            vibe={vibe}
+            height={185}
           />
 
           {/* Ambient orb */}
           <div
             className="absolute top-0 right-0 w-56 h-56 rounded-full pointer-events-none"
-            style={{ background: vibe.border, opacity: 0.055, filter: 'blur(55px)' }}
+            style={{ background: vibe.border, opacity: 0.045, filter: 'blur(55px)' }}
           />
 
-          {/* Close */}
+          {/* Close — floats above the photo */}
           <motion.button
             onClick={onClose}
             className="absolute top-3 right-3 z-20 w-8 h-8 rounded-full flex items-center justify-center"
-            style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)' }}
+            style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.18)' }}
             whileTap={{ scale: 0.82 }}
           >
-            <X size={13} className="text-white/55" />
+            <X size={13} className="text-white/75" />
           </motion.button>
 
           {/* Scrollable body */}
           <div className="overflow-y-auto flex-1 p-5 relative z-10">
 
-            {/* Header */}
+            {/* Header — name + neighborhood (emoji removed; photo is the visual anchor) */}
             <div className="flex items-start gap-3 mb-4 pr-8">
-              <span className="text-5xl leading-none select-none">{data.emoji}</span>
-              <div className="flex-1 min-w-0 pt-1">
+              <span className="text-4xl leading-none select-none mt-0.5">{data.emoji}</span>
+              <div className="flex-1 min-w-0">
                 <h2 className="font-black text-xl text-white tracking-tight leading-tight">
                   {data.name}
                 </h2>
