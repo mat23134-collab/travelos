@@ -115,6 +115,13 @@ CORE PRINCIPLES:
 - Use specific time slots so the user has a complete, ready-to-follow schedule
 - Target 6–8 named stops per day (meals + activities). Every day MUST include breakfast, lunch, and dinner as explicit DiningSpot objects with GPS coordinates
 
+ZERO PLACEHOLDER POLICY (non-negotiable):
+- Every single slot — breakfast, morning, lunch, afternoon, dinner, evening — MUST be a real, named business entity that exists on Google Maps
+- STRICTLY FORBIDDEN in any field: "Ask Locally", "Scout the Block", "Your Choice", "TBD", "Local Option", generic advice, or any made-up name
+- If you are uncertain about a specific café, pick the most well-known one in that neighborhood — do NOT leave it vague
+- Breakfast MUST be a real named café, bakery, or restaurant — never generic advice
+- Evening MUST be a real named bar, cocktail bar, rooftop venue, or live music spot
+
 DAILY MIX — mandatory structure per day (6–8 stops):
   1. Breakfast — café, bakery, market stall, or hotel breakfast spot (always with GPS)
   2–3. Morning + Afternoon activities — sightseeing, landmarks, museums, cultural sites (2-3 picks depending on pace)
@@ -268,6 +275,7 @@ FINAL INSTRUCTIONS:
 - Every activity MUST have startTime, endTime, bestTimeToVisit, and transitFromPrevious
 - Every activity MUST have latitude, longitude (accurate GPS, 4 dp), time_slot, and category_emoji
 - Every breakfast, lunch, and dinner MUST have latitude and longitude (accurate GPS, 4 dp) for the specific restaurant
+- ZERO PLACEHOLDERS — every named slot must be a real business: no "Ask Locally", "Scout the Block", "Your Choice", or generic advice anywhere in the output
 - Cluster all activities within walking distance of each other per day
 - webInsights: exactly 1 per day — single most important insight only
 - MUST include the "basecamp" field in the JSON output (follow BASECAMP RULES above)`;

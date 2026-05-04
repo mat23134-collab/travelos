@@ -155,25 +155,32 @@ function generateFullDayRouteUrl(
   const city = destination || '';
   const labels: string[] = [];
 
+  // Helper: validate GPS before including a stop in the route
+  const hasGps = (lat?: number | null, lng?: number | null) => {
+    if (lat == null || lng == null) return false;
+    const la = Number(lat); const lo = Number(lng);
+    return Number.isFinite(la) && Number.isFinite(lo) && !(la === 0 && lo === 0);
+  };
+
   // Chronological order: breakfast → morning → lunch → afternoon → dinner → evening
-  if (day.breakfast?.name && Number.isFinite(Number(day.breakfast.latitude)) && Number(day.breakfast.latitude) !== 0) {
+  if (day.breakfast?.name && hasGps(day.breakfast.latitude, day.breakfast.longitude)) {
     labels.push(`${day.breakfast.name} (Breakfast) ${city}`);
   }
-  if (day.morning?.name && Number.isFinite(Number(day.morning.latitude)) && Number(day.morning.latitude) !== 0) {
+  if (day.morning?.name && hasGps(day.morning.latitude, day.morning.longitude)) {
     const cat = ACTIVITY_CATEGORY_LABEL[classifyActivity(day.morning)] ?? 'Attraction';
     labels.push(`${day.morning.name} (${cat}) ${city}`);
   }
-  if (day.lunch?.name && Number.isFinite(Number(day.lunch.latitude)) && Number(day.lunch.latitude) !== 0) {
+  if (day.lunch?.name && hasGps(day.lunch.latitude, day.lunch.longitude)) {
     labels.push(`${day.lunch.name} (Lunch) ${city}`);
   }
-  if (day.afternoon?.name && Number.isFinite(Number(day.afternoon.latitude)) && Number(day.afternoon.latitude) !== 0) {
+  if (day.afternoon?.name && hasGps(day.afternoon.latitude, day.afternoon.longitude)) {
     const cat = ACTIVITY_CATEGORY_LABEL[classifyActivity(day.afternoon)] ?? 'Attraction';
     labels.push(`${day.afternoon.name} (${cat}) ${city}`);
   }
-  if (day.dinner?.name && Number.isFinite(Number(day.dinner.latitude)) && Number(day.dinner.latitude) !== 0) {
+  if (day.dinner?.name && hasGps(day.dinner.latitude, day.dinner.longitude)) {
     labels.push(`${day.dinner.name} (Dinner) ${city}`);
   }
-  if (day.evening?.name && Number.isFinite(Number(day.evening.latitude)) && Number(day.evening.latitude) !== 0) {
+  if (day.evening?.name && hasGps(day.evening.latitude, day.evening.longitude)) {
     const cat = ACTIVITY_CATEGORY_LABEL[classifyActivity(day.evening)] ?? 'Nightlife';
     labels.push(`${day.evening.name} (${cat}) ${city}`);
   }
@@ -254,40 +261,6 @@ function diningToCard(
     lat:         spot.latitude  != null ? Number(spot.latitude)  : undefined,
     lng:         spot.longitude != null ? Number(spot.longitude) : undefined,
     mapsUrl:     buildMapsUrl(spot.latitude, spot.longitude),
-  };
-}
-
-/**
- * 3-Meal Rule: when neither a DiningSpot nor a food-classified Activity exists
- * for a meal slot, render a soft placeholder so the Food cube always shows
- * Breakfast → Lunch → Dinner (never a blank or missing slot).
- */
-function makeMealPlaceholder(meal: 'breakfast' | 'lunch' | 'dinner', dayIdx: number): PlaceCardData {
-  const CFG = {
-    breakfast: {
-      emoji: '☕', vibeLabel: 'budget-pick' as const,
-      name: 'Breakfast — Ask Locally',
-      description: 'Head to a nearby café or convenience store. Your hotel concierge can point you to the best local morning spot.',
-    },
-    lunch: {
-      emoji: '🍱', vibeLabel: 'local-favorite' as const,
-      name: 'Lunch — Scout the Block',
-      description: 'No fixed plan — wander the neighbourhood and follow the lunch crowds. The best finds are unscripted.',
-    },
-    dinner: {
-      emoji: '🌃', vibeLabel: 'classic' as const,
-      name: 'Dinner — Your Choice',
-      description: 'Open evening. Use Google Maps or ask a local guide for a reservation that fits the mood.',
-    },
-  } as const;
-  const c = CFG[meal];
-  return {
-    id:          `day${dayIdx}-${meal}-placeholder`,
-    name:        c.name,
-    emoji:       c.emoji,
-    vibeLabel:   c.vibeLabel,
-    description: c.description,
-    mealSlot:    meal,
   };
 }
 
@@ -901,45 +874,44 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
     if (genre !== 'food') byGenre[genre].push(activityToCard(activity, slot, index, destination));
   });
 
-  // ── 3-Meal Rule ───────────────────────────────────────────────────────────
-  //
-  //  The Food & Dining Genre Cube always shows exactly 3 ordered cards:
-  //    Breakfast → Lunch → Dinner
+  // ── Meal cards (real spots only — no placeholders) ───────────────────────
   //
   //  Priority per slot:
   //    1. Explicit DiningSpot (day.breakfast / day.lunch / day.dinner)
-  //    2. Activity in that time slot that classifies as food
-  //    3. Soft placeholder ("Ask Locally", "Scout the Block", "Your Choice")
+  //    2. Activity in that slot that classifies as food
+  //    3. null — slot simply omitted from the Food cube
   //
   const morningIsFood   = day.morning   && classifyActivity(day.morning)   === 'food';
   const afternoonIsFood = day.afternoon && classifyActivity(day.afternoon) === 'food';
   const eveningIsFood   = day.evening   && classifyActivity(day.evening)   === 'food';
 
-  const mealCards: Record<'breakfast' | 'lunch' | 'dinner', PlaceCardData> = {
+  const mealCards: Record<'breakfast' | 'lunch' | 'dinner', PlaceCardData | null> = {
     breakfast:
       day.breakfast
         ? diningToCard(day.breakfast, 'breakfast', index, destination)
         : morningIsFood && day.morning
           ? activityToCard(day.morning,   'morning',   index, destination, 'breakfast')
-          : makeMealPlaceholder('breakfast', index),
+          : null,
 
     lunch:
       day.lunch
         ? diningToCard(day.lunch, 'lunch', index, destination)
         : afternoonIsFood && day.afternoon
           ? activityToCard(day.afternoon, 'afternoon', index, destination, 'lunch')
-          : makeMealPlaceholder('lunch', index),
+          : null,
 
     dinner:
       day.dinner
         ? diningToCard(day.dinner, 'dinner', index, destination)
         : eveningIsFood && day.evening
           ? activityToCard(day.evening,   'evening',   index, destination, 'dinner')
-          : makeMealPlaceholder('dinner', index),
+          : null,
   };
 
-  // Always exactly [Breakfast, Lunch, Dinner] — never empty, never out of order
-  byGenre.food = [mealCards.breakfast, mealCards.lunch, mealCards.dinner];
+  // Only real cards — filter out null so no phantom slots appear
+  byGenre.food = [mealCards.breakfast, mealCards.lunch, mealCards.dinner].filter(
+    (c): c is PlaceCardData => c !== null,
+  );
 
   // ── Map layer: ALL activities + dining spots with GPS ─────────────────────
   // Sources:
@@ -957,9 +929,11 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
     ];
     for (const [slot, act] of slotMap) {
       if (!act) continue;
+      // Guard: skip if coords are missing, non-finite, or zero (null-island)
+      if (act.latitude == null || act.longitude == null) continue;
       const lat = Number(act.latitude);
       const lng = Number(act.longitude);
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+      if (!Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0)) continue;
       const genre    = classifyActivity(act);
       const slotMeta = SLOT_META[slot];
       const catLabel = GENRE_CONFIG[genre]?.label ?? genre;
@@ -986,9 +960,11 @@ export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
     };
     for (const { spot, meal, icon, label } of MEAL_META) {
       if (!spot) continue;
+      // Guard: skip if coords are missing, non-finite, or zero (null-island)
+      if (spot.latitude == null || spot.longitude == null) continue;
       const lat = Number(spot.latitude);
       const lng = Number(spot.longitude);
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+      if (!Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0)) continue;
       // ID matches diningToCard so flyToId wiring works
       const id = `day${index}-${meal}-${(spot.name ?? 'dining').replace(/\s+/g, '-').toLowerCase()}`;
       pins.push({
