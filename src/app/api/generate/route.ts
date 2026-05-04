@@ -98,7 +98,11 @@ async function callClaude(
 
 export async function POST(req: NextRequest) {
   try {
-    const profile: TravelerProfile = await req.json();
+    const body = await req.json();
+    // userId is sent by the client when the user is logged in (optional)
+    const userId: string | null = body.userId ?? null;
+    // Strip userId before passing to TravelerProfile (not part of that type)
+    const { userId: _u, ...profile } = body as TravelerProfile & { userId?: string | null };
 
     if (!profile.destination) {
       return NextResponse.json({ error: 'Destination is required' }, { status: 400 });
@@ -240,6 +244,7 @@ export async function POST(req: NextRequest) {
         destination_city: itinerary.destination || profile.destination,
         start_date:       startDate,
         hotel_info:       hotelInfo,
+        user_id:          userId,   // null when generated anonymously
         itinerary_json:   { ...itinerary, _profile: profile },
       }])
       .select('id')

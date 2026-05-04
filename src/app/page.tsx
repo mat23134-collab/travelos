@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useAuth } from '@/lib/auth-context';
 
 const features = [
   {
@@ -49,6 +50,8 @@ const testimonials = [
 const GRAIN_SVG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
 
 export default function HomePage() {
+  const { user, loading } = useAuth();
+
   return (
     <main
       className="min-h-screen text-[#1c1917] overflow-hidden relative"
@@ -68,12 +71,32 @@ export default function HomePage() {
         <span className="text-lg font-semibold tracking-tight text-[#1c1917]">
           Travel<span className="text-[#ff5a5f]">OS</span>
         </span>
-        <Link
-          href="/plan"
-          className="text-sm font-medium text-[#78716c] hover:text-[#1c1917] transition-colors"
-        >
-          Start Planning →
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/plan"
+            className="text-sm font-medium text-[#78716c] hover:text-[#1c1917] transition-colors"
+          >
+            Start Planning →
+          </Link>
+          {!loading && (
+            user ? (
+              <Link
+                href="/dashboard"
+                className="text-sm font-semibold px-4 py-1.5 rounded-xl text-white transition-all"
+                style={{ background: 'linear-gradient(135deg,#ff5a5f,#ff8c5a)', boxShadow: '0 4px 14px -4px rgba(255,90,95,0.45)' }}
+              >
+                My Trips
+              </Link>
+            ) : (
+              <Link
+                href="/auth"
+                className="text-sm font-medium px-4 py-1.5 rounded-xl border border-[#e7e5e4] text-[#78716c] hover:border-[#ff5a5f]/40 hover:text-[#ff5a5f] transition-all"
+              >
+                Log In
+              </Link>
+            )
+          )}
+        </div>
       </nav>
 
       {/* ── Hero ─────────────────────────────────────────────────────────────── */}

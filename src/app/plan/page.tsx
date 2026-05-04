@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { questions } from '@/lib/questionnaire';
 import { TravelerProfile } from '@/lib/types';
+import { useAuth } from '@/lib/auth-context';
 
 type FormData = Record<string, unknown>;
 
@@ -479,7 +480,8 @@ function LoadingScreen({ destination }: { destination: string }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function PlanPage() {
-  const router = useRouter();
+  const router      = useRouter();
+  const { user }    = useAuth();
 
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
@@ -626,7 +628,7 @@ export default function PlanPage() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(profile),
+        body: JSON.stringify({ ...profile, userId: user?.id ?? null }),
       });
 
       const rawText = await res.text();
