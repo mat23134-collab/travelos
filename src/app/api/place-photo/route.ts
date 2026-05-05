@@ -1,20 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
- * /api/place-photo — server-side Google Places photo proxy.
+ * /api/place-photo — server-side Google Places photo + website proxy.
  *
- * Keeps GOOGLE_PLACES_API_KEY server-side and returns a CDN URL
- * (lh3.googleusercontent.com redirect) that is safe to expose to clients.
+ * Keeps GOOGLE_PLACES_API_KEY server-side and returns:
+ *   photoUrl — CDN URL (lh3.googleusercontent.com) or null
+ *   website  — official website URL from Google Places or null
  *
  * GET ?name={place name}&city={city}
- * Returns: { photoUrl: string | null }
+ * Returns: { photoUrl: string | null, website: string | null }
  */
 
 const PLACES_KEY = process.env.GOOGLE_PLACES_API_KEY;
 
 // Module-level in-memory cache (lives for the lifetime of the server process).
 // Prevents redundant API calls for the same place within a session.
-const cache = new Map<string, string | null>();
+interface CachedEntry { photoUrl: string | null; website: string | null }
+const cache = new Map<string, CachedEntry>();
 
 export async function GET(req: NextRequest) {
   const name = (req.nextUrl.searchParams.get('name') ?? '').trim().slice(0, 100);
@@ -23,7 +25,7 @@ export async function GET(req: NextRequest) {
   // Return null immediately when no API key or no name
   if (!PLACES_KEY || !name) {
     return NextResponse.json(
-      { photoUrl: null },
+      { photoUrl: null, website: null },
       { headers: { 'Cache-Control': 'public, s-maxage=3600' } },
     );
   }
@@ -31,26 +33,29 @@ export async function GET(req: NextRequest) {
   const cacheKey = `${name}|${city}`.toLowerCase();
   if (cache.has(cacheKey)) {
     return NextResponse.json(
-      { photoUrl: cache.get(cacheKey) ?? null },
+      cache.get(cacheKey)!,
       { headers: { 'Cache-Control': 'public, s-maxage=86400' } },
     );
   }
 
   try {
-    // ── Step 1: Find place and get photo_reference ─────────────────────────
-    const query      = encodeURIComponent(`${name}${city ? ` ${city}` : ''}`);
-    const searchUrl  = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${query}&inputtype=textquery&fields=photos&key=${PLACES_KEY}`;
+    // ── Step 1: Find place and get photo_reference + website ───────────────
+    const query     = encodeURIComponent(`${name}${city ? ` ${city}` : ''}`);
+    const searchUrl = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${query}&inputtype=textquery&fields=photos,website&key=${PLACES_KEY}`;
 
     const searchRes  = await fetch(searchUrl, { next: { revalidate: 86400 } });
     if (!searchRes.ok) throw new Error(`Places search HTTP ${searchRes.status}`);
 
     const searchData = await searchRes.json();
-    const photoRef   = searchData.candidates?.[0]?.photos?.[0]?.photo_reference as string | undefined;
+    const candidate  = searchData.candidates?.[0];
+    const photoRef   = candidate?.photos?.[0]?.photo_reference as string | undefined;
+    const website    = (candidate?.website as string | undefined) ?? null;
 
     if (!photoRef) {
-      cache.set(cacheKey, null);
+      const entry: CachedEntry = { photoUrl: null, website };
+      cache.set(cacheKey, entry);
       return NextResponse.json(
-        { photoUrl: null },
+        entry,
         { headers: { 'Cache-Control': 'public, s-maxage=3600' } },
       );
     }
@@ -60,14 +65,16 @@ export async function GET(req: NextRequest) {
     const photoRes    = await fetch(photoApiUrl, { redirect: 'manual' });
     const cdnUrl      = photoRes.headers.get('location') ?? null;
 
-    cache.set(cacheKey, cdnUrl);
+    const entry: CachedEntry = { photoUrl: cdnUrl, website };
+    cache.set(cacheKey, entry);
     return NextResponse.json(
-      { photoUrl: cdnUrl },
+      entry,
       { headers: { 'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=604800' } },
     );
   } catch (err) {
     console.warn('[place-photo]', err instanceof Error ? err.message : err);
-    cache.set(cacheKey, null);
-    return NextResponse.json({ photoUrl: null });
+    const entry: CachedEntry = { photoUrl: null, website: null };
+    cache.set(cacheKey, entry);
+    return NextResponse.json(entry);
   }
 }

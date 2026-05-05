@@ -145,6 +145,7 @@ function PlacePopup({ place }: { place: MapPlace }) {
   const c = pinAccent(place.category, place.vibeLabel);
   const catLabel = place.slotLabel
     ?? (place.category ? CATEGORY_LABEL[place.category] ?? place.category : null);
+  const mapsHref = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}&ll=${place.lat},${place.lng}`;
   return (
     <div
       style={{
@@ -160,9 +161,9 @@ function PlacePopup({ place }: { place: MapPlace }) {
         whiteSpace: 'nowrap',
         display: 'flex',
         flexDirection: 'column',
-        gap: 3,
+        gap: 4,
         position: 'relative',
-        minWidth: 140,
+        minWidth: 160,
       }}
     >
       {catLabel && (
@@ -183,6 +184,31 @@ function PlacePopup({ place }: { place: MapPlace }) {
         <span>{place.emoji}</span>
         <span>{place.name}</span>
       </div>
+      <a
+        href={mapsHref}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 4,
+          marginTop: 2,
+          fontSize: 10,
+          fontWeight: 600,
+          color: c,
+          opacity: 0.8,
+          textDecoration: 'none',
+          borderTop: `1px solid ${c}22`,
+          paddingTop: 4,
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.8'; }}
+      >
+        <svg width="9" height="9" viewBox="0 0 10 10" fill="none" style={{ flexShrink: 0 }}>
+          <path d="M1 9L9 1M9 1H3M9 1V7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        Open in Google Maps
+      </a>
     </div>
   );
 }

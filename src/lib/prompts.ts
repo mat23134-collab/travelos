@@ -122,6 +122,13 @@ ZERO PLACEHOLDER POLICY (non-negotiable):
 - Breakfast MUST be a real named café, bakery, or restaurant — never generic advice
 - Evening MUST be a real named bar, cocktail bar, rooftop venue, or live music spot
 
+ITEM ATOMICITY (mandatory — every item is a single standalone place):
+- Every attraction, restaurant, bar, market, and museum MUST be a SEPARATE named item with its own GPS coordinates
+- STRICTLY FORBIDDEN: bundling a meal into an attraction's name (e.g., "Lunch near Big Ben", "Dinner at the Eiffel Tower area", "Drinks after the Colosseum")
+- Activity slots (morning / afternoon / evening) MUST contain attractions, experiences, or cultural sites — NEVER a meal
+- Meals belong ONLY in their dedicated DiningSpot slots: breakfast / lunch / dinner
+- Exception: a food-experience activity (e.g., "Tsukiji Outer Market Food Tour", "Borough Market Morning Walk") is acceptable as an activity slot because the EXPERIENCE is the point — but it must still be a single, named, visitable place
+
 DAILY MIX — mandatory structure per day (6–8 stops):
   1. Breakfast — café, bakery, market stall, or hotel breakfast spot (always with GPS)
   2–3. Morning + Afternoon activities — sightseeing, landmarks, museums, cultural sites (2-3 picks depending on pace)
@@ -276,6 +283,7 @@ FINAL INSTRUCTIONS:
 - Every activity MUST have latitude, longitude (accurate GPS, 4 dp), time_slot, and category_emoji
 - Every breakfast, lunch, and dinner MUST have latitude and longitude (accurate GPS, 4 dp) for the specific restaurant
 - ZERO PLACEHOLDERS — every named slot must be a real business: no "Ask Locally", "Scout the Block", "Your Choice", or generic advice anywhere in the output
+- ITEM ATOMICITY — morning/afternoon/evening slots are attractions only; meals go in breakfast/lunch/dinner DiningSpot objects. Never write "Lunch near [Landmark]" as an activity name
 - Cluster all activities within walking distance of each other per day
 - webInsights: exactly 1 per day — single most important insight only
 - MUST include the "basecamp" field in the JSON output (follow BASECAMP RULES above)`;

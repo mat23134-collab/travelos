@@ -413,11 +413,14 @@ interface ModalProps {
   slot: string;
   destination?: string;
   onClose: () => void;
-  onSwap?: () => void;
+  /** Called with the user's request text when they hit Scout It */
+  onSwap?: (request: string) => void;
   swapping?: boolean;
 }
 
 function ActivityModal({ activity, slot, destination, onClose, onSwap, swapping }: ModalProps) {
+  const [swapExpanded, setSwapExpanded] = useState(false);
+  const [swapText, setSwapText]         = useState('');
   const { body, citation } = parseCitation(activity?.whyThis ?? '');
   const photoQuery = destination
     ? `${activity?.neighborhood ?? ''} ${destination}`.trim()
@@ -561,20 +564,92 @@ function ActivityModal({ activity, slot, destination, onClose, onSwap, swapping 
             <ReactionBar />
 
             {onSwap && (
-              <motion.button
-                onClick={onSwap}
-                disabled={swapping}
-                whileTap={{ scale: 0.95 }}
-                className="w-full mt-5 py-3 rounded-2xl text-sm font-semibold border border-white/10 bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/75 transition-all flex items-center justify-center gap-2 disabled:opacity-40"
-              >
-                <motion.span
-                  animate={swapping ? { rotate: 360 } : { rotate: 0 }}
-                  transition={swapping ? { duration: 0.7, repeat: Infinity, ease: 'linear' } : {}}
-                >
-                  ↻
-                </motion.span>
-                {swapping ? 'Finding something better…' : 'Swap this activity'}
-              </motion.button>
+              <div className="mt-5">
+                <AnimatePresence mode="wait">
+                  {!swapExpanded ? (
+                    <motion.button
+                      key="swap-trigger"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      onClick={() => setSwapExpanded(true)}
+                      disabled={swapping}
+                      whileTap={{ scale: 0.95 }}
+                      className="w-full py-3 rounded-2xl text-sm font-semibold border border-white/10 bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/75 transition-all flex items-center justify-center gap-2 disabled:opacity-40"
+                    >
+                      <motion.span
+                        animate={swapping ? { rotate: 360 } : { rotate: 0 }}
+                        transition={swapping ? { duration: 0.7, repeat: Infinity, ease: 'linear' } : {}}
+                      >
+                        ↻
+                      </motion.span>
+                      {swapping ? 'Finding something better…' : 'Swap this activity'}
+                    </motion.button>
+                  ) : (
+                    <motion.div
+                      key="swap-form"
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 4 }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                      className="flex flex-col gap-2"
+                    >
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-white/35">
+                        What would you like instead?
+                      </label>
+                      <input
+                        type="text"
+                        autoFocus
+                        placeholder={`e.g. "something with live music", "a rooftop bar", "a hidden art gallery"…`}
+                        value={swapText}
+                        onChange={(e) => setSwapText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !swapping) {
+                            onSwap(swapText.trim() || `Suggest a better ${slot} activity`);
+                          }
+                          if (e.key === 'Escape') setSwapExpanded(false);
+                        }}
+                        disabled={swapping}
+                        className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder:text-white/25 outline-none disabled:opacity-40"
+                        style={{
+                          background: 'rgba(255,255,255,0.06)',
+                          border: '1px solid rgba(255,255,255,0.14)',
+                        }}
+                        onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(255,90,95,0.55)'; }}
+                        onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.14)'; }}
+                      />
+                      <div className="flex gap-2">
+                        <motion.button
+                          onClick={() => onSwap(swapText.trim() || `Suggest a better ${slot} activity`)}
+                          disabled={swapping}
+                          whileTap={{ scale: 0.95 }}
+                          className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-40 transition-all"
+                          style={{
+                            background: 'linear-gradient(135deg, #ff5a5f 0%, #e04a4f 100%)',
+                            boxShadow: '0 4px 18px rgba(255,90,95,0.28)',
+                          }}
+                        >
+                          <motion.span
+                            animate={swapping ? { rotate: 360 } : { rotate: 0 }}
+                            transition={swapping ? { duration: 0.7, repeat: Infinity, ease: 'linear' } : {}}
+                          >
+                            ↻
+                          </motion.span>
+                          {swapping ? 'Scouting…' : 'Scout It →'}
+                        </motion.button>
+                        <motion.button
+                          onClick={() => { setSwapExpanded(false); setSwapText(''); }}
+                          disabled={swapping}
+                          whileTap={{ scale: 0.95 }}
+                          className="px-4 py-2.5 rounded-xl text-sm text-white/40 border border-white/10 bg-white/5 hover:bg-white/10 hover:text-white/60 transition-all disabled:opacity-40"
+                        >
+                          Cancel
+                        </motion.button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             )}
           </div>
         </div>
@@ -590,7 +665,7 @@ interface BentoTileProps {
   activity: Activity;
   height: number;
   destination?: string;
-  onRefresh?: () => void;
+  onRefresh?: (request?: string) => void;
   refreshing?: boolean;
 }
 
@@ -729,7 +804,7 @@ function BentoTile({ slot, activity, height, destination, onRefresh, refreshing 
             slot={slot}
             destination={destination}
             onClose={() => setModalOpen(false)}
-            onSwap={onRefresh ? () => { onRefresh(); setModalOpen(false); } : undefined}
+            onSwap={onRefresh ? (req) => { onRefresh(req); setModalOpen(false); } : undefined}
             swapping={refreshing}
           />
         )}
@@ -743,16 +818,16 @@ function BentoTile({ slot, activity, height, destination, onRefresh, refreshing 
 interface BentoGridProps {
   day: DayPlan;
   destination?: string;
-  onSwapSlot?: (slot: Slot) => Promise<void>;
+  onSwapSlot?: (slot: Slot, request?: string) => Promise<void>;
 }
 
 function BentoGrid({ day, destination, onSwapSlot }: BentoGridProps) {
   const [swapping, setSwapping] = useState<Slot | null>(null);
 
-  const handleSwap = async (slot: Slot) => {
+  const handleSwap = async (slot: Slot, request?: string) => {
     if (!onSwapSlot || swapping) return;
     setSwapping(slot);
-    try { await onSwapSlot(slot); }
+    try { await onSwapSlot(slot, request); }
     finally { setSwapping(null); }
   };
 
@@ -762,21 +837,21 @@ function BentoGrid({ day, destination, onSwapSlot }: BentoGridProps) {
         {day.morning && (
           <div className="sm:col-span-2">
             <BentoTile slot="morning" activity={day.morning} height={240} destination={destination}
-              onRefresh={onSwapSlot ? () => handleSwap('morning') : undefined}
+              onRefresh={onSwapSlot ? (req) => handleSwap('morning', req) : undefined}
               refreshing={swapping === 'morning'} />
           </div>
         )}
         {day.afternoon && (
           <div className="sm:col-span-1">
             <BentoTile slot="afternoon" activity={day.afternoon} height={240} destination={destination}
-              onRefresh={onSwapSlot ? () => handleSwap('afternoon') : undefined}
+              onRefresh={onSwapSlot ? (req) => handleSwap('afternoon', req) : undefined}
               refreshing={swapping === 'afternoon'} />
           </div>
         )}
         {day.evening && (
           <div className="sm:col-span-3">
             <BentoTile slot="evening" activity={day.evening} height={200} destination={destination}
-              onRefresh={onSwapSlot ? () => handleSwap('evening') : undefined}
+              onRefresh={onSwapSlot ? (req) => handleSwap('evening', req) : undefined}
               refreshing={swapping === 'evening'} />
           </div>
         )}
@@ -847,7 +922,7 @@ interface DayCardProps {
   day: DayPlan;
   index: number;
   destination?: string;
-  onSwapSlot?: (slot: 'morning' | 'afternoon' | 'evening') => Promise<void>;
+  onSwapSlot?: (slot: 'morning' | 'afternoon' | 'evening', request?: string) => Promise<void>;
   onNeighborhoodClick?: (neighborhood: string) => void;
 }
 

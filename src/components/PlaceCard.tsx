@@ -18,7 +18,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
-import { MapPin, ExternalLink, Navigation, X } from 'lucide-react';
+import { MapPin, ExternalLink, Navigation, X, Globe } from 'lucide-react';
 import { VerificationBadge } from '@/components/VerificationBadge';
 
 // ── Unified data interface ─────────────────────────────────────────────────────
@@ -45,6 +45,9 @@ export interface PlaceCardData {
   mealSlot?: 'breakfast' | 'lunch' | 'dinner';  // 3-Meal Rule — controls ordering + badge in Food cube
   verificationStatus?: 'verified-open' | 'flagged-closed' | 'flagged-renovating' | 'unverified';
   verifiedAt?: string;
+  /** Official website URL — shown as "Visit Official Website" button in the modal.
+   *  Auto-fetched from Google Places if not supplied; supply to skip the fetch. */
+  website?: string;
 }
 
 // ── Neon vibe color system ────────────────────────────────────────────────────
@@ -96,18 +99,20 @@ const MEAL_SLOT_CFG: Record<'breakfast' | 'lunch' | 'dinner', { icon: string; la
   dinner:    { icon: '🌙', label: 'Dinner',    color: '#8b5cf6' },
 };
 
-// ── Google Places photo hook ──────────────────────────────────────────────────
+// ── Google Places details hook (photo + website) ──────────────────────────────
 // Fetches via /api/place-photo (server-side proxy — API key never exposed).
+// Returns photoUrl for the header image and website for the "Visit" button.
 
-function usePlacePhoto(name: string, city?: string) {
-  const [state, setState] = useState<{ url: string | null; loading: boolean }>({
-    url: null,
+function usePlaceDetails(name: string, city?: string) {
+  const [state, setState] = useState<{ photoUrl: string | null; website: string | null; loading: boolean }>({
+    photoUrl: null,
+    website: null,
     loading: true,
   });
 
   useEffect(() => {
     let cancelled = false;
-    setState({ url: null, loading: true });
+    setState({ photoUrl: null, website: null, loading: true });
 
     const params = new URLSearchParams({ name: name.slice(0, 100) });
     if (city) params.set('city', city);
@@ -115,10 +120,10 @@ function usePlacePhoto(name: string, city?: string) {
     fetch(`/api/place-photo?${params}`)
       .then((r) => r.json())
       .then((d) => {
-        if (!cancelled) setState({ url: d.photoUrl ?? null, loading: false });
+        if (!cancelled) setState({ photoUrl: d.photoUrl ?? null, website: d.website ?? null, loading: false });
       })
       .catch(() => {
-        if (!cancelled) setState({ url: null, loading: false });
+        if (!cancelled) setState({ photoUrl: null, website: null, loading: false });
       });
 
     return () => { cancelled = true; };
@@ -138,7 +143,7 @@ interface PhotoHeaderProps {
 }
 
 function PlacePhotoHeader({ name, city, emoji, vibe, height }: PhotoHeaderProps) {
-  const { url, loading } = usePlacePhoto(name, city);
+  const { photoUrl: url, loading } = usePlaceDetails(name, city);
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError, setImgError]   = useState(false);
 
@@ -378,6 +383,10 @@ function PlaceModal({ data, onClose }: ModalProps) {
       ? `https://www.google.com/maps/search/?api=1&query=${data.lat},${data.lng}`
       : null);
 
+  // Fetch website from Google Places (server-cached; near-instant if photo was already fetched)
+  const { website: fetchedWebsite } = usePlaceDetails(data.name, data.city);
+  const websiteUrl = data.website ?? fetchedWebsite ?? null;
+
   return (
     <>
       {/* Scrim — separate from the shared element so it can fade independently */}
@@ -557,6 +566,26 @@ function PlaceModal({ data, onClose }: ModalProps) {
                 >
                   <Navigation size={15} />
                   Open in Google Maps
+                </motion.a>
+              )}
+
+              {websiteUrl && (
+                <motion.a
+                  href={websiteUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-semibold"
+                  style={{
+                    background: 'rgba(255,255,255,0.04)',
+                    border: `1px solid ${vibe.border}30`,
+                    color: vibe.text,
+                  }}
+                  whileHover={{ scale: 1.02, background: 'rgba(255,255,255,0.08)' }}
+                  whileTap={{ scale: 0.97 }}
+                >
+                  <Globe size={14} className="opacity-80" />
+                  Visit Official Website
+                  <ExternalLink size={11} className="opacity-45" />
                 </motion.a>
               )}
 

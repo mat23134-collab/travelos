@@ -308,12 +308,18 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
 
   const handleSlotSwap = useCallback(async (
     dayIndex: number,
-    slot: 'morning' | 'afternoon' | 'evening'
+    slot: 'morning' | 'afternoon' | 'evening',
+    request?: string,
   ) => {
     const res = await fetch('/api/swap', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ itinerary, dayIndex, slot, request: `Suggest a better ${slot} activity` }),
+      body: JSON.stringify({
+        itinerary,
+        dayIndex,
+        slot,
+        request: request?.trim() || `Suggest a better ${slot} activity`,
+      }),
     });
     const data: SwapResult & { error?: string } = await res.json();
     if (!res.ok || data.error) throw new Error(data.error || 'Swap failed');
@@ -515,7 +521,7 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
                 day={day}
                 index={i}
                 destination={itinerary.destination}
-                onSwapSlot={(slot) => handleSlotSwap(i, slot)}
+                onSwapSlot={(slot, req) => handleSlotSwap(i, slot, req)}
                 onNeighborhoodClick={handleNeighborhoodClick}
               />
             </motion.div>
