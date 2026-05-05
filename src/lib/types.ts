@@ -71,6 +71,9 @@ export interface Activity {
   verificationStatus?: 'verified-open' | 'flagged-closed' | 'flagged-renovating' | 'unverified';
   verifiedAt?: string;          // ISO-8601 timestamp from live Exa check
   verificationSignal?: string;  // excerpt that triggered a flag (for debugging)
+  // Relational DB (populated after Supabase insert)
+  item_id?: string;        // UUID from itinerary_items row — enables targeted row-level swaps
+  website_url?: string;    // official website URL (from Claude or Google Places)
 }
 
 export interface DiningSpot {
@@ -82,6 +85,9 @@ export interface DiningSpot {
   /** GPS coordinates — used to place dining spots on the day map */
   latitude?: number;
   longitude?: number;
+  // Relational DB (populated after Supabase insert)
+  item_id?: string;     // UUID from itinerary_items row
+  website_url?: string; // official website URL
 }
 
 export interface WebInsight {
@@ -118,6 +124,8 @@ export interface ClassifiedResult extends SearchResult {
 }
 
 export interface Itinerary {
+  /** DB UUID from itineraries table — embedded post-save for targeted row-level swaps */
+  _id?: string;
   strategicOverview?: string;
   destination: string;
   totalDays: number;

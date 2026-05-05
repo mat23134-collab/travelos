@@ -19,18 +19,41 @@ export default async function ItineraryByIdPage({ params }: PageProps) {
     return notFound();
   }
 
-  const { data, error } = await supabase
-    .from('itineraries')
-    .select('itinerary_json')
-    .eq('id', id)
-    .single();
+  // ── JOIN: fetch itinerary blob + items in parallel ─────────────────────────
+  const [itinResult, itemsResult] = await Promise.all([
+    supabase
+      .from('itineraries')
+      .select('itinerary_json')
+      .eq('id', id)
+      .single(),
+    supabase
+      .from('itinerary_items')
+      .select('id, day_number, slot, item_type, item_json')
+      .eq('itinerary_id', id)
+      .order('day_number', { ascending: true })
+      .order('item_order', { ascending: true }),
+  ]);
 
-  if (error || !data?.itinerary_json) {
-    console.error('[itinerary/id] fetch failed:', JSON.stringify(error));
+  if (itinResult.error || !itinResult.data?.itinerary_json) {
+    console.error('[itinerary/id] fetch failed:', JSON.stringify(itinResult.error));
     return notFound();
   }
 
-  const { _profile, ...itinerary } = data.itinerary_json as Itinerary & { _profile?: TravelerProfile };
+  const { _profile, ...itinerary } = itinResult.data.itinerary_json as Itinerary & { _profile?: TravelerProfile };
+
+  // Overlay item rows onto the blob so any post-save swaps (which update rows)
+  // are always reflected — even if the blob write lagged.
+  const items = itemsResult.data ?? [];
+  if (items.length > 0) {
+    for (const row of items as { id: string; day_number: number; slot: string; item_type: string; item_json: unknown }[]) {
+      const dayIdx = row.day_number - 1;
+      if (!itinerary.days || !itinerary.days[dayIdx] || !row.item_json) continue;
+      const slot = row.slot as keyof typeof itinerary.days[number];
+      // Merge item_id into the activity/dining object for targeted future swaps
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (itinerary.days[dayIdx] as any)[slot] = { ...(row.item_json as object), item_id: row.id };
+    }
+  }
 
   return (
     <ItineraryClient

@@ -204,13 +204,14 @@ CRITICAL: Return ONLY a valid JSON object — no markdown fences, no prose. Stru
         "vibeLabel": "hidden-gem | local-favorite | viral-trend | classic | luxury-pick | budget-pick",
         "latitude": 41.9028,
         "longitude": 12.4964,
-        "category_emoji": "🏛️"
+        "category_emoji": "🏛️",
+        "website_url": null
       },
-      "afternoon": { "same fields as morning including latitude, longitude, time_slot, category_emoji — transitFromPrevious: '12 min walk'" },
-      "evening":   { "same fields as morning including latitude, longitude, time_slot, category_emoji — transitFromPrevious: '20 min metro'" },
-      "breakfast": { "name": "string", "cuisine": "string", "priceRange": "$", "mustTry": "one dish", "neighborhood": "string", "latitude": 41.9028, "longitude": 12.4964 },
-      "lunch":  { "name": "string", "cuisine": "string", "priceRange": "$$", "mustTry": "one dish", "neighborhood": "string", "latitude": 41.9028, "longitude": 12.4964 },
-      "dinner": { "name": "string", "cuisine": "string", "priceRange": "$$", "mustTry": "one dish", "neighborhood": "string", "latitude": 41.9028, "longitude": 12.4964 },
+      "afternoon": { "same fields as morning including latitude, longitude, time_slot, category_emoji, website_url — transitFromPrevious: '12 min walk'" },
+      "evening":   { "same fields as morning including latitude, longitude, time_slot, category_emoji, website_url — transitFromPrevious: '20 min metro'" },
+      "breakfast": { "name": "string", "cuisine": "string", "priceRange": "$", "mustTry": "one dish", "neighborhood": "string", "latitude": 41.9028, "longitude": 12.4964, "website_url": null },
+      "lunch":  { "name": "string", "cuisine": "string", "priceRange": "$$", "mustTry": "one dish", "neighborhood": "string", "latitude": 41.9028, "longitude": 12.4964, "website_url": null },
+      "dinner": { "name": "string", "cuisine": "string", "priceRange": "$$", "mustTry": "one dish", "neighborhood": "string", "latitude": 41.9028, "longitude": 12.4964, "website_url": null },
       "estimatedDailyCost": "string",
       "transportTip": "max 15 words",
       "webInsights": [
@@ -242,6 +243,45 @@ BUDGET RULES:
 
 // ─── User prompt ──────────────────────────────────────────────────────────────
 
+// ── Interest → Scout tag mapping ──────────────────────────────────────────────
+
+const INTEREST_TAG_MAP: Record<string, string> = {
+  'adventure':       'Outdoor adventures, hiking trails, extreme sports, active experiences',
+  'art':             'Art galleries, street art, contemporary museums, creative districts',
+  'culture':         'Historic landmarks, cultural institutions, traditional ceremonies, local rituals',
+  'food':            'Local food markets, street food scenes, chef-driven restaurants, culinary tours',
+  'nightlife':       'Live music venues, cocktail bars, rooftop bars, underground clubs, jazz spots',
+  'shopping':        'Independent boutiques, vintage markets, artisan shops, local designer stores',
+  'nature':          'Parks, botanical gardens, scenic viewpoints, urban nature escapes',
+  'history':         'Historic sites, ancient ruins, heritage museums, significant monuments',
+  'music':           'Live music venues, record shops, concert halls, street performers',
+  'wellness':        'Spas, yoga studios, meditation centres, nature walks, thermal baths',
+  'family':          'Kid-friendly attractions, interactive museums, outdoor playgrounds, family dining',
+  'luxury':          'Michelin-starred restaurants, private tours, high-end boutiques, exclusive experiences',
+  'budget':          'Free attractions, street food, public parks, hostel recommendations, free museum days',
+  'photography':     'Scenic viewpoints, colourful streets, golden-hour spots, architecture hotspots',
+  'sports':          'Local stadiums, sporting events, cycling routes, outdoor courts',
+  'architecture':    'Iconic buildings, hidden architectural gems, urban design tours',
+  'beach':           'Beaches, coastal walks, water sports, seaside dining',
+  'drinks':          'Wine bars, craft beer pubs, specialty coffee shops, local spirits',
+  'markets':         'Flea markets, food halls, antique markets, weekly street markets',
+  'local':           'Neighbourhood locals bars, community events, non-touristy streets',
+};
+
+function buildTagScoutBlock(interests: string[]): string {
+  if (!interests || interests.length === 0) return '';
+  const lines = interests
+    .map((interest) => {
+      const key = interest.toLowerCase().trim();
+      const desc = INTEREST_TAG_MAP[key] ?? interest;
+      return `  • ${interest}: Search for "${desc}"`;
+    })
+    .join('\n');
+  return `\nTAG-BASED SCOUT PRIORITIES (mandatory — align ALL activity picks to these user-selected interests):
+${lines}
+When multiple tags apply, favour places that satisfy 2+ tags simultaneously (e.g., a food market also satisfies "shopping" + "local").\n`;
+}
+
 export function buildUserPrompt(profile: TravelerProfile, searchResults?: ClassifiedResult[], hotelContext?: string, internalPlaces?: string): string {
   const days = profile.duration || calculateDays(profile.startDate, profile.endDate);
   const interestsList = profile.interests.length ? profile.interests.join(', ') : 'general sightseeing';
@@ -251,6 +291,7 @@ export function buildUserPrompt(profile: TravelerProfile, searchResults?: Classi
     : '\n[No live web data — use expertise. Write "(Source: TravelOS expertise)" in whyThis fields.]\n';
 
   const vibeDirective = buildVibeDirective(profile);
+  const tagScoutBlock = buildTagScoutBlock(profile.interests);
 
   const hotelBlock = profile.hotelBooked?.trim()
     ? `\nHOTEL_BOOKED: ${profile.hotelBooked.trim()}\n(Use this for basecamp.type="booked" — extract name and neighborhood from the text above)`
@@ -277,13 +318,14 @@ ${hotelBlock}
 
 VIBE TARGETING:
 ${vibeDirective}
-${internalPlacesBlock}${ragBlock}
+${tagScoutBlock}${internalPlacesBlock}${ragBlock}
 FINAL INSTRUCTIONS:
 - Every activity MUST have startTime, endTime, bestTimeToVisit, and transitFromPrevious
 - Every activity MUST have latitude, longitude (accurate GPS, 4 dp), time_slot, and category_emoji
 - Every breakfast, lunch, and dinner MUST have latitude and longitude (accurate GPS, 4 dp) for the specific restaurant
 - ZERO PLACEHOLDERS — every named slot must be a real business: no "Ask Locally", "Scout the Block", "Your Choice", or generic advice anywhere in the output
 - ITEM ATOMICITY — morning/afternoon/evening slots are attractions only; meals go in breakfast/lunch/dinner DiningSpot objects. Never write "Lunch near [Landmark]" as an activity name
+- website_url: include the official website URL for activities and restaurants if you know it with certainty (e.g. "https://www.teamlab.art"); otherwise set to null — NEVER fabricate a URL
 - Cluster all activities within walking distance of each other per day
 - webInsights: exactly 1 per day — single most important insight only
 - MUST include the "basecamp" field in the JSON output (follow BASECAMP RULES above)`;

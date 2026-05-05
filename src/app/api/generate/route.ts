@@ -237,6 +237,11 @@ export async function POST(req: NextRequest) {
     const rawDate = profile.startDate?.trim();
     const startDate = rawDate ? rawDate.slice(0, 10) : null;   // "YYYY-MM-DD" or null
 
+    // Map profile interests → tags array for the itineraries table
+    const tags: string[] = profile.interests && profile.interests.length > 0
+      ? profile.interests
+      : [];
+
     const { data, error: dbErr } = await supabase
       .from('itineraries')
       .insert([{
@@ -245,6 +250,7 @@ export async function POST(req: NextRequest) {
         start_date:       startDate,
         hotel_info:       hotelInfo,
         user_id:          userId,   // null when generated anonymously
+        tags:             tags.length > 0 ? tags : null,
         itinerary_json:   { ...itinerary, _profile: profile },
       }])
       .select('id')
@@ -255,8 +261,100 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Database error: ' + dbErr.message }, { status: 500 });
     }
 
-    console.log('[generate] saved row id:', data.id);
-    return NextResponse.json({ id: data.id, itinerary });
+    const itineraryDbId: string = data.id;
+    console.log('[generate] saved row id:', itineraryDbId);
+
+    // ── Atomic item insertion → itinerary_items ─────────────────────────────────
+    // Each activity/dining slot becomes an independent row keyed by
+    // (itinerary_id, day_number, slot).  This enables targeted row-level swaps
+    // without re-generating the whole trip.
+    const SLOT_ORDER: Record<string, number> = {
+      breakfast: 0, morning: 1, lunch: 2, afternoon: 3, dinner: 4, evening: 5,
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    type ItemRow = Record<string, any>;
+    const itemRows: ItemRow[] = [];
+
+    for (let dayIdx = 0; dayIdx < (itinerary.days ?? []).length; dayIdx++) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const day: any = itinerary.days[dayIdx];
+      if (!day) continue;
+
+      for (const slot of ['breakfast', 'morning', 'lunch', 'afternoon', 'dinner', 'evening'] as const) {
+        const item = day[slot];
+        if (!item || !item.name) continue;
+
+        const isActivity = ['morning', 'afternoon', 'evening'].includes(slot);
+        itemRows.push({
+          itinerary_id:   itineraryDbId,
+          day_number:     dayIdx + 1,
+          item_order:     SLOT_ORDER[slot] ?? 99,
+          slot,
+          item_type:      isActivity ? 'activity' : 'dining',
+          name:           item.name            ?? null,
+          neighborhood:   item.neighborhood    ?? null,
+          latitude:       item.latitude        != null ? Number(item.latitude)  : null,
+          longitude:      item.longitude       != null ? Number(item.longitude) : null,
+          estimated_cost: isActivity ? (item.estimatedCost ?? null) : (item.priceRange ?? null),
+          website_url:    item.website_url     ?? null,
+          tags:           isActivity
+                            ? (Array.isArray(item.tags) && item.tags.length > 0 ? item.tags : null)
+                            : (item.cuisine ? [item.cuisine] : null),
+          item_json:      item,
+        });
+      }
+    }
+
+    // Bulk-insert items and collect returned IDs to embed back into the blob
+    const itemIdMap: Record<string, string> = {}; // key: "day{n}-{slot}" → UUID
+
+    if (itemRows.length > 0) {
+      try {
+        const { data: insertedItems, error: itemsErr } = await supabase
+          .from('itinerary_items')
+          .insert(itemRows)
+          .select('id, day_number, slot');
+
+        if (itemsErr) {
+          console.warn('[generate] itinerary_items insert error (non-critical):', itemsErr.message);
+        } else if (insertedItems) {
+          for (const row of insertedItems as { id: string; day_number: number; slot: string }[]) {
+            itemIdMap[`day${row.day_number}-${row.slot}`] = row.id;
+          }
+          console.log(`[generate] inserted ${insertedItems.length} items to itinerary_items`);
+        }
+      } catch (err) {
+        console.warn('[generate] itinerary_items insert failed (non-critical):', err instanceof Error ? err.message : err);
+      }
+    }
+
+    // ── Embed item_ids + DB UUID back into the itinerary blob ───────────────────
+    // This lets the client perform targeted row-level swaps without extra lookups.
+    const hasEmbeds = Object.keys(itemIdMap).length > 0;
+    if (hasEmbeds) {
+      for (let dayIdx = 0; dayIdx < (itinerary.days ?? []).length; dayIdx++) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const day: any = itinerary.days[dayIdx];
+        if (!day) continue;
+        for (const slot of ['breakfast', 'morning', 'lunch', 'afternoon', 'dinner', 'evening'] as const) {
+          const item = day[slot];
+          if (item) {
+            const itemId = itemIdMap[`day${dayIdx + 1}-${slot}`];
+            if (itemId) item.item_id = itemId;
+          }
+        }
+      }
+    }
+    itinerary._id = itineraryDbId;
+
+    // Persist the updated blob (with embedded item_ids and _id)
+    await supabase
+      .from('itineraries')
+      .update({ itinerary_json: { ...itinerary, _profile: profile } })
+      .eq('id', itineraryDbId);
+
+    return NextResponse.json({ id: itineraryDbId, itinerary });
 
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

@@ -2,9 +2,12 @@ import Anthropic from '@anthropic-ai/sdk';
 import { NextRequest, NextResponse } from 'next/server';
 import { Itinerary, Activity } from '@/lib/types';
 import { buildSwapPrompt } from '@/lib/prompts';
+import { supabase } from '@/lib/supabase';
 
 export interface SwapPayload {
   itinerary: Itinerary;
+  /** DB UUID from itineraries table — enables targeted row-level update */
+  itinerary_id?: string;
   dayIndex: number;
   slot: 'morning' | 'afternoon' | 'evening';
   request?: string;
@@ -31,7 +34,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
 
-  const { itinerary, dayIndex, slot, request = 'Suggest something better' } = payload;
+  const { itinerary, itinerary_id, dayIndex, slot, request = 'Suggest something better' } = payload;
 
   if (!itinerary || dayIndex === undefined || !slot) {
     return NextResponse.json({ error: 'itinerary, dayIndex, and slot are required' }, { status: 400 });
@@ -61,8 +64,56 @@ export async function POST(req: NextRequest) {
       parsed = JSON.parse(match[0]);
     }
 
+    // ── Relational DB update: targeted row-level swap ────────────────────────
+    // Preserve the existing item_id so the row identity is stable across swaps.
+    const existingItemId: string | undefined = itinerary.days[dayIndex]?.[slot]?.item_id;
+    const newActivity: Activity = {
+      ...parsed.activity,
+      item_id: existingItemId, // carry forward so UI doesn't lose the row reference
+    };
+
+    if (itinerary_id) {
+      try {
+        const dayNumber = dayIndex + 1;
+
+        // 1. Update the specific itinerary_items row
+        await supabase
+          .from('itinerary_items')
+          .update({
+            name:           newActivity.name           ?? null,
+            neighborhood:   newActivity.neighborhood   ?? null,
+            latitude:       newActivity.latitude       != null ? Number(newActivity.latitude)  : null,
+            longitude:      newActivity.longitude      != null ? Number(newActivity.longitude) : null,
+            estimated_cost: newActivity.estimatedCost  ?? null,
+            website_url:    newActivity.website_url    ?? null,
+            tags:           Array.isArray(newActivity.tags) && newActivity.tags.length > 0
+                              ? newActivity.tags
+                              : null,
+            item_json:      newActivity,
+          })
+          .eq('itinerary_id', itinerary_id)
+          .eq('day_number', dayNumber)
+          .eq('slot', slot);
+
+        // 2. Sync the JSON blob so the [id] page always reads current data
+        const updatedDays = itinerary.days.map((day, i) =>
+          i !== dayIndex ? day : { ...day, [slot]: newActivity }
+        );
+        const updatedBlob: Itinerary = { ...itinerary, days: updatedDays };
+        await supabase
+          .from('itineraries')
+          .update({ itinerary_json: updatedBlob })
+          .eq('id', itinerary_id);
+
+        console.log(`[swap] DB synced — itinerary ${itinerary_id} day${dayNumber} ${slot}`);
+      } catch (dbErr) {
+        // Non-critical: in-memory swap still succeeds even if DB write fails
+        console.warn('[swap] DB update failed (non-critical):', dbErr instanceof Error ? dbErr.message : dbErr);
+      }
+    }
+
     const result: SwapResult = {
-      activity: parsed.activity,
+      activity: newActivity,
       dayIndex,
       slot,
       summary: parsed.summary,

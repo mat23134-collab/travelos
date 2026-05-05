@@ -316,6 +316,7 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         itinerary,
+        itinerary_id: itinerary._id ?? undefined, // enables targeted row-level DB update
         dayIndex,
         slot,
         request: request?.trim() || `Suggest a better ${slot} activity`,
