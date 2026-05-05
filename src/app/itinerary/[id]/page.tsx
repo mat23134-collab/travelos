@@ -19,45 +19,37 @@ export default async function ItineraryByIdPage({ params }: PageProps) {
     return notFound();
   }
 
-  // ── Primary fetch: itinerary blob (required) ────────────────────────────────
-  const { data: itinData, error: itinError } = await supabase
-    .from('itineraries')
-    .select('itinerary_json')
-    .eq('id', id)
-    .single();
+  // ── Primary fetch: itinerary blob ─────────────────────────────────────────
+  // NOTE: we intentionally do NOT join itinerary_items here.  The blob already
+  // contains the latest data (item_ids embedded, swaps synced back to
+  // itinerary_json by the swap route).  Querying itinerary_items server-side
+  // risks triggering a PostgREST schema-cache error if the table is missing or
+  // has a schema mismatch — which would then cascade and break auth calls.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let itinData: any = null;
+  let fetchErrMsg = '';
 
-  if (itinError || !itinData?.itinerary_json) {
-    console.error('[itinerary/id] fetch failed:', JSON.stringify(itinError));
+  try {
+    const result = await supabase
+      .from('itineraries')
+      .select('itinerary_json')
+      .eq('id', id)
+      .single();
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    itinData    = result.data as any;
+    fetchErrMsg = (result.error as { message?: string } | null)?.message ?? '';
+  } catch (err) {
+    console.error('[itinerary/id] unexpected fetch error:', err instanceof Error ? err.message : err);
+    return notFound();
+  }
+
+  if (fetchErrMsg || !itinData?.itinerary_json) {
+    console.error('[itinerary/id] fetch failed:', fetchErrMsg || 'empty data');
     return notFound();
   }
 
   const { _profile, ...itinerary } = itinData.itinerary_json as Itinerary & { _profile?: TravelerProfile };
-
-  // ── Secondary fetch: itinerary_items JOIN (non-critical) ─────────────────────
-  // Overlays the latest per-slot data from the relational table so swapped
-  // activities are always fresh — even if the blob lagged.
-  // Gracefully skipped if itinerary_items table doesn't exist yet.
-  try {
-    const { data: items, error: itemsErr } = await supabase
-      .from('itinerary_items')
-      .select('id, day_number, slot, item_json')
-      .eq('itinerary_id', id)
-      .order('day_number', { ascending: true });   // item_order omitted — column optional
-
-    if (itemsErr) {
-      // Table/column doesn't exist yet — fall back to blob-only display
-      console.warn('[itinerary/id] itinerary_items unavailable (non-critical):', itemsErr.message);
-    } else if (items && items.length > 0) {
-      for (const row of items as { id: string; day_number: number; slot: string; item_json: unknown }[]) {
-        const dayIdx = row.day_number - 1;
-        if (!itinerary.days?.[dayIdx] || !row.item_json) continue;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (itinerary.days[dayIdx] as any)[row.slot] = { ...(row.item_json as object), item_id: row.id };
-      }
-    }
-  } catch (joinErr) {
-    console.warn('[itinerary/id] items JOIN failed (non-critical):', joinErr instanceof Error ? joinErr.message : joinErr);
-  }
 
   return (
     <ItineraryClient
@@ -72,17 +64,21 @@ export async function generateMetadata({ params }: PageProps) {
   const { id } = await params;
   if (!UUID_RE.test(id ?? '')) return { title: 'TravelOS' };
 
-  const { data } = await supabase
-    .from('itineraries')
-    .select('destination')
-    .eq('id', id)
-    .single();
+  try {
+    const { data } = await supabase
+      .from('itineraries')
+      .select('destination')
+      .eq('id', id)
+      .single();
 
-  const destination = data?.destination ?? 'Your Trip';
-  return {
-    title: `${destination} Itinerary — TravelOS`,
-    description: `AI-crafted itinerary for ${destination}, built by TravelOS.`,
-  };
+    const destination = data?.destination ?? 'Your Trip';
+    return {
+      title: `${destination} Itinerary — TravelOS`,
+      description: `AI-crafted itinerary for ${destination}, built by TravelOS.`,
+    };
+  } catch {
+    return { title: 'TravelOS' };
+  }
 }
 
 function NotFound() {

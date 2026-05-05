@@ -70,15 +70,27 @@ export default async function ExploreCityPage({ params }: PageProps) {
   // ── Admin check — runs before any data query ─────────────────────────────
   const isAdmin = await isAdminSession();
 
-  const { data, error } = await supabase
-    .from('places')
-    .select('*')
-    .ilike('city', cityDecoded)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    console.error('[explore/city] Supabase error:', error.message);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let data: any[] | null = null;
+  let placesErrMsg = '';
+  try {
+    const result = await supabase
+      .from('places')
+      .select('*')
+      .ilike('city', cityDecoded)
+      .order('created_at', { ascending: false });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    data         = result.data as any[] | null;
+    placesErrMsg = (result.error as { message?: string } | null)?.message ?? '';
+  } catch (err) {
+    console.error('[explore/city] unexpected error:', err instanceof Error ? err.message : err);
     return notFound();
+  }
+
+  if (placesErrMsg) {
+    console.error('[explore/city] Supabase error:', placesErrMsg);
+    // Table may not exist yet — show empty state rather than 404
+    data = [];
   }
 
   const allPlaces = (data ?? []) as Place[];

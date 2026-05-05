@@ -169,6 +169,7 @@ export default function DashboardPage() {
   const { user, loading: authLoading, signOut } = useAuth();
   const [trips,    setTrips]    = useState<TripRow[]>([]);
   const [fetching, setFetching] = useState(true);
+  const [fetchError, setFetchError] = useState('');
   const [signingOut, setSigningOut] = useState(false);
 
   // Redirect if not logged in
@@ -176,19 +177,36 @@ export default function DashboardPage() {
     if (!authLoading && !user) router.replace('/auth');
   }, [user, authLoading, router]);
 
-  // Fetch user's saved trips
+  // Fetch user's saved trips — isolated from auth, full error handling
+  const fetchTrips = async (uid: string) => {
+    setFetching(true);
+    setFetchError('');
+    try {
+      const { data, error } = await supabase
+        .from('itineraries')
+        .select('id, destination, start_date, hotel_info, created_at')
+        .eq('user_id', uid)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('[dashboard] itineraries query error:', error.message);
+        // Don't surface raw DB errors — show a friendly retry prompt instead
+        setFetchError('Could not load trips right now. Tap Retry to try again.');
+      } else {
+        setTrips((data ?? []) as TripRow[]);
+      }
+    } catch (err) {
+      console.error('[dashboard] unexpected fetch error:', err instanceof Error ? err.message : err);
+      setFetchError('Could not load trips right now. Tap Retry to try again.');
+    } finally {
+      setFetching(false);
+    }
+  };
+
   useEffect(() => {
     if (!user) return;
-    setFetching(true);
-    supabase
-      .from('itineraries')
-      .select('id, destination, start_date, hotel_info, created_at')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (!error && data) setTrips(data as TripRow[]);
-        setFetching(false);
-      });
+    fetchTrips(user.id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const handleSignOut = async () => {
@@ -257,11 +275,31 @@ export default function DashboardPage() {
             My Trips
           </h1>
           <p className="text-white/35 text-sm">
-            {fetching ? 'Loading…' : trips.length === 0
+            {fetching ? 'Loading…' : fetchError ? 'Could not load your trips' : trips.length === 0
               ? 'No saved trips yet — generate your first one!'
               : `${trips.length} trip${trips.length !== 1 ? 's' : ''} saved`}
           </p>
         </div>
+
+        {/* Fetch error state */}
+        {!fetching && fetchError && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col items-center text-center py-24"
+          >
+            <div className="text-5xl mb-5">⚠️</div>
+            <h2 className="text-lg font-bold text-white mb-2">Couldn't load your trips</h2>
+            <p className="text-white/35 text-sm mb-8 max-w-xs">{fetchError}</p>
+            <button
+              onClick={() => user && fetchTrips(user.id)}
+              className="px-8 py-3 rounded-2xl text-sm font-bold text-white"
+              style={{ background: 'linear-gradient(135deg, #ff5a5f, #ff8c5a)', boxShadow: '0 8px 32px -4px rgba(255,90,95,0.40)' }}
+            >
+              Retry
+            </button>
+          </motion.div>
+        )}
 
         {/* Loading skeleton */}
         <AnimatePresence>
@@ -285,7 +323,7 @@ export default function DashboardPage() {
         </AnimatePresence>
 
         {/* Empty state */}
-        {!fetching && trips.length === 0 && (
+        {!fetching && !fetchError && trips.length === 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -310,7 +348,7 @@ export default function DashboardPage() {
         )}
 
         {/* Trips grid */}
-        {!fetching && trips.length > 0 && (
+        {!fetching && !fetchError && trips.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {trips.map((trip, i) => (
               <TripCard key={trip.id} trip={trip} index={i} />

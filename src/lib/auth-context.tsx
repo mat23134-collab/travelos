@@ -1,17 +1,24 @@
 'use client';
 
 /**
- * AuthContext — wraps @supabase/supabase-js auth for the entire app.
+ * AuthContext — wraps Supabase auth for the entire app.
+ *
+ * CRITICAL RULES (enforced here):
+ *   1. Only `supabaseAuth` is imported — the data client (`supabase`) is
+ *      NEVER touched in this file.  A failing DB query must NEVER affect
+ *      the auth state.
+ *   2. No .from() calls anywhere in this file — auth is purely
+ *      supabaseAuth.auth.* operations.
+ *   3. Loading state is driven by `getSession()` only — `onAuthStateChange`
+ *      does NOT toggle loading to prevent flicker on token refresh.
  *
  * Usage:
  *   const { user, signIn, signUp, signOut, loading } = useAuth();
- *
- * AuthProvider must be placed in layout.tsx (above all routes).
  */
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
-import { supabase } from './supabase';
+import { supabaseAuth } from './supabase';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -36,37 +43,65 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Restore session from localStorage on first mount
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    // ── Step 1: restore session on mount ─────────────────────────────────────
+    // getSession() reads from localStorage — pure client-side, no network call,
+    // no DB query.  This is the ONLY place loading flips to false.
+    supabaseAuth.auth.getSession().then(({ data: { session: s }, error }) => {
+      if (error) {
+        console.warn('[auth] getSession error (non-critical):', error.message);
+      }
+      setSession(s);
+      setUser(s?.user ?? null);
       setLoading(false);
     });
 
-    // Keep state in sync with Supabase auth events (sign-in, sign-out, token refresh)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
+    // ── Step 2: keep state in sync with auth events ───────────────────────────
+    // onAuthStateChange handles SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED, etc.
+    // We deliberately do NOT toggle `loading` here — that would cause flicker
+    // on every token refresh.
+    const { data: { subscription } } = supabaseAuth.auth.onAuthStateChange(
+      (event, s) => {
+        console.log('[auth] event:', event);
+        setSession(s);
+        setUser(s?.user ?? null);
+        // If a token refresh fails, Supabase emits SIGNED_OUT with null session
+        // which correctly clears the user state above.
       },
     );
 
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({ email, password });
-    return { error: error?.message ?? null };
-  };
+  // ── Auth actions (pure auth — zero DB queries) ────────────────────────────
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error?.message ?? null };
+    try {
+      const { error } = await supabaseAuth.auth.signInWithPassword({ email, password });
+      return { error: error?.message ?? null };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Sign-in failed';
+      console.error('[auth] signIn exception:', msg);
+      return { error: msg };
+    }
+  };
+
+  const signUp = async (email: string, password: string) => {
+    try {
+      const { error } = await supabaseAuth.auth.signUp({ email, password });
+      return { error: error?.message ?? null };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Sign-up failed';
+      console.error('[auth] signUp exception:', msg);
+      return { error: msg };
+    }
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabaseAuth.auth.signOut();
+    } catch (err) {
+      console.warn('[auth] signOut error (non-critical):', err instanceof Error ? err.message : err);
+    }
   };
 
   return (
