@@ -237,11 +237,6 @@ export async function POST(req: NextRequest) {
     const rawDate = profile.startDate?.trim();
     const startDate = rawDate ? rawDate.slice(0, 10) : null;   // "YYYY-MM-DD" or null
 
-    // Map profile interests → tags array for the itineraries table
-    const tags: string[] = profile.interests && profile.interests.length > 0
-      ? profile.interests
-      : [];
-
     const { data, error: dbErr } = await supabase
       .from('itineraries')
       .insert([{
@@ -250,7 +245,6 @@ export async function POST(req: NextRequest) {
         start_date:       startDate,
         hotel_info:       hotelInfo,
         user_id:          userId,   // null when generated anonymously
-        tags:             tags.length > 0 ? tags : null,
         itinerary_json:   { ...itinerary, _profile: profile },
       }])
       .select('id')
@@ -262,6 +256,22 @@ export async function POST(req: NextRequest) {
     }
 
     const itineraryDbId: string = data.id;
+
+    // ── Optional: write tags column (non-critical — column may not exist yet) ───
+    // Tags are derived from profile.interests; we try a PATCH and silently ignore
+    // "column does not exist" errors so the app works even without the migration.
+    const interestTags: string[] = profile.interests && profile.interests.length > 0
+      ? profile.interests
+      : [];
+    if (interestTags.length > 0) {
+      supabase
+        .from('itineraries')
+        .update({ tags: interestTags })
+        .eq('id', itineraryDbId)
+        .then(({ error: tagsErr }) => {
+          if (tagsErr) console.warn('[generate] tags update skipped (non-critical):', tagsErr.message);
+        });
+    }
     console.log('[generate] saved row id:', itineraryDbId);
 
     // ── Atomic item insertion → itinerary_items ─────────────────────────────────

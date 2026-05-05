@@ -19,40 +19,44 @@ export default async function ItineraryByIdPage({ params }: PageProps) {
     return notFound();
   }
 
-  // ── JOIN: fetch itinerary blob + items in parallel ─────────────────────────
-  const [itinResult, itemsResult] = await Promise.all([
-    supabase
-      .from('itineraries')
-      .select('itinerary_json')
-      .eq('id', id)
-      .single(),
-    supabase
-      .from('itinerary_items')
-      .select('id, day_number, slot, item_type, item_json')
-      .eq('itinerary_id', id)
-      .order('day_number', { ascending: true })
-      .order('item_order', { ascending: true }),
-  ]);
+  // ── Primary fetch: itinerary blob (required) ────────────────────────────────
+  const { data: itinData, error: itinError } = await supabase
+    .from('itineraries')
+    .select('itinerary_json')
+    .eq('id', id)
+    .single();
 
-  if (itinResult.error || !itinResult.data?.itinerary_json) {
-    console.error('[itinerary/id] fetch failed:', JSON.stringify(itinResult.error));
+  if (itinError || !itinData?.itinerary_json) {
+    console.error('[itinerary/id] fetch failed:', JSON.stringify(itinError));
     return notFound();
   }
 
-  const { _profile, ...itinerary } = itinResult.data.itinerary_json as Itinerary & { _profile?: TravelerProfile };
+  const { _profile, ...itinerary } = itinData.itinerary_json as Itinerary & { _profile?: TravelerProfile };
 
-  // Overlay item rows onto the blob so any post-save swaps (which update rows)
-  // are always reflected — even if the blob write lagged.
-  const items = itemsResult.data ?? [];
-  if (items.length > 0) {
-    for (const row of items as { id: string; day_number: number; slot: string; item_type: string; item_json: unknown }[]) {
-      const dayIdx = row.day_number - 1;
-      if (!itinerary.days || !itinerary.days[dayIdx] || !row.item_json) continue;
-      const slot = row.slot as keyof typeof itinerary.days[number];
-      // Merge item_id into the activity/dining object for targeted future swaps
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (itinerary.days[dayIdx] as any)[slot] = { ...(row.item_json as object), item_id: row.id };
+  // ── Secondary fetch: itinerary_items JOIN (non-critical) ─────────────────────
+  // Overlays the latest per-slot data from the relational table so swapped
+  // activities are always fresh — even if the blob lagged.
+  // Gracefully skipped if itinerary_items table doesn't exist yet.
+  try {
+    const { data: items, error: itemsErr } = await supabase
+      .from('itinerary_items')
+      .select('id, day_number, slot, item_json')
+      .eq('itinerary_id', id)
+      .order('day_number', { ascending: true });   // item_order omitted — column optional
+
+    if (itemsErr) {
+      // Table/column doesn't exist yet — fall back to blob-only display
+      console.warn('[itinerary/id] itinerary_items unavailable (non-critical):', itemsErr.message);
+    } else if (items && items.length > 0) {
+      for (const row of items as { id: string; day_number: number; slot: string; item_json: unknown }[]) {
+        const dayIdx = row.day_number - 1;
+        if (!itinerary.days?.[dayIdx] || !row.item_json) continue;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (itinerary.days[dayIdx] as any)[row.slot] = { ...(row.item_json as object), item_id: row.id };
+      }
     }
+  } catch (joinErr) {
+    console.warn('[itinerary/id] items JOIN failed (non-critical):', joinErr instanceof Error ? joinErr.message : joinErr);
   }
 
   return (

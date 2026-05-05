@@ -140,7 +140,9 @@ DAILY MIX — mandatory structure per day (6–8 stops):
 TIMING RULES (critical):
 - Every activity MUST have startTime/endTime in "HH:MM" 24-hour format
 - Sequence activities with realistic transit gaps (15–30 min between activities in same neighborhood)
-- Morning slot: typically 08:30–12:00. Afternoon: 13:30–17:30. Evening: 19:00–22:00
+- Morning slot: starts at DAILY_START_TIME if provided, otherwise 08:30. Afternoon: 13:30–17:30. Evening: 19:00–22:00
+- If ARRIVAL_TIME_DAY1 is set, Day 1 morning slot must start at or after that time plus 45 min transit buffer
+- If DEPARTURE_TIME_LAST_DAY is set, every last-day activity must end at least 2 hours before that time
 - The bestTimeToVisit field MUST contain a specific insight (e.g., "Arrive at 09:00 to beat the tour buses that arrive at 11 AM")
 - transitFromPrevious = estimated travel time from the previous slot's activity
 - time_slot = startTime + " – " + endTime as a single formatted string, e.g. "09:00 – 11:30"
@@ -303,6 +305,21 @@ export function buildUserPrompt(profile: TravelerProfile, searchResults?: Classi
     ? `\n${internalPlaces}\n`
     : '';
 
+  // ── Time constraints block ────────────────────────────────────────────────
+  const timeLines: string[] = [];
+  if (profile.dailyStartTime) {
+    timeLines.push(`DAILY_START_TIME: ${profile.dailyStartTime} — schedule every morning slot to start at ${profile.dailyStartTime}`);
+  }
+  if (profile.arrivalTime) {
+    timeLines.push(`ARRIVAL_TIME_DAY1: ${profile.arrivalTime} — do NOT schedule any activities before ${profile.arrivalTime} on Day 1 (allow 45 min transit from airport)`);
+  }
+  if (profile.departureTime) {
+    timeLines.push(`DEPARTURE_TIME_LAST_DAY: ${profile.departureTime} — all activities on the last day must END by ${profile.departureTime} (allow 2 hours for airport transit)`);
+  }
+  const timeBlock = timeLines.length > 0
+    ? `\nTIME CONSTRAINTS (mandatory — schedule must respect these exactly):\n${timeLines.join('\n')}\n`
+    : '';
+
   return `Generate a ${days}-day itinerary for this traveler:
 
 DESTINATION: ${profile.destination}
@@ -314,7 +331,7 @@ INTERESTS: ${interestsList}
 ACCOMMODATION: ${profile.accommodation}
 DIETARY: ${profile.dietaryRestrictions || 'none'}
 MUST-HAVES: ${profile.mustHave || 'none specified'}
-${hotelBlock}
+${hotelBlock}${timeBlock}
 
 VIBE TARGETING:
 ${vibeDirective}

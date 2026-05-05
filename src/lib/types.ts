@@ -40,6 +40,10 @@ export interface TravelerProfile {
   dietaryRestrictions: string;
   mustHave: string;
   hotelBooked?: string;
+  // Time-aware inputs (v1.10.16)
+  dailyStartTime?: string;   // e.g. "08:00" — when the traveler starts each day
+  arrivalTime?: string;      // e.g. "15:00" — arrival time on day 1 (limits first-day activities)
+  departureTime?: string;    // e.g. "11:00" — departure time on last day (limits last-day activities)
 }
 
 export interface Activity {

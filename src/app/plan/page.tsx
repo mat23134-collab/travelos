@@ -129,6 +129,126 @@ const LOADING_STEPS = [
   { icon: '💎', label: 'Filtering tourist traps. You deserve better.' },
 ];
 
+// ─── Step 3 — Time-Aware inputs ───────────────────────────────────────────────
+
+const DAILY_START_OPTIONS = [
+  { value: '07:00', label: 'Early Bird',    icon: '🌅', sub: 'Start at 7 am' },
+  { value: '08:30', label: 'Morning',       icon: '☀️',  sub: 'Start at 8:30 am' },
+  { value: '10:00', label: 'Mid-Morning',   icon: '🌤️', sub: 'Start at 10 am' },
+  { value: '11:30', label: 'Late Starter',  icon: '🛌', sub: 'Start at 11:30 am' },
+];
+
+function TimeAwareStep({
+  arrivalTime,
+  departureTime,
+  dailyStartTime,
+  onArrival,
+  onDeparture,
+  onDailyStart,
+}: {
+  arrivalTime: string;
+  departureTime: string;
+  dailyStartTime: string;
+  onArrival: (v: string) => void;
+  onDeparture: (v: string) => void;
+  onDailyStart: (v: string) => void;
+}) {
+  return (
+    <motion.div
+      className="flex flex-col gap-7"
+      variants={staggerContainer}
+      initial="hidden"
+      animate="show"
+    >
+      {/* Daily start time */}
+      <div>
+        <p className="text-xs font-bold text-[#ff5a5f] uppercase tracking-widest mb-3">
+          When do you like to start exploring each day?
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {DAILY_START_OPTIONS.map((opt) => {
+            const sel = dailyStartTime === opt.value;
+            return (
+              <motion.button
+                key={opt.value}
+                variants={optionVariant}
+                onClick={() => onDailyStart(opt.value)}
+                whileHover={{ scale: 1.05, y: -3 }}
+                whileTap={{ scale: 0.95 }}
+                animate={
+                  sel
+                    ? { boxShadow: '0 0 0 2px #ff5a5f, 0 8px 24px -4px rgba(255,90,95,0.20)' }
+                    : { boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }
+                }
+                transition={{ type: 'spring', stiffness: 450, damping: 22 }}
+                className={`relative p-4 rounded-2xl border text-center transition-colors ${
+                  sel
+                    ? 'border-[#ff5a5f] bg-[#fff5f5]'
+                    : 'border-[#e7e5e4] bg-white hover:border-[#ff5a5f]/30 hover:bg-[#fff8f8]'
+                }`}
+              >
+                {sel && (
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="absolute top-2 right-2 w-5 h-5 rounded-full bg-[#ff5a5f] flex items-center justify-center"
+                  >
+                    <span className="text-white text-[9px] font-bold">✓</span>
+                  </motion.div>
+                )}
+                <div className="text-2xl mb-1.5 leading-none">{opt.icon}</div>
+                <div className={`text-xs font-semibold leading-tight ${sel ? 'text-[#ff5a5f]' : 'text-[#1c1917]'}`}>
+                  {opt.label}
+                </div>
+                <div className="text-[10px] text-[#a8a29e] mt-0.5">{opt.sub}</div>
+              </motion.button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Arrival & Departure time */}
+      <div className="grid sm:grid-cols-2 gap-5">
+        <div
+          className="rounded-2xl p-4 border border-[#e7e5e4] bg-white"
+          style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}
+        >
+          <label className="block text-xs font-bold text-[#ff5a5f] uppercase tracking-widest mb-1">
+            🛬 Arrival time — Day 1
+          </label>
+          <p className="text-[10px] text-[#a8a29e] mb-3 leading-relaxed">
+            We won't schedule activities before you land. Leave blank if arriving the night before.
+          </p>
+          <input
+            type="time"
+            value={arrivalTime}
+            onChange={(e) => onArrival(e.target.value)}
+            className="w-full px-4 py-3 rounded-xl border border-[#e7e5e4] bg-[#fafaf9] focus:border-[#ff5a5f] focus:outline-none text-[#1c1917] text-sm transition-all"
+          />
+        </div>
+
+        <div
+          className="rounded-2xl p-4 border border-[#e7e5e4] bg-white"
+          style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}
+        >
+          <label className="block text-xs font-bold text-[#ff5a5f] uppercase tracking-widest mb-1">
+            🛫 Departure time — Last Day
+          </label>
+          <p className="text-[10px] text-[#a8a29e] mb-3 leading-relaxed">
+            We'll only plan activities that end before you need to leave. Leave blank if departing at night.
+          </p>
+          <input
+            type="time"
+            value={departureTime}
+            onChange={(e) => onDeparture(e.target.value)}
+            className="w-full px-4 py-3 rounded-xl border border-[#e7e5e4] bg-[#fafaf9] focus:border-[#ff5a5f] focus:outline-none text-[#1c1917] text-sm transition-all"
+          />
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 // ─── Step 9 — Dietary options ─────────────────────────────────────────────────
 
 const DIETARY_OPTIONS = [
@@ -491,6 +611,9 @@ export default function PlanPage() {
     dietaryRestrictions: [],   // string[] — joined to string on submit
     mustHaveItems: [],          // string[] — selected city picks
     mustHaveOther: '',          // string  — free-text from "Other" cube
+    arrivalTime: '',            // string  — HH:MM, arrival time Day 1
+    departureTime: '',          // string  — HH:MM, departure time last day
+    dailyStartTime: '08:30',    // string  — HH:MM, default morning start
   });
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -499,7 +622,7 @@ export default function PlanPage() {
   useEffect(() => {
     localStorage.removeItem(STORAGE_KEY);
     setStep(0);
-    setForm({ groupSize: 2, interests: [], dietaryRestrictions: [], mustHaveItems: [], mustHaveOther: '' });
+    setForm({ groupSize: 2, interests: [], dietaryRestrictions: [], mustHaveItems: [], mustHaveOther: '', arrivalTime: '', departureTime: '', dailyStartTime: '08:30' });
   }, []);
 
   const question = questions[step];
@@ -619,6 +742,10 @@ export default function PlanPage() {
           : []),
       ].filter(Boolean).join(', '),
       hotelBooked: (form.hotelBooked as string) || '',
+      // Time-aware scheduling inputs (v1.10.16)
+      dailyStartTime: (form.dailyStartTime as string) || '08:30',
+      arrivalTime: (form.arrivalTime as string) || '',
+      departureTime: (form.departureTime as string) || '',
     };
 
     try {
@@ -793,6 +920,18 @@ export default function PlanPage() {
                       </div>
                     ))}
                   </div>
+                )}
+
+                {/* ── Time-Aware (Step 3) ── */}
+                {question.type === 'time-aware' && (
+                  <TimeAwareStep
+                    arrivalTime={(form.arrivalTime as string) || ''}
+                    departureTime={(form.departureTime as string) || ''}
+                    dailyStartTime={(form.dailyStartTime as string) || '08:30'}
+                    onArrival={(v) => setValue('arrivalTime', v)}
+                    onDeparture={(v) => setValue('departureTime', v)}
+                    onDailyStart={(v) => setValue('dailyStartTime', v)}
+                  />
                 )}
 
                 {/* ── Single select ── */}

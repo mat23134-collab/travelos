@@ -8,7 +8,7 @@ export interface QuestionOption {
 export interface Question {
   id: number;
   key: string;
-  type: 'text' | 'date-range' | 'select' | 'multi-select' | 'slider' | 'textarea';
+  type: 'text' | 'date-range' | 'select' | 'multi-select' | 'slider' | 'textarea' | 'time-aware';
   title: string;
   subtitle?: string;
   placeholder?: string;
@@ -37,6 +37,14 @@ export const questions: Question[] = [
   },
   {
     id: 3,
+    key: 'tripTimes',
+    type: 'time-aware',
+    title: 'Let\'s time your trip perfectly.',
+    subtitle: 'Tell us when you arrive, when you leave, and when you like to start your days — we\'ll schedule around it',
+    required: false,
+  },
+  {
+    id: 5,
     key: 'groupType',
     type: 'select',
     title: "Who's joining you?",
@@ -50,7 +58,7 @@ export const questions: Question[] = [
     required: true,
   },
   {
-    id: 4,
+    id: 6,
     key: 'groupSize',
     type: 'slider',
     title: 'How many people total?',
@@ -60,7 +68,7 @@ export const questions: Question[] = [
     required: true,
   },
   {
-    id: 5,
+    id: 7,
     key: 'budget',
     type: 'select',
     title: "What's your budget vibe?",
@@ -73,7 +81,7 @@ export const questions: Question[] = [
     required: true,
   },
   {
-    id: 6,
+    id: 8,
     key: 'pace',
     type: 'select',
     title: 'How do you like to travel?',
@@ -86,7 +94,7 @@ export const questions: Question[] = [
     required: true,
   },
   {
-    id: 7,
+    id: 9,
     key: 'interests',
     type: 'multi-select',
     title: 'What lights you up?',
@@ -104,7 +112,7 @@ export const questions: Question[] = [
     required: true,
   },
   {
-    id: 8,
+    id: 10,
     key: 'accommodation',
     type: 'select',
     title: 'Where do you like to stay?',
@@ -119,7 +127,7 @@ export const questions: Question[] = [
     required: true,
   },
   {
-    id: 9,
+    id: 11,
     key: 'dietaryRestrictions',
     type: 'textarea',
     title: 'Any dietary preferences?',
@@ -127,7 +135,7 @@ export const questions: Question[] = [
     required: false,
   },
   {
-    id: 10,
+    id: 12,
     key: 'mustHave',
     type: 'textarea',
     title: 'Any absolute must-haves?',
@@ -135,7 +143,7 @@ export const questions: Question[] = [
     required: false,
   },
   {
-    id: 11,
+    id: 13,
     key: 'hotelBooked',
     type: 'textarea',
     title: "Already booked a hotel?",
