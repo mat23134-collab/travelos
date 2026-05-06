@@ -3,6 +3,13 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { VersionStamp } from '@/components/VersionStamp';
 import { AuthProvider } from '@/lib/auth-context';
+import dynamic from 'next/dynamic';
+
+// CanvasShell uses WebGL — must be client-only (no SSR).
+const CanvasShell = dynamic(
+  () => import('@/three/CanvasShell').then((m) => ({ default: m.CanvasShell })),
+  { ssr: false }
+);
 
 const inter = Inter({
   subsets: ['latin'],
@@ -23,6 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AuthProvider>
           {children}
         </AuthProvider>
+        <CanvasShell />
         <VersionStamp />
       </body>
     </html>

@@ -1,8 +1,8 @@
 // UI Version: 2.0.1 - 2026-04-30T14:00:00Z
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useCallback, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { questions } from '@/lib/questionnaire';
@@ -599,7 +599,16 @@ function LoadingScreen({ destination }: { destination: string }) {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
-export default function PlanPage() {
+// Wrap in Suspense so useSearchParams() works without static-render errors.
+export default function PlanPageWrapper() {
+  return (
+    <Suspense fallback={null}>
+      <PlanPage />
+    </Suspense>
+  );
+}
+
+function PlanPage() {
   const router      = useRouter();
   const { user }    = useAuth();
 
@@ -614,15 +623,34 @@ export default function PlanPage() {
     arrivalTime: '',            // string  — HH:MM, arrival time Day 1
     departureTime: '',          // string  — HH:MM, departure time last day
     dailyStartTime: '08:30',    // string  — HH:MM, default morning start
+    skipDay1: false,            // boolean — true when arrivalTime >= 20:00 (from onboarding)
   });
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Hard reset on every entry: clear saved draft and always start at Step 1
+  const searchParams = useSearchParams();
+
+  // Hard reset on every entry: clear saved draft and always start at Step 1.
+  // If the user came from /onboarding, pre-populate the time fields via query params.
   useEffect(() => {
     localStorage.removeItem(STORAGE_KEY);
     setStep(0);
-    setForm({ groupSize: 2, interests: [], dietaryRestrictions: [], mustHaveItems: [], mustHaveOther: '', arrivalTime: '', departureTime: '', dailyStartTime: '08:30' });
+    const preArrival    = searchParams.get('arrivalTime')    ?? '';
+    const preDeparture  = searchParams.get('departureTime')  ?? '';
+    const preDailyStart = searchParams.get('dailyStartTime') ?? '08:30';
+    const preSkipDay1   = searchParams.get('skipDay1') === '1';
+    setForm({
+      groupSize: 2,
+      interests: [],
+      dietaryRestrictions: [],
+      mustHaveItems: [],
+      mustHaveOther: '',
+      arrivalTime: preArrival,
+      departureTime: preDeparture,
+      dailyStartTime: preDailyStart,
+      skipDay1: preSkipDay1,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const question = questions[step];
@@ -742,10 +770,12 @@ export default function PlanPage() {
           : []),
       ].filter(Boolean).join(', '),
       hotelBooked: (form.hotelBooked as string) || '',
-      // Time-aware scheduling inputs (v1.10.16)
+      // Time-aware scheduling inputs (v1.10.16 + v1.10.18)
       dailyStartTime: (form.dailyStartTime as string) || '08:30',
       arrivalTime: (form.arrivalTime as string) || '',
       departureTime: (form.departureTime as string) || '',
+      // skipDay1: set by onboarding store when arrivalTime >= 20:00
+      skipDay1: !!(form.skipDay1 as boolean),
     };
 
     try {

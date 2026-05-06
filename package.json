@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.6.1",
     "@supabase/supabase-js": "^2.105.1",
     "clsx": "^2.1.1",
     "framer-motion": "^11.0.0",
@@ -19,7 +21,10 @@
     "next": "^14.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-map-gl": "^7.1.0"
+    "react-map-gl": "^7.1.0",
+    "three": "^0.184.0",
+    "tunnel-rat": "^0.1.2",
+    "zustand": "^5.0.13"
   },
   "overrides": {
     "picomatch": "^4.0.0"
@@ -30,6 +35,7 @@
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@types/three": "^0.184.0",
     "eslint": "^9",
     "eslint-config-next": "^15.0.0",
     "tailwindcss": "^4",

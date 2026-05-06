@@ -316,6 +316,12 @@ export function buildUserPrompt(profile: TravelerProfile, searchResults?: Classi
   if (profile.departureTime) {
     timeLines.push(`DEPARTURE_TIME_LAST_DAY: ${profile.departureTime} — all activities on the last day must END by ${profile.departureTime} (allow 2 hours for airport transit)`);
   }
+  // skipDay1: arrival after 20:00 — Day 1 is hotel + rest only, no activities
+  if (profile.skipDay1) {
+    timeLines.push(
+      `SKIP_DAY1_ACTIVITIES: true — The traveler arrives after 20:00. Day 1 MUST contain ONLY hotel check-in, a single dinner DiningSpot, and a brief evening wind-down note in the theme. Do NOT add morning, afternoon, or evening activity slots for Day 1. Start the full itinerary schedule from Day 2.`
+    );
+  }
   const timeBlock = timeLines.length > 0
     ? `\nTIME CONSTRAINTS (mandatory — schedule must respect these exactly):\n${timeLines.join('\n')}\n`
     : '';

@@ -44,6 +44,8 @@ export interface TravelerProfile {
   dailyStartTime?: string;   // e.g. "08:00" — when the traveler starts each day
   arrivalTime?: string;      // e.g. "15:00" — arrival time on day 1 (limits first-day activities)
   departureTime?: string;    // e.g. "11:00" — departure time on last day (limits last-day activities)
+  // Derived from arrivalTime by onboardingStore (v1.10.18)
+  skipDay1?: boolean;        // true when arrival hour >= 20 — generator omits Day 1 activities entirely
 }
 
 export interface Activity {
