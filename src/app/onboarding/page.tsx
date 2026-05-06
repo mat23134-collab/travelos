@@ -18,6 +18,7 @@
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
+import { useEffect } from 'react';
 import { useOnboardingStore } from '@/state/onboardingStore';
 
 // All step components use R3F (useFrame) + tunnel-rat → must be ssr:false
@@ -92,9 +93,15 @@ export default function OnboardingPage() {
     hotelLng,
     nextStep,
     prevStep,
+    reset,
   } = useOnboardingStore();
 
   const dir = 1; // always forward
+
+  useEffect(() => {
+    // Always start onboarding from a clean slate on every entry.
+    reset();
+  }, [reset]);
 
   const handleComplete = () => {
     const params = new URLSearchParams();
