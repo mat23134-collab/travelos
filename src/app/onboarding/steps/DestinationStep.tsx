@@ -22,16 +22,11 @@ const PRIMARY_H = '#b5404a';
 
 // ── Featured destinations ─────────────────────────────────────────────────────
 const DESTINATIONS = [
-  { name: 'Paris',      flag: '🇫🇷', tagline: 'City of Light'           },
-  { name: 'Tokyo',      flag: '🇯🇵', tagline: 'Neon & Tradition'        },
-  { name: 'Rome',       flag: '🇮🇹', tagline: 'La Dolce Vita'           },
-  { name: 'New York',   flag: '🇺🇸', tagline: 'The City That Never Sleeps' },
-  { name: 'Barcelona',  flag: '🇪🇸', tagline: 'Gaudí & Tapas'           },
-  { name: 'Bali',       flag: '🇮🇩', tagline: 'Island of the Gods'      },
-  { name: 'Dubai',      flag: '🇦🇪', tagline: 'Luxury in the Desert'    },
-  { name: 'London',     flag: '🇬🇧', tagline: 'Iconic & Eclectic'       },
-  { name: 'Marrakech',  flag: '🇲🇦', tagline: 'Spice & Labyrinth'       },
-  { name: 'Santorini',  flag: '🇬🇷', tagline: 'Caldera Sunsets'         },
+  { name: 'Rome',     flag: '🇮🇹', tagline: 'La Dolce Vita' },
+  { name: 'London',   flag: '🇬🇧', tagline: 'Iconic & Eclectic' },
+  { name: 'Athens',   flag: '🇬🇷', tagline: 'Cradle of Civilization' },
+  { name: 'Paris',    flag: '🇫🇷', tagline: 'City of Light' },
+  { name: 'Budapest', flag: '🇭🇺', tagline: 'Paris of the East' },
 ];
 
 // ── Animation variants ────────────────────────────────────────────────────────
