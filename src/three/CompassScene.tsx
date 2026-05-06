@@ -22,8 +22,9 @@ export function CompassScene({
   const markerRef = useRef<THREE.Mesh>(null);
   const texture = useTexture('/compass-cute.svg');
 
-  const posX = viewport.width > 7.5 ? 2.5 : viewport.width > 5 ? 1.5 : 0.1;
-  const scale = viewport.width > 7.5 ? 1.9 : viewport.width > 5 ? 1.45 : 1.1;
+  const posX = viewport.width > 7.5 ? 2.85 : viewport.width > 5 ? 2.0 : 0.85;
+  const posY = viewport.width > 7.5 ? 0.35 : viewport.width > 5 ? 0.2 : -0.05;
+  const scale = viewport.width > 7.5 ? 0.98 : viewport.width > 5 ? 0.8 : 0.58;
 
   const markerOffset = useMemo<[number, number, number]>(() => [0.78, 0.62, 0.03], []);
 
@@ -47,15 +48,24 @@ export function CompassScene({
   });
 
   return (
-    <group position={[posX, -0.1, 0]} scale={scale}>
+    <group position={[posX, posY, 0]} scale={scale}>
       <ambientLight intensity={0.8} />
       <pointLight position={[0, 0, 3]} intensity={1.2} color="#8bc7ff" />
       <pointLight position={[1.4, 1.4, 2]} intensity={0.9} color="#ffffff" />
 
       <group ref={compassRef}>
+        {/* soft futuristic halo */}
+        <mesh position={[0, 0, -0.02]}>
+          <circleGeometry args={[1.45, 40]} />
+          <meshBasicMaterial color="#4cc9ff" transparent opacity={0.12} />
+        </mesh>
+        <mesh position={[0, 0, -0.015]}>
+          <ringGeometry args={[1.2, 1.38, 72]} />
+          <meshBasicMaterial color="#9edfff" transparent opacity={0.22} />
+        </mesh>
         <mesh>
           <planeGeometry args={[2.8, 2.8]} />
-          <meshBasicMaterial map={texture} transparent />
+          <meshBasicMaterial map={texture} transparent opacity={0.96} />
         </mesh>
 
         {/* small upgrade: pulsing base-camp dot if hotel anchor exists */}
