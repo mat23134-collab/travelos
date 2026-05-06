@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useAuth } from '@/lib/auth-context';
+import { useOnboardingStore } from '@/state/onboardingStore';
 
 // CompassInjector uses R3F (useFrame) + tunnel-rat — both require browser.
 // Dynamic import with ssr:false prevents the server-prerender crash.
@@ -10,6 +11,21 @@ const CompassInjector = dynamic(
   () => import('@/three/CompassInjector').then((m) => ({ default: m.CompassInjector })),
   { ssr: false }
 );
+
+// ── Palette ───────────────────────────────────────────────────────────────────
+// Background  : #091f36  (Purple Shadow)
+// Primary     : #9e363a  (Redline)      — buttons, accents, glow
+// Card surface: #0f2862  (Blue Popsicle)
+// Body text   : #4f5f76  (Grey Blue Leaf)
+// Headings    : #ffffff
+
+const BG      = '#091f36';
+const BG_MID  = '#0b1d35';
+const BG_DEEP = '#071629';
+const PRIMARY = '#9e363a';
+const PRIMARY_HOVER = '#b5404a';
+const CARD    = '#0f2862';
+const MUTED   = '#4f5f76';
 
 // ── Content ───────────────────────────────────────────────────────────────────
 
@@ -22,9 +38,9 @@ const features = [
   },
   {
     num: '02',
-    title: 'Neighborhood Clustering',
+    title: 'Hotel Center of Gravity',
     description:
-      'Every day is geographically optimized. Zero cross-city transit. Every stop within walking distance of the last.',
+      'Every day radiates out from your hotel. Zero wasted transit. Every stop geo-clustered within walking range of your basecamp.',
   },
   {
     num: '03',
@@ -55,7 +71,7 @@ const testimonials = [
   },
   {
     quote:
-      "Solo in Morocco, luxury budget. Found a riad most sites don’t even list. Stayed two extra days because of it.",
+      "Solo in Morocco, luxury budget. Found a riad most sites don't even list. Stayed two extra days because of it.",
     author: 'Priya V.',
     trip: 'Marrakech, Morocco',
   },
@@ -64,12 +80,12 @@ const testimonials = [
 // ── Shared inline-style helpers ───────────────────────────────────────────────
 
 const CARD_STYLE = {
-  background: 'rgba(255,255,255,0.028)',
-  border: '1px solid rgba(255,255,255,0.07)',
+  background: `rgba(15,40,98,0.22)`,
+  border: `1px solid rgba(255,255,255,0.07)`,
 };
 
 const LABEL_STYLE = {
-  color: '#dc2626',
+  color: PRIMARY,
   fontSize: '0.625rem',
   letterSpacing: '0.2em',
   fontWeight: 700,
@@ -77,46 +93,51 @@ const LABEL_STYLE = {
 };
 
 const DIVIDER_LINE = (
-  <span className="w-8 h-px flex-shrink-0" style={{ background: '#dc2626' }} />
+  <span className="w-8 h-px flex-shrink-0" style={{ background: PRIMARY }} />
 );
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
   const { user, loading } = useAuth();
+  // Read hotel coords from onboarding store so compass shows the gold marker
+  const { hotelLat, hotelLng } = useOnboardingStore();
+  const locationMarker =
+    hotelLat != null && hotelLng != null
+      ? { lat: hotelLat, lng: hotelLng }
+      : null;
 
   return (
     <main
       className="min-h-screen overflow-x-hidden relative"
-      style={{ backgroundColor: '#080b12', color: '#f2f2f2' }}
+      style={{ backgroundColor: BG, color: '#ffffff' }}
     >
-      {/* 3D Compass — injected into canvas background via tunnel */}
-      <CompassInjector />
+      {/* 3D Compass — injected into canvas background via tunnel.
+          Passes hotel coordinates so the gold marker appears once the
+          Hotel Center of Gravity step is completed. */}
+      <CompassInjector locationMarker={locationMarker} />
 
       {/* ── Nav ──────────────────────────────────────────────────────────────── */}
       <nav
         className="fixed top-0 inset-x-0 z-40 flex items-center justify-between px-8 py-5"
         style={{
-          borderBottom: '1px solid rgba(255,255,255,0.055)',
-          background: 'rgba(8,11,18,0.84)',
+          borderBottom: `1px solid rgba(255,255,255,0.06)`,
+          background: `rgba(9,31,54,0.88)`,
           backdropFilter: 'blur(18px)',
           WebkitBackdropFilter: 'blur(18px)',
         }}
       >
-        <span
-          className="text-base font-black"
-          style={{ letterSpacing: '-0.025em' }}
-        >
-          Travel<span style={{ color: '#dc2626' }}>OS</span>
+        <span className="text-base font-black" style={{ letterSpacing: '-0.025em' }}>
+          Travel<span style={{ color: PRIMARY }}>OS</span>
         </span>
 
         <div className="flex items-center gap-6">
           <Link
             href="/plan"
             className="hidden sm:inline text-[11px] font-semibold transition-colors"
-            style={{ color: 'rgba(255,255,255,0.35)', letterSpacing: '0.14em', textTransform: 'uppercase' }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = '#f2f2f2')}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.35)')}
+            style={{ color: MUTED, letterSpacing: '0.14em', textTransform: 'uppercase' }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = '#ffffff')}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = MUTED)}
           >
             Plan a Trip
           </Link>
@@ -126,9 +147,15 @@ export default function HomePage() {
               <Link
                 href="/dashboard"
                 className="text-xs font-bold px-5 py-2.5 rounded-xl transition-all"
-                style={{ background: '#dc2626', color: '#fff', boxShadow: '0 0 20px rgba(220,38,38,0.28)' }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#ef4444'; (e.currentTarget as HTMLElement).style.boxShadow = '0 0 32px rgba(239,68,68,0.4)'; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = '#dc2626'; (e.currentTarget as HTMLElement).style.boxShadow = '0 0 20px rgba(220,38,38,0.28)'; }}
+                style={{ background: PRIMARY, color: '#fff', boxShadow: `0 0 20px rgba(158,54,58,0.35)` }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLElement).style.background = PRIMARY_HOVER;
+                  (e.currentTarget as HTMLElement).style.boxShadow = '0 0 32px rgba(181,64,74,0.5)';
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLElement).style.background = PRIMARY;
+                  (e.currentTarget as HTMLElement).style.boxShadow = '0 0 20px rgba(158,54,58,0.35)';
+                }}
               >
                 My Trips
               </Link>
@@ -136,9 +163,15 @@ export default function HomePage() {
               <Link
                 href="/auth"
                 className="text-xs font-semibold px-5 py-2.5 rounded-xl transition-all"
-                style={{ color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.1)' }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(220,38,38,0.45)'; (e.currentTarget as HTMLElement).style.color = '#f2f2f2'; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.1)'; (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.5)'; }}
+                style={{ color: MUTED, border: '1px solid rgba(255,255,255,0.1)' }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLElement).style.borderColor = `rgba(158,54,58,0.5)`;
+                  (e.currentTarget as HTMLElement).style.color = '#ffffff';
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.1)';
+                  (e.currentTarget as HTMLElement).style.color = MUTED;
+                }}
               >
                 Log In
               </Link>
@@ -148,14 +181,16 @@ export default function HomePage() {
       </nav>
 
       {/* ── Hero ─────────────────────────────────────────────────────────────── */}
-      {/* Full-viewport height. Text on left; right half is "open" — the fixed
-          3D canvas background shows the compass through the transparent layout. */}
       <section className="relative min-h-screen flex items-center px-8 pt-28 pb-20 lg:px-16">
 
-        {/* Subtle radial wash behind the hero text */}
+        {/* Radial washes */}
         <div
           className="absolute inset-0 pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse 55% 70% at 10% 50%, rgba(220,38,38,0.055) 0%, transparent 70%)' }}
+          style={{ background: `radial-gradient(ellipse 55% 70% at 10% 50%, rgba(158,54,58,0.07) 0%, transparent 70%)` }}
+        />
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: `radial-gradient(ellipse 60% 80% at 85% 30%, rgba(15,40,98,0.18) 0%, transparent 65%)` }}
         />
 
         <div className="relative z-10 max-w-6xl mx-auto w-full grid lg:grid-cols-2 gap-16 items-center">
@@ -165,21 +200,18 @@ export default function HomePage() {
 
             {/* Eyebrow label */}
             <div className="flex items-center gap-3 mb-9">
-              <span className="w-6 h-px" style={{ background: '#dc2626' }} />
+              <span className="w-6 h-px" style={{ background: PRIMARY }} />
               <span style={LABEL_STYLE}>AI-Powered Travel Intelligence</span>
             </div>
 
             {/* Headline */}
             <h1
               className="font-black leading-[0.93] mb-8"
-              style={{
-                fontSize: 'clamp(2.9rem, 6.5vw, 5.25rem)',
-                letterSpacing: '-0.038em',
-              }}
+              style={{ fontSize: 'clamp(2.9rem, 6.5vw, 5.25rem)', letterSpacing: '-0.038em' }}
             >
               The world,
               <br />
-              <span style={{ color: 'rgba(255,255,255,0.22)' }}>precisely</span>
+              <span style={{ color: 'rgba(255,255,255,0.20)' }}>precisely</span>
               <br />
               planned.
             </h1>
@@ -187,43 +219,39 @@ export default function HomePage() {
             {/* Sub-copy */}
             <p
               className="mb-10 leading-relaxed max-w-md"
-              style={{
-                color: 'rgba(255,255,255,0.4)',
-                fontSize: '1.05rem',
-                lineHeight: 1.8,
-              }}
+              style={{ color: MUTED, fontSize: '1.05rem', lineHeight: 1.8 }}
             >
-              Answer 10 questions. Get a hyper-personalized itinerary built
-              from live web intelligence, verified pricing, and
-              neighborhood-level logistics — in under 60 seconds.
+              Set your hotel as home base. Answer 10 questions. Get a
+              hyper-personalized itinerary built from live intelligence,
+              verified pricing, and neighborhood-level logistics — in under 60 seconds.
             </p>
 
-            {/* Primary CTA */}
+            {/* Primary CTA → Onboarding (new Hotel Anchor flow) */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 mb-14">
               <Link
-                href="/plan"
+                href="/onboarding"
                 className="group inline-flex items-center gap-3 px-8 py-4 rounded-xl font-bold text-sm transition-all"
                 style={{
-                  background: '#dc2626',
+                  background: PRIMARY,
                   color: '#fff',
                   letterSpacing: '-0.01em',
-                  boxShadow: '0 0 40px rgba(220,38,38,0.28), 0 4px 20px rgba(220,38,38,0.18)',
+                  boxShadow: `0 0 40px rgba(158,54,58,0.32), 0 4px 20px rgba(158,54,58,0.22)`,
                 }}
                 onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.background = '#ef4444';
-                  (e.currentTarget as HTMLElement).style.boxShadow = '0 0 60px rgba(239,68,68,0.42), 0 4px 24px rgba(239,68,68,0.28)';
+                  (e.currentTarget as HTMLElement).style.background = PRIMARY_HOVER;
+                  (e.currentTarget as HTMLElement).style.boxShadow = '0 0 60px rgba(181,64,74,0.48), 0 4px 24px rgba(181,64,74,0.32)';
                   (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)';
                 }}
                 onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.background = '#dc2626';
-                  (e.currentTarget as HTMLElement).style.boxShadow = '0 0 40px rgba(220,38,38,0.28), 0 4px 20px rgba(220,38,38,0.18)';
+                  (e.currentTarget as HTMLElement).style.background = PRIMARY;
+                  (e.currentTarget as HTMLElement).style.boxShadow = `0 0 40px rgba(158,54,58,0.32), 0 4px 20px rgba(158,54,58,0.22)`;
                   (e.currentTarget as HTMLElement).style.transform = '';
                 }}
               >
-                Plan My Trip
+                Start Planning
                 <span className="transition-transform group-hover:translate-x-0.5 inline-block">→</span>
               </Link>
-              <span className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>
+              <span className="text-xs" style={{ color: 'rgba(255,255,255,0.18)' }}>
                 Free · No account needed · ~60 seconds
               </span>
             </div>
@@ -231,7 +259,7 @@ export default function HomePage() {
             {/* Stats strip */}
             <div
               className="flex items-center gap-10 pt-8"
-              style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
+              style={{ borderTop: `1px solid rgba(255,255,255,0.06)` }}
             >
               {[
                 { val: '60s',  label: 'To generate'   },
@@ -241,11 +269,11 @@ export default function HomePage() {
                 <div key={s.val}>
                   <div
                     className="font-black text-2xl"
-                    style={{ color: '#dc2626', letterSpacing: '-0.04em' }}
+                    style={{ color: PRIMARY, letterSpacing: '-0.04em' }}
                   >
                     {s.val}
                   </div>
-                  <div className="mt-0.5" style={{ ...LABEL_STYLE, color: 'rgba(255,255,255,0.22)' }}>
+                  <div className="mt-0.5" style={{ ...LABEL_STYLE, color: MUTED }}>
                     {s.label}
                   </div>
                 </div>
@@ -262,8 +290,9 @@ export default function HomePage() {
       <div
         className="py-14 px-8 text-center"
         style={{
-          borderTop:    '1px solid rgba(255,255,255,0.05)',
-          borderBottom: '1px solid rgba(255,255,255,0.05)',
+          borderTop:    `1px solid rgba(255,255,255,0.05)`,
+          borderBottom: `1px solid rgba(255,255,255,0.05)`,
+          background: `linear-gradient(90deg, transparent, rgba(15,40,98,0.12), transparent)`,
         }}
       >
         <p
@@ -281,10 +310,9 @@ export default function HomePage() {
       </div>
 
       {/* ── Features ─────────────────────────────────────────────────────────── */}
-      <section className="py-28 px-8 lg:px-16" style={{ backgroundColor: '#0c0f1a' }}>
+      <section className="py-28 px-8 lg:px-16" style={{ backgroundColor: BG_MID }}>
         <div className="max-w-6xl mx-auto">
 
-          {/* Section label */}
           <div className="flex items-center gap-4 mb-14">
             {DIVIDER_LINE}
             <span style={LABEL_STYLE}>The System</span>
@@ -301,36 +329,36 @@ export default function HomePage() {
             Not another generic planner.
           </h2>
 
-          {/* 2×2 grid with hairline borders */}
+          {/* 2×2 grid */}
           <div
             className="grid sm:grid-cols-2"
-            style={{ border: '1px solid rgba(255,255,255,0.065)', overflow: 'hidden' }}
+            style={{ border: `1px solid rgba(255,255,255,0.07)`, overflow: 'hidden' }}
           >
             {features.map((f, i) => (
               <div
                 key={f.num}
                 className="p-9 transition-colors duration-300"
                 style={{
-                  background: 'rgba(8,11,18,0.85)',
-                  borderRight:  i % 2 === 0 ? '1px solid rgba(255,255,255,0.065)' : 'none',
-                  borderBottom: i < 2       ? '1px solid rgba(255,255,255,0.065)' : 'none',
+                  background: `rgba(9,31,54,0.70)`,
+                  borderRight:  i % 2 === 0 ? `1px solid rgba(255,255,255,0.07)` : 'none',
+                  borderBottom: i < 2       ? `1px solid rgba(255,255,255,0.07)` : 'none',
                 }}
-                onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(220,38,38,0.042)')}
-                onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(8,11,18,0.85)')}
+                onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = `rgba(15,40,98,0.32)`)}
+                onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = `rgba(9,31,54,0.70)`)}
               >
                 <div
                   className="font-black font-mono mb-7"
-                  style={{ fontSize: '2.75rem', color: 'rgba(220,38,38,0.16)', letterSpacing: '-0.04em' }}
+                  style={{ fontSize: '2.75rem', color: `rgba(158,54,58,0.18)`, letterSpacing: '-0.04em' }}
                 >
                   {f.num}
                 </div>
                 <h3
                   className="font-bold text-base mb-3"
-                  style={{ color: '#f2f2f2', letterSpacing: '-0.015em' }}
+                  style={{ color: '#ffffff', letterSpacing: '-0.015em' }}
                 >
                   {f.title}
                 </h3>
-                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.33)' }}>
+                <p className="text-sm leading-relaxed" style={{ color: MUTED }}>
                   {f.description}
                 </p>
               </div>
@@ -340,7 +368,7 @@ export default function HomePage() {
       </section>
 
       {/* ── How it works ─────────────────────────────────────────────────────── */}
-      <section className="py-28 px-8 lg:px-16" style={{ backgroundColor: '#080b12' }}>
+      <section className="py-28 px-8 lg:px-16" style={{ backgroundColor: BG }}>
         <div className="max-w-6xl mx-auto">
 
           <div className="flex items-center gap-4 mb-14">
@@ -350,12 +378,11 @@ export default function HomePage() {
 
           <div className="grid sm:grid-cols-3 gap-14 sm:gap-10">
             {[
-              { step: '01', title: 'Answer 10 questions',  desc: 'Destination, dates, pace, interests, budget. Takes 90 seconds.' },
-              { step: '02', title: 'AI builds your plan',  desc: 'Claude cross-references live data, real blogs, and current 2026 pricing.' },
+              { step: '01', title: 'Set your hotel',        desc: 'Drop in your hotel address — it becomes the gravitational center of your entire itinerary.' },
+              { step: '02', title: 'AI builds your plan',   desc: 'Claude cross-references live data, real blogs, and current 2026 pricing around your basecamp.' },
               { step: '03', title: 'Travel with precision', desc: 'Day-by-day schedules, geo-clustered by neighborhood, with dining built in.' },
             ].map((item, i) => (
               <div key={item.step} className="relative">
-                {/* Connecting arrow on desktop */}
                 {i < 2 && (
                   <div
                     className="absolute hidden sm:block"
@@ -364,20 +391,20 @@ export default function HomePage() {
                       left: 'calc(100% + 1rem)',
                       width: '2rem',
                       height: '1px',
-                      background: 'linear-gradient(90deg, rgba(220,38,38,0.5), transparent)',
+                      background: `linear-gradient(90deg, rgba(158,54,58,0.5), transparent)`,
                     }}
                   />
                 )}
                 <div
                   className="font-black font-mono mb-5"
-                  style={{ fontSize: '3rem', color: 'rgba(220,38,38,0.14)', letterSpacing: '-0.04em' }}
+                  style={{ fontSize: '3rem', color: `rgba(158,54,58,0.16)`, letterSpacing: '-0.04em' }}
                 >
                   {item.step}
                 </div>
-                <h3 className="font-bold mb-3" style={{ color: '#f2f2f2', letterSpacing: '-0.015em' }}>
+                <h3 className="font-bold mb-3" style={{ color: '#ffffff', letterSpacing: '-0.015em' }}>
                   {item.title}
                 </h3>
-                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                <p className="text-sm leading-relaxed" style={{ color: MUTED }}>
                   {item.desc}
                 </p>
               </div>
@@ -387,7 +414,7 @@ export default function HomePage() {
       </section>
 
       {/* ── Testimonials ─────────────────────────────────────────────────────── */}
-      <section className="py-28 px-8 lg:px-16" style={{ backgroundColor: '#0c0f1a' }}>
+      <section className="py-28 px-8 lg:px-16" style={{ backgroundColor: BG_MID }}>
         <div className="max-w-6xl mx-auto">
 
           <div className="flex items-center gap-4 mb-14">
@@ -402,29 +429,28 @@ export default function HomePage() {
                 className="p-7 rounded-2xl transition-all duration-300"
                 style={CARD_STYLE}
                 onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(220,38,38,0.22)';
-                  (e.currentTarget as HTMLElement).style.background   = 'rgba(220,38,38,0.032)';
+                  (e.currentTarget as HTMLElement).style.borderColor = `rgba(158,54,58,0.28)`;
+                  (e.currentTarget as HTMLElement).style.background   = `rgba(15,40,98,0.40)`;
                   (e.currentTarget as HTMLElement).style.transform     = 'translateY(-3px)';
                 }}
                 onMouseLeave={(e) => {
                   (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.07)';
-                  (e.currentTarget as HTMLElement).style.background   = 'rgba(255,255,255,0.028)';
+                  (e.currentTarget as HTMLElement).style.background   = `rgba(15,40,98,0.22)`;
                   (e.currentTarget as HTMLElement).style.transform     = '';
                 }}
               >
-                {/* Crimson quote glyph */}
                 <div
                   className="font-black mb-4 leading-none select-none"
-                  style={{ color: '#dc2626', fontSize: '2rem', fontFamily: 'Georgia, serif' }}
+                  style={{ color: PRIMARY, fontSize: '2rem', fontFamily: 'Georgia, serif' }}
                 >
                   &ldquo;
                 </div>
-                <p className="text-sm leading-relaxed mb-7" style={{ color: 'rgba(255,255,255,0.52)' }}>
+                <p className="text-sm leading-relaxed mb-7" style={{ color: MUTED }}>
                   {t.quote}
                 </p>
-                <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '1rem' }}>
-                  <div className="text-sm font-semibold" style={{ color: '#f2f2f2' }}>{t.author}</div>
-                  <div className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.24)' }}>{t.trip}</div>
+                <div style={{ borderTop: `1px solid rgba(255,255,255,0.06)`, paddingTop: '1rem' }}>
+                  <div className="text-sm font-semibold" style={{ color: '#ffffff' }}>{t.author}</div>
+                  <div className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.22)' }}>{t.trip}</div>
                 </div>
               </div>
             ))}
@@ -435,12 +461,15 @@ export default function HomePage() {
       {/* ── Final CTA ────────────────────────────────────────────────────────── */}
       <section
         className="relative py-36 px-8 text-center overflow-hidden"
-        style={{ backgroundColor: '#060810' }}
+        style={{ backgroundColor: BG_DEEP }}
       >
-        {/* Upward crimson glow */}
         <div
           className="absolute inset-0 pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse 60% 55% at 50% 100%, rgba(220,38,38,0.09) 0%, transparent 70%)' }}
+          style={{ background: `radial-gradient(ellipse 60% 55% at 50% 100%, rgba(158,54,58,0.12) 0%, transparent 70%)` }}
+        />
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: `radial-gradient(ellipse 50% 40% at 50% 0%, rgba(15,40,98,0.18) 0%, transparent 65%)` }}
         />
 
         <div className="max-w-xl mx-auto relative z-10">
@@ -452,41 +481,37 @@ export default function HomePage() {
 
           <h2
             className="font-black mb-8"
-            style={{
-              fontSize: 'clamp(2.4rem, 5vw, 3.75rem)',
-              letterSpacing: '-0.038em',
-              lineHeight: 1.0,
-            }}
+            style={{ fontSize: 'clamp(2.4rem, 5vw, 3.75rem)', letterSpacing: '-0.038em', lineHeight: 1.0 }}
           >
             Travel smarter.
             <br />
-            <span style={{ color: 'rgba(255,255,255,0.2)' }}>Start in 60 seconds.</span>
+            <span style={{ color: 'rgba(255,255,255,0.18)' }}>Start in 60 seconds.</span>
           </h2>
 
           <Link
-            href="/plan"
+            href="/onboarding"
             className="inline-flex items-center gap-3 px-10 py-5 rounded-xl font-bold text-sm transition-all"
             style={{
-              background: '#dc2626',
+              background: PRIMARY,
               color: '#fff',
               letterSpacing: '-0.01em',
-              boxShadow: '0 0 60px rgba(220,38,38,0.28)',
+              boxShadow: `0 0 60px rgba(158,54,58,0.32)`,
             }}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.background = '#ef4444';
+              (e.currentTarget as HTMLElement).style.background = PRIMARY_HOVER;
               (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)';
-              (e.currentTarget as HTMLElement).style.boxShadow = '0 0 80px rgba(239,68,68,0.42)';
+              (e.currentTarget as HTMLElement).style.boxShadow = '0 0 80px rgba(181,64,74,0.48)';
             }}
             onMouseLeave={(e) => {
-              (e.currentTarget as HTMLElement).style.background = '#dc2626';
+              (e.currentTarget as HTMLElement).style.background = PRIMARY;
               (e.currentTarget as HTMLElement).style.transform = '';
-              (e.currentTarget as HTMLElement).style.boxShadow = '0 0 60px rgba(220,38,38,0.28)';
+              (e.currentTarget as HTMLElement).style.boxShadow = `0 0 60px rgba(158,54,58,0.32)`;
             }}
           >
             Plan My First Trip →
           </Link>
 
-          <p className="mt-5 text-xs" style={{ color: 'rgba(255,255,255,0.17)' }}>
+          <p className="mt-5 text-xs" style={{ color: 'rgba(255,255,255,0.15)' }}>
             Free forever · No account required
           </p>
         </div>
@@ -496,13 +521,13 @@ export default function HomePage() {
       <footer
         className="flex items-center justify-between px-8 py-7 text-xs"
         style={{
-          borderTop: '1px solid rgba(255,255,255,0.055)',
-          backgroundColor: '#080b12',
-          color: 'rgba(255,255,255,0.18)',
+          borderTop: `1px solid rgba(255,255,255,0.055)`,
+          backgroundColor: BG,
+          color: MUTED,
         }}
       >
         <span className="font-bold" style={{ letterSpacing: '-0.015em' }}>
-          Travel<span style={{ color: '#dc2626' }}>OS</span>
+          Travel<span style={{ color: PRIMARY }}>OS</span>
         </span>
         <span>AI-powered travel intelligence · 2026</span>
       </footer>

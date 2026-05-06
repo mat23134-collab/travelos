@@ -1,19 +1,41 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand:        #ff5a5f;
-  --color-brand-dark:   #e0484d;
-  --color-brand-light:  #fff0f0;
+  /* ── TravelOS v1.10.21 Design Tokens ─────────────────────────────────────── */
+
+  /* Brand — Redline crimson */
+  --color-brand:        #9e363a;
+  --color-brand-hover:  #b5404a;
+  --color-brand-dark:   #7d2b2f;
+  --color-brand-light:  #fce8e9;
+
+  /* Deep Navy backgrounds (Purple Shadow) */
+  --color-bg-deep:      #091f36;
+  --color-bg-mid:       #0b1d35;
+  --color-bg-surface:   #0d2040;
+
+  /* Card surface (Blue Popsicle) */
+  --color-card:         #0f2862;
+  --color-card-hover:   #162f72;
+
+  /* Text */
+  --color-text-primary:  #ffffff;
+  --color-text-muted:    #4f5f76;  /* Grey Blue Leaf */
+  --color-text-faint:    rgba(255,255,255,0.22);
+
+  /* Borders */
+  --color-border:        rgba(255,255,255,0.08);
+  --color-border-accent: rgba(158,54,58,0.35);
+
+  /* Legacy aliases (kept for components not yet migrated) */
   --color-cyan:         #00d4ff;
   --color-cyan-dark:    #00aacc;
   --color-lime:         #84cc16;
   --color-violet:       #8b5cf6;
   --color-ink:          #111827;
   --color-ink-muted:    #6b7280;
-  --color-surface:      #f8f7f2;
-  --color-surface-2:    #f0ede4;
-  --color-card:         #ffffff;
-  --color-border:       #e5e7eb;
+  --color-surface:      #091f36;
+  --color-surface-2:    #0b1d35;
   --color-success:      #10b981;
   --color-warning:      #f59e0b;
   --color-danger:       #ef4444;
@@ -24,8 +46,8 @@
 html { scroll-behavior: smooth; }
 
 body {
-  background-color: var(--color-surface);
-  color: var(--color-ink);
+  background-color: #091f36;
+  color: #ffffff;
   font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   line-height: 1.6;
@@ -42,38 +64,38 @@ h4, h5, h6 {
 }
 p { line-height: 1.65; }
 
-::selection { background-color: #ff5a5f33; }
+::selection { background-color: rgba(158,54,58,0.35); }
 
 /* ── Custom Scrollbar ───────────────────────────────────────────────────────── */
 ::-webkit-scrollbar               { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track         { background: transparent; }
-::-webkit-scrollbar-thumb         { background: rgba(255, 90, 95, 0.45); border-radius: 999px; }
-::-webkit-scrollbar-thumb:hover   { background: rgba(255, 90, 95, 0.85); }
+::-webkit-scrollbar-thumb         { background: rgba(158,54,58,0.45); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover   { background: rgba(158,54,58,0.85); }
 ::-webkit-scrollbar-corner        { background: transparent; }
 
 /* Firefox */
-* { scrollbar-width: thin; scrollbar-color: rgba(255,90,95,0.4) transparent; }
+* { scrollbar-width: thin; scrollbar-color: rgba(158,54,58,0.4) transparent; }
 
 /* ── Glassmorphism ──────────────────────────────────────────────────────────── */
 .glass {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(15, 40, 98, 0.18);   /* Blue Popsicle tint */
+  border: 1px solid rgba(255, 255, 255, 0.10);
 }
 
 .glass-dark {
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(9, 31, 54, 0.55);    /* Purple Shadow tint */
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .glass-card {
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(15, 40, 98, 0.55);   /* Blue Popsicle card */
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 /* Multi-layer glass for premium cards */
@@ -81,44 +103,45 @@ p { line-height: 1.65; }
   backdrop-filter: blur(20px) saturate(160%);
   -webkit-backdrop-filter: blur(20px) saturate(160%);
   background:
-    linear-gradient(135deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.65) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.6);
+    linear-gradient(135deg, rgba(15,40,98,0.75) 0%, rgba(9,31,54,0.60) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow:
-    0 0 0 1px rgba(255,255,255,0.4) inset,
-    0 4px 6px -1px rgba(0,0,0,0.04),
-    0 16px 40px -8px rgba(0,0,0,0.08);
+    0 0 0 1px rgba(158,54,58,0.15) inset,
+    0 4px 6px -1px rgba(0,0,0,0.18),
+    0 16px 40px -8px rgba(0,0,0,0.28);
 }
 
 /* ── Inner Glow ─────────────────────────────────────────────────────────────── */
 .inner-glow {
   box-shadow:
-    inset 0 0 20px -6px rgba(255, 90, 95, 0.18),
-    0 4px 6px -1px rgba(0,0,0,0.04),
-    0 16px 40px -8px rgba(0,0,0,0.08);
+    inset 0 0 20px -6px rgba(158, 54, 58, 0.22),
+    0 4px 6px -1px rgba(0,0,0,0.12),
+    0 16px 40px -8px rgba(0,0,0,0.22);
 }
 
 .inner-glow-hover:hover {
   box-shadow:
-    inset 0 0 28px -4px rgba(255, 90, 95, 0.22),
-    0 8px 24px -4px rgba(255, 90, 95, 0.12),
-    0 20px 48px -8px rgba(0,0,0,0.10);
+    inset 0 0 28px -4px rgba(158, 54, 58, 0.30),
+    0 8px 24px -4px rgba(158, 54, 58, 0.18),
+    0 20px 48px -8px rgba(0,0,0,0.28);
 }
 
 /* ── Glow utilities ─────────────────────────────────────────────────────────── */
-.glow-coral  { box-shadow: 0 0 24px 4px rgba(255, 90, 95, 0.45); }
-.glow-cyan   { box-shadow: 0 0 24px 4px rgba(0, 212, 255, 0.40); }
-.glow-violet { box-shadow: 0 0 24px 4px rgba(139, 92, 246, 0.40); }
+.glow-brand   { box-shadow: 0 0 24px 4px rgba(158, 54, 58, 0.50); }
+.glow-coral   { box-shadow: 0 0 24px 4px rgba(158, 54, 58, 0.50); }
+.glow-cyan    { box-shadow: 0 0 24px 4px rgba(0, 212, 255, 0.40); }
+.glow-violet  { box-shadow: 0 0 24px 4px rgba(139, 92, 246, 0.40); }
+.glow-blue    { box-shadow: 0 0 24px 4px rgba(15, 40, 98, 0.60); }
 
 .float-card {
   box-shadow:
-    0 4px 6px -1px rgba(0,0,0,0.04),
-    0 20px 48px -8px rgba(0,0,0,0.12),
-    0 0 0 1px rgba(0,0,0,0.04);
+    0 4px 6px -1px rgba(0,0,0,0.18),
+    0 20px 48px -8px rgba(0,0,0,0.32),
+    0 0 0 1px rgba(255,255,255,0.06);
   border-radius: 1.5rem;
 }
 
 /* ── Noise Texture ──────────────────────────────────────────────────────────── */
-/* Apply .noise to a position:relative element to add grainy overlay on children */
 .noise::after {
   content: '';
   position: absolute;
@@ -137,7 +160,6 @@ p { line-height: 1.65; }
   100% { background-position:  200% center; }
 }
 
-/* Coral → Cyan wave for skeleton loaders */
 @keyframes skeleton-wave {
   0%   { background-position: -600px 0; }
   100% { background-position:  600px 0; }
@@ -151,8 +173,8 @@ p { line-height: 1.65; }
 }
 
 @keyframes glow-pulse {
-  0%, 100% { box-shadow: 0 0 12px 2px rgba(255,90,95,0.3); }
-  50%       { box-shadow: 0 0 28px 6px rgba(255,90,95,0.6); }
+  0%, 100% { box-shadow: 0 0 12px 2px rgba(158,54,58,0.3); }
+  50%       { box-shadow: 0 0 28px 6px rgba(158,54,58,0.6); }
 }
 
 @keyframes orb-float {
@@ -161,7 +183,6 @@ p { line-height: 1.65; }
   66%       { transform: translate(-20px, 15px) scale(0.97); }
 }
 
-/* Squad badge neon pulse */
 @keyframes squad-pulse {
   0%, 100% {
     box-shadow: 0 0 0 0 rgba(0, 255, 135, 0);
@@ -175,33 +196,31 @@ p { line-height: 1.65; }
 
 /* ── Utility classes ────────────────────────────────────────────────────────── */
 .animate-shimmer {
-  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.12) 50%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.08) 50%, transparent 100%);
   background-size: 200% 100%;
   animation: shimmer 2s infinite;
 }
 
-/* Skeleton shimmer: coral→cyan on light surface */
 .skeleton-bar {
   background: linear-gradient(
     90deg,
-    #f0ede4 0%,
-    rgba(255, 90, 95, 0.10) 25%,
-    rgba(0, 212, 255, 0.10) 55%,
-    #f0ede4 100%
+    #0b1d35 0%,
+    rgba(158, 54, 58, 0.12) 25%,
+    rgba(15, 40, 98, 0.20) 55%,
+    #0b1d35 100%
   );
   background-size: 1200px 100%;
   animation: skeleton-wave 2s ease-in-out infinite;
   border-radius: 6px;
 }
 
-/* Skeleton photo placeholder — darker base */
 .skeleton-photo {
   background: linear-gradient(
     90deg,
-    #e8e4dc 0%,
-    rgba(255, 90, 95, 0.14) 28%,
-    rgba(0, 212, 255, 0.14) 58%,
-    #e8e4dc 100%
+    #0d2040 0%,
+    rgba(158, 54, 58, 0.16) 28%,
+    rgba(15, 40, 98, 0.24) 58%,
+    #0d2040 100%
   );
   background-size: 1200px 100%;
   animation: skeleton-wave 2s ease-in-out infinite;
@@ -218,7 +237,6 @@ p { line-height: 1.65; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
 /* ── Mapbox GL — popup neon reset ──────────────────────────────────────────── */
-/* Strip the default white box so our custom PlacePopup component takes over.  */
 .mapboxgl-popup-content {
   background: transparent !important;
   padding:    0          !important;
@@ -227,13 +245,13 @@ p { line-height: 1.65; }
 }
 .mapboxgl-popup-tip { display: none !important; }
 
-/* Navigation control — dark pill style */
+/* Navigation control — dark navy pill style */
 .mapboxgl-ctrl-group {
-  background: rgba(10,12,20,0.82)    !important;
+  background: rgba(9, 31, 54, 0.90)    !important;
   border:     1px solid rgba(255,255,255,0.10) !important;
-  backdrop-filter: blur(10px)        !important;
-  border-radius: 10px                !important;
-  box-shadow: none                   !important;
+  backdrop-filter: blur(10px)          !important;
+  border-radius: 10px                  !important;
+  box-shadow: none                     !important;
 }
 .mapboxgl-ctrl-group button {
   background: transparent !important;

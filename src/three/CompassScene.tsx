@@ -1,23 +1,22 @@
 'use client';
 
 /**
- * CompassScene — metallic 3D compass with crimson/black aesthetic.
+ * CompassScene — metallic 3D compass with Purple-Shadow navy + Redline aesthetic.
  *
- * Inspired by the classic directional compass aesthetic (metallic bezel,
- * detailed compass rose, cardinal labels, graduated degree ring) but
- * re-skinned in TravelOS crimson + deep black instead of blue.
+ * Palette v1.10.21:
+ *  - Bezel      : #0d1f3c deep navy metallic (Purple Shadow derived)
+ *  - Glow ring  : #9e363a Redline emissive
+ *  - Face       : #050f1e near-black navy
+ *  - Compass rose: N in #9e363a Redline, others in steel-blue
+ *  - Needle N   : #9e363a Redline
+ *  - Center cap : #9e363a emissive
  *
  * Features:
  *  - Spring-physics "build" entry animation after a 900ms delay
  *  - Compass needle tracks the mouse cursor direction
  *  - Whole compass tilts subtly toward mouse (parallax depth effect)
  *  - Viewport-responsive: shifts left on narrow screens
- *  - locationMarker prop ready to accept hotel {lat,lng} coordinates
- *
- * Pointer events:
- *  - Canvas is z-index:-1 with pointer-events:none (CanvasShell)
- *  - Mouse read via window.mousemove in CanvasShell → mouseStore.ts
- *  - Canvas NEVER receives clicks; HTML buttons always work
+ *  - locationMarker prop: when hotel {lat,lng} is provided, gold marker appears
  */
 
 import { useRef, useEffect, useMemo } from 'react';
@@ -56,12 +55,12 @@ function DegreeRing() {
   const geo = useMemo(() => {
     const pts: number[] = [];
     for (let i = 0; i < 72; i++) {
-      const ang     = (i / 72) * Math.PI * 2;
-      const isMaj   = i % 6 === 0;  // every 30°
-      const isMed   = i % 2 === 0;  // every 10°
-      const len     = isMaj ? 0.17 : isMed ? 0.10 : 0.055;
-      const r0      = 1.64;
-      const r1      = r0 + len;
+      const ang   = (i / 72) * Math.PI * 2;
+      const isMaj = i % 6 === 0;   // every 30°
+      const isMed = i % 2 === 0;   // every 10°
+      const len   = isMaj ? 0.17 : isMed ? 0.10 : 0.055;
+      const r0    = 1.64;
+      const r1    = r0 + len;
       pts.push(
         Math.sin(ang) * r0, Math.cos(ang) * r0, 0.065,
         Math.sin(ang) * r1, Math.cos(ang) * r1, 0.065,
@@ -74,7 +73,8 @@ function DegreeRing() {
 
   return (
     <lineSegments geometry={geo}>
-      <lineBasicMaterial color="#ffffff" transparent opacity={0.5} />
+      {/* Steel-blue ticks to complement navy palette */}
+      <lineBasicMaterial color="#4a7aad" transparent opacity={0.45} />
     </lineSegments>
   );
 }
@@ -82,14 +82,22 @@ function DegreeRing() {
 // ─── Compass rose (8-pointed) ─────────────────────────────────────────────────
 
 const ROSE_POINTS = [
-  { angle: 0,   h: 1.25, r: 0.085, color: '#ef4444', emissive: '#ef4444', ei: 4.0, label: 'N' },
-  { angle: 45,  h: 0.58, r: 0.052, color: '#7f1d1d', emissive: '#dc2626', ei: 0.6, label: ''  },
-  { angle: 90,  h: 0.90, r: 0.068, color: '#94a3b8', emissive: '#e2e8f0', ei: 0.3, label: 'E' },
-  { angle: 135, h: 0.58, r: 0.052, color: '#64748b', emissive: '#ffffff', ei: 0.1, label: ''  },
-  { angle: 180, h: 0.90, r: 0.068, color: '#475569', emissive: '#94a3b8', ei: 0.4, label: 'S' },
-  { angle: 225, h: 0.58, r: 0.052, color: '#4b5563', emissive: '#ffffff', ei: 0.1, label: ''  },
-  { angle: 270, h: 0.90, r: 0.068, color: '#94a3b8', emissive: '#e2e8f0', ei: 0.3, label: 'W' },
-  { angle: 315, h: 0.58, r: 0.052, color: '#64748b', emissive: '#ffffff', ei: 0.1, label: ''  },
+  // North: Redline
+  { angle: 0,   h: 1.25, r: 0.085, color: '#9e363a', emissive: '#9e363a', ei: 3.8, label: 'N' },
+  // NE: dark navy-steel
+  { angle: 45,  h: 0.58, r: 0.052, color: '#1e3a6e', emissive: '#4a7aad', ei: 0.5, label: ''  },
+  // East: steel-blue
+  { angle: 90,  h: 0.90, r: 0.068, color: '#4a7aad', emissive: '#7aaad8', ei: 0.3, label: 'E' },
+  // SE: dim
+  { angle: 135, h: 0.58, r: 0.052, color: '#2a4a7a', emissive: '#ffffff', ei: 0.1, label: ''  },
+  // South: muted steel
+  { angle: 180, h: 0.90, r: 0.068, color: '#2e4a6a', emissive: '#5a8ab8', ei: 0.3, label: 'S' },
+  // SW: dim
+  { angle: 225, h: 0.58, r: 0.052, color: '#1a3055', emissive: '#ffffff', ei: 0.1, label: ''  },
+  // West: steel-blue
+  { angle: 270, h: 0.90, r: 0.068, color: '#4a7aad', emissive: '#7aaad8', ei: 0.3, label: 'W' },
+  // NW: dim
+  { angle: 315, h: 0.58, r: 0.052, color: '#2a4a7a', emissive: '#ffffff', ei: 0.1, label: ''  },
 ] as const;
 
 function CompassRose() {
@@ -99,9 +107,6 @@ function CompassRose() {
         const rad = (p.angle * Math.PI) / 180;
         return (
           <group key={i} rotation={[0, 0, rad]}>
-            {/* Diamond cone pointing radially outward.
-                ConeGeometry tip is at +Y = top, so positioning the cone
-                at [0, h/2, 0] puts its base at center and tip at +h. */}
             <mesh position={[0, p.h / 2, 0]}>
               <coneGeometry args={[p.r, p.h, 12]} />
               <meshStandardMaterial
@@ -109,20 +114,18 @@ function CompassRose() {
                 emissive={p.emissive}
                 emissiveIntensity={p.ei}
                 roughness={0.14}
-                metalness={0.68}
+                metalness={0.72}
               />
             </mesh>
 
-            {/* Cardinal label — counter-rotated so text stays upright */}
             {p.label && (
               <Text
                 position={[0, p.h + 0.26, 0]}
                 rotation={[0, 0, -rad]}
                 fontSize={0.19}
-                color={p.label === 'N' ? '#ef4444' : 'rgba(255,255,255,0.72)'}
+                color={p.label === 'N' ? '#9e363a' : 'rgba(120,170,220,0.72)'}
                 anchorX="center"
                 anchorY="middle"
-                // Ensure the Text renders above all opaque geometry
                 renderOrder={1}
               >
                 {p.label}
@@ -140,34 +143,30 @@ function CompassRose() {
 function Needle() {
   return (
     <group position={[0, 0, 0.13]}>
-      {/* ── North half — crimson ── */}
-      {/* Tip cone */}
+      {/* ── North half — Redline ── */}
       <mesh position={[0, 0.58, 0]}>
         <coneGeometry args={[0.063, 0.75, 14]} />
         <meshStandardMaterial
-          color="#ef4444" emissive="#ef4444" emissiveIntensity={3}
-          metalness={0.55} roughness={0.1}
+          color="#9e363a" emissive="#9e363a" emissiveIntensity={2.8}
+          metalness={0.55} roughness={0.10}
         />
       </mesh>
-      {/* Shaft */}
       <mesh position={[0, 0.2, 0]}>
         <cylinderGeometry args={[0.036, 0.036, 0.38, 10]} />
         <meshStandardMaterial
-          color="#ef4444" emissive="#ef4444" emissiveIntensity={1.8}
+          color="#9e363a" emissive="#9e363a" emissiveIntensity={1.6}
           metalness={0.5} roughness={0.15}
         />
       </mesh>
 
-      {/* ── South half — dark steel ── */}
-      {/* Tip cone */}
+      {/* ── South half — deep navy steel ── */}
       <mesh position={[0, -0.58, 0]} rotation={[Math.PI, 0, 0]}>
         <coneGeometry args={[0.063, 0.75, 14]} />
-        <meshStandardMaterial color="#1e293b" metalness={0.82} roughness={0.16} />
+        <meshStandardMaterial color="#0d1f3c" metalness={0.88} roughness={0.14} />
       </mesh>
-      {/* Shaft */}
       <mesh position={[0, -0.2, 0]}>
         <cylinderGeometry args={[0.036, 0.036, 0.38, 10]} />
-        <meshStandardMaterial color="#334155" metalness={0.74} roughness={0.2} />
+        <meshStandardMaterial color="#1a3258" metalness={0.80} roughness={0.18} />
       </mesh>
     </group>
   );
@@ -180,26 +179,17 @@ export function CompassScene({
 }: {
   locationMarker?: LocationMarker | null;
 }) {
-  // Three separate ref layers for clean separation of concerns:
-  //  tiltRef   → mouse-driven tilt (rotation only)
-  //  buildRef  → spring-animated scale on entry
-  //  needleRef → tracks mouse bearing (rotation on Z)
   const tiltRef   = useRef<THREE.Group>(null);
   const buildRef  = useRef<THREE.Group>(null);
   const needleRef = useRef<THREE.Group>(null);
 
   const { invalidate, viewport } = useThree();
 
-  // Spring state for entry animation
   const spring  = useRef<SpringState>({ pos: 0, vel: 0 });
   const started = useRef(false);
 
-  // Kick off build after 900ms so the page content loads first
   useEffect(() => {
-    const t = setTimeout(() => {
-      started.current = true;
-    }, 900);
-    // Prime the first frame
+    const t = setTimeout(() => { started.current = true; }, 900);
     invalidate();
     return () => clearTimeout(t);
   }, [invalidate]);
@@ -207,7 +197,7 @@ export function CompassScene({
   useFrame((_, dt) => {
     if (!tiltRef.current || !buildRef.current || !needleRef.current) return;
 
-    // ── Build spring animation ────────────────────────────────────────
+    // ── Build spring ─────────────────────────────────────────────────────────
     if (started.current) {
       tickSpring(spring.current, 1, 210, 22, dt);
     }
@@ -215,137 +205,117 @@ export function CompassScene({
     buildRef.current.scale.setScalar(s);
     buildRef.current.visible = s > 0.01;
 
-    // ── Tilt toward mouse (parallax feel) ────────────────────────────
-    // Resting tilt: 0.22 rad on X so face is angled slightly toward viewer
+    // ── Tilt toward mouse (parallax) ─────────────────────────────────────────
     const targetX = 0.22 + mousePos.y * 0.26;
     const targetY = mousePos.x  * 0.20;
-    tiltRef.current.rotation.x = THREE.MathUtils.lerp(
-      tiltRef.current.rotation.x, targetX, 0.04
-    );
-    tiltRef.current.rotation.y = THREE.MathUtils.lerp(
-      tiltRef.current.rotation.y, targetY, 0.04
-    );
+    tiltRef.current.rotation.x = THREE.MathUtils.lerp(tiltRef.current.rotation.x, targetX, 0.04);
+    tiltRef.current.rotation.y = THREE.MathUtils.lerp(tiltRef.current.rotation.y, targetY, 0.04);
 
-    // ── Needle tracks mouse bearing ───────────────────────────────────
-    // atan2(x, y) gives the angle from +Y axis (north) toward the cursor
+    // ── Needle tracks mouse bearing ───────────────────────────────────────────
     const bearing = Math.atan2(mousePos.x, mousePos.y);
-    needleRef.current.rotation.z = THREE.MathUtils.lerp(
-      needleRef.current.rotation.z, -bearing, 0.07
-    );
+    needleRef.current.rotation.z = THREE.MathUtils.lerp(needleRef.current.rotation.z, -bearing, 0.07);
 
-    // Keep frameloop="demand" running while compass is animated
     invalidate();
   });
 
-  // Responsive X position: right-third on wide screens, center-right on medium,
-  // center on mobile so it shows as an abstract glow behind text
   const posX =
     viewport.width > 7.5 ? 2.65 :
     viewport.width > 5.0 ? 1.60 :
     0.20;
 
   return (
-    // Position group — static, responsive
     <group position={[posX, -0.15, 0]}>
 
-      {/* ── Scene lighting ─────────────────────────────────────────── */}
-      <ambientLight intensity={0.1} />
-      {/* Front crimson key light */}
-      <pointLight position={[0, 0, 6]}   intensity={5}   color="#dc2626" distance={18} decay={2} />
-      {/* White rim from upper-left */}
-      <pointLight position={[-4, 5, 4]}  intensity={1.6} color="#f8fafc" distance={20} decay={2} />
-      {/* Deep red under-fill */}
-      <pointLight position={[2, -4, 2]}  intensity={0.7} color="#7f1d1d" distance={14} decay={2} />
+      {/* ── Scene lighting ─────────────────────────────────────────────── */}
+      <ambientLight intensity={0.08} />
+      {/* Front Redline key light */}
+      <pointLight position={[0, 0, 6]}   intensity={4.5} color="#9e363a" distance={18} decay={2} />
+      {/* Blue-white rim from upper-left */}
+      <pointLight position={[-4, 5, 4]}  intensity={1.8} color="#b8d0f0" distance={20} decay={2} />
+      {/* Deep navy under-fill */}
+      <pointLight position={[2, -4, 2]}  intensity={0.6} color="#0f2862" distance={14} decay={2} />
 
-      {/* ── Tilt group — mouse parallax ───────────────────────────── */}
+      {/* ── Tilt group ─────────────────────────────────────────────────── */}
       <group ref={tiltRef}>
 
-        {/* ── Build group — spring scale on entry ───────────────── */}
+        {/* ── Build group ────────────────────────────────────────────── */}
         <group ref={buildRef} visible={false}>
 
-          {/* ── Outer bezel ring ─────────────────────────────────── */}
-          {/* Main metallic torus */}
+          {/* ── Outer bezel — deep navy metallic ─────────────────────── */}
           <mesh>
             <torusGeometry args={[2.04, 0.235, 36, 148]} />
             <meshStandardMaterial
-              color="#18181b"
-              metalness={0.94}
-              roughness={0.06}
+              color="#0d1f3c"
+              metalness={0.96}
+              roughness={0.05}
             />
           </mesh>
-          {/* Bevelled highlight strip on inner bezel edge */}
+          {/* Bevelled highlight — steel-blue inner edge */}
           <mesh>
             <torusGeometry args={[1.82, 0.042, 18, 128]} />
             <meshStandardMaterial
-              color="#3f3f46"
-              metalness={0.90}
-              roughness={0.10}
+              color="#1e3a6e"
+              metalness={0.92}
+              roughness={0.08}
             />
           </mesh>
-          {/* Crimson glow ring — the signature TravelOS accent */}
+          {/* Redline glow ring — TravelOS signature accent */}
           <mesh>
             <torusGeometry args={[1.875, 0.026, 18, 128]} />
             <meshStandardMaterial
-              color="#dc2626"
-              emissive="#dc2626"
-              emissiveIntensity={3.8}
+              color="#9e363a"
+              emissive="#9e363a"
+              emissiveIntensity={3.6}
               metalness={0.3}
               roughness={0.2}
             />
           </mesh>
 
-          {/* ── Compass face ─────────────────────────────────────── */}
+          {/* ── Compass face — deep navy ──────────────────────────────── */}
           <mesh>
             <cylinderGeometry args={[1.80, 1.80, 0.06, 80]} />
             <meshStandardMaterial
-              color="#04060d"
-              roughness={0.42}
-              metalness={0.22}
+              color="#050f1e"
+              roughness={0.40}
+              metalness={0.20}
             />
           </mesh>
 
-          {/* ── Degree tick ring ─────────────────────────────────── */}
+          {/* ── Degree tick ring ─────────────────────────────────────── */}
           <DegreeRing />
 
-          {/* ── Compass rose ─────────────────────────────────────── */}
+          {/* ── Compass rose ─────────────────────────────────────────── */}
           <CompassRose />
 
-          {/* ── Needle (rotation controlled in useFrame) ─────────── */}
+          {/* ── Needle ───────────────────────────────────────────────── */}
           <group ref={needleRef}>
             <Needle />
           </group>
 
-          {/* ── Center pivot cap ─────────────────────────────────── */}
+          {/* ── Center pivot cap ─────────────────────────────────────── */}
           <mesh position={[0, 0, 0.175]}>
             <sphereGeometry args={[0.108, 26, 26]} />
             <meshStandardMaterial
-              color="#dc2626"
-              emissive="#dc2626"
-              emissiveIntensity={2.8}
+              color="#9e363a"
+              emissive="#9e363a"
+              emissiveIntensity={2.6}
               metalness={0.62}
               roughness={0.08}
             />
           </mesh>
-          {/* Small dark ring around center cap */}
           <mesh position={[0, 0, 0.14]}>
             <torusGeometry args={[0.14, 0.018, 12, 48]} />
-            <meshStandardMaterial color="#09090b" metalness={0.88} roughness={0.12} />
+            <meshStandardMaterial color="#071629" metalness={0.90} roughness={0.10} />
           </mesh>
 
-          {/* ── Outer atmosphere glow ────────────────────────────── */}
+          {/* ── Outer atmosphere glow ────────────────────────────────── */}
           <mesh>
             <sphereGeometry args={[2.52, 12, 8]} />
-            <meshBasicMaterial
-              color="#dc2626"
-              transparent
-              opacity={0.014}
-            />
+            <meshBasicMaterial color="#9e363a" transparent opacity={0.013} />
           </mesh>
 
-          {/* ── Hotel location marker — ready for coordinates ─────── */}
-          {/* When a hotel {lat, lng} is provided, a gold pin appears on
-              the compass face. Exact lat/lng → compass position mapping
-              is implemented in the hotel feature milestone. */}
+          {/* ── Hotel location marker (gold) ──────────────────────────── */}
+          {/* Appears when hotel coordinates are provided via onboardingStore */}
           {locationMarker && (
             <group position={[0, 0.6, 0.18]}>
               {/* Gold dot */}
