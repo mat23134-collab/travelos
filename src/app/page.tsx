@@ -1,96 +1,144 @@
 'use client';
 
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useAuth } from '@/lib/auth-context';
+
+// CompassInjector uses R3F (useFrame) + tunnel-rat — both require browser.
+// Dynamic import with ssr:false prevents the server-prerender crash.
+const CompassInjector = dynamic(
+  () => import('@/three/CompassInjector').then((m) => ({ default: m.CompassInjector })),
+  { ssr: false }
+);
+
+// ── Content ───────────────────────────────────────────────────────────────────
 
 const features = [
   {
-    icon: '🧠',
-    title: 'AI-Powered Intelligence',
-    description: 'Claude analyzes your traveler DNA and cross-references 2025–2026 travel data to build itineraries no generic planner can match.',
+    num: '01',
+    title: 'Claude AI Intelligence',
+    description:
+      'Analyzes your traveler DNA against 2025–2026 live data to craft plans no generic itinerary builder can replicate.',
   },
   {
-    icon: '📍',
+    num: '02',
     title: 'Neighborhood Clustering',
-    description: 'Every day is geographically optimized. No more wasting hours in transit between activities on opposite sides of town.',
+    description:
+      'Every day is geographically optimized. Zero cross-city transit. Every stop within walking distance of the last.',
   },
   {
-    icon: '🌐',
+    num: '03',
     title: 'Live Web Intelligence',
-    description: 'Real-time blog data, recent traveler reports, and current crowd levels — we flag tourist traps and surface hidden gems.',
+    description:
+      'Real-time blog data, crowd levels, and traveler reports. Tourist traps flagged. Hidden gems surfaced.',
   },
   {
-    icon: '💰',
+    num: '04',
     title: 'Budget-Validated',
-    description: 'Every hotel, restaurant, and activity is verified against your budget tier using current 2026 pricing data.',
+    description:
+      'Every hotel, restaurant, and experience verified against your exact budget tier with current 2026 pricing.',
   },
 ];
 
 const testimonials = [
   {
-    quote: "We did Tokyo in 7 days with two toddlers and zero meltdowns. The family-optimized routing was genuinely brilliant.",
-    author: "Sara M.",
-    trip: "Tokyo, Japan",
-    emoji: "🗼",
+    quote:
+      'We did Tokyo in 7 days with two toddlers and zero meltdowns. The family-optimized routing was genuinely brilliant.',
+    author: 'Sara M.',
+    trip: 'Tokyo, Japan',
   },
   {
-    quote: "Replaced three hours of tab-chaos with one click. The 'From the Web' section caught that the museum was under renovation — saved our trip.",
-    author: "James K.",
-    trip: "Barcelona, Spain",
-    emoji: "🏖️",
+    quote:
+      'Three hours of tab-chaos replaced by one click. Caught that the museum was under renovation — saved our whole trip.',
+    author: 'James K.',
+    trip: 'Barcelona, Spain',
   },
   {
-    quote: "Solo in Morocco, luxury budget. It found a riad most travel sites don't even list. Stayed 2 extra days because of it.",
-    author: "Priya V.",
-    trip: "Marrakech, Morocco",
-    emoji: "🕌",
+    quote:
+      "Solo in Morocco, luxury budget. Found a riad most sites don’t even list. Stayed two extra days because of it.",
+    author: 'Priya V.',
+    trip: 'Marrakech, Morocco',
   },
 ];
 
-const GRAIN_SVG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
+// ── Shared inline-style helpers ───────────────────────────────────────────────
+
+const CARD_STYLE = {
+  background: 'rgba(255,255,255,0.028)',
+  border: '1px solid rgba(255,255,255,0.07)',
+};
+
+const LABEL_STYLE = {
+  color: '#dc2626',
+  fontSize: '0.625rem',
+  letterSpacing: '0.2em',
+  fontWeight: 700,
+  textTransform: 'uppercase' as const,
+};
+
+const DIVIDER_LINE = (
+  <span className="w-8 h-px flex-shrink-0" style={{ background: '#dc2626' }} />
+);
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
   const { user, loading } = useAuth();
 
   return (
     <main
-      className="min-h-screen text-[#1c1917] overflow-hidden relative"
-      style={{ backgroundColor: '#fafaf9' }}
+      className="min-h-screen overflow-x-hidden relative"
+      style={{ backgroundColor: '#080b12', color: '#f2f2f2' }}
     >
-      {/* Paper grain overlay — premium texture */}
-      <div
-        className="fixed inset-0 pointer-events-none z-0 mix-blend-multiply"
-        style={{ backgroundImage: GRAIN_SVG, backgroundSize: '180px 180px', opacity: 0.028 }}
-      />
+      {/* 3D Compass — injected into canvas background via tunnel */}
+      <CompassInjector />
 
       {/* ── Nav ──────────────────────────────────────────────────────────────── */}
       <nav
-        className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-6 py-4 border-b border-[#e7e5e4]"
-        style={{ backgroundColor: 'rgba(250,250,249,0.88)', backdropFilter: 'blur(12px)' }}
+        className="fixed top-0 inset-x-0 z-40 flex items-center justify-between px-8 py-5"
+        style={{
+          borderBottom: '1px solid rgba(255,255,255,0.055)',
+          background: 'rgba(8,11,18,0.84)',
+          backdropFilter: 'blur(18px)',
+          WebkitBackdropFilter: 'blur(18px)',
+        }}
       >
-        <span className="text-lg font-semibold tracking-tight text-[#1c1917]">
-          Travel<span className="text-[#ff5a5f]">OS</span>
+        <span
+          className="text-base font-black"
+          style={{ letterSpacing: '-0.025em' }}
+        >
+          Travel<span style={{ color: '#dc2626' }}>OS</span>
         </span>
-        <div className="flex items-center gap-3">
+
+        <div className="flex items-center gap-6">
           <Link
             href="/plan"
-            className="text-sm font-medium text-[#78716c] hover:text-[#1c1917] transition-colors"
+            className="hidden sm:inline text-[11px] font-semibold transition-colors"
+            style={{ color: 'rgba(255,255,255,0.35)', letterSpacing: '0.14em', textTransform: 'uppercase' }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = '#f2f2f2')}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.35)')}
           >
-            Start Planning →
+            Plan a Trip
           </Link>
+
           {!loading && (
             user ? (
               <Link
                 href="/dashboard"
-                className="text-sm font-semibold px-4 py-1.5 rounded-xl text-white transition-all"
-                style={{ background: 'linear-gradient(135deg,#ff5a5f,#ff8c5a)', boxShadow: '0 4px 14px -4px rgba(255,90,95,0.45)' }}
+                className="text-xs font-bold px-5 py-2.5 rounded-xl transition-all"
+                style={{ background: '#dc2626', color: '#fff', boxShadow: '0 0 20px rgba(220,38,38,0.28)' }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#ef4444'; (e.currentTarget as HTMLElement).style.boxShadow = '0 0 32px rgba(239,68,68,0.4)'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = '#dc2626'; (e.currentTarget as HTMLElement).style.boxShadow = '0 0 20px rgba(220,38,38,0.28)'; }}
               >
                 My Trips
               </Link>
             ) : (
               <Link
                 href="/auth"
-                className="text-sm font-medium px-4 py-1.5 rounded-xl border border-[#e7e5e4] text-[#78716c] hover:border-[#ff5a5f]/40 hover:text-[#ff5a5f] transition-all"
+                className="text-xs font-semibold px-5 py-2.5 rounded-xl transition-all"
+                style={{ color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.1)' }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(220,38,38,0.45)'; (e.currentTarget as HTMLElement).style.color = '#f2f2f2'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.1)'; (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.5)'; }}
               >
                 Log In
               </Link>
@@ -100,127 +148,191 @@ export default function HomePage() {
       </nav>
 
       {/* ── Hero ─────────────────────────────────────────────────────────────── */}
-      <section className="relative pt-32 pb-24 px-6 flex flex-col items-center text-center overflow-hidden">
-        {/* Watercolor orbs */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[600px] rounded-full blur-[160px] pointer-events-none"
-          style={{ backgroundColor: 'rgba(255,90,95,0.13)' }} />
-        <div className="absolute top-10 left-[15%] w-[480px] h-[480px] rounded-full blur-[140px] pointer-events-none"
-          style={{ backgroundColor: 'rgba(139,92,246,0.07)' }} />
-        <div className="absolute top-24 right-[12%] w-[320px] h-[320px] rounded-full blur-[120px] pointer-events-none"
-          style={{ backgroundColor: 'rgba(0,212,255,0.07)' }} />
+      {/* Full-viewport height. Text on left; right half is "open" — the fixed
+          3D canvas background shows the compass through the transparent layout. */}
+      <section className="relative min-h-screen flex items-center px-8 pt-28 pb-20 lg:px-16">
 
-        <div className="relative z-10 max-w-4xl mx-auto">
-          {/* Badge */}
-          <div
-            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium mb-8 border"
-            style={{ backgroundColor: 'rgba(255,90,95,0.07)', borderColor: 'rgba(255,90,95,0.22)', color: '#ff5a5f' }}
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-[#ff5a5f] animate-pulse" />
-            Powered by Claude AI · 2025–2026 Live Data
-          </div>
+        {/* Subtle radial wash behind the hero text */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse 55% 70% at 10% 50%, rgba(220,38,38,0.055) 0%, transparent 70%)' }}
+        />
 
-          {/* Headline */}
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.08] mb-6 text-[#1c1917]">
-            Your squad's next trip,{' '}
-            <span
-              className="relative inline-block"
-              style={{ WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundImage: 'linear-gradient(135deg, #ff5a5f 0%, #ff8c5a 60%, #f59e0b 100%)', backgroundClip: 'text' }}
-            >
-              perfectly
-            </span>{' '}
-            planned.
-          </h1>
+        <div className="relative z-10 max-w-6xl mx-auto w-full grid lg:grid-cols-2 gap-16 items-center">
 
-          <p className="text-lg sm:text-xl text-[#78716c] max-w-2xl mx-auto mb-10 leading-relaxed">
-            Answer 10 questions. Get a hyper-personalized itinerary crafted from real-world data,
-            hidden gems, and logistically optimized daily plans — in under 60 seconds.
-          </p>
+          {/* ── Left: copy ─────────────────────────────────────────────────── */}
+          <div>
 
-          {/* CTA */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link
-              href="/plan"
-              className="relative w-full sm:w-auto inline-flex items-center justify-center gap-2 px-9 py-4 rounded-2xl text-white font-bold text-base overflow-hidden transition-all duration-200 hover:-translate-y-1"
+            {/* Eyebrow label */}
+            <div className="flex items-center gap-3 mb-9">
+              <span className="w-6 h-px" style={{ background: '#dc2626' }} />
+              <span style={LABEL_STYLE}>AI-Powered Travel Intelligence</span>
+            </div>
+
+            {/* Headline */}
+            <h1
+              className="font-black leading-[0.93] mb-8"
               style={{
-                background: 'linear-gradient(135deg, #ff5a5f 0%, #ff8c5a 100%)',
-                boxShadow: '0 8px 32px -4px rgba(255,90,95,0.40), 0 2px 8px -2px rgba(255,90,95,0.25)',
+                fontSize: 'clamp(2.9rem, 6.5vw, 5.25rem)',
+                letterSpacing: '-0.038em',
               }}
             >
-              {/* Shimmer sweep */}
-              <span
-                className="absolute inset-0 pointer-events-none"
-                style={{
-                  background: 'linear-gradient(90deg,transparent 0%,rgba(255,255,255,0.22) 50%,transparent 100%)',
-                  backgroundSize: '200% 100%',
-                  animation: 'shimmer 2.4s infinite',
-                }}
-              />
-              <span className="relative">Plan My Trip ✈️</span>
-            </Link>
-            <span className="text-sm text-[#a8a29e]">Free · No account needed · 60 seconds</span>
-          </div>
-        </div>
+              The world,
+              <br />
+              <span style={{ color: 'rgba(255,255,255,0.22)' }}>precisely</span>
+              <br />
+              planned.
+            </h1>
 
-        {/* Destination tiles */}
-        <div className="relative mt-20 w-full max-w-5xl mx-auto">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {[
-              { name: 'Tokyo',        emoji: '🗼', tag: 'Culture & Food'  },
-              { name: 'Amalfi Coast', emoji: '🌊', tag: 'Relaxed Luxury'  },
-              { name: 'Marrakech',    emoji: '🕌', tag: 'Hidden Gems'     },
-              { name: 'Kyoto',        emoji: '⛩️', tag: 'Slow Travel'     },
-            ].map((dest) => (
-              <div
-                key={dest.name}
-                className="rounded-2xl bg-white border border-[#e7e5e4] p-5 hover:-translate-y-1 transition-all duration-200 cursor-default"
-                style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
+            {/* Sub-copy */}
+            <p
+              className="mb-10 leading-relaxed max-w-md"
+              style={{
+                color: 'rgba(255,255,255,0.4)',
+                fontSize: '1.05rem',
+                lineHeight: 1.8,
+              }}
+            >
+              Answer 10 questions. Get a hyper-personalized itinerary built
+              from live web intelligence, verified pricing, and
+              neighborhood-level logistics — in under 60 seconds.
+            </p>
+
+            {/* Primary CTA */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 mb-14">
+              <Link
+                href="/plan"
+                className="group inline-flex items-center gap-3 px-8 py-4 rounded-xl font-bold text-sm transition-all"
+                style={{
+                  background: '#dc2626',
+                  color: '#fff',
+                  letterSpacing: '-0.01em',
+                  boxShadow: '0 0 40px rgba(220,38,38,0.28), 0 4px 20px rgba(220,38,38,0.18)',
+                }}
                 onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLDivElement).style.boxShadow = '0 8px 24px -4px rgba(255,90,95,0.12), 0 1px 4px rgba(0,0,0,0.04)';
-                  (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255,90,95,0.25)';
+                  (e.currentTarget as HTMLElement).style.background = '#ef4444';
+                  (e.currentTarget as HTMLElement).style.boxShadow = '0 0 60px rgba(239,68,68,0.42), 0 4px 24px rgba(239,68,68,0.28)';
+                  (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)';
                 }}
                 onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLDivElement).style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)';
-                  (e.currentTarget as HTMLDivElement).style.borderColor = '#e7e5e4';
+                  (e.currentTarget as HTMLElement).style.background = '#dc2626';
+                  (e.currentTarget as HTMLElement).style.boxShadow = '0 0 40px rgba(220,38,38,0.28), 0 4px 20px rgba(220,38,38,0.18)';
+                  (e.currentTarget as HTMLElement).style.transform = '';
                 }}
               >
-                <div className="text-3xl mb-3">{dest.emoji}</div>
-                <div className="text-sm font-semibold text-[#1c1917]">{dest.name}</div>
-                <div className="text-xs text-[#a8a29e] mt-1">{dest.tag}</div>
-              </div>
-            ))}
+                Plan My Trip
+                <span className="transition-transform group-hover:translate-x-0.5 inline-block">→</span>
+              </Link>
+              <span className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>
+                Free · No account needed · ~60 seconds
+              </span>
+            </div>
+
+            {/* Stats strip */}
+            <div
+              className="flex items-center gap-10 pt-8"
+              style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
+            >
+              {[
+                { val: '60s',  label: 'To generate'   },
+                { val: '10',   label: 'Questions'      },
+                { val: '100%', label: 'Personalized'   },
+              ].map((s) => (
+                <div key={s.val}>
+                  <div
+                    className="font-black text-2xl"
+                    style={{ color: '#dc2626', letterSpacing: '-0.04em' }}
+                  >
+                    {s.val}
+                  </div>
+                  <div className="mt-0.5" style={{ ...LABEL_STYLE, color: 'rgba(255,255,255,0.22)' }}>
+                    {s.label}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
+
+          {/* ── Right: transparent — 3D canvas shines through ──────────────── */}
+          <div className="hidden lg:block" aria-hidden="true" />
         </div>
       </section>
 
+      {/* ── Manifesto strip ───────────────────────────────────────────────────── */}
+      <div
+        className="py-14 px-8 text-center"
+        style={{
+          borderTop:    '1px solid rgba(255,255,255,0.05)',
+          borderBottom: '1px solid rgba(255,255,255,0.05)',
+        }}
+      >
+        <p
+          className="font-light italic"
+          style={{
+            color: 'rgba(255,255,255,0.18)',
+            fontSize: 'clamp(1.1rem, 2.5vw, 1.5rem)',
+            maxWidth: 560,
+            margin: '0 auto',
+            letterSpacing: '0.02em',
+          }}
+        >
+          &ldquo;Intelligence meets wanderlust.&rdquo;
+        </p>
+      </div>
+
       {/* ── Features ─────────────────────────────────────────────────────────── */}
-      <section className="py-24 px-6 bg-white">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-[#1c1917]">Not another generic planner</h2>
-            <p className="text-[#78716c] text-lg max-w-xl mx-auto leading-relaxed">
-              TravelOS uses a 4-pillar intelligence system to build itineraries that actually work.
-            </p>
+      <section className="py-28 px-8 lg:px-16" style={{ backgroundColor: '#0c0f1a' }}>
+        <div className="max-w-6xl mx-auto">
+
+          {/* Section label */}
+          <div className="flex items-center gap-4 mb-14">
+            {DIVIDER_LINE}
+            <span style={LABEL_STYLE}>The System</span>
           </div>
-          <div className="grid sm:grid-cols-2 gap-5">
-            {features.map((f) => (
+
+          <h2
+            className="font-black mb-14"
+            style={{
+              fontSize: 'clamp(1.8rem, 3.8vw, 3rem)',
+              letterSpacing: '-0.035em',
+              maxWidth: 520,
+            }}
+          >
+            Not another generic planner.
+          </h2>
+
+          {/* 2×2 grid with hairline borders */}
+          <div
+            className="grid sm:grid-cols-2"
+            style={{ border: '1px solid rgba(255,255,255,0.065)', overflow: 'hidden' }}
+          >
+            {features.map((f, i) => (
               <div
-                key={f.title}
-                className="p-6 rounded-2xl bg-[#fafaf9] border border-[#e7e5e4] transition-all duration-200 group cursor-default"
-                style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLDivElement).style.boxShadow = '0 12px 32px -6px rgba(255,90,95,0.10)';
-                  (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255,90,95,0.28)';
-                  (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)';
+                key={f.num}
+                className="p-9 transition-colors duration-300"
+                style={{
+                  background: 'rgba(8,11,18,0.85)',
+                  borderRight:  i % 2 === 0 ? '1px solid rgba(255,255,255,0.065)' : 'none',
+                  borderBottom: i < 2       ? '1px solid rgba(255,255,255,0.065)' : 'none',
                 }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLDivElement).style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)';
-                  (e.currentTarget as HTMLDivElement).style.borderColor = '#e7e5e4';
-                  (e.currentTarget as HTMLDivElement).style.transform = '';
-                }}
+                onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(220,38,38,0.042)')}
+                onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(8,11,18,0.85)')}
               >
-                <div className="text-2xl mb-4">{f.icon}</div>
-                <h3 className="font-semibold text-base mb-2 text-[#1c1917]">{f.title}</h3>
-                <p className="text-[#78716c] text-sm leading-relaxed">{f.description}</p>
+                <div
+                  className="font-black font-mono mb-7"
+                  style={{ fontSize: '2.75rem', color: 'rgba(220,38,38,0.16)', letterSpacing: '-0.04em' }}
+                >
+                  {f.num}
+                </div>
+                <h3
+                  className="font-bold text-base mb-3"
+                  style={{ color: '#f2f2f2', letterSpacing: '-0.015em' }}
+                >
+                  {f.title}
+                </h3>
+                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.33)' }}>
+                  {f.description}
+                </p>
               </div>
             ))}
           </div>
@@ -228,19 +340,46 @@ export default function HomePage() {
       </section>
 
       {/* ── How it works ─────────────────────────────────────────────────────── */}
-      <section className="py-24 px-6" style={{ backgroundColor: '#fafaf9' }}>
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl sm:text-4xl font-bold mb-16 text-[#1c1917]">Three steps to your dream trip</h2>
-          <div className="grid sm:grid-cols-3 gap-8">
+      <section className="py-28 px-8 lg:px-16" style={{ backgroundColor: '#080b12' }}>
+        <div className="max-w-6xl mx-auto">
+
+          <div className="flex items-center gap-4 mb-14">
+            {DIVIDER_LINE}
+            <span style={LABEL_STYLE}>The Process</span>
+          </div>
+
+          <div className="grid sm:grid-cols-3 gap-14 sm:gap-10">
             {[
-              { step: '01', title: 'Answer 10 questions', desc: 'Tell us where, when, who, and what kind of experience you want.' },
-              { step: '02', title: 'AI builds your itinerary', desc: 'Claude cross-references real 2025–2026 travel data to craft your plan.' },
-              { step: '03', title: 'Travel with confidence', desc: 'Day-by-day plans with logistics, dining, and live web insights.' },
-            ].map((item) => (
-              <div key={item.step} className="flex flex-col items-center text-center">
-                <div className="text-4xl font-bold font-mono mb-4" style={{ color: 'rgba(255,90,95,0.22)' }}>{item.step}</div>
-                <h3 className="font-semibold mb-2 text-[#1c1917]">{item.title}</h3>
-                <p className="text-[#78716c] text-sm leading-relaxed">{item.desc}</p>
+              { step: '01', title: 'Answer 10 questions',  desc: 'Destination, dates, pace, interests, budget. Takes 90 seconds.' },
+              { step: '02', title: 'AI builds your plan',  desc: 'Claude cross-references live data, real blogs, and current 2026 pricing.' },
+              { step: '03', title: 'Travel with precision', desc: 'Day-by-day schedules, geo-clustered by neighborhood, with dining built in.' },
+            ].map((item, i) => (
+              <div key={item.step} className="relative">
+                {/* Connecting arrow on desktop */}
+                {i < 2 && (
+                  <div
+                    className="absolute hidden sm:block"
+                    style={{
+                      top: '1.5rem',
+                      left: 'calc(100% + 1rem)',
+                      width: '2rem',
+                      height: '1px',
+                      background: 'linear-gradient(90deg, rgba(220,38,38,0.5), transparent)',
+                    }}
+                  />
+                )}
+                <div
+                  className="font-black font-mono mb-5"
+                  style={{ fontSize: '3rem', color: 'rgba(220,38,38,0.14)', letterSpacing: '-0.04em' }}
+                >
+                  {item.step}
+                </div>
+                <h3 className="font-bold mb-3" style={{ color: '#f2f2f2', letterSpacing: '-0.015em' }}>
+                  {item.title}
+                </h3>
+                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                  {item.desc}
+                </p>
               </div>
             ))}
           </div>
@@ -248,38 +387,44 @@ export default function HomePage() {
       </section>
 
       {/* ── Testimonials ─────────────────────────────────────────────────────── */}
-      <section className="py-24 px-6 bg-white">
-        <div className="max-w-5xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-3 text-[#1c1917]">What squads are saying</h2>
-          <p className="text-center text-[#a8a29e] text-sm mb-12">Real trips. Real results.</p>
+      <section className="py-28 px-8 lg:px-16" style={{ backgroundColor: '#0c0f1a' }}>
+        <div className="max-w-6xl mx-auto">
+
+          <div className="flex items-center gap-4 mb-14">
+            {DIVIDER_LINE}
+            <span style={LABEL_STYLE}>From Travelers</span>
+          </div>
+
           <div className="grid sm:grid-cols-3 gap-5">
             {testimonials.map((t) => (
               <div
                 key={t.author}
-                className="p-6 rounded-2xl bg-[#fafaf9] border border-[#e7e5e4] transition-all duration-200"
-                style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
+                className="p-7 rounded-2xl transition-all duration-300"
+                style={CARD_STYLE}
                 onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLDivElement).style.boxShadow = '0 8px 24px -4px rgba(0,0,0,0.08)';
-                  (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)';
+                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(220,38,38,0.22)';
+                  (e.currentTarget as HTMLElement).style.background   = 'rgba(220,38,38,0.032)';
+                  (e.currentTarget as HTMLElement).style.transform     = 'translateY(-3px)';
                 }}
                 onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLDivElement).style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)';
-                  (e.currentTarget as HTMLDivElement).style.transform = '';
+                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.07)';
+                  (e.currentTarget as HTMLElement).style.background   = 'rgba(255,255,255,0.028)';
+                  (e.currentTarget as HTMLElement).style.transform     = '';
                 }}
               >
-                <div className="text-2xl mb-4">{t.emoji}</div>
-                <p className="text-[#57534e] text-sm leading-relaxed mb-5 italic">&ldquo;{t.quote}&rdquo;</p>
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                    style={{ background: 'linear-gradient(135deg,#ff5a5f,#ff8c5a)' }}
-                  >
-                    {t.author[0]}
-                  </div>
-                  <div>
-                    <div className="font-semibold text-sm text-[#1c1917]">{t.author}</div>
-                    <div className="text-[#a8a29e] text-xs">{t.trip}</div>
-                  </div>
+                {/* Crimson quote glyph */}
+                <div
+                  className="font-black mb-4 leading-none select-none"
+                  style={{ color: '#dc2626', fontSize: '2rem', fontFamily: 'Georgia, serif' }}
+                >
+                  &ldquo;
+                </div>
+                <p className="text-sm leading-relaxed mb-7" style={{ color: 'rgba(255,255,255,0.52)' }}>
+                  {t.quote}
+                </p>
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '1rem' }}>
+                  <div className="text-sm font-semibold" style={{ color: '#f2f2f2' }}>{t.author}</div>
+                  <div className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.24)' }}>{t.trip}</div>
                 </div>
               </div>
             ))}
@@ -288,46 +433,78 @@ export default function HomePage() {
       </section>
 
       {/* ── Final CTA ────────────────────────────────────────────────────────── */}
-      <section className="py-28 px-6 text-center relative overflow-hidden" style={{ backgroundColor: '#fafaf9' }}>
-        {/* Coral watercolor wash */}
-        <div className="absolute inset-0 pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse 70% 60% at 50% 50%, rgba(255,90,95,0.07) 0%, transparent 70%)' }} />
-        <div className="absolute inset-0 pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse 40% 50% at 80% 30%, rgba(139,92,246,0.05) 0%, transparent 60%)' }} />
+      <section
+        className="relative py-36 px-8 text-center overflow-hidden"
+        style={{ backgroundColor: '#060810' }}
+      >
+        {/* Upward crimson glow */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse 60% 55% at 50% 100%, rgba(220,38,38,0.09) 0%, transparent 70%)' }}
+        />
 
-        <div className="max-w-2xl mx-auto relative z-10">
-          <div className="text-4xl mb-5">✈️</div>
-          <h2 className="text-4xl sm:text-5xl font-bold mb-4 text-[#1c1917] tracking-tight">
-            Ready to travel smarter?
-          </h2>
-          <p className="text-[#78716c] mb-8 text-lg">10 questions. 60 seconds. One perfect squad plan.</p>
-          <Link
-            href="/plan"
-            className="relative inline-flex items-center gap-2 px-10 py-4 rounded-2xl text-white font-bold text-base overflow-hidden transition-all duration-200 hover:-translate-y-1"
+        <div className="max-w-xl mx-auto relative z-10">
+          <div className="flex items-center justify-center gap-4 mb-10">
+            {DIVIDER_LINE}
+            <span style={LABEL_STYLE}>Ready</span>
+            {DIVIDER_LINE}
+          </div>
+
+          <h2
+            className="font-black mb-8"
             style={{
-              background: 'linear-gradient(135deg, #ff5a5f 0%, #ff8c5a 100%)',
-              boxShadow: '0 8px 32px -4px rgba(255,90,95,0.40)',
+              fontSize: 'clamp(2.4rem, 5vw, 3.75rem)',
+              letterSpacing: '-0.038em',
+              lineHeight: 1.0,
             }}
           >
-            <span
-              className="absolute inset-0 pointer-events-none"
-              style={{
-                background: 'linear-gradient(90deg,transparent 0%,rgba(255,255,255,0.22) 50%,transparent 100%)',
-                backgroundSize: '200% 100%',
-                animation: 'shimmer 2.4s infinite',
-              }}
-            />
-            <span className="relative">Start for free →</span>
+            Travel smarter.
+            <br />
+            <span style={{ color: 'rgba(255,255,255,0.2)' }}>Start in 60 seconds.</span>
+          </h2>
+
+          <Link
+            href="/plan"
+            className="inline-flex items-center gap-3 px-10 py-5 rounded-xl font-bold text-sm transition-all"
+            style={{
+              background: '#dc2626',
+              color: '#fff',
+              letterSpacing: '-0.01em',
+              boxShadow: '0 0 60px rgba(220,38,38,0.28)',
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.background = '#ef4444';
+              (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)';
+              (e.currentTarget as HTMLElement).style.boxShadow = '0 0 80px rgba(239,68,68,0.42)';
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.background = '#dc2626';
+              (e.currentTarget as HTMLElement).style.transform = '';
+              (e.currentTarget as HTMLElement).style.boxShadow = '0 0 60px rgba(220,38,38,0.28)';
+            }}
+          >
+            Plan My First Trip →
           </Link>
-          <p className="mt-4 text-xs text-[#d6d3d1]">No account needed · Free forever · ~60 seconds</p>
+
+          <p className="mt-5 text-xs" style={{ color: 'rgba(255,255,255,0.17)' }}>
+            Free forever · No account required
+          </p>
         </div>
       </section>
 
       {/* ── Footer ───────────────────────────────────────────────────────────── */}
-      <footer className="border-t border-[#e7e5e4] py-8 px-6 text-center text-[#a8a29e] text-sm bg-white">
-        Travel<span className="text-[#ff5a5f]">OS</span>
-        <span className="mx-3 text-[#e7e5e4]">·</span>
-        AI-powered trip planning for modern squads
+      <footer
+        className="flex items-center justify-between px-8 py-7 text-xs"
+        style={{
+          borderTop: '1px solid rgba(255,255,255,0.055)',
+          backgroundColor: '#080b12',
+          color: 'rgba(255,255,255,0.18)',
+        }}
+      >
+        <span className="font-bold" style={{ letterSpacing: '-0.015em' }}>
+          Travel<span style={{ color: '#dc2626' }}>OS</span>
+        </span>
+        <span>AI-powered travel intelligence · 2026</span>
       </footer>
     </main>
   );

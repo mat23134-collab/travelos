@@ -3,29 +3,37 @@
 /**
  * CanvasShell — persistent R3F Canvas that lives in the root layout.
  *
- * It is always mounted; individual pages inject their 3D content via
- * the `sceneContent` tunnel (src/three/tunnel.ts). When no tunnel content
- * is active the canvas is transparent and pointer-events: none, so it
- * never blocks page interaction.
+ * Architecture:
+ *  - Mounted once at z-0 (background layer). HTML content sits above it
+ *    naturally at its own z-index — no z-fighting, no click interception.
+ *  - pointer-events: none on BOTH the wrapper div AND the <canvas> element
+ *    so clicks always pass through to the HTML UI layer.
+ *  - Individual pages inject 3D content via the sceneContent tunnel
+ *    (src/three/tunnel.ts). When no content is active the canvas is
+ *    transparent and invisible.
+ *
+ * Mouse reactivity WITHOUT canvas pointer events:
+ *  - A window.mousemove listener (passive, no scroll cost) writes the
+ *    normalized cursor position into the module-level mousePos object
+ *    (src/three/mouseStore.ts).
+ *  - R3F scene components read mousePos inside useFrame to tilt/rotate.
+ *  - The canvas itself NEVER receives pointer events.
  *
  * Performance:
- *  - frameloop="demand"  — only renders when invalidated (zero idle GPU drain)
- *  - AdaptiveDpr         — caps pixel-ratio on low-end GPUs (< tier 2)
- *  - pointerEvents:none  — set on both the wrapper div AND the canvas element
- *                          so clicks always pass through to the HTML UI layer
+ *  - frameloop="demand"  — renders only when a scene calls invalidate()
+ *  - AdaptiveDpr         — caps pixel-ratio on low-end hardware
  */
 
 import { useEffect, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { AdaptiveDpr } from '@react-three/drei';
 import { sceneContent } from './tunnel';
+import { mousePos } from './mouseStore';
 
-// Detect rough GPU tier from device memory + hardware concurrency.
-// We avoid the heavy detect-gpu package for a zero-latency estimate.
 function useGPUTier(): 0 | 1 | 2 {
   const [tier, setTier] = useState<0 | 1 | 2>(1);
   useEffect(() => {
-    const mem = (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8;
+    const mem   = (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8;
     const cores = navigator.hardwareConcurrency ?? 4;
     if (mem <= 2 || cores <= 2) { setTier(0); return; }
     if (mem >= 6 && cores >= 6) { setTier(2); return; }
@@ -36,12 +44,26 @@ function useGPUTier(): 0 | 1 | 2 {
 
 export function CanvasShell() {
   const tier = useGPUTier();
-  // Cap DPR: tier-0 → 1, tier-1 → 1.5, tier-2 → 2 (clamped by device)
   const dpr: [number, number] = tier === 0 ? [1, 1] : tier === 1 ? [1, 1.5] : [1, 2];
 
+  // Listen for mouse movement on the HTML layer (canvas has pointer-events:none
+  // so we cannot use R3F's built-in raycaster events). The normalized values
+  // are written into mousePos and consumed by scene components in useFrame.
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      mousePos.x = (e.clientX / window.innerWidth)  *  2 - 1;
+      mousePos.y = (e.clientY / window.innerHeight) * -2 + 1;
+    };
+    window.addEventListener('mousemove', onMove, { passive: true });
+    return () => window.removeEventListener('mousemove', onMove);
+  }, []);
+
   return (
+    // z-0 → canvas sits in the document background.
+    // HTML content at z-10+ naturally layers above it.
+    // pointer-events-none prevents any click interception.
     <div
-      className="fixed inset-0 pointer-events-none z-50"
+      className="fixed inset-0 pointer-events-none z-0"
       aria-hidden="true"
     >
       <Canvas
@@ -49,16 +71,12 @@ export function CanvasShell() {
         dpr={dpr}
         camera={{ position: [0, 0, 5], fov: 50 }}
         gl={{ antialias: tier > 0, alpha: true, powerPreference: 'high-performance' }}
-        // pointerEvents: none on the <canvas> element itself — the outer div
-        // already has pointer-events-none, but R3F overrides it on the canvas
-        // DOM node. Setting it here ensures clicks always pass through to the
-        // HTML UI underneath. AdaptiveEvents is intentionally omitted: it
-        // wires pointer listeners for interactive 3D — our canvas is purely
-        // a visual overlay and must never capture events.
+        // Also set pointerEvents:none on the <canvas> DOM element directly —
+        // R3F overrides inherited CSS on its canvas, so this explicit inline
+        // style is required as a belt-and-suspenders guarantee.
         style={{ background: 'transparent', pointerEvents: 'none' }}
       >
         <AdaptiveDpr pixelated />
-        {/* All scene content is injected here from individual pages via tunnel */}
         <sceneContent.Out />
       </Canvas>
     </div>
