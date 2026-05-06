@@ -12,6 +12,7 @@ import { SharePanel } from '@/components/SharePanel';
 import { LogisticsDashboard } from '@/components/LogisticsDashboard';
 import { DraftOverview } from '@/components/DraftOverview';
 import { TrendingTicker } from '@/components/TrendingTicker';
+import { audienceTarget, audienceTitle } from '@/lib/audienceCopy';
 import type { SwapResult } from '@/app/api/swap/route';
 
 const ItineraryMap = dynamic(
@@ -54,7 +55,9 @@ function HotelCard({ hotel }: { hotel: HotelRecommendation }) {
   );
 }
 
-function BasecampSection({ basecamp }: { basecamp: Basecamp }) {
+function BasecampSection({ basecamp, groupType }: { basecamp: Basecamp; groupType?: TravelerProfile['groupType'] | null }) {
+  const title = audienceTitle(groupType);
+  const target = audienceTarget(groupType);
   if (basecamp.type === 'booked' && basecamp.booked) {
     const { name, neighborhood, neighborhoodInsight } = basecamp.booked;
     return (
@@ -100,9 +103,9 @@ function BasecampSection({ basecamp }: { basecamp: Basecamp }) {
         <div className="relative z-10 p-5 sm:p-6">
           <div className="flex items-center justify-between mb-1">
             <span className="text-[10px] font-bold uppercase tracking-widest text-[#9e363a]">🏠 Basecamp</span>
-            <span className="text-[10px] text-white/30">Squad-Approved Picks</span>
+            <span className="text-[10px] text-white/30">{title}-Approved Picks</span>
           </div>
-          <h3 className="text-base font-bold text-white mb-4">Where should your squad stay?</h3>
+          <h3 className="text-base font-bold text-white mb-4">Where should {target} stay?</h3>
           <div className="grid gap-3 sm:grid-cols-3">
             {basecamp.recommendations.map((hotel, i) => (
               <HotelCard key={i} hotel={hotel} />
@@ -435,7 +438,7 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
       </nav>
 
       {/* Trending Now ticker — social proof belt below nav */}
-      <TrendingTicker destination={itinerary.destination} />
+      <TrendingTicker destination={itinerary.destination} groupType={profile?.groupType} />
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
 
@@ -486,7 +489,7 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
                   border: '1px solid rgba(255,255,255,0.15)',
                 }}
               >
-                <div className="text-xs font-semibold uppercase tracking-widest text-[#ff8c8f] mb-2">Your Squad's Master Plan</div>
+                <div className="text-xs font-semibold uppercase tracking-widest text-[#ff8c8f] mb-2">Your {audienceTitle(profile?.groupType)} Master Plan</div>
                 <p className="text-white/85 text-sm leading-relaxed">{itinerary.strategicOverview}</p>
               </div>
             )}
@@ -494,7 +497,7 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
         </motion.div>
 
         {/* Basecamp */}
-        {itinerary.basecamp && <BasecampSection basecamp={itinerary.basecamp} />}
+        {itinerary.basecamp && <BasecampSection basecamp={itinerary.basecamp} groupType={profile?.groupType} />}
 
         {/* Budget summary */}
         {itinerary.budgetSummary && (
@@ -523,7 +526,7 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
         {/* Map — desktop only */}
         <section className="mb-8 print:hidden hidden sm:block">
           <div className="flex items-center gap-3 mb-4">
-            <h2 className="text-xl font-bold text-white tracking-tight">Squad Route</h2>
+            <h2 className="text-xl font-bold text-white tracking-tight">{audienceTitle(profile?.groupType)} Route</h2>
             <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
             <span className="text-xs" style={{ color: 'rgba(255,255,255,0.38)' }}>Pinned by neighborhood</span>
           </div>
@@ -559,6 +562,7 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
                 day={day}
                 index={i}
                 destination={itinerary.destination}
+                groupType={profile?.groupType}
                 onSwapSlot={(slot, req) => handleSlotSwap(i, slot, req)}
                 onNeighborhoodClick={handleNeighborhoodClick}
               />
@@ -577,7 +581,7 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
               className="rounded-2xl p-6"
               style={{ background: 'rgba(15,40,98,0.28)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 4px 24px -4px rgba(0,0,0,0.25)' }}
             >
-              <h3 className="font-bold text-white mb-4 flex items-center gap-2 tracking-tight"><span>🎒</span> Squad Packing List</h3>
+              <h3 className="font-bold text-white mb-4 flex items-center gap-2 tracking-tight"><span>🎒</span> {audienceTitle(profile?.groupType)} Packing List</h3>
               <ul className="flex flex-col gap-2">
                 {(itinerary.packingTips ?? []).map((tip, i) => (
                   <li key={i} className="flex gap-2 text-sm" style={{ color: 'rgba(255,255,255,0.65)' }}>
@@ -611,7 +615,15 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
         {profile && <LogisticsDashboard profile={profile} />}
 
         <div className="text-center py-8 print:hidden" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-          <p className="text-sm mb-4" style={{ color: 'rgba(255,255,255,0.40)' }}>New destination? New squad?</p>
+          <p className="text-sm mb-4" style={{ color: 'rgba(255,255,255,0.40)' }}>
+            {profile?.groupType === 'solo'
+              ? 'New destination? New solo trip?'
+              : profile?.groupType === 'couple'
+                ? 'New destination? New couple trip?'
+                : profile?.groupType === 'family'
+                  ? 'New destination? New family trip?'
+                  : 'New destination? New squad trip?'}
+          </p>
           <motion.div
             whileHover={{ y: -3 }}
             whileTap={{ scale: 0.95, transition: { type: 'spring', stiffness: 600, damping: 18 } }}

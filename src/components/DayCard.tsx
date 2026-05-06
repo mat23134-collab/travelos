@@ -12,6 +12,7 @@ import { DayTimeline } from './DayTimeline';
 import { GenreCube } from './GenreCube';
 import type { PlaceCardData } from '@/components/PlaceCard';
 import type { MapPlace } from '@/components/InteractiveMap';
+import { audienceTitle } from '@/lib/audienceCopy';
 
 // ── Interactive map — SSR disabled (mapbox-gl touches window) ─────────────────
 const InteractiveMap = dynamic(
@@ -355,7 +356,13 @@ function ReactionBar() {
 
 // ─── Reviews carousel ─────────────────────────────────────────────────────────
 
-function ReviewsCarousel({ reviews }: { reviews: string[] }) {
+function ReviewsCarousel({
+  reviews,
+  groupType,
+}: {
+  reviews: string[];
+  groupType?: DayCardProps['groupType'];
+}) {
   const [idx, setIdx] = useState(0);
 
   useEffect(() => {
@@ -369,7 +376,7 @@ function ReviewsCarousel({ reviews }: { reviews: string[] }) {
   return (
     <div className="my-3">
       <div className="text-[10px] font-semibold uppercase tracking-widest text-white/30 mb-2">
-        💬 What the Squad Says
+        💬 What the {audienceTitle(groupType)} Says
       </div>
       <div className="relative min-h-[56px]">
         <AnimatePresence mode="wait">
@@ -412,13 +419,14 @@ interface ModalProps {
   activity: Activity;
   slot: string;
   destination?: string;
+  groupType?: DayCardProps['groupType'];
   onClose: () => void;
   /** Called with the user's request text when they hit Scout It */
   onSwap?: (request: string) => void;
   swapping?: boolean;
 }
 
-function ActivityModal({ activity, slot, destination, onClose, onSwap, swapping }: ModalProps) {
+function ActivityModal({ activity, slot, destination, groupType, onClose, onSwap, swapping }: ModalProps) {
   const [swapExpanded, setSwapExpanded] = useState(false);
   const [swapText, setSwapText]         = useState('');
   const { body, citation } = parseCitation(activity?.whyThis ?? '');
@@ -497,7 +505,7 @@ function ActivityModal({ activity, slot, destination, onClose, onSwap, swapping 
               )}
               {isSquadFriendly(activity.tags ?? []) && (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#00cc6a]/15 text-[#4ade80] border border-[#00cc6a]/25">
-                  ⚡ Squad Pick
+                  ⚡ {audienceTitle(groupType)} Pick
                 </span>
               )}
               {liveBuzz && (
@@ -559,7 +567,7 @@ function ActivityModal({ activity, slot, destination, onClose, onSwap, swapping 
 
             <VideoPreview videoUrl={activity?.videoUrl} activityName={activity?.name ?? ''} />
 
-            {(activity?.reviews?.length ?? 0) > 0 && <ReviewsCarousel reviews={activity!.reviews!} />}
+            {(activity?.reviews?.length ?? 0) > 0 && <ReviewsCarousel reviews={activity!.reviews!} groupType={groupType} />}
 
             <ReactionBar />
 
@@ -665,11 +673,12 @@ interface BentoTileProps {
   activity: Activity;
   height: number;
   destination?: string;
+  groupType?: DayCardProps['groupType'];
   onRefresh?: (request?: string) => void;
   refreshing?: boolean;
 }
 
-function BentoTile({ slot, activity, height, destination, onRefresh, refreshing }: BentoTileProps) {
+function BentoTile({ slot, activity, height, destination, groupType, onRefresh, refreshing }: BentoTileProps) {
   const [modalOpen, setModalOpen] = useState(false);
 
   const photoQuery  = destination
@@ -748,7 +757,7 @@ function BentoTile({ slot, activity, height, destination, onRefresh, refreshing 
           )}
           {squad && (
             <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-[#00cc6a]/18 text-[#4ade80] border border-[#00cc6a]/30">
-              ⚡ Squad
+              ⚡ {audienceTitle(groupType)}
             </span>
           )}
           {liveBuzz && (
@@ -803,6 +812,7 @@ function BentoTile({ slot, activity, height, destination, onRefresh, refreshing 
             activity={activity}
             slot={slot}
             destination={destination}
+            groupType={groupType}
             onClose={() => setModalOpen(false)}
             onSwap={onRefresh ? (req) => { onRefresh(req); setModalOpen(false); } : undefined}
             swapping={refreshing}
@@ -818,10 +828,11 @@ function BentoTile({ slot, activity, height, destination, onRefresh, refreshing 
 interface BentoGridProps {
   day: DayPlan;
   destination?: string;
+  groupType?: DayCardProps['groupType'];
   onSwapSlot?: (slot: Slot, request?: string) => Promise<void>;
 }
 
-function BentoGrid({ day, destination, onSwapSlot }: BentoGridProps) {
+function BentoGrid({ day, destination, groupType, onSwapSlot }: BentoGridProps) {
   const [swapping, setSwapping] = useState<Slot | null>(null);
 
   const handleSwap = async (slot: Slot, request?: string) => {
@@ -837,6 +848,7 @@ function BentoGrid({ day, destination, onSwapSlot }: BentoGridProps) {
         {day.morning && (
           <div className="sm:col-span-2">
             <BentoTile slot="morning" activity={day.morning} height={240} destination={destination}
+              groupType={groupType}
               onRefresh={onSwapSlot ? (req) => handleSwap('morning', req) : undefined}
               refreshing={swapping === 'morning'} />
           </div>
@@ -844,6 +856,7 @@ function BentoGrid({ day, destination, onSwapSlot }: BentoGridProps) {
         {day.afternoon && (
           <div className="sm:col-span-1">
             <BentoTile slot="afternoon" activity={day.afternoon} height={240} destination={destination}
+              groupType={groupType}
               onRefresh={onSwapSlot ? (req) => handleSwap('afternoon', req) : undefined}
               refreshing={swapping === 'afternoon'} />
           </div>
@@ -851,6 +864,7 @@ function BentoGrid({ day, destination, onSwapSlot }: BentoGridProps) {
         {day.evening && (
           <div className="sm:col-span-3">
             <BentoTile slot="evening" activity={day.evening} height={200} destination={destination}
+              groupType={groupType}
               onRefresh={onSwapSlot ? (req) => handleSwap('evening', req) : undefined}
               refreshing={swapping === 'evening'} />
           </div>
@@ -922,11 +936,12 @@ interface DayCardProps {
   day: DayPlan;
   index: number;
   destination?: string;
+  groupType?: 'solo' | 'couple' | 'family' | 'group';
   onSwapSlot?: (slot: 'morning' | 'afternoon' | 'evening', request?: string) => Promise<void>;
   onNeighborhoodClick?: (neighborhood: string) => void;
 }
 
-export function DayCard({ day, index, destination, onSwapSlot }: DayCardProps) {
+export function DayCard({ day, index, destination, groupType, onSwapSlot }: DayCardProps) {
   const [open, setOpen]     = useState(false);
   const [copied, setCopied] = useState(false);
   const warnings    = day.webInsights?.filter((i) => i.type === 'warning') ?? [];

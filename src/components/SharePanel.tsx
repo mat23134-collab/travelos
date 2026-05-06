@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Itinerary, TravelerProfile } from '@/lib/types';
+import { audienceNounPlural, audienceTitle } from '@/lib/audienceCopy';
 
 function buildWhatsAppText(itinerary: Itinerary, profile: TravelerProfile | null): string {
-  const header = `✈️ *${itinerary.destination}* — ${itinerary.totalDays}-day squad plan`;
+  const header = `✈️ *${itinerary.destination}* — ${itinerary.totalDays}-day ${audienceTitle(profile?.groupType).toLowerCase()} plan`;
   const meta = profile
     ? `👥 ${profile.groupType} · 💰 ${profile.budget} · ⚡ ${profile.pace}`
     : '';
@@ -62,7 +63,7 @@ export function SharePanel({ itinerary, profile }: Props) {
       id: 'whatsapp',
       icon: '💬',
       label: 'Share to WhatsApp',
-      sub: 'Send to your squad instantly',
+      sub: profile ? `Send to ${audienceNounPlural(profile.groupType)} instantly` : 'Send to your squad instantly',
       gradient: 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)',
       action: () => { handleWhatsApp(); setOpen(false); },
     },
@@ -133,7 +134,7 @@ export function SharePanel({ itinerary, profile }: Props) {
                 <div className="flex items-start justify-between mb-5">
                   <div>
                     <h3 className="font-bold text-white text-base tracking-tight">
-                      Share the Squad Plan
+                      Share the {audienceTitle(profile?.groupType)} Plan
                     </h3>
                     <p className="text-white/35 text-xs mt-0.5">
                       {itinerary.destination} · {itinerary.totalDays} days

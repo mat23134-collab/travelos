@@ -1,6 +1,8 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { GroupType } from '@/lib/types';
+import { audienceNounPlural } from '@/lib/audienceCopy';
 
 function destinationSeed(s: string): number {
   let h = 0;
@@ -13,20 +15,27 @@ function stableInt(seed: number, min: number, max: number): number {
   return Math.floor((x - Math.floor(x)) * (max - min + 1)) + min;
 }
 
-export function TrendingTicker({ destination }: { destination: string }) {
+export function TrendingTicker({
+  destination,
+  groupType,
+}: {
+  destination: string;
+  groupType?: GroupType | null;
+}) {
   const seed   = destinationSeed(destination);
-  const squads = stableInt(seed,     18, 67);
+  const parties = stableInt(seed,     18, 67);
   const saved  = stableInt(seed + 1,  4, 23);
   const rank   = stableInt(seed + 2,  1, 12);
+  const audiencePlural = audienceNounPlural(groupType);
 
   const items = [
-    `🔥 ${squads} squads exploring ${destination} this week`,
+    `🔥 ${parties} ${audiencePlural} exploring ${destination} this week`,
     `💾 ${saved} travelers saved this itinerary today`,
-    `📍 ${destination} ranked #${rank} squad destination this month`,
+    `📍 ${destination} ranked #${rank} destination this month`,
     '⚡ Hidden gems sourced from live web intelligence',
     '🗺 Route cluster-optimised by neighborhood AI',
     '💎 Tourist traps filtered — only local picks remain',
-    '🎯 Vibe-matched to your exact squad profile',
+    '🎯 Vibe-matched to your exact travel profile',
   ];
 
   // Double the list so the seamless loop has enough runway
