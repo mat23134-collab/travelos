@@ -142,13 +142,7 @@ export const questions: Question[] = [
     subtitle: 'Pick from our top suggestions for your destination — or add your own',
     required: false,
   },
-  {
-    id: 13,
-    key: 'hotelBooked',
-    type: 'textarea',
-    title: "Already booked a hotel?",
-    subtitle: "Tell us the name and neighborhood — we'll build the whole trip around your basecamp. Leave blank for AI-curated hotel picks.",
-    placeholder: 'e.g. "Hotel Arts, Barceloneta Beach" or "Ace Hotel, Shoreditch, London"',
-    required: false,
-  },
+  // Question 13 (hotelBooked) removed — hotel selection is now handled
+  // in the onboarding flow (HotelStep / The Anchor) before the user
+  // reaches this questionnaire. No redundant re-asking.
 ];

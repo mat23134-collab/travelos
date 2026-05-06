@@ -195,6 +195,11 @@ export function CompassScene({
   }, [invalidate]);
 
   useFrame((_, dt) => {
+    // Always keep the render loop alive — even before refs are ready.
+    // Without this, a single missed frame (refs null on first tick) would
+    // permanently break the frameloop="demand" loop.
+    invalidate();
+
     if (!tiltRef.current || !buildRef.current || !needleRef.current) return;
 
     // ── Build spring ─────────────────────────────────────────────────────────
@@ -202,8 +207,10 @@ export function CompassScene({
       tickSpring(spring.current, 1, 210, 22, dt);
     }
     const s = THREE.MathUtils.clamp(spring.current.pos, 0, 1.06);
-    buildRef.current.scale.setScalar(s);
-    buildRef.current.visible = s > 0.01;
+    buildRef.current.scale.setScalar(Math.max(0, s));
+    // Use scale-based visibility — DO NOT set .visible via JSX (React
+    // re-renders reset the JSX prop and kill mid-animation visibility).
+    buildRef.current.visible = s > 0.001;
 
     // ── Tilt toward mouse (parallax) ─────────────────────────────────────────
     const targetX = 0.22 + mousePos.y * 0.26;
@@ -214,8 +221,6 @@ export function CompassScene({
     // ── Needle tracks mouse bearing ───────────────────────────────────────────
     const bearing = Math.atan2(mousePos.x, mousePos.y);
     needleRef.current.rotation.z = THREE.MathUtils.lerp(needleRef.current.rotation.z, -bearing, 0.07);
-
-    invalidate();
   });
 
   const posX =
@@ -238,8 +243,10 @@ export function CompassScene({
       {/* ── Tilt group ─────────────────────────────────────────────────── */}
       <group ref={tiltRef}>
 
-        {/* ── Build group ────────────────────────────────────────────── */}
-        <group ref={buildRef} visible={false}>
+        {/* ── Build group — visibility + scale driven only by useFrame ── */}
+        {/* Do NOT set visible={false} here: React re-renders reset JSX props   */}
+        {/* and kill the animation mid-way. Scale starts at 0 via spring state. */}
+        <group ref={buildRef}>
 
           {/* ── Outer bezel — deep navy metallic ─────────────────────── */}
           <mesh>

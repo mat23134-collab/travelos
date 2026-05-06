@@ -631,24 +631,39 @@ function PlanPage() {
   const searchParams = useSearchParams();
 
   // Hard reset on every entry: clear saved draft and always start at Step 1.
-  // If the user came from /onboarding, pre-populate the time fields via query params.
+  // If the user came from /onboarding, pre-populate ALL collected fields via
+  // query params so the plan page doesn't re-ask what was already answered.
   useEffect(() => {
     localStorage.removeItem(STORAGE_KEY);
     setStep(0);
+
+    // Onboarding step 0 — destination
+    const preDestination = searchParams.get('destination') ?? '';
+
+    // Onboarding step 1 — dates → derive startDate / endDate (stored as-is in form)
+    const preStartDate = searchParams.get('startDate') ?? '';
+    const preEndDate   = searchParams.get('endDate')   ?? '';
+
+    // Onboarding step 2 — logistics
     const preArrival    = searchParams.get('arrivalTime')    ?? '';
     const preDeparture  = searchParams.get('departureTime')  ?? '';
     const preDailyStart = searchParams.get('dailyStartTime') ?? '08:30';
     const preSkipDay1   = searchParams.get('skipDay1') === '1';
+
     setForm({
       groupSize: 2,
       interests: [],
       dietaryRestrictions: [],
       mustHaveItems: [],
       mustHaveOther: '',
-      arrivalTime: preArrival,
-      departureTime: preDeparture,
+      // Pre-filled from onboarding
+      destination:    preDestination,
+      startDate:      preStartDate,
+      endDate:        preEndDate,
+      arrivalTime:    preArrival,
+      departureTime:  preDeparture,
       dailyStartTime: preDailyStart,
-      skipDay1: preSkipDay1,
+      skipDay1:       preSkipDay1,
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

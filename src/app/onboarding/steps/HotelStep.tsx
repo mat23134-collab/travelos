@@ -275,7 +275,7 @@ export function HotelStep({
               border: `1px solid rgba(197,145,42,0.32)`,
             }}
           >
-            Step 3 of 3
+            Step 4 of 4
           </span>
           <span
             className="px-2 py-0.5 rounded-full text-[9px] font-bold tracking-widest uppercase"

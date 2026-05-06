@@ -1,17 +1,18 @@
 'use client';
 
 /**
- * Onboarding page — logistics-first flow.
+ * Onboarding page — 4-step pre-flight flow.
  *
- * Three steps:
- *  0 — ArrivalTimeStep   (when do you land?)
- *  1 — DepartureTimeStep (when do you fly home?)
- *  2 — HotelStep         (The Anchor — your hotel center of gravity)
+ * Step 0 — DestinationStep : Where are you going?
+ * Step 1 — DatesStep       : When are you traveling?
+ * Step 2 — LogisticsStep   : Arrival + departure times (skipDay1 logic lives here)
+ * Step 3 — HotelStep       : The Anchor — hotel center of gravity
  *
- * Step transitions use a Framer Motion Y-axis "cube flip".
- * After all 3 steps the user is pushed to /plan with params.
+ * On completion, pushes to /plan with all collected data as query params
+ * so the plan page can pre-fill and skip re-asking the same questions.
  *
- * Palette: Purple Shadow (#091f36) bg + Redline (#9e363a) accents.
+ * Transitions: Y-axis "cube flip" via Framer Motion.
+ * Palette: Purple Shadow (#091f36) + per-step accents.
  */
 
 import { useRouter } from 'next/navigation';
@@ -19,20 +20,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import { useOnboardingStore } from '@/state/onboardingStore';
 
-// All step components use R3F (useFrame) + tunnel-rat — must be ssr:false
-const ArrivalTimeStep = dynamic(
-  () => import('./steps/ArrivalTimeStep').then((m) => ({ default: m.ArrivalTimeStep })),
-  { ssr: false, loading: () => <StepSkeleton /> }
-);
-const DepartureTimeStep = dynamic(
-  () => import('./steps/DepartureTimeStep').then((m) => ({ default: m.DepartureTimeStep })),
-  { ssr: false, loading: () => <StepSkeleton /> }
-);
-const HotelStep = dynamic(
-  () => import('./steps/HotelStep').then((m) => ({ default: m.HotelStep })),
-  { ssr: false, loading: () => <StepSkeleton /> }
-);
-
+// All step components use R3F (useFrame) + tunnel-rat → must be ssr:false
 function StepSkeleton() {
   return (
     <div
@@ -42,7 +30,24 @@ function StepSkeleton() {
   );
 }
 
-// ── Cube-flip transition variants ─────────────────────────────────────────────
+const DestinationStep = dynamic(
+  () => import('./steps/DestinationStep').then((m) => ({ default: m.DestinationStep })),
+  { ssr: false, loading: () => <StepSkeleton /> }
+);
+const DatesStep = dynamic(
+  () => import('./steps/DatesStep').then((m) => ({ default: m.DatesStep })),
+  { ssr: false, loading: () => <StepSkeleton /> }
+);
+const LogisticsStep = dynamic(
+  () => import('./steps/LogisticsStep').then((m) => ({ default: m.LogisticsStep })),
+  { ssr: false, loading: () => <StepSkeleton /> }
+);
+const HotelStep = dynamic(
+  () => import('./steps/HotelStep').then((m) => ({ default: m.HotelStep })),
+  { ssr: false, loading: () => <StepSkeleton /> }
+);
+
+// ── Cube-flip transition ──────────────────────────────────────────────────────
 
 const FLIP_VARIANTS = {
   enter: (dir: number) => ({
@@ -64,16 +69,21 @@ const FLIP_VARIANTS = {
   }),
 };
 
-// ── Step dot colors per step ──────────────────────────────────────────────────
-// step 0: Redline  |  step 1: Blue-steel  |  step 2: Gold
-const STEP_ACTIVE_COLORS = ['#9e363a', '#4a7bde', '#c5912a'];
+// ── Step dot accent colors ────────────────────────────────────────────────────
+// 0=Redline  1=Steel-blue  2=Redline  3=Gold
+const STEP_COLORS = ['#9e363a', '#4a7bde', '#9e363a', '#c5912a'];
 
-const TOTAL_STEPS = 3;
+const TOTAL_STEPS = 4;
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function OnboardingPage() {
   const router = useRouter();
   const {
     step,
+    destination,
+    startDate,
+    endDate,
     arrivalTime,
     departureTime,
     dailyStartTime,
@@ -88,6 +98,9 @@ export default function OnboardingPage() {
 
   const handleComplete = () => {
     const params = new URLSearchParams();
+    if (destination)    params.set('destination',    destination);
+    if (startDate)      params.set('startDate',      startDate);
+    if (endDate)        params.set('endDate',        endDate);
     if (arrivalTime)    params.set('arrivalTime',    arrivalTime);
     if (departureTime)  params.set('departureTime',  departureTime);
     if (dailyStartTime) params.set('dailyStartTime', dailyStartTime);
@@ -99,6 +112,9 @@ export default function OnboardingPage() {
     router.push(`/plan?${params.toString()}`);
   };
 
+  // Gold flare on hotel step
+  const isHotelStep = step === 3;
+
   return (
     <main
       className="min-h-screen flex flex-col md:flex-row relative overflow-hidden"
@@ -106,26 +122,23 @@ export default function OnboardingPage() {
     >
       {/* ── Ambient blobs ──────────────────────────────────────────────────── */}
       <div className="fixed inset-0 pointer-events-none z-0" aria-hidden="true">
-        {/* Redline top-left */}
         <div
           className="absolute -top-32 -left-32 w-[550px] h-[550px] rounded-full blur-[140px] opacity-20"
           style={{ background: 'radial-gradient(circle, rgba(158,54,58,0.30) 0%, transparent 70%)' }}
         />
-        {/* Blue Popsicle bottom-right */}
         <div
-          className="absolute -bottom-32 -right-32 w-[500px] h-[500px] rounded-full blur-[130px] opacity-22"
+          className="absolute -bottom-32 -right-32 w-[500px] h-[500px] rounded-full blur-[130px] opacity-20"
           style={{ background: 'radial-gradient(circle, rgba(15,40,98,0.55) 0%, transparent 70%)' }}
         />
-        {/* Gold flare — visible during hotel step */}
-        {step === 2 && (
+        {isHotelStep && (
           <div
-            className="absolute top-1/2 right-0 w-[400px] h-[400px] rounded-full blur-[120px] opacity-12"
+            className="absolute top-1/3 right-0 w-[400px] h-[400px] rounded-full blur-[120px] opacity-10"
             style={{ background: 'radial-gradient(circle, rgba(197,145,42,0.40) 0%, transparent 70%)' }}
           />
         )}
       </div>
 
-      {/* ── Left panel — form steps ────────────────────────────────────────── */}
+      {/* ── Left panel — step form ─────────────────────────────────────────── */}
       <div className="relative z-10 flex flex-col justify-center w-full md:w-[440px] lg:w-[480px] min-h-screen px-8 sm:px-12 py-16 shrink-0">
 
         {/* Logo */}
@@ -135,10 +148,10 @@ export default function OnboardingPage() {
           </span>
         </div>
 
-        {/* Step progress dots */}
+        {/* Progress dots */}
         <div className="absolute top-8 right-8 flex items-center gap-2">
           {Array.from({ length: TOTAL_STEPS }).map((_, i) => {
-            const activeColor = STEP_ACTIVE_COLORS[i];
+            const color = STEP_COLORS[i];
             return (
               <div
                 key={i}
@@ -147,9 +160,9 @@ export default function OnboardingPage() {
                   width:  i === step ? 20 : 6,
                   height: 6,
                   background: i === step
-                    ? activeColor
+                    ? color
                     : i < step
-                      ? `${activeColor}55`
+                      ? `${color}66`
                       : 'rgba(255,255,255,0.12)',
                 }}
               />
@@ -169,15 +182,10 @@ export default function OnboardingPage() {
               exit="exit"
               style={{ transformStyle: 'preserve-3d' }}
             >
-              {step === 0 && (
-                <ArrivalTimeStep onNext={nextStep} />
-              )}
-              {step === 1 && (
-                <DepartureTimeStep onNext={nextStep} onBack={prevStep} />
-              )}
-              {step === 2 && (
-                <HotelStep onNext={handleComplete} onBack={prevStep} />
-              )}
+              {step === 0 && <DestinationStep onNext={nextStep} />}
+              {step === 1 && <DatesStep       onNext={nextStep}       onBack={prevStep} />}
+              {step === 2 && <LogisticsStep   onNext={nextStep}       onBack={prevStep} />}
+              {step === 3 && <HotelStep       onNext={handleComplete} onBack={prevStep} />}
             </motion.div>
           </AnimatePresence>
         </div>
@@ -191,17 +199,17 @@ export default function OnboardingPage() {
             onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.45)')}
             onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = 'rgba(79,95,118,0.7)')}
           >
-            Skip logistics — I&apos;ll fill in details later
+            Skip setup — go straight to planning
           </button>
         </div>
       </div>
 
-      {/* ── Right panel — 3D canvas shines through here ────────────────────── */}
+      {/* ── Right panel — 3D canvas (CanvasShell renders here at z-index:-1) ── */}
       <div
         className="hidden md:flex flex-1 relative items-center justify-center"
         aria-hidden="true"
       >
-        {/* Subtle grid lines */}
+        {/* Subtle grid */}
         <div
           className="absolute inset-0 opacity-[0.032]"
           style={{
@@ -210,16 +218,12 @@ export default function OnboardingPage() {
             backgroundSize: '52px 52px',
           }}
         />
-
-        {/* Step label hint */}
-        <div className="text-center select-none">
-          <p
-            className="text-[10px] tracking-widest uppercase font-semibold"
-            style={{ color: 'rgba(79,95,118,0.5)' }}
-          >
-            Live 3D preview
-          </p>
-        </div>
+        <p
+          className="text-[10px] tracking-widest uppercase font-semibold select-none"
+          style={{ color: 'rgba(79,95,118,0.45)' }}
+        >
+          Live 3D preview
+        </p>
       </div>
     </main>
   );

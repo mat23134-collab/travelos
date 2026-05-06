@@ -1,19 +1,13 @@
 /**
- * onboardingStore — Zustand store for the 3D onboarding flow.
+ * onboardingStore — Zustand store for the 4-step onboarding flow.
  *
- * Persists to localStorage so partial state survives refreshes.
+ * Step 0 — Destination  : destination
+ * Step 1 — Dates        : startDate, endDate
+ * Step 2 — Logistics    : arrivalTime, departureTime, dailyStartTime, skipDay1
+ * Step 3 — Hotel Anchor : hotelAddress, hotelLat, hotelLng
  *
- * Fields:
- *  arrivalTime    — HH:MM, e.g. "21:30"
- *  departureTime  — HH:MM, e.g. "14:00"
- *  dailyStartTime — HH:MM, e.g. "08:30"
- *  skipDay1       — derived: true when arrivalTime hour >= 20
- *  hotelAddress   — free-text hotel address (from step 3)
- *  hotelLat       — geocoded latitude (null until geocoded)
- *  hotelLng       — geocoded longitude (null until geocoded)
- *
- * hotelLat/hotelLng are read by page.tsx to pass to CompassInjector
- * so the gold "hotel anchor" marker appears on the 3D compass.
+ * All fields persist to localStorage. Plan page reads destination + dates
+ * from the query-string params we push on completion.
  */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
@@ -22,20 +16,27 @@ export interface OnboardingState {
   // Step index (0-based)
   step: number;
 
-  // Logistics
-  arrivalTime:    string;
-  departureTime:  string;
-  dailyStartTime: string;
+  // Step 0: Destination
+  destination: string;
 
-  // Derived
-  skipDay1: boolean;
+  // Step 1: Dates (YYYY-MM-DD strings)
+  startDate: string;
+  endDate:   string;
 
-  // Hotel Center of Gravity (step 3)
+  // Step 2: Logistics
+  arrivalTime:    string;  // HH:MM, e.g. "21:30"
+  departureTime:  string;  // HH:MM, e.g. "14:00"
+  dailyStartTime: string;  // HH:MM, e.g. "08:30"
+  skipDay1:       boolean; // derived: true when arrivalTime hour >= 20
+
+  // Step 3: Hotel Center of Gravity
   hotelAddress: string;
   hotelLat:     number | null;
   hotelLng:     number | null;
 
-  // Actions
+  // ── Actions ──────────────────────────────────────────────────────────────
+  setDestination:    (d: string) => void;
+  setDateRange:      (start: string, end: string) => void;
   setArrivalTime:    (time: string) => void;
   setDepartureTime:  (time: string) => void;
   setDailyStartTime: (time: string) => void;
@@ -55,11 +56,15 @@ function isLateArrival(time: string): boolean {
 
 const INITIAL: Omit<
   OnboardingState,
+  | 'setDestination' | 'setDateRange'
   | 'setArrivalTime' | 'setDepartureTime' | 'setDailyStartTime'
   | 'setHotelLocation' | 'clearHotelLocation'
   | 'nextStep' | 'prevStep' | 'goToStep' | 'reset'
 > = {
   step:           0,
+  destination:    '',
+  startDate:      '',
+  endDate:        '',
   arrivalTime:    '',
   departureTime:  '',
   dailyStartTime: '08:30',
@@ -74,14 +79,16 @@ export const useOnboardingStore = create<OnboardingState>()(
     (set) => ({
       ...INITIAL,
 
+      setDestination: (d) => set({ destination: d }),
+
+      setDateRange: (start, end) => set({ startDate: start, endDate: end }),
+
       setArrivalTime: (time) =>
         set({ arrivalTime: time, skipDay1: isLateArrival(time) }),
 
-      setDepartureTime: (time) =>
-        set({ departureTime: time }),
+      setDepartureTime: (time) => set({ departureTime: time }),
 
-      setDailyStartTime: (time) =>
-        set({ dailyStartTime: time }),
+      setDailyStartTime: (time) => set({ dailyStartTime: time }),
 
       setHotelLocation: (address, lat, lng) =>
         set({ hotelAddress: address, hotelLat: lat, hotelLng: lng }),
@@ -98,6 +105,9 @@ export const useOnboardingStore = create<OnboardingState>()(
     {
       name: 'travelos-onboarding',
       partialize: (s) => ({
+        destination:    s.destination,
+        startDate:      s.startDate,
+        endDate:        s.endDate,
         arrivalTime:    s.arrivalTime,
         departureTime:  s.departureTime,
         dailyStartTime: s.dailyStartTime,
