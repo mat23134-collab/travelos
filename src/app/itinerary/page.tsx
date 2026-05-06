@@ -30,11 +30,11 @@ export default function ItineraryPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#f8f7f2] flex flex-col items-center justify-center px-6 text-center">
+      <div className="min-h-screen bg-[#091f36] flex flex-col items-center justify-center px-6 text-center">
         <div className="text-4xl mb-4">😕</div>
-        <h2 className="text-xl font-bold text-[#111827] mb-2 tracking-tight">Something went wrong</h2>
-        <p className="text-[#6b7280] mb-6">{error}</p>
-        <Link href="/plan" className="px-6 py-3 rounded-xl bg-[#ff5a5f] text-white font-semibold text-sm hover:bg-[#e04a4f] transition-colors">
+        <h2 className="text-xl font-bold text-white mb-2 tracking-tight">Something went wrong</h2>
+        <p className="text-white/50 mb-6">{error}</p>
+        <Link href="/plan" className="px-6 py-3 rounded-xl text-white font-semibold text-sm transition-colors" style={{ background: '#9e363a' }}>
           Try again
         </Link>
       </div>
@@ -43,11 +43,11 @@ export default function ItineraryPage() {
 
   if (!itinerary) {
     return (
-      <div className="min-h-screen bg-[#f8f7f2]">
-        <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-sm border-b border-[#e5e7eb]">
+      <div className="min-h-screen bg-[#091f36]">
+        <div className="sticky top-0 z-40 backdrop-blur-sm border-b" style={{ background: 'rgba(9,31,54,0.90)', borderColor: 'rgba(255,255,255,0.08)' }}>
           <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
-            <div className="text-lg font-semibold tracking-tight text-[#111827]">
-              Travel<span className="text-[#ff5a5f]">OS</span>
+            <div className="text-lg font-semibold tracking-tight text-white">
+              Travel<span style={{ color: '#9e363a' }}>OS</span>
             </div>
             <div className="skeleton-bar w-28 h-7 rounded-lg" />
           </div>

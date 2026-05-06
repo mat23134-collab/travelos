@@ -1,4 +1,4 @@
-// UI Version: 2.0.1 - 2026-04-30T14:00:00Z
+// UI Version: 2.1.0 - 2026-05-06T00:00:00Z (dark palette)
 'use client';
 
 import { useState, useCallback, useEffect, Suspense } from 'react';
@@ -80,16 +80,22 @@ function DestinationGrid({ value, onChange }: { value: string; onChange: (v: str
             whileTap={{ scale: 0.95 }}
             animate={
               selected
-                ? { boxShadow: `0 0 0 3px ${dest.accent}, 0 20px 48px -10px ${dest.accent}66` }
-                : { boxShadow: '0 2px 14px rgba(0,0,0,0.08)' }
+                ? { boxShadow: `0 0 0 3px ${dest.accent}, 0 20px 48px -10px ${dest.accent}55` }
+                : { boxShadow: '0 2px 14px rgba(0,0,0,0.30)' }
             }
             transition={{ type: 'spring', stiffness: 400, damping: 24 }}
             className={[
               'relative flex flex-col items-start p-5 rounded-2xl border-2 text-left transition-colors',
               i === 4 ? 'col-span-2 sm:col-span-1' : '',
-              selected ? 'bg-white' : 'border-[#e7e5e4] bg-white hover:bg-[#fafaf9]',
+              selected
+                ? ''
+                : 'border-white/10 hover:border-white/20',
             ].join(' ')}
-            style={selected ? { borderColor: dest.accent } : {}}
+            style={
+              selected
+                ? { borderColor: dest.accent, background: 'rgba(15,40,98,0.40)' }
+                : { background: 'rgba(15,40,98,0.22)' }
+            }
           >
             {selected && (
               <motion.div
@@ -106,12 +112,16 @@ function DestinationGrid({ value, onChange }: { value: string; onChange: (v: str
             <div className="text-5xl mb-3 leading-none">{dest.flag}</div>
             <div
               className="font-extrabold text-lg leading-tight"
-              style={{ color: selected ? dest.accent : '#1c1917' }}
+              style={{ color: selected ? dest.accent : 'rgba(255,255,255,0.92)' }}
             >
               {dest.name}
             </div>
-            <div className="text-xs font-medium text-[#a8a29e] mt-0.5">{dest.country}</div>
-            <div className="text-xs text-[#78716c] italic mt-2 leading-snug">{dest.tagline}</div>
+            <div className="text-xs font-medium mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>
+              {dest.country}
+            </div>
+            <div className="text-xs italic mt-2 leading-snug" style={{ color: 'rgba(255,255,255,0.28)' }}>
+              {dest.tagline}
+            </div>
           </motion.button>
         );
       })}
@@ -162,7 +172,7 @@ function TimeAwareStep({
     >
       {/* Daily start time */}
       <div>
-        <p className="text-xs font-bold text-[#ff5a5f] uppercase tracking-widest mb-3">
+        <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#9e363a' }}>
           When do you like to start exploring each day?
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -177,30 +187,32 @@ function TimeAwareStep({
                 whileTap={{ scale: 0.95 }}
                 animate={
                   sel
-                    ? { boxShadow: '0 0 0 2px #ff5a5f, 0 8px 24px -4px rgba(255,90,95,0.20)' }
-                    : { boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }
+                    ? { boxShadow: '0 0 0 2px #9e363a, 0 8px 24px -4px rgba(158,54,58,0.22)' }
+                    : { boxShadow: '0 1px 3px rgba(0,0,0,0.25)' }
                 }
                 transition={{ type: 'spring', stiffness: 450, damping: 22 }}
-                className={`relative p-4 rounded-2xl border text-center transition-colors ${
+                className="relative p-4 rounded-2xl border text-center transition-colors"
+                style={
                   sel
-                    ? 'border-[#ff5a5f] bg-[#fff5f5]'
-                    : 'border-[#e7e5e4] bg-white hover:border-[#ff5a5f]/30 hover:bg-[#fff8f8]'
-                }`}
+                    ? { borderColor: '#9e363a', background: 'rgba(158,54,58,0.14)' }
+                    : { borderColor: 'rgba(255,255,255,0.10)', background: 'rgba(15,40,98,0.22)' }
+                }
               >
                 {sel && (
                   <motion.div
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    className="absolute top-2 right-2 w-5 h-5 rounded-full bg-[#ff5a5f] flex items-center justify-center"
+                    className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center"
+                    style={{ backgroundColor: '#9e363a' }}
                   >
                     <span className="text-white text-[9px] font-bold">✓</span>
                   </motion.div>
                 )}
                 <div className="text-2xl mb-1.5 leading-none">{opt.icon}</div>
-                <div className={`text-xs font-semibold leading-tight ${sel ? 'text-[#ff5a5f]' : 'text-[#1c1917]'}`}>
+                <div className="text-xs font-semibold leading-tight" style={{ color: sel ? '#c05060' : 'rgba(255,255,255,0.85)' }}>
                   {opt.label}
                 </div>
-                <div className="text-[10px] text-[#a8a29e] mt-0.5">{opt.sub}</div>
+                <div className="text-[10px] mt-0.5" style={{ color: 'rgba(255,255,255,0.38)' }}>{opt.sub}</div>
               </motion.button>
             );
           })}
@@ -210,38 +222,60 @@ function TimeAwareStep({
       {/* Arrival & Departure time */}
       <div className="grid sm:grid-cols-2 gap-5">
         <div
-          className="rounded-2xl p-4 border border-[#e7e5e4] bg-white"
-          style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}
+          className="rounded-2xl p-4 border"
+          style={{
+            borderColor: 'rgba(255,255,255,0.08)',
+            background: 'rgba(15,40,98,0.22)',
+            boxShadow: '0 1px 6px rgba(0,0,0,0.20)',
+          }}
         >
-          <label className="block text-xs font-bold text-[#ff5a5f] uppercase tracking-widest mb-1">
+          <label className="block text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#9e363a' }}>
             🛬 Arrival time — Day 1
           </label>
-          <p className="text-[10px] text-[#a8a29e] mb-3 leading-relaxed">
+          <p className="text-[10px] mb-3 leading-relaxed" style={{ color: 'rgba(255,255,255,0.38)' }}>
             We won't schedule activities before you land. Leave blank if arriving the night before.
           </p>
           <input
             type="time"
             value={arrivalTime}
             onChange={(e) => onArrival(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border border-[#e7e5e4] bg-[#fafaf9] focus:border-[#ff5a5f] focus:outline-none text-[#1c1917] text-sm transition-all"
+            className="w-full px-4 py-3 rounded-xl border focus:outline-none text-sm transition-all"
+            style={{
+              borderColor: 'rgba(255,255,255,0.10)',
+              background: 'rgba(255,255,255,0.06)',
+              color: 'white',
+            }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = '#9e363a'; }}
+            onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'; }}
           />
         </div>
 
         <div
-          className="rounded-2xl p-4 border border-[#e7e5e4] bg-white"
-          style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}
+          className="rounded-2xl p-4 border"
+          style={{
+            borderColor: 'rgba(255,255,255,0.08)',
+            background: 'rgba(15,40,98,0.22)',
+            boxShadow: '0 1px 6px rgba(0,0,0,0.20)',
+          }}
         >
-          <label className="block text-xs font-bold text-[#ff5a5f] uppercase tracking-widest mb-1">
+          <label className="block text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#9e363a' }}>
             🛫 Departure time — Last Day
           </label>
-          <p className="text-[10px] text-[#a8a29e] mb-3 leading-relaxed">
+          <p className="text-[10px] mb-3 leading-relaxed" style={{ color: 'rgba(255,255,255,0.38)' }}>
             We'll only plan activities that end before you need to leave. Leave blank if departing at night.
           </p>
           <input
             type="time"
             value={departureTime}
             onChange={(e) => onDeparture(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border border-[#e7e5e4] bg-[#fafaf9] focus:border-[#ff5a5f] focus:outline-none text-[#1c1917] text-sm transition-all"
+            className="w-full px-4 py-3 rounded-xl border focus:outline-none text-sm transition-all"
+            style={{
+              borderColor: 'rgba(255,255,255,0.10)',
+              background: 'rgba(255,255,255,0.06)',
+              color: 'white',
+            }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = '#9e363a'; }}
+            onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'; }}
           />
         </div>
       </div>
@@ -341,28 +375,30 @@ function DietaryCubes({
             whileTap={{ scale: 0.94 }}
             animate={
               sel
-                ? { boxShadow: '0 0 0 2px #ff5a5f, 0 8px 24px -4px rgba(255,90,95,0.20)' }
-                : { boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }
+                ? { boxShadow: '0 0 0 2px #9e363a, 0 8px 24px -4px rgba(158,54,58,0.22)' }
+                : { boxShadow: '0 1px 3px rgba(0,0,0,0.25)' }
             }
             transition={{ type: 'spring', stiffness: 450, damping: 22 }}
-            className={`relative p-4 rounded-2xl border text-center transition-colors ${
+            className="relative p-4 rounded-2xl border text-center transition-colors"
+            style={
               sel
-                ? 'border-[#ff5a5f] bg-[#fff5f5]'
-                : 'border-[#e7e5e4] bg-white hover:border-[#ff5a5f]/30 hover:bg-[#fff8f8]'
-            }`}
+                ? { borderColor: '#9e363a', background: 'rgba(158,54,58,0.14)' }
+                : { borderColor: 'rgba(255,255,255,0.10)', background: 'rgba(15,40,98,0.22)' }
+            }
           >
             {sel && (
               <motion.div
                 initial={{ scale: 0, rotate: -15 }}
                 animate={{ scale: 1, rotate: 0 }}
                 transition={{ type: 'spring', stiffness: 500, damping: 20 }}
-                className="absolute top-2 right-2 w-5 h-5 rounded-full bg-[#ff5a5f] flex items-center justify-center"
+                className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: '#9e363a' }}
               >
                 <span className="text-white text-[9px] font-bold">✓</span>
               </motion.div>
             )}
             <div className="text-2xl mb-2 leading-none">{opt.icon}</div>
-            <div className={`text-xs font-semibold leading-tight ${sel ? 'text-[#ff5a5f]' : 'text-[#57534e]'}`}>
+            <div className="text-xs font-semibold leading-tight" style={{ color: sel ? '#c05060' : 'rgba(255,255,255,0.75)' }}>
               {opt.label}
             </div>
           </motion.button>
@@ -394,10 +430,10 @@ function MustHaveCubes({
     <div>
       {destination && CITY_PICKS[destination] && (
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-xs font-semibold text-[#ff5a5f] uppercase tracking-widest">
+          <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#9e363a' }}>
             Top picks for {destination}
           </span>
-          <div className="flex-1 h-px bg-[#e7e5e4]" />
+          <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
         </div>
       )}
 
@@ -418,35 +454,37 @@ function MustHaveCubes({
               whileTap={{ scale: 0.94 }}
               animate={
                 sel
-                  ? { boxShadow: '0 0 0 2px #ff5a5f, 0 8px 24px -4px rgba(255,90,95,0.20)' }
-                  : { boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }
+                  ? { boxShadow: '0 0 0 2px #9e363a, 0 8px 24px -4px rgba(158,54,58,0.22)' }
+                  : { boxShadow: '0 1px 3px rgba(0,0,0,0.25)' }
               }
               transition={{ type: 'spring', stiffness: 450, damping: 22 }}
-              className={`relative p-4 rounded-2xl border text-center transition-colors ${
+              className="relative p-4 rounded-2xl border text-center transition-colors"
+              style={
                 sel
-                  ? 'border-[#ff5a5f] bg-[#fff5f5]'
-                  : 'border-[#e7e5e4] bg-white hover:border-[#ff5a5f]/30 hover:bg-[#fff8f8]'
-              }`}
+                  ? { borderColor: '#9e363a', background: 'rgba(158,54,58,0.14)' }
+                  : { borderColor: 'rgba(255,255,255,0.10)', background: 'rgba(15,40,98,0.22)' }
+              }
             >
               {sel && (
                 <motion.div
                   initial={{ scale: 0, rotate: -15 }}
                   animate={{ scale: 1, rotate: 0 }}
                   transition={{ type: 'spring', stiffness: 500, damping: 20 }}
-                  className="absolute top-2 right-2 w-5 h-5 rounded-full bg-[#ff5a5f] flex items-center justify-center"
+                  className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: '#9e363a' }}
                 >
                   <span className="text-white text-[9px] font-bold">✓</span>
                 </motion.div>
               )}
               <div className="text-2xl mb-2 leading-none">{pick.icon}</div>
-              <div className={`text-xs font-semibold leading-snug ${sel ? 'text-[#ff5a5f]' : 'text-[#57534e]'}`}>
+              <div className="text-xs font-semibold leading-snug" style={{ color: sel ? '#c05060' : 'rgba(255,255,255,0.75)' }}>
                 {pick.label}
               </div>
             </motion.button>
           );
         })}
 
-        {/* Other cube — opens a free-text input when selected */}
+        {/* Other cube */}
         <motion.button
           variants={optionVariant}
           onClick={() => onToggle('Other')}
@@ -454,34 +492,36 @@ function MustHaveCubes({
           whileTap={{ scale: 0.94 }}
           animate={
             otherSelected
-              ? { boxShadow: '0 0 0 2px #ff5a5f, 0 8px 24px -4px rgba(255,90,95,0.20)' }
-              : { boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }
+              ? { boxShadow: '0 0 0 2px #9e363a, 0 8px 24px -4px rgba(158,54,58,0.22)' }
+              : { boxShadow: '0 1px 3px rgba(0,0,0,0.25)' }
           }
           transition={{ type: 'spring', stiffness: 450, damping: 22 }}
-          className={`relative p-4 rounded-2xl border text-center transition-colors ${
+          className="relative p-4 rounded-2xl border text-center transition-colors"
+          style={
             otherSelected
-              ? 'border-[#ff5a5f] bg-[#fff5f5]'
-              : 'border-dashed border-[#d6d3d1] bg-white hover:border-[#ff5a5f]/40 hover:bg-[#fff8f8]'
-          }`}
+              ? { borderColor: '#9e363a', background: 'rgba(158,54,58,0.14)' }
+              : { borderColor: 'rgba(255,255,255,0.15)', borderStyle: 'dashed', background: 'rgba(15,40,98,0.14)' }
+          }
         >
           {otherSelected && (
             <motion.div
               initial={{ scale: 0, rotate: -15 }}
               animate={{ scale: 1, rotate: 0 }}
               transition={{ type: 'spring', stiffness: 500, damping: 20 }}
-              className="absolute top-2 right-2 w-5 h-5 rounded-full bg-[#ff5a5f] flex items-center justify-center"
+              className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: '#9e363a' }}
             >
               <span className="text-white text-[9px] font-bold">✓</span>
             </motion.div>
           )}
           <div className="text-2xl mb-2 leading-none">✏️</div>
-          <div className={`text-xs font-semibold leading-tight ${otherSelected ? 'text-[#ff5a5f]' : 'text-[#a8a29e]'}`}>
+          <div className="text-xs font-semibold leading-tight" style={{ color: otherSelected ? '#c05060' : 'rgba(255,255,255,0.38)' }}>
             Other…
           </div>
         </motion.button>
       </motion.div>
 
-      {/* Inline text input — animated, only when "Other" is selected */}
+      {/* Inline text input */}
       <AnimatePresence>
         {otherSelected && (
           <motion.div
@@ -497,7 +537,14 @@ function MustHaveCubes({
               placeholder='e.g. "Sagrada Família", "Northern Lights", "Michelin star dinner"…'
               value={customText}
               onChange={(e) => onCustomChange(e.target.value)}
-              className="w-full px-5 py-4 rounded-2xl border border-[#ff5a5f]/40 bg-[#fff5f5] shadow-sm focus:border-[#ff5a5f] focus:ring-2 focus:ring-[#ff5a5f]/10 focus:outline-none text-[#1c1917] text-sm transition-all placeholder:text-[#a8a29e]"
+              className="w-full px-5 py-4 rounded-2xl border focus:outline-none text-sm transition-all"
+              style={{
+                borderColor: 'rgba(158,54,58,0.45)',
+                background: 'rgba(158,54,58,0.10)',
+                color: 'white',
+              }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = '#9e363a'; }}
+              onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(158,54,58,0.45)'; }}
             />
           </motion.div>
         )}
@@ -522,9 +569,13 @@ function LoadingScreen({ destination }: { destination: string }) {
   const pct = Math.round(((activeStep + 1) / LOADING_STEPS.length) * 100);
 
   return (
-    <div className="min-h-screen bg-[#080b12] flex flex-col items-center justify-center px-6 text-center relative overflow-hidden">
-      <div className="noise absolute w-[560px] h-[560px] rounded-full bg-[#ff5a5f]/10 blur-[130px] top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
-      <div className="noise absolute w-[320px] h-[320px] rounded-full bg-[#8b5cf6]/10 blur-[100px] bottom-1/4 right-1/4 pointer-events-none" />
+    <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center relative overflow-hidden"
+      style={{ backgroundColor: '#091f36' }}>
+      {/* Ambient orbs */}
+      <div className="noise absolute w-[560px] h-[560px] rounded-full blur-[130px] top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+        style={{ background: 'rgba(158,54,58,0.12)' }} />
+      <div className="noise absolute w-[320px] h-[320px] rounded-full blur-[100px] bottom-1/4 right-1/4 pointer-events-none"
+        style={{ background: 'rgba(15,40,98,0.40)' }} />
 
       <motion.div
         initial={{ opacity: 0, scale: 0.7, y: 20 }}
@@ -532,12 +583,17 @@ function LoadingScreen({ destination }: { destination: string }) {
         transition={{ type: 'spring', stiffness: 300, damping: 22 }}
         className="mb-8"
       >
-        <div className="w-20 h-20 rounded-[1.5rem] bg-[#ff5a5f]/15 border border-[#ff5a5f]/25 flex items-center justify-center text-4xl shadow-xl shadow-[#ff5a5f]/20">
+        <div className="w-20 h-20 rounded-[1.5rem] flex items-center justify-center text-4xl shadow-xl"
+          style={{
+            background: 'rgba(158,54,58,0.15)',
+            border: '1px solid rgba(158,54,58,0.25)',
+            boxShadow: '0 12px 40px -8px rgba(158,54,58,0.22)',
+          }}>
           ✈️
         </div>
       </motion.div>
 
-      <div className="text-[10px] font-semibold text-[#ff5a5f] uppercase tracking-widest mb-3">
+      <div className="text-[10px] font-semibold uppercase tracking-widest mb-3" style={{ color: '#9e363a' }}>
         Building your {destination} itinerary
       </div>
 
@@ -568,9 +624,13 @@ function LoadingScreen({ destination }: { destination: string }) {
               transition={{ delay: i * 0.09, type: 'spring', stiffness: 380, damping: 28 }}
               className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all text-left ${
                 done ? 'bg-white/4 border border-white/8' :
-                active ? 'bg-[#ff5a5f]/12 border border-[#ff5a5f]/30' :
+                active ? '' :
                 'opacity-25'
               }`}
+              style={active ? {
+                background: 'rgba(158,54,58,0.12)',
+                border: '1px solid rgba(158,54,58,0.30)',
+              } : {}}
             >
               <span className="text-base flex-shrink-0">{done ? '✓' : s.icon}</span>
               <span className={`text-xs flex-1 leading-snug ${
@@ -578,18 +638,18 @@ function LoadingScreen({ destination }: { destination: string }) {
                 active ? 'text-white font-medium' :
                 'text-white/30'
               }`}>{s.label}</span>
-              {active && <span className="w-1.5 h-1.5 rounded-full bg-[#ff5a5f] animate-pulse flex-shrink-0" />}
+              {active && <span className="w-1.5 h-1.5 rounded-full animate-pulse flex-shrink-0" style={{ background: '#9e363a' }} />}
             </motion.div>
           );
         })}
       </div>
 
-      <div className="w-full max-w-xs h-1 bg-white/8 rounded-full overflow-hidden mb-3">
+      <div className="w-full max-w-xs h-1 rounded-full overflow-hidden mb-3" style={{ background: 'rgba(255,255,255,0.08)' }}>
         <motion.div
           className="h-full rounded-full"
           animate={{ width: `${pct}%` }}
           transition={{ type: 'spring', stiffness: 200, damping: 28 }}
-          style={{ background: 'linear-gradient(90deg, #ff5a5f, #00d4ff)' }}
+          style={{ background: 'linear-gradient(90deg, #9e363a, #4a7bde)' }}
         />
       </div>
       <p className="text-white/20 text-[10px] tabular-nums">{pct}% · ~30 seconds · AI-powered</p>
@@ -599,7 +659,6 @@ function LoadingScreen({ destination }: { destination: string }) {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
-// Wrap in Suspense so useSearchParams() works without static-render errors.
 export default function PlanPageWrapper() {
   return (
     <Suspense fallback={null}>
@@ -617,34 +676,26 @@ function PlanPage() {
   const [form, setForm] = useState<FormData>({
     groupSize: 2,
     interests: [],
-    dietaryRestrictions: [],   // string[] — joined to string on submit
-    mustHaveItems: [],          // string[] — selected city picks
-    mustHaveOther: '',          // string  — free-text from "Other" cube
-    arrivalTime: '',            // string  — HH:MM, arrival time Day 1
-    departureTime: '',          // string  — HH:MM, departure time last day
-    dailyStartTime: '08:30',    // string  — HH:MM, default morning start
-    skipDay1: false,            // boolean — true when arrivalTime >= 20:00 (from onboarding)
+    dietaryRestrictions: [],
+    mustHaveItems: [],
+    mustHaveOther: '',
+    arrivalTime: '',
+    departureTime: '',
+    dailyStartTime: '08:30',
+    skipDay1: false,
   });
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const searchParams = useSearchParams();
 
-  // Hard reset on every entry: clear saved draft and always start at Step 1.
-  // If the user came from /onboarding, pre-populate ALL collected fields via
-  // query params so the plan page doesn't re-ask what was already answered.
   useEffect(() => {
     localStorage.removeItem(STORAGE_KEY);
     setStep(0);
 
-    // Onboarding step 0 — destination
     const preDestination = searchParams.get('destination') ?? '';
-
-    // Onboarding step 1 — dates → derive startDate / endDate (stored as-is in form)
     const preStartDate = searchParams.get('startDate') ?? '';
     const preEndDate   = searchParams.get('endDate')   ?? '';
-
-    // Onboarding step 2 — logistics
     const preArrival    = searchParams.get('arrivalTime')    ?? '';
     const preDeparture  = searchParams.get('departureTime')  ?? '';
     const preDailyStart = searchParams.get('dailyStartTime') ?? '08:30';
@@ -656,7 +707,6 @@ function PlanPage() {
       dietaryRestrictions: [],
       mustHaveItems: [],
       mustHaveOther: '',
-      // Pre-filled from onboarding
       destination:    preDestination,
       startDate:      preStartDate,
       endDate:        preEndDate,
@@ -671,7 +721,6 @@ function PlanPage() {
   const question = questions[step];
   const progress = ((step + 1) / TOTAL) * 100;
 
-  // Destination is valid only when one of the 5 hardcoded cities is selected
   const destinationChosen = FEATURED_DESTINATIONS.some(
     (d) => d.name === (form.destination as string),
   );
@@ -775,9 +824,7 @@ function PlanPage() {
       pace: (form.pace as TravelerProfile['pace']) || 'moderate',
       interests: (form.interests as string[]) || [],
       accommodation: (form.accommodation as TravelerProfile['accommodation']) || 'boutique-hotel',
-      // Step 9 — join selected dietary cubes into a comma-separated string
       dietaryRestrictions: ((form.dietaryRestrictions as string[]) || []).join(', '),
-      // Step 10 — merge selected city picks + optional custom "Other" text
       mustHave: [
         ...((form.mustHaveItems as string[]) || []),
         ...((form.mustHaveOther as string)?.trim()
@@ -785,11 +832,9 @@ function PlanPage() {
           : []),
       ].filter(Boolean).join(', '),
       hotelBooked: (form.hotelBooked as string) || '',
-      // Time-aware scheduling inputs (v1.10.16 + v1.10.18)
       dailyStartTime: (form.dailyStartTime as string) || '08:30',
       arrivalTime: (form.arrivalTime as string) || '',
       departureTime: (form.departureTime as string) || '',
-      // skipDay1: set by onboarding store when arrivalTime >= 20:00
       skipDay1: !!(form.skipDay1 as boolean),
     };
 
@@ -840,33 +885,36 @@ function PlanPage() {
   const isLast = step === TOTAL - 1;
 
   return (
-    <div className="min-h-screen bg-[#fafaf9] flex flex-col relative overflow-hidden">
+    <div className="min-h-screen flex flex-col relative overflow-hidden" style={{ backgroundColor: '#091f36' }}>
 
       {/* Background orbs */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="animate-orb-float absolute w-[700px] h-[700px] rounded-full blur-[160px] -top-40 -left-40"
-          style={{ backgroundColor: 'rgba(255,90,95,0.10)' }} />
+          style={{ backgroundColor: 'rgba(158,54,58,0.10)' }} />
         <div className="animate-orb-float absolute w-[500px] h-[500px] rounded-full blur-[140px] bottom-0 right-0"
-          style={{ backgroundColor: 'rgba(139,92,246,0.07)', animationDelay: '-4s' }} />
+          style={{ backgroundColor: 'rgba(15,40,98,0.30)', animationDelay: '-4s' }} />
         <div className="animate-orb-float absolute w-[300px] h-[300px] rounded-full blur-[120px] top-1/2 left-1/2"
-          style={{ backgroundColor: 'rgba(0,212,255,0.06)', animationDelay: '-8s' }} />
+          style={{ backgroundColor: 'rgba(74,123,222,0.06)', animationDelay: '-8s' }} />
       </div>
 
       {/* Top bar */}
-      <div className="relative z-10 flex items-center justify-between px-6 py-5 border-b border-[#e7e5e4] bg-[#fafaf9]/80 backdrop-blur-sm">
-        <Link href="/" className="text-lg font-semibold tracking-tight text-[#1c1917]">
-          Travel<span className="text-[#ff5a5f]">OS</span>
+      <div
+        className="relative z-10 flex items-center justify-between px-6 py-5 border-b backdrop-blur-sm"
+        style={{ background: 'rgba(9,31,54,0.88)', borderColor: 'rgba(255,255,255,0.08)' }}
+      >
+        <Link href="/" className="text-lg font-semibold tracking-tight text-white">
+          Travel<span style={{ color: '#9e363a' }}>OS</span>
         </Link>
-        <span className="text-sm text-[#a8a29e] font-mono tabular-nums">
-          {step + 1}<span className="text-[#d6d3d1]"> / {TOTAL}</span>
+        <span className="text-sm font-mono tabular-nums" style={{ color: 'rgba(255,255,255,0.4)' }}>
+          {step + 1}<span style={{ color: 'rgba(255,255,255,0.18)' }}> / {TOTAL}</span>
         </span>
       </div>
 
       {/* Progress bar */}
-      <div className="relative z-10 h-0.5 bg-[#e7e5e4]">
+      <div className="relative z-10 h-0.5" style={{ background: 'rgba(255,255,255,0.08)' }}>
         <motion.div
           className="h-full"
-          style={{ background: 'linear-gradient(90deg, #ff5a5f, #ff8c8f, #ff5a5f)' }}
+          style={{ background: 'linear-gradient(90deg, #9e363a, #b5404a, #9e363a)' }}
           animate={{ width: `${progress}%` }}
           transition={{ type: 'spring', stiffness: 200, damping: 30 }}
         />
@@ -884,7 +932,7 @@ function PlanPage() {
                 animate={{
                   width: i === step ? 20 : 6,
                   opacity: i <= step ? 1 : 0.4,
-                  backgroundColor: i <= step ? '#ff5a5f' : '#d6d3d1',
+                  backgroundColor: i <= step ? '#9e363a' : 'rgba(255,255,255,0.15)',
                 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 28 }}
                 className="h-1.5 rounded-full"
@@ -907,22 +955,23 @@ function PlanPage() {
                   initial={{ opacity: 0, x: -12 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.05 }}
-                  className="text-xs font-semibold text-[#ff5a5f] uppercase tracking-widest mb-2"
+                  className="text-xs font-semibold uppercase tracking-widest mb-2"
+                  style={{ color: '#9e363a' }}
                 >
                   Step {step + 1}
                 </motion.div>
-                <h2 className="text-2xl sm:text-3xl font-bold text-[#1c1917] leading-tight mb-2">
+                <h2 className="text-2xl sm:text-3xl font-bold text-white leading-tight mb-2">
                   {question.title}
                 </h2>
                 {question.subtitle && (
-                  <p className="text-[#78716c] text-base">{question.subtitle}</p>
+                  <p className="text-base" style={{ color: 'rgba(255,255,255,0.50)' }}>{question.subtitle}</p>
                 )}
               </div>
 
               {/* Input area */}
               <div className="mb-6">
 
-                {/* ── Step 1: destination cards — NO text input ── */}
+                {/* ── Step 1: destination cards ── */}
                 {question.key === 'destination' && (
                   <DestinationGrid
                     value={(form.destination as string) || ''}
@@ -939,7 +988,13 @@ function PlanPage() {
                     onChange={(e) => setValue(question.key, e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleNext()}
                     autoFocus
-                    className="w-full px-5 py-4 rounded-2xl border border-[#e7e5e4] bg-white shadow-sm focus:border-[#ff5a5f] focus:ring-2 focus:ring-[#ff5a5f]/10 focus:outline-none text-[#1c1917] text-base transition-all placeholder:text-[#a8a29e]"
+                    className="w-full px-5 py-4 rounded-2xl border focus:outline-none text-base transition-all text-white"
+                    style={{
+                      borderColor: 'rgba(255,255,255,0.10)',
+                      background: 'rgba(15,40,98,0.30)',
+                    }}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = '#9e363a'; e.currentTarget.style.boxShadow = '0 0 0 2px rgba(158,54,58,0.12)'; }}
+                    onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'; e.currentTarget.style.boxShadow = 'none'; }}
                   />
                 )}
 
@@ -948,14 +1003,21 @@ function PlanPage() {
                   <div className="grid grid-cols-2 gap-3">
                     {(['startDate', 'endDate'] as const).map((key, i) => (
                       <div key={key}>
-                        <label className="block text-xs font-medium text-[#a8a29e] mb-1.5">
+                        <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.40)' }}>
                           {i === 0 ? 'Departure' : 'Return'}
                         </label>
                         <input
                           type="date"
                           value={(form[key] as string) || ''}
                           onChange={(e) => setValue(key, e.target.value)}
-                          className="w-full px-4 py-3.5 rounded-2xl border border-[#e7e5e4] bg-white shadow-sm focus:border-[#ff5a5f] focus:outline-none text-[#1c1917] transition-all"
+                          className="w-full px-4 py-3.5 rounded-2xl border focus:outline-none text-white transition-all"
+                          style={{
+                            borderColor: 'rgba(255,255,255,0.10)',
+                            background: 'rgba(15,40,98,0.30)',
+                            colorScheme: 'dark',
+                          }}
+                          onFocus={(e) => { e.currentTarget.style.borderColor = '#9e363a'; }}
+                          onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'; }}
                           min={
                             key === 'endDate'
                               ? (form['startDate'] as string) || new Date().toISOString().split('T')[0]
@@ -998,31 +1060,33 @@ function PlanPage() {
                           whileTap={{ scale: 0.97 }}
                           animate={
                             selected
-                              ? { boxShadow: '0 0 0 2px #ff5a5f, 0 8px 24px -4px rgba(255,90,95,0.18)' }
-                              : { boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }
+                              ? { boxShadow: '0 0 0 2px #9e363a, 0 8px 24px -4px rgba(158,54,58,0.20)' }
+                              : { boxShadow: '0 1px 3px rgba(0,0,0,0.25)' }
                           }
                           transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                          className={`text-left p-4 rounded-2xl border transition-colors ${
+                          className="text-left p-4 rounded-2xl border transition-colors"
+                          style={
                             selected
-                              ? 'border-[#ff5a5f] bg-[#fff5f5]'
-                              : 'border-[#e7e5e4] bg-white hover:border-[#ff5a5f]/35 hover:bg-[#fff8f8]'
-                          }`}
+                              ? { borderColor: '#9e363a', background: 'rgba(158,54,58,0.14)' }
+                              : { borderColor: 'rgba(255,255,255,0.10)', background: 'rgba(15,40,98,0.22)' }
+                          }
                         >
                           <div className="flex items-start gap-3">
                             {opt.icon && <span className="text-2xl mt-0.5 flex-shrink-0">{opt.icon}</span>}
                             <div>
-                              <div className={`font-semibold text-sm ${selected ? 'text-[#ff5a5f]' : 'text-[#1c1917]'}`}>
+                              <div className="font-semibold text-sm" style={{ color: selected ? '#c05060' : 'rgba(255,255,255,0.92)' }}>
                                 {opt.label}
                               </div>
                               {opt.description && (
-                                <div className="text-xs text-[#a8a29e] mt-0.5">{opt.description}</div>
+                                <div className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.40)' }}>{opt.description}</div>
                               )}
                             </div>
                             {selected && (
                               <motion.div
                                 initial={{ scale: 0 }}
                                 animate={{ scale: 1 }}
-                                className="ml-auto w-5 h-5 rounded-full bg-[#ff5a5f] flex items-center justify-center flex-shrink-0"
+                                className="ml-auto w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                                style={{ backgroundColor: '#9e363a' }}
                               >
                                 <span className="text-white text-[10px]">✓</span>
                               </motion.div>
@@ -1053,18 +1117,19 @@ function PlanPage() {
                           whileTap={{ scale: 0.94 }}
                           animate={
                             selected
-                              ? { boxShadow: '0 0 0 2px #ff5a5f, 0 6px 20px -4px rgba(255,90,95,0.20)' }
-                              : { boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }
+                              ? { boxShadow: '0 0 0 2px #9e363a, 0 6px 20px -4px rgba(158,54,58,0.22)' }
+                              : { boxShadow: '0 1px 3px rgba(0,0,0,0.25)' }
                           }
                           transition={{ type: 'spring', stiffness: 450, damping: 22 }}
-                          className={`p-3 rounded-2xl border text-center transition-colors ${
+                          className="p-3 rounded-2xl border text-center transition-colors"
+                          style={
                             selected
-                              ? 'border-[#ff5a5f] bg-[#fff5f5]'
-                              : 'border-[#e7e5e4] bg-white hover:border-[#ff5a5f]/30 hover:bg-[#fff8f8]'
-                          }`}
+                              ? { borderColor: '#9e363a', background: 'rgba(158,54,58,0.14)' }
+                              : { borderColor: 'rgba(255,255,255,0.10)', background: 'rgba(15,40,98,0.22)' }
+                          }
                         >
                           <div className="text-xl mb-1.5">{opt.icon}</div>
-                          <div className={`text-xs font-medium leading-tight ${selected ? 'text-[#ff5a5f]' : 'text-[#57534e]'}`}>
+                          <div className="text-xs font-medium leading-tight" style={{ color: selected ? '#c05060' : 'rgba(255,255,255,0.70)' }}>
                             {opt.label}
                           </div>
                         </motion.button>
@@ -1078,18 +1143,24 @@ function PlanPage() {
                   <motion.div
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="border border-[#e7e5e4] bg-white rounded-2xl p-6 shadow-xl shadow-[#ff5a5f]/5"
+                    className="rounded-2xl p-6"
+                    style={{
+                      borderColor: 'rgba(255,255,255,0.08)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      background: 'rgba(15,40,98,0.28)',
+                      boxShadow: '0 8px 32px -8px rgba(158,54,58,0.08)',
+                    }}
                   >
                     <div className="text-center mb-8">
                       <motion.span
                         key={(form[question.key] as number) ?? question.min}
                         initial={{ scale: 1.3, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
-                        className="text-6xl font-bold text-[#1c1917] tabular-nums"
+                        className="text-6xl font-bold text-white tabular-nums"
                       >
                         {(form[question.key] as number) ?? question.min ?? 1}
                       </motion.span>
-                      <span className="text-[#a8a29e] ml-2 text-xl">
+                      <span className="ml-2 text-xl" style={{ color: 'rgba(255,255,255,0.40)' }}>
                         {((form[question.key] as number) ?? 1) === 1 ? 'person' : 'people'}
                       </span>
                     </div>
@@ -1099,9 +1170,10 @@ function PlanPage() {
                       max={question.max || 20}
                       value={(form[question.key] as number) ?? 2}
                       onChange={(e) => setValue(question.key, Number(e.target.value))}
-                      className="w-full accent-[#ff5a5f] cursor-pointer"
+                      className="w-full cursor-pointer"
+                      style={{ accentColor: '#9e363a' }}
                     />
-                    <div className="flex justify-between text-xs text-[#a8a29e] mt-2">
+                    <div className="flex justify-between text-xs mt-2" style={{ color: 'rgba(255,255,255,0.35)' }}>
                       <span>{question.min}</span>
                       <span>{question.max}+</span>
                     </div>
@@ -1127,7 +1199,7 @@ function PlanPage() {
                   />
                 )}
 
-                {/* ── Textarea (hotelBooked only — diet & mustHave replaced above) ── */}
+                {/* ── Textarea ── */}
                 {question.type === 'textarea' &&
                   question.key !== 'dietaryRestrictions' &&
                   question.key !== 'mustHave' && (
@@ -1136,7 +1208,13 @@ function PlanPage() {
                     value={(form[question.key] as string) || ''}
                     onChange={(e) => setValue(question.key, e.target.value)}
                     rows={4}
-                    className="w-full px-5 py-4 rounded-2xl border border-[#e7e5e4] bg-white shadow-sm focus:border-[#ff5a5f] focus:ring-2 focus:ring-[#ff5a5f]/10 focus:outline-none text-[#1c1917] text-base transition-all resize-none placeholder:text-[#a8a29e]"
+                    className="w-full px-5 py-4 rounded-2xl border focus:outline-none text-base transition-all resize-none text-white"
+                    style={{
+                      borderColor: 'rgba(255,255,255,0.10)',
+                      background: 'rgba(15,40,98,0.30)',
+                    }}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = '#9e363a'; e.currentTarget.style.boxShadow = '0 0 0 2px rgba(158,54,58,0.12)'; }}
+                    onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'; e.currentTarget.style.boxShadow = 'none'; }}
                   />
                 )}
               </div>
@@ -1148,7 +1226,12 @@ function PlanPage() {
                     initial={{ opacity: 0, y: -8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -8 }}
-                    className="mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm"
+                    className="mb-4 px-4 py-3 rounded-xl text-sm"
+                    style={{
+                      background: 'rgba(158,54,58,0.12)',
+                      border: '1px solid rgba(158,54,58,0.30)',
+                      color: '#ff8c8f',
+                    }}
                   >
                     {error}
                   </motion.div>
@@ -1162,7 +1245,23 @@ function PlanPage() {
                   disabled={step === 0}
                   whileHover={{ scale: step === 0 ? 1 : 1.03 }}
                   whileTap={{ scale: 0.97 }}
-                  className="px-6 py-3 rounded-xl border border-[#e7e5e4] text-[#78716c] font-medium text-sm hover:bg-[#f5f5f4] hover:text-[#1c1917] hover:border-[#d6d3d1] transition-colors disabled:opacity-25 disabled:cursor-not-allowed"
+                  className="px-6 py-3 rounded-xl border font-medium text-sm transition-colors disabled:opacity-25 disabled:cursor-not-allowed"
+                  style={{
+                    borderColor: 'rgba(255,255,255,0.10)',
+                    color: 'rgba(255,255,255,0.45)',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (step > 0) {
+                      (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.75)';
+                      (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.22)';
+                      (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.45)';
+                    (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.10)';
+                    (e.currentTarget as HTMLElement).style.background = 'transparent';
+                  }}
                 >
                   ← Back
                 </motion.button>
@@ -1172,8 +1271,11 @@ function PlanPage() {
                   disabled={continueDisabled}
                   whileHover={{ scale: continueDisabled ? 1 : 1.04, y: continueDisabled ? 0 : -2 }}
                   whileTap={{ scale: continueDisabled ? 1 : 0.96 }}
-                  className="relative px-8 py-3 rounded-xl font-semibold text-sm text-white overflow-hidden shadow-lg shadow-[#ff5a5f]/25 disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
-                  style={{ background: 'linear-gradient(135deg, #ff5a5f 0%, #e04a4f 100%)' }}
+                  className="relative px-8 py-3 rounded-xl font-semibold text-sm text-white overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={{
+                    background: 'linear-gradient(135deg, #9e363a 0%, #7a2a2d 100%)',
+                    boxShadow: continueDisabled ? 'none' : '0 8px 28px -4px rgba(158,54,58,0.38)',
+                  }}
                 >
                   <span className="relative z-10">
                     {isLast ? 'Generate Itinerary ✨' : 'Continue →'}
@@ -1193,7 +1295,10 @@ function PlanPage() {
                 <div className="text-center mt-4">
                   <button
                     onClick={handleNext}
-                    className="text-sm text-[#a8a29e] hover:text-[#78716c] transition-colors"
+                    className="text-sm transition-colors"
+                    style={{ color: 'rgba(255,255,255,0.30)' }}
+                    onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.55)')}
+                    onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.30)')}
                   >
                     Skip this question
                   </button>

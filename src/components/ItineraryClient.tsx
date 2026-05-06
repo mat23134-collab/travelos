@@ -16,7 +16,7 @@ import type { SwapResult } from '@/app/api/swap/route';
 
 const ItineraryMap = dynamic(
   () => import('@/components/ItineraryMap').then((m) => m.ItineraryMap),
-  { ssr: false, loading: () => <div className="w-full rounded-2xl bg-[#f0ede4] animate-pulse" style={{ height: 380 }} /> }
+  { ssr: false, loading: () => <div className="w-full rounded-2xl animate-pulse" style={{ height: 380, background: 'rgba(15,40,98,0.28)', border: '1px solid rgba(255,255,255,0.07)' }} /> }
 );
 
 type ViewMode = 'draft' | 'final';
@@ -26,13 +26,13 @@ type ViewMode = 'draft' | 'final';
 function HotelCard({ hotel }: { hotel: HotelRecommendation }) {
   return (
     <div
-      className="relative flex flex-col rounded-2xl border border-white/10 overflow-hidden transition-all duration-200 hover:-translate-y-1 hover:border-[#ff5a5f]/40"
+      className="relative flex flex-col rounded-2xl border border-white/10 overflow-hidden transition-all duration-200 hover:-translate-y-1 hover:border-[#9e363a]/40"
       style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(12px)' }}
     >
-      <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#ff5a5f]/50 to-transparent" />
+      <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#9e363a]/50 to-transparent" />
       <div className="p-4 flex flex-col gap-3 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-[#ff5a5f] bg-[#ff5a5f]/12 px-2 py-0.5 rounded-full">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-[#9e363a] bg-[#9e363a]/12 px-2 py-0.5 rounded-full">
             {hotel.neighborhoodVibe}
           </span>
           <span className="text-[10px] text-white/40 font-mono">{hotel.priceRange}</span>
@@ -65,11 +65,11 @@ function BasecampSection({ basecamp }: { basecamp: Basecamp }) {
         className="relative rounded-2xl overflow-hidden mb-8"
         style={{ background: '#0f1117', border: '1px solid rgba(255,255,255,0.08)' }}
       >
-        <div className="absolute top-0 right-0 w-64 h-64 bg-[#ff5a5f]/10 rounded-full blur-[80px] pointer-events-none" />
+        <div className="absolute top-0 right-0 w-64 h-64 bg-[#9e363a]/10 rounded-full blur-[80px] pointer-events-none" />
         <div className="absolute bottom-0 left-1/4 w-40 h-40 bg-[#8b5cf6]/10 rounded-full blur-[60px] pointer-events-none" />
         <div className="relative z-10 p-5 sm:p-6">
           <div className="flex items-center gap-2 mb-4">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[#ff5a5f]">🏠 Your Basecamp</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#9e363a]">🏠 Your Basecamp</span>
             <span className="text-[10px] text-white/30 bg-white/8 px-2 py-0.5 rounded-full border border-white/10">Pre-booked</span>
           </div>
           <h3 className="text-xl font-bold text-white tracking-tight">{name}</h3>
@@ -95,11 +95,11 @@ function BasecampSection({ basecamp }: { basecamp: Basecamp }) {
         className="relative rounded-2xl overflow-hidden mb-8"
         style={{ background: '#0f1117', border: '1px solid rgba(255,255,255,0.08)' }}
       >
-        <div className="absolute top-0 right-0 w-80 h-80 bg-[#ff5a5f]/08 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute top-0 right-0 w-80 h-80 bg-[#9e363a]/08 rounded-full blur-[100px] pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-60 h-60 bg-[#8b5cf6]/08 rounded-full blur-[80px] pointer-events-none" />
         <div className="relative z-10 p-5 sm:p-6">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[#ff5a5f]">🏠 Basecamp</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#9e363a]">🏠 Basecamp</span>
             <span className="text-[10px] text-white/30">Squad-Approved Picks</span>
           </div>
           <h3 className="text-base font-bold text-white mb-4">Where should your squad stay?</h3>
@@ -141,7 +141,7 @@ function TripIntelligenceButton({ meta }: { meta: NonNullable<Itinerary['_meta']
         whileTap={{ scale: 0.93, transition: { type: 'spring', stiffness: 600, damping: 18 } }}
         className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-xs text-white/70 hover:bg-white/15 transition-colors"
       >
-        <span className="w-1.5 h-1.5 rounded-full bg-[#ff5a5f] animate-pulse" />
+        <span className="w-1.5 h-1.5 rounded-full bg-[#9e363a] animate-pulse" />
         Trip Intelligence
         <span className="text-white/40 ml-0.5">↗</span>
       </motion.button>
@@ -162,7 +162,7 @@ function TripIntelligenceButton({ meta }: { meta: NonNullable<Itinerary['_meta']
               exit={{ y: 20, opacity: 0, scale: 0.96 }}
               transition={{ type: 'spring', stiffness: 380, damping: 30 }}
             >
-              <div className="absolute top-0 right-0 w-40 h-40 bg-[#ff5a5f]/10 rounded-full blur-[60px] pointer-events-none" />
+              <div className="absolute top-0 right-0 w-40 h-40 bg-[#9e363a]/10 rounded-full blur-[60px] pointer-events-none" />
               <div className="relative z-10">
                 <div className="flex items-start justify-between mb-5">
                   <div>
@@ -227,19 +227,22 @@ function MobileMapOverlay({
       >
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
         <motion.div
-          className="relative mt-auto bg-white rounded-t-3xl overflow-hidden"
-          style={{ height: '85dvh' }}
+          className="relative mt-auto rounded-t-3xl overflow-hidden"
+          style={{ height: '85dvh', background: '#0d1f36', border: '1px solid rgba(255,255,255,0.10)' }}
           initial={{ y: '100%' }}
           animate={{ y: 0 }}
           exit={{ y: '100%' }}
           transition={{ type: 'spring', stiffness: 300, damping: 32 }}
         >
-          <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#e5e7eb]">
-            <h3 className="font-bold text-[#111827] text-sm tracking-tight">Route Map</h3>
+          <div className="flex items-center justify-between px-5 py-3.5 border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+            <h3 className="font-bold text-white text-sm tracking-tight">Route Map</h3>
             <motion.button
               onClick={onClose}
               whileTap={{ scale: 0.88, transition: { type: 'spring', stiffness: 600, damping: 18 } }}
-              className="w-8 h-8 flex items-center justify-center rounded-full bg-[#f3f4f6] text-[#6b7280] text-sm hover:bg-[#e5e7eb] transition-colors"
+              className="w-8 h-8 flex items-center justify-center rounded-full text-sm transition-colors"
+              style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.55)' }}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.14)')}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)')}
             >
               ✕
             </motion.button>
@@ -351,7 +354,7 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
 
   // ── FINAL MODE ──────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#f8f7f2]">
+    <div className="min-h-screen" style={{ backgroundColor: '#091f36' }}>
       {/* Edit banner */}
       <AnimatePresence>
         {editBanner && (
@@ -360,24 +363,31 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -40, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-            className="fixed top-0 inset-x-0 z-50 bg-[#111827] text-white text-sm py-2.5 px-6 text-center shadow-lg print:hidden"
+            className="fixed top-0 inset-x-0 z-50 text-white text-sm py-2.5 px-6 text-center shadow-lg print:hidden"
+            style={{ background: 'rgba(9,31,54,0.96)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}
           >
             ✓ {editBanner}
           </motion.div>
         )}
       </AnimatePresence>
 
-      <nav className={`sticky z-40 bg-white/90 backdrop-blur-sm border-b border-[#e5e7eb] transition-all print:hidden ${editBanner ? 'top-10' : 'top-0'}`}>
+      <nav
+        className={`sticky z-40 backdrop-blur-sm border-b transition-all print:hidden ${editBanner ? 'top-10' : 'top-0'}`}
+        style={{ background: 'rgba(9,31,54,0.90)', borderColor: 'rgba(255,255,255,0.08)' }}
+      >
         <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between gap-3">
-          <Link href="/" className="text-lg font-semibold tracking-tight text-[#111827]">
-            Travel<span className="text-[#ff5a5f]">OS</span>
+          <Link href="/" className="text-lg font-semibold tracking-tight text-white">
+            Travel<span style={{ color: '#9e363a' }}>OS</span>
           </Link>
           <div className="flex items-center gap-2">
             {initialViewMode !== 'final' && (
               <motion.button
                 onClick={() => setViewMode('draft')}
                 whileTap={{ scale: 0.92, transition: { type: 'spring', stiffness: 600, damping: 18 } }}
-                className="text-xs font-medium px-3 py-2 rounded-lg border border-[#e5e7eb] text-[#6b7280] hover:bg-[#f3f4f6] transition-colors"
+                className="text-xs font-medium px-3 py-2 rounded-lg border transition-colors"
+                style={{ borderColor: 'rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.50)' }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)'; (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.80)'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.50)'; }}
               >
                 ← Draft
               </motion.button>
@@ -386,12 +396,17 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
             {isAdmin && (
               <Link
                 href={`/explore/${encodeURIComponent(itinerary.destination)}`}
-                className="text-sm font-medium px-4 py-2 rounded-lg border border-[#e5e7eb] text-[#374151] hover:bg-[#f3f4f6] transition-colors"
+                className="text-sm font-medium px-4 py-2 rounded-lg border transition-colors"
+                style={{ borderColor: 'rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.60)' }}
               >
                 Scout Picks 💎
               </Link>
             )}
-            <Link href="/plan" className="text-sm font-medium px-4 py-2 rounded-lg border border-[#e5e7eb] text-[#374151] hover:bg-[#f3f4f6] transition-colors">
+            <Link
+              href="/plan"
+              className="text-sm font-medium px-4 py-2 rounded-lg border transition-colors"
+              style={{ borderColor: 'rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.60)' }}
+            >
               ← New Trip
             </Link>
           </div>
@@ -419,14 +434,14 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
             />
           </div>
           <div className="absolute inset-0 bg-gradient-to-br from-black/80 via-black/55 to-black/30 pointer-events-none" />
-          <div className="absolute top-0 right-0 w-96 h-96 bg-[#ff5a5f]/20 rounded-full blur-[90px] pointer-events-none" />
+          <div className="absolute top-0 right-0 w-96 h-96 bg-[#9e363a]/20 rounded-full blur-[90px] pointer-events-none" />
           <div className="absolute bottom-0 left-1/4 w-72 h-72 bg-[#8b5cf6]/18 rounded-full blur-[90px] pointer-events-none" />
           <div className="absolute top-1/2 right-1/3 w-40 h-40 bg-[#00d4ff]/10 rounded-full blur-[70px] pointer-events-none" />
 
           <div className="relative z-10 p-6 sm:p-10">
             <div className="flex items-center gap-3 mb-6 flex-wrap">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-xs text-white/70 backdrop-blur-sm">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#ff5a5f] animate-pulse" />
+                <span className="w-1.5 h-1.5 rounded-full bg-[#9e363a] animate-pulse" />
                 AI-Crafted · {new Date().getFullYear()} Live Intel
               </div>
               {itinerary._meta && <TripIntelligenceButton meta={itinerary._meta} />}
@@ -466,20 +481,20 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15, type: 'spring', stiffness: 280, damping: 26 }}
-            className="bg-white rounded-2xl border border-[#e5e7eb] p-6 mb-8 grid sm:grid-cols-3 gap-4"
-            style={{ boxShadow: '0 4px 24px -4px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)' }}
+            className="rounded-2xl p-6 mb-8 grid sm:grid-cols-3 gap-4"
+            style={{ background: 'rgba(15,40,98,0.28)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 4px 24px -4px rgba(0,0,0,0.30)' }}
           >
-            <div className="text-center p-4 rounded-xl bg-[#f8f7f2] border border-[#ede9e0]">
-              <div className="text-xs text-[#9ca3af] uppercase tracking-widest mb-1">Daily Average</div>
-              <div className="text-xl font-bold text-[#111827] tracking-tight">{itinerary.budgetSummary.dailyAverage ?? '—'}</div>
+            <div className="text-center p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <div className="text-xs uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.38)' }}>Daily Average</div>
+              <div className="text-xl font-bold text-white tracking-tight">{itinerary.budgetSummary.dailyAverage ?? '—'}</div>
             </div>
-            <div className="text-center p-4 rounded-xl bg-[#fff5f5] border border-[#ffd6d7]">
-              <div className="text-xs text-[#9ca3af] uppercase tracking-widest mb-1">Total Estimate</div>
-              <div className="text-xl font-bold text-[#ff5a5f] tracking-tight">{itinerary.budgetSummary.totalEstimate ?? '—'}</div>
+            <div className="text-center p-4 rounded-xl" style={{ background: 'rgba(158,54,58,0.12)', border: '1px solid rgba(158,54,58,0.22)' }}>
+              <div className="text-xs uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.38)' }}>Total Estimate</div>
+              <div className="text-xl font-bold tracking-tight" style={{ color: '#c05060' }}>{itinerary.budgetSummary.totalEstimate ?? '—'}</div>
             </div>
-            <div className="text-center p-4 rounded-xl bg-[#f8f7f2] border border-[#ede9e0]">
-              <div className="text-xs text-[#9ca3af] uppercase tracking-widest mb-1">Includes</div>
-              <div className="text-sm text-[#6b7280] leading-relaxed">{itinerary.budgetSummary.includes ?? '—'}</div>
+            <div className="text-center p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <div className="text-xs uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.38)' }}>Includes</div>
+              <div className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.55)' }}>{itinerary.budgetSummary.includes ?? '—'}</div>
             </div>
           </motion.div>
         )}
@@ -487,9 +502,9 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
         {/* Map — desktop only */}
         <section className="mb-8 print:hidden hidden sm:block">
           <div className="flex items-center gap-3 mb-4">
-            <h2 className="text-xl font-bold text-[#111827] tracking-tight">Squad Route</h2>
-            <div className="flex-1 h-px bg-[#e5e7eb]" />
-            <span className="text-xs text-[#9ca3af]">Pinned by neighborhood</span>
+            <h2 className="text-xl font-bold text-white tracking-tight">Squad Route</h2>
+            <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
+            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.38)' }}>Pinned by neighborhood</span>
           </div>
           <ItineraryMap
             days={itinerary.days}
@@ -537,14 +552,14 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-40px' }}
               transition={{ type: 'spring', stiffness: 280, damping: 26 }}
-              className="bg-white rounded-2xl border border-[#e5e7eb] p-6"
-              style={{ boxShadow: '0 4px 24px -4px rgba(0,0,0,0.07)' }}
+              className="rounded-2xl p-6"
+              style={{ background: 'rgba(15,40,98,0.28)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 4px 24px -4px rgba(0,0,0,0.25)' }}
             >
-              <h3 className="font-bold text-[#111827] mb-4 flex items-center gap-2 tracking-tight"><span>🎒</span> Squad Packing List</h3>
+              <h3 className="font-bold text-white mb-4 flex items-center gap-2 tracking-tight"><span>🎒</span> Squad Packing List</h3>
               <ul className="flex flex-col gap-2">
                 {(itinerary.packingTips ?? []).map((tip, i) => (
-                  <li key={i} className="flex gap-2 text-sm text-[#4b5563]">
-                    <span className="text-[#ff5a5f] flex-shrink-0 mt-0.5">✓</span>{tip}
+                  <li key={i} className="flex gap-2 text-sm" style={{ color: 'rgba(255,255,255,0.65)' }}>
+                    <span className="flex-shrink-0 mt-0.5" style={{ color: '#9e363a' }}>✓</span>{tip}
                   </li>
                 ))}
               </ul>
@@ -556,14 +571,14 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-40px' }}
               transition={{ type: 'spring', stiffness: 280, damping: 26, delay: 0.08 }}
-              className="bg-white rounded-2xl border border-[#e5e7eb] p-6"
-              style={{ boxShadow: '0 4px 24px -4px rgba(0,0,0,0.07)' }}
+              className="rounded-2xl p-6"
+              style={{ background: 'rgba(15,40,98,0.28)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 4px 24px -4px rgba(0,0,0,0.25)' }}
             >
-              <h3 className="font-bold text-[#111827] mb-4 flex items-center gap-2 tracking-tight"><span>🗝️</span> Insider Intel</h3>
+              <h3 className="font-bold text-white mb-4 flex items-center gap-2 tracking-tight"><span>🗝️</span> Insider Intel</h3>
               <ul className="flex flex-col gap-2">
                 {(itinerary.bestLocalTips ?? []).map((tip, i) => (
-                  <li key={i} className="flex gap-2 text-sm text-[#4b5563]">
-                    <span className="text-[#ff5a5f] flex-shrink-0 mt-0.5">✦</span>{tip}
+                  <li key={i} className="flex gap-2 text-sm" style={{ color: 'rgba(255,255,255,0.65)' }}>
+                    <span className="flex-shrink-0 mt-0.5" style={{ color: '#9e363a' }}>✦</span>{tip}
                   </li>
                 ))}
               </ul>
@@ -573,8 +588,8 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
 
         {profile && <LogisticsDashboard profile={profile} />}
 
-        <div className="text-center py-8 border-t border-[#e5e7eb] print:hidden">
-          <p className="text-[#6b7280] text-sm mb-4">New destination? New squad?</p>
+        <div className="text-center py-8 print:hidden" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+          <p className="text-sm mb-4" style={{ color: 'rgba(255,255,255,0.40)' }}>New destination? New squad?</p>
           <motion.div
             whileHover={{ y: -3 }}
             whileTap={{ scale: 0.95, transition: { type: 'spring', stiffness: 600, damping: 18 } }}
@@ -582,7 +597,10 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
           >
             <Link
               href="/plan"
-              className="inline-flex items-center gap-2 px-8 py-3 rounded-xl bg-[#ff5a5f] hover:bg-[#e04a4f] text-white font-semibold text-sm transition-colors shadow-md shadow-[#ff5a5f]/20"
+              className="inline-flex items-center gap-2 px-8 py-3 rounded-xl text-white font-semibold text-sm transition-colors"
+              style={{ background: '#9e363a', boxShadow: '0 6px 24px -4px rgba(158,54,58,0.38)' }}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = '#7a2a2d')}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = '#9e363a')}
             >
               Plan a New Trip ✈️
             </Link>
@@ -598,7 +616,8 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
         transition={{ delay: 0.6, type: 'spring', stiffness: 300, damping: 26 }}
         whileHover={{ scale: 1.06 }}
         whileTap={{ scale: 0.90, transition: { type: 'spring', stiffness: 600, damping: 18 } }}
-        className="sm:hidden fixed bottom-20 right-4 z-30 flex items-center gap-2 px-4 py-3 rounded-full bg-[#0f1117] text-white text-sm font-semibold shadow-xl shadow-black/30 print:hidden"
+        className="sm:hidden fixed bottom-20 right-4 z-30 flex items-center gap-2 px-4 py-3 rounded-full text-white text-sm font-semibold shadow-xl print:hidden"
+        style={{ background: 'rgba(15,40,98,0.90)', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 8px 32px -8px rgba(0,0,0,0.60)' }}
       >
         <span>🗺</span> Map
       </motion.button>

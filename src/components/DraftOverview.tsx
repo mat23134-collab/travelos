@@ -33,40 +33,52 @@ function SlotRow({ slot, activity, onRefresh, swapping, justSwapped }: SlotRowPr
     setPromptText('');
   };
 
-  // Activity missing entirely (e.g. relaxed pace has no afternoon)
+  // Activity missing entirely
   if (!activity) {
     return (
-      <div className="rounded-xl border border-dashed border-[#e5e7eb] bg-[#fafafa] px-3.5 py-3 flex items-center gap-2">
+      <div
+        className="rounded-xl border border-dashed px-3.5 py-3 flex items-center gap-2"
+        style={{ borderColor: 'rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.03)' }}
+      >
         <span className="text-base flex-shrink-0 opacity-30">{icon}</span>
-        <span className="text-xs text-[#9ca3af]">{label} — not planned</span>
+        <span className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>{label} — not planned</span>
       </div>
     );
   }
 
   return (
-    <div className={`group relative rounded-xl border transition-all duration-200 ${
-      justSwapped
-        ? 'border-emerald-300 bg-emerald-50'
-        : 'border-[#e5e7eb] bg-white hover:border-[#ff5a5f]/30 hover:shadow-sm'
-    }`}>
+    <div
+      className="group relative rounded-xl border transition-all duration-200"
+      style={
+        justSwapped
+          ? { borderColor: 'rgba(16,185,129,0.40)', background: 'rgba(16,185,129,0.08)' }
+          : { borderColor: 'rgba(255,255,255,0.10)', background: 'rgba(15,40,98,0.22)' }
+      }
+    >
       <div className="flex items-start gap-3 p-3.5">
         <span className="text-base flex-shrink-0 mt-0.5">{icon}</span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-[#9ca3af]">{label}</span>
+            <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.35)' }}>
+              {label}
+            </span>
             {activity?.startTime && (
-              <span className="text-[10px] font-mono text-[#ff5a5f] bg-[#fff0f0] px-1.5 py-0.5 rounded">
+              <span
+                className="text-[10px] font-mono px-1.5 py-0.5 rounded"
+                style={{ color: '#c05060', background: 'rgba(158,54,58,0.12)' }}
+              >
                 {activity.startTime}
               </span>
             )}
             {justSwapped && (
-              <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
+                style={{ background: 'rgba(16,185,129,0.15)', color: '#34d399' }}>
                 ✓ Swapped
               </span>
             )}
           </div>
-          <p className="text-sm font-semibold text-[#111827] leading-tight">{activity?.name ?? 'Activity TBD'}</p>
-          <p className="text-xs text-[#9ca3af] mt-0.5">📍 {activity?.neighborhood ?? '—'}</p>
+          <p className="text-sm font-semibold text-white leading-tight">{activity?.name ?? 'Activity TBD'}</p>
+          <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>📍 {activity?.neighborhood ?? '—'}</p>
         </div>
 
         {/* Swap controls */}
@@ -75,10 +87,21 @@ function SlotRow({ slot, activity, onRefresh, swapping, justSwapped }: SlotRowPr
             onClick={() => setPromptOpen((o) => !o)}
             disabled={swapping}
             title="Swap this activity"
-            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-[#e5e7eb] text-[#6b7280] hover:border-[#ff5a5f] hover:text-[#ff5a5f] hover:bg-[#fff0f0] transition-all disabled:opacity-40"
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-all disabled:opacity-40"
+            style={{ borderColor: 'rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.45)' }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.borderColor = '#9e363a';
+              (e.currentTarget as HTMLElement).style.color = '#c05060';
+              (e.currentTarget as HTMLElement).style.background = 'rgba(158,54,58,0.10)';
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.10)';
+              (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.45)';
+              (e.currentTarget as HTMLElement).style.background = 'transparent';
+            }}
           >
             {swapping
-              ? <span className="w-3 h-3 rounded-full border border-[#ff5a5f]/30 border-t-[#ff5a5f] animate-spin" />
+              ? <span className="w-3 h-3 rounded-full border border-t-[#9e363a] border-[#9e363a]/30 animate-spin" />
               : '↻'
             }
             {swapping ? 'Swapping…' : 'Swap'}
@@ -88,7 +111,8 @@ function SlotRow({ slot, activity, onRefresh, swapping, justSwapped }: SlotRowPr
 
       {/* Inline prompt input */}
       {promptOpen && !swapping && (
-        <div className="border-t border-[#f3f4f6] px-3.5 pb-3 pt-2.5 flex gap-2">
+        <div className="border-t px-3.5 pb-3 pt-2.5 flex gap-2"
+          style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
           <input
             type="text"
             value={promptText}
@@ -96,17 +120,29 @@ function SlotRow({ slot, activity, onRefresh, swapping, justSwapped }: SlotRowPr
             onKeyDown={(e) => e.key === 'Enter' && handleQuickSwap()}
             placeholder={`e.g. "something outdoors" or just leave blank`}
             autoFocus
-            className="flex-1 text-xs px-3 py-2 rounded-lg border border-[#e5e7eb] focus:border-[#ff5a5f] focus:outline-none text-[#111827] placeholder:text-[#9ca3af] bg-white"
+            className="flex-1 text-xs px-3 py-2 rounded-lg border focus:outline-none text-white"
+            style={{
+              borderColor: 'rgba(255,255,255,0.10)',
+              background: 'rgba(255,255,255,0.06)',
+            }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = '#9e363a'; }}
+            onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'; }}
           />
           <button
             onClick={handleQuickSwap}
-            className="text-xs px-3 py-2 rounded-lg bg-[#ff5a5f] text-white font-semibold hover:bg-[#e04a4f] transition-colors"
+            className="text-xs px-3 py-2 rounded-lg text-white font-semibold transition-colors"
+            style={{ background: '#9e363a' }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = '#7a2a2d')}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = '#9e363a')}
           >
             Go
           </button>
           <button
             onClick={() => setPromptOpen(false)}
-            className="text-xs px-2 py-2 rounded-lg border border-[#e5e7eb] text-[#9ca3af] hover:text-[#6b7280] transition-colors"
+            className="text-xs px-2 py-2 rounded-lg border transition-colors"
+            style={{ borderColor: 'rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.38)' }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.70)')}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.38)')}
           >
             ✕
           </button>
@@ -132,12 +168,15 @@ function DayColumn({ day, dayIndex, swappingKey, swappedKeys, onSwap }: DayColum
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2 mb-1">
-        <div className="w-6 h-6 rounded-full bg-[#ff5a5f] flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">
+        <div
+          className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
+          style={{ background: '#9e363a' }}
+        >
           {dayIndex + 1}
         </div>
         <div className="min-w-0">
-          <div className="text-xs font-bold text-[#111827] truncate">{day.theme ?? `Day ${dayIndex + 1}`}</div>
-          <div className="text-[10px] text-[#9ca3af]">{day.date ?? ''}</div>
+          <div className="text-xs font-bold text-white truncate">{day.theme ?? `Day ${dayIndex + 1}`}</div>
+          <div className="text-[10px]" style={{ color: 'rgba(255,255,255,0.38)' }}>{day.date ?? ''}</div>
         </div>
       </div>
 
@@ -208,17 +247,22 @@ export function DraftOverview({ itinerary, onUpdate, onFinalize }: Props) {
   const totalSwaps = swappedKeys.size;
 
   return (
-    <div className="min-h-screen bg-[#f8f7f2]">
+    <div className="min-h-screen" style={{ backgroundColor: '#091f36' }}>
       {/* Draft header */}
-      <div className="bg-white border-b border-[#e5e7eb] sticky top-0 z-40">
+      <div
+        className="sticky top-0 z-40 border-b backdrop-blur-sm"
+        style={{ background: 'rgba(9,31,54,0.90)', borderColor: 'rgba(255,255,255,0.08)' }}
+      >
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-              <span className="text-sm font-bold text-[#111827]">Review Draft</span>
-              <span className="text-xs text-[#9ca3af]">— {itinerary.destination ?? '—'}, {itinerary.totalDays ?? '?'} days</span>
+              <span className="text-sm font-bold text-white">Review Draft</span>
+              <span className="text-xs" style={{ color: 'rgba(255,255,255,0.38)' }}>
+                — {itinerary.destination ?? '—'}, {itinerary.totalDays ?? '?'} days
+              </span>
             </div>
-            <p className="text-xs text-[#9ca3af] mt-0.5">
+            <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.38)' }}>
               Tap ↻ Swap on any activity you don't like, then finalize when ready.
               {totalSwaps > 0 && ` · ${totalSwaps} swap${totalSwaps > 1 ? 's' : ''} made`}
             </p>
@@ -226,7 +270,13 @@ export function DraftOverview({ itinerary, onUpdate, onFinalize }: Props) {
           <button
             onClick={onFinalize}
             disabled={!!swappingKey}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#ff5a5f] hover:bg-[#e04a4f] disabled:opacity-40 text-white font-semibold text-sm transition-all duration-150 shadow-sm shadow-[#ff5a5f]/20 hover:-translate-y-0.5 whitespace-nowrap"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl disabled:opacity-40 text-white font-semibold text-sm transition-all duration-150 hover:-translate-y-0.5 whitespace-nowrap"
+            style={{
+              background: '#9e363a',
+              boxShadow: '0 4px 16px -4px rgba(158,54,58,0.35)',
+            }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = '#7a2a2d')}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = '#9e363a')}
           >
             Looks Good ✓
           </button>
@@ -235,18 +285,32 @@ export function DraftOverview({ itinerary, onUpdate, onFinalize }: Props) {
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
         {/* Strategic overview */}
-        <div className="bg-[#0f1117] rounded-2xl px-5 py-4 mb-6 text-white">
-          <div className="text-xs font-semibold uppercase tracking-widest text-[#ff5a5f] mb-1.5">AI Strategy</div>
-          <p className="text-sm text-white/70 leading-relaxed">{itinerary.strategicOverview ?? 'Generating your plan…'}</p>
+        <div
+          className="rounded-2xl px-5 py-4 mb-6"
+          style={{ background: 'rgba(15,40,98,0.35)', border: '1px solid rgba(255,255,255,0.08)' }}
+        >
+          <div className="text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#9e363a' }}>
+            AI Strategy
+          </div>
+          <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.70)' }}>
+            {itinerary.strategicOverview ?? 'Generating your plan…'}
+          </p>
         </div>
 
         {error && (
-          <div className="mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm">
+          <div
+            className="mb-4 px-4 py-3 rounded-xl text-sm"
+            style={{
+              background: 'rgba(158,54,58,0.12)',
+              border: '1px solid rgba(158,54,58,0.28)',
+              color: '#ff8c8f',
+            }}
+          >
             {error}
           </div>
         )}
 
-        {/* Day grid — horizontal scroll on mobile, grid on desktop */}
+        {/* Day grid */}
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {itinerary.days.map((day, i) => (
             <DayColumn
@@ -264,11 +328,17 @@ export function DraftOverview({ itinerary, onUpdate, onFinalize }: Props) {
           <button
             onClick={onFinalize}
             disabled={!!swappingKey}
-            className="inline-flex items-center gap-2 px-8 py-3 rounded-xl bg-[#ff5a5f] hover:bg-[#e04a4f] disabled:opacity-40 text-white font-semibold transition-all duration-150 hover:-translate-y-0.5 shadow-md shadow-[#ff5a5f]/20"
+            className="inline-flex items-center gap-2 px-8 py-3 rounded-xl disabled:opacity-40 text-white font-semibold transition-all duration-150 hover:-translate-y-0.5"
+            style={{
+              background: '#9e363a',
+              boxShadow: '0 8px 28px -4px rgba(158,54,58,0.35)',
+            }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = '#7a2a2d')}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = '#9e363a')}
           >
             Finalize Itinerary →
           </button>
-          <p className="text-xs text-[#9ca3af] mt-3">
+          <p className="text-xs mt-3" style={{ color: 'rgba(255,255,255,0.35)' }}>
             You can still edit activities after finalizing using Quick Edit
           </p>
         </div>

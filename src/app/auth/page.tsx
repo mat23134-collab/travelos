@@ -66,7 +66,7 @@ export default function AuthPage() {
   return (
     <main
       className="min-h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden"
-      style={{ backgroundColor: '#080b12' }}
+      style={{ backgroundColor: '#091f36' }}
     >
       {/* Grain */}
       <div
@@ -76,16 +76,16 @@ export default function AuthPage() {
 
       {/* Ambient orbs */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full blur-[140px] pointer-events-none"
-        style={{ background: 'rgba(255,90,95,0.10)' }} />
+        style={{ background: 'rgba(158,54,58,0.10)' }} />
       <div className="absolute bottom-1/4 right-1/4 w-[300px] h-[300px] rounded-full blur-[110px] pointer-events-none"
-        style={{ background: 'rgba(139,92,246,0.08)' }} />
+        style={{ background: 'rgba(15,40,98,0.35)' }} />
 
       {/* Back link */}
       <Link
         href="/"
         className="absolute top-6 left-6 text-sm text-white/35 hover:text-white/70 transition-colors flex items-center gap-1.5 z-10"
       >
-        ← Travel<span className="text-[#ff5a5f]">OS</span>
+        ← Travel<span style={{ color: '#9e363a' }}>OS</span>
       </Link>
 
       {/* Card */}
@@ -107,7 +107,7 @@ export default function AuthPage() {
           {/* Brand mark */}
           <div className="text-center mb-8">
             <span className="text-2xl font-bold text-white tracking-tight">
-              Travel<span className="text-[#ff5a5f]">OS</span>
+              Travel<span style={{ color: '#9e363a' }}>OS</span>
             </span>
             <p className="text-white/35 text-sm mt-1">Your AI trip planner</p>
           </div>
@@ -130,7 +130,7 @@ export default function AuthPage() {
                   <motion.div
                     layoutId="auth-tab-pill"
                     className="absolute inset-0 rounded-lg"
-                    style={{ background: 'rgba(255,90,95,0.22)', border: '1px solid rgba(255,90,95,0.35)' }}
+                    style={{ background: 'rgba(158,54,58,0.22)', border: '1px solid rgba(158,54,58,0.35)' }}
                     transition={{ type: 'spring', stiffness: 500, damping: 34 }}
                   />
                 )}
@@ -167,7 +167,7 @@ export default function AuthPage() {
                     background: 'rgba(255,255,255,0.05)',
                     border: '1px solid rgba(255,255,255,0.10)',
                   }}
-                  onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(255,90,95,0.45)'; e.currentTarget.style.background = 'rgba(255,90,95,0.06)'; }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(158,54,58,0.55)'; e.currentTarget.style.background = 'rgba(158,54,58,0.07)'; }}
                   onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
                 />
               </div>
@@ -190,7 +190,7 @@ export default function AuthPage() {
                     background: 'rgba(255,255,255,0.05)',
                     border: '1px solid rgba(255,255,255,0.10)',
                   }}
-                  onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(255,90,95,0.45)'; e.currentTarget.style.background = 'rgba(255,90,95,0.06)'; }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(158,54,58,0.55)'; e.currentTarget.style.background = 'rgba(158,54,58,0.07)'; }}
                   onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
                 />
               </div>
@@ -233,8 +233,8 @@ export default function AuthPage() {
                 whileTap={{ scale: 0.97 }}
                 className="w-full py-3.5 rounded-xl text-sm font-bold text-white relative overflow-hidden transition-opacity disabled:opacity-60 mt-1"
                 style={{
-                  background: 'linear-gradient(135deg, #ff5a5f 0%, #ff8c5a 100%)',
-                  boxShadow: '0 8px 32px -4px rgba(255,90,95,0.40)',
+                  background: 'linear-gradient(135deg, #9e363a 0%, #b5404a 100%)',
+                  boxShadow: '0 8px 32px -4px rgba(158,54,58,0.40)',
                 }}
               >
                 {/* Shimmer sweep */}
@@ -268,7 +268,9 @@ export default function AuthPage() {
             {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
             <button
               onClick={() => switchMode(mode === 'login' ? 'signup' : 'login')}
-              className="text-[#ff8c8f] hover:text-[#ff5a5f] font-semibold transition-colors"
+              className="font-semibold transition-colors" style={{ color: '#c05060' }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = '#9e363a')}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = '#c05060')}
             >
               {mode === 'login' ? 'Sign up free' : 'Log in'}
             </button>

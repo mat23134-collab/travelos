@@ -111,7 +111,7 @@ function TripCard({ trip, index }: { trip: TripRow; index: number }) {
         {!loading && (!photoUrl || imgError) && (
           <div
             className="absolute inset-0 flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, rgba(255,90,95,0.12), rgba(139,92,246,0.12))' }}
+            style={{ background: 'linear-gradient(135deg, rgba(158,54,58,0.14), rgba(15,40,98,0.22))' }}
           >
             <span className="text-6xl select-none">{emoji}</span>
           </div>
@@ -132,7 +132,7 @@ function TripCard({ trip, index }: { trip: TripRow; index: number }) {
         {/* Top neon rule */}
         <div
           className="absolute top-0 inset-x-0 h-px z-10"
-          style={{ background: 'linear-gradient(90deg, transparent 5%, rgba(255,90,95,0.7) 50%, transparent 95%)' }}
+          style={{ background: 'linear-gradient(90deg, transparent 5%, rgba(158,54,58,0.7) 50%, transparent 95%)' }}
         />
       </div>
 
@@ -151,8 +151,8 @@ function TripCard({ trip, index }: { trip: TripRow; index: number }) {
           href={`/itinerary/${trip.id}`}
           className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-xs font-bold text-white transition-all hover:brightness-115"
           style={{
-            background: 'linear-gradient(135deg, rgba(255,90,95,0.18), rgba(139,92,246,0.18))',
-            border: '1px solid rgba(255,90,95,0.28)',
+            background: 'linear-gradient(135deg, rgba(158,54,58,0.18), rgba(15,40,98,0.28))',
+            border: '1px solid rgba(158,54,58,0.28)',
           }}
         >
           View Trip →
@@ -220,7 +220,7 @@ export default function DashboardPage() {
   return (
     <main
       className="min-h-screen relative"
-      style={{ backgroundColor: '#080b12' }}
+      style={{ backgroundColor: '#091f36' }}
     >
       {/* Grain */}
       <div
@@ -230,15 +230,15 @@ export default function DashboardPage() {
 
       {/* Ambient */}
       <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[700px] h-[400px] rounded-full blur-[160px] pointer-events-none"
-        style={{ background: 'rgba(255,90,95,0.07)' }} />
+        style={{ background: 'rgba(158,54,58,0.08)' }} />
 
       {/* ── Header ────────────────────────────────────────────────────────────── */}
       <header
         className="sticky top-0 z-40 flex items-center justify-between px-6 py-4 border-b border-white/6"
-        style={{ background: 'rgba(8,11,18,0.85)', backdropFilter: 'blur(16px)' }}
+        style={{ background: 'rgba(9,31,54,0.90)', backdropFilter: 'blur(16px)' }}
       >
         <Link href="/" className="text-lg font-bold text-white tracking-tight">
-          Travel<span className="text-[#ff5a5f]">OS</span>
+          Travel<span style={{ color: '#9e363a' }}>OS</span>
         </Link>
 
         <div className="flex items-center gap-3">
@@ -249,8 +249,8 @@ export default function DashboardPage() {
             href="/plan"
             className="px-4 py-2 rounded-xl text-xs font-bold text-white transition-all"
             style={{
-              background: 'linear-gradient(135deg, #ff5a5f, #ff8c5a)',
-              boxShadow: '0 4px 16px -4px rgba(255,90,95,0.4)',
+              background: 'linear-gradient(135deg, #9e363a, #b5404a)',
+              boxShadow: '0 4px 16px -4px rgba(158,54,58,0.40)',
             }}
           >
             + New Trip
@@ -294,7 +294,7 @@ export default function DashboardPage() {
             <button
               onClick={() => user && fetchTrips(user.id)}
               className="px-8 py-3 rounded-2xl text-sm font-bold text-white"
-              style={{ background: 'linear-gradient(135deg, #ff5a5f, #ff8c5a)', boxShadow: '0 8px 32px -4px rgba(255,90,95,0.40)' }}
+              style={{ background: 'linear-gradient(135deg, #9e363a, #b5404a)', boxShadow: '0 8px 32px -4px rgba(158,54,58,0.40)' }}
             >
               Retry
             </button>
@@ -338,8 +338,8 @@ export default function DashboardPage() {
               href="/plan"
               className="px-8 py-3.5 rounded-2xl text-sm font-bold text-white"
               style={{
-                background: 'linear-gradient(135deg, #ff5a5f, #ff8c5a)',
-                boxShadow: '0 8px 32px -4px rgba(255,90,95,0.40)',
+                background: 'linear-gradient(135deg, #9e363a, #b5404a)',
+                boxShadow: '0 8px 32px -4px rgba(158,54,58,0.40)',
               }}
             >
               Plan My First Trip ✈️

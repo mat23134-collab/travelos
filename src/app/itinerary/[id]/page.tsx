@@ -83,11 +83,15 @@ export async function generateMetadata({ params }: PageProps) {
 
 function NotFound() {
   return (
-    <div className="min-h-screen bg-[#f8f7f2] flex flex-col items-center justify-center px-6 text-center">
+    <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center" style={{ backgroundColor: '#091f36' }}>
       <div className="text-4xl mb-4">🗺️</div>
-      <h2 className="text-xl font-bold text-[#111827] mb-2 tracking-tight">Itinerary not found</h2>
-      <p className="text-[#6b7280] mb-6">This link may have expired or the trip no longer exists.</p>
-      <Link href="/plan" className="px-6 py-3 rounded-xl bg-[#ff5a5f] text-white font-semibold text-sm hover:bg-[#e04a4f] transition-colors">
+      <h2 className="text-xl font-bold text-white mb-2 tracking-tight">Itinerary not found</h2>
+      <p className="text-white/50 mb-6">This link may have expired or the trip no longer exists.</p>
+      <Link
+        href="/plan"
+        className="px-6 py-3 rounded-xl text-white font-semibold text-sm transition-colors"
+        style={{ background: '#9e363a' }}
+      >
         Plan a New Trip ✈️
       </Link>
     </div>
