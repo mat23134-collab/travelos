@@ -59,12 +59,11 @@ export function CanvasShell() {
   }, []);
 
   return (
-    // Keep canvas above page backgrounds but below UI content.
-    // layout.tsx wraps app content at z-10, so z-5 here makes WebGL visible
-    // without intercepting interactions.
+    // Keep canvas on base layer; individual pages place UI above it with
+    // local z-index where needed. Pointer events stay disabled.
     <div
       className="fixed inset-0 pointer-events-none"
-      style={{ zIndex: 5 }}
+      style={{ zIndex: 0 }}
       aria-hidden="true"
     >
       <Canvas
