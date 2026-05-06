@@ -11,12 +11,13 @@
  * Performance:
  *  - frameloop="demand"  — only renders when invalidated (zero idle GPU drain)
  *  - AdaptiveDpr         — caps pixel-ratio on low-end GPUs (< tier 2)
- *  - AdaptiveEvents      — pools pointer events for perf
+ *  - pointerEvents:none  — set on both the wrapper div AND the canvas element
+ *                          so clicks always pass through to the HTML UI layer
  */
 
-import { useRef, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { AdaptiveDpr, AdaptiveEvents } from '@react-three/drei';
+import { AdaptiveDpr } from '@react-three/drei';
 import { sceneContent } from './tunnel';
 
 // Detect rough GPU tier from device memory + hardware concurrency.
@@ -48,10 +49,15 @@ export function CanvasShell() {
         dpr={dpr}
         camera={{ position: [0, 0, 5], fov: 50 }}
         gl={{ antialias: tier > 0, alpha: true, powerPreference: 'high-performance' }}
-        style={{ background: 'transparent' }}
+        // pointerEvents: none on the <canvas> element itself — the outer div
+        // already has pointer-events-none, but R3F overrides it on the canvas
+        // DOM node. Setting it here ensures clicks always pass through to the
+        // HTML UI underneath. AdaptiveEvents is intentionally omitted: it
+        // wires pointer listeners for interactive 3D — our canvas is purely
+        // a visual overlay and must never capture events.
+        style={{ background: 'transparent', pointerEvents: 'none' }}
       >
         <AdaptiveDpr pixelated />
-        <AdaptiveEvents />
         {/* All scene content is injected here from individual pages via tunnel */}
         <sceneContent.Out />
       </Canvas>
