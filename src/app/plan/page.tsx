@@ -12,7 +12,9 @@ import { useAuth } from '@/lib/auth-context';
 type FormData = Record<string, unknown>;
 
 const STORAGE_KEY = 'travelos_plan_draft';
-const TOTAL = questions.length;
+const PRE_ONBOARDING_KEYS = new Set(['destination', 'dates', 'tripTimes']);
+const PLAN_QUESTIONS = questions.filter((q) => !PRE_ONBOARDING_KEYS.has(q.key));
+const TOTAL = PLAN_QUESTIONS.length;
 
 // ─── Animation variants ───────────────────────────────────────────────────────
 
@@ -718,7 +720,7 @@ function PlanPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const question = questions[step];
+  const question = PLAN_QUESTIONS[step];
   const progress = ((step + 1) / TOTAL) * 100;
 
   const destinationChosen = FEATURED_DESTINATIONS.some(
@@ -926,7 +928,7 @@ function PlanPage() {
 
           {/* Step dots */}
           <div className="flex items-center gap-1.5 mb-8 justify-center">
-            {questions.map((_, i) => (
+            {PLAN_QUESTIONS.map((_, i) => (
               <motion.div
                 key={i}
                 animate={{
