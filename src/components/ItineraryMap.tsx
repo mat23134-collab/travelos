@@ -25,6 +25,14 @@ interface MarkerData {
   neighborhood: string;
 }
 
+interface DistanceStats {
+  airKm: number;
+  walkKm: number | null;
+  walkMin: number | null;
+  driveKm: number | null;
+  driveMin: number | null;
+}
+
 export interface Props {
   days: DayPlan[];
   destination: string;
@@ -45,6 +53,44 @@ const DAY_COLORS = [
 ];
 
 const TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? '';
+
+function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const R = 6371;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const x =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+  return R * c;
+}
+
+async function fetchRouteStats(
+  profile: 'walking' | 'driving',
+  from: { lat: number; lng: number },
+  to: { lat: number; lng: number },
+): Promise<{ km: number; min: number } | null> {
+  if (!TOKEN) return null;
+  const coordinates = `${from.lng},${from.lat};${to.lng},${to.lat}`;
+  const url =
+    `https://api.mapbox.com/directions/v5/mapbox/${profile}/${coordinates}` +
+    `?overview=false&alternatives=false&steps=false&access_token=${TOKEN}`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json() as { routes?: Array<{ distance: number; duration: number }> };
+    const route = data.routes?.[0];
+    if (!route) return null;
+    return {
+      km: route.distance / 1000,
+      min: route.duration / 60,
+    };
+  } catch {
+    return null;
+  }
+}
 
 // ── Build marker list from DayPlan array ─────────────────────────────────────
 
@@ -135,6 +181,10 @@ function ItineraryMapInner({ days, destination, focusedNeighborhood, basecampMar
   const mapRef = useRef<MapRef>(null);
   const markers = buildMarkers(days);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeBasecamp, setActiveBasecamp] = useState(false);
+  const [selectedPoints, setSelectedPoints] = useState<Array<{ id: string; lat: number; lng: number; label: string }>>([]);
+  const [distanceStats, setDistanceStats] = useState<DistanceStats | null>(null);
+  const [isComputingDistance, setIsComputingDistance] = useState(false);
 
   // ── Fit all markers on first load ────────────────────────────────────────
   const handleLoad = useCallback(() => {
@@ -167,6 +217,31 @@ function ItineraryMapInner({ days, destination, focusedNeighborhood, basecampMar
     map.flyTo({ center: [target.lng, target.lat], zoom: 15, duration: 800 });
     setActiveId(target.id);
   }, [focusedNeighborhood, markers]);
+
+  useEffect(() => {
+    const run = async () => {
+      if (selectedPoints.length !== 2) {
+        setDistanceStats(null);
+        return;
+      }
+      setIsComputingDistance(true);
+      const [from, to] = selectedPoints;
+      const airKm = haversineKm(from, to);
+      const [walking, driving] = await Promise.all([
+        fetchRouteStats('walking', from, to),
+        fetchRouteStats('driving', from, to),
+      ]);
+      setDistanceStats({
+        airKm,
+        walkKm: walking?.km ?? null,
+        walkMin: walking?.min ?? null,
+        driveKm: driving?.km ?? null,
+        driveMin: driving?.min ?? null,
+      });
+      setIsComputingDistance(false);
+    };
+    void run();
+  }, [selectedPoints]);
 
   // ── Guards ───────────────────────────────────────────────────────────────
   if (!TOKEN) {
@@ -217,6 +292,12 @@ function ItineraryMapInner({ days, destination, focusedNeighborhood, basecampMar
             onClick={(e) => {
               e.originalEvent.stopPropagation();
               setActiveId((prev) => (prev === m.id ? null : m.id));
+              setActiveBasecamp(false);
+              setSelectedPoints((prev) => {
+                if (prev.some((p) => p.id === m.id)) return prev.filter((p) => p.id !== m.id);
+                if (prev.length < 2) return [...prev, { id: m.id, lat: m.lat, lng: m.lng, label: m.label }];
+                return [prev[1], { id: m.id, lat: m.lat, lng: m.lng, label: m.label }];
+              });
             }}
           >
             <DayPin marker={m} active={m.id === activeId} />
@@ -229,6 +310,23 @@ function ItineraryMapInner({ days, destination, focusedNeighborhood, basecampMar
             latitude={basecampMarker.lat}
             longitude={basecampMarker.lng}
             anchor="bottom"
+            onClick={(e) => {
+              e.originalEvent.stopPropagation();
+              setActiveBasecamp((prev) => !prev);
+              setActiveId(null);
+              setSelectedPoints((prev) => {
+                const id = 'basecamp';
+                if (prev.some((p) => p.id === id)) return prev.filter((p) => p.id !== id);
+                const point = {
+                  id,
+                  lat: basecampMarker.lat,
+                  lng: basecampMarker.lng,
+                  label: basecampMarker.label || 'Base Camp',
+                };
+                if (prev.length < 2) return [...prev, point];
+                return [prev[1], point];
+              });
+            }}
           >
             <div
               style={{
@@ -266,6 +364,37 @@ function ItineraryMapInner({ days, destination, focusedNeighborhood, basecampMar
               />
             </div>
           </Marker>
+        )}
+
+        {basecampMarker && activeBasecamp && (
+          <Popup
+            latitude={basecampMarker.lat}
+            longitude={basecampMarker.lng}
+            anchor="bottom"
+            offset={26}
+            closeButton={false}
+            closeOnClick={false}
+            onClose={() => setActiveBasecamp(false)}
+          >
+            <div
+              className="px-3 py-2 rounded-xl text-xs text-white min-w-[160px]"
+              style={{
+                background: 'rgba(8,10,18,0.97)',
+                border: '1px solid rgba(251,191,36,0.45)',
+                boxShadow: '0 0 16px rgba(251,191,36,0.25)',
+              }}
+            >
+              <div
+                className="text-[10px] font-bold uppercase tracking-wider mb-1"
+                style={{ color: '#fbbf24' }}
+              >
+                Base Camp
+              </div>
+              <div className="font-semibold text-white/90 text-[13px] leading-tight">
+                {basecampMarker.label || 'Your hotel'}
+              </div>
+            </div>
+          </Popup>
         )}
 
         {/* Active popup */}
@@ -327,6 +456,50 @@ function ItineraryMapInner({ days, destination, focusedNeighborhood, basecampMar
           </div>
         ))}
       </div>
+
+      {(selectedPoints.length > 0 || distanceStats || isComputingDistance) && (
+        <div
+          className="absolute top-3 left-3 z-10 rounded-xl px-3 py-2"
+          style={{
+            background: 'rgba(8,10,18,0.86)',
+            border: '1px solid rgba(255,255,255,0.12)',
+            backdropFilter: 'blur(10px)',
+            maxWidth: 280,
+          }}
+        >
+          <div className="text-[10px] font-bold uppercase tracking-wider text-white/65 mb-1">
+            Distance Tool
+          </div>
+          {selectedPoints.length < 2 ? (
+            <div className="text-[11px] text-white/60">
+              Select {2 - selectedPoints.length} more point{2 - selectedPoints.length === 1 ? '' : 's'}.
+            </div>
+          ) : isComputingDistance ? (
+            <div className="text-[11px] text-white/60">Calculating walking and driving routes...</div>
+          ) : distanceStats ? (
+            <div className="text-[11px] text-white/75 leading-relaxed">
+              <div>Between: <span className="text-white/90">{selectedPoints[0].label}</span> ↔ <span className="text-white/90">{selectedPoints[1].label}</span></div>
+              <div>Direct: <span className="text-white">{distanceStats.airKm.toFixed(1)} km</span></div>
+              <div>
+                Walking:{' '}
+                <span className="text-white">
+                  {distanceStats.walkKm != null && distanceStats.walkMin != null
+                    ? `${distanceStats.walkKm.toFixed(1)} km · ${Math.round(distanceStats.walkMin)} min`
+                    : 'N/A'}
+                </span>
+              </div>
+              <div>
+                Driving:{' '}
+                <span className="text-white">
+                  {distanceStats.driveKm != null && distanceStats.driveMin != null
+                    ? `${distanceStats.driveKm.toFixed(1)} km · ${Math.round(distanceStats.driveMin)} min`
+                    : 'N/A'}
+                </span>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }
