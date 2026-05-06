@@ -3,11 +3,9 @@
 /**
  * DepartureTimeStep — Step 2 of the onboarding flow.
  *
- * Asks for the user's departure time on the last day. Injects a 3D airplane
- * scene into the persistent canvas. The plane tilts to reflect departure urgency.
- *
- * Logic: departure time is passed to buildUserPrompt as DEPARTURE_TIME_LAST_DAY,
- * which instructs Claude to end all last-day activities 2 hours before this time.
+ * Palette: Purple Shadow bg + Blue Popsicle accent (#4a7bde).
+ * Injects a 3D airplane scene into the persistent canvas.
+ * Early departure (<10:00) triggers warning banner.
  */
 
 import { useRef } from 'react';
@@ -17,33 +15,33 @@ import * as THREE from 'three';
 import { sceneContent } from '@/three/tunnel';
 import { useOnboardingStore } from '@/state/onboardingStore';
 
+// ── Palette ───────────────────────────────────────────────────────────────────
+const ACCENT   = '#4a7bde';   // steel-blue departure accent
+const ACCENT_H = '#5a8bee';
+const WARN     = '#f97316';   // early-departure orange
+
 // ── 3D Plane Scene ────────────────────────────────────────────────────────────
 
 function PlaneScene({ time }: { time: string }) {
-  const planeRef  = useRef<THREE.Group>(null);
-  const trailRef  = useRef<THREE.Mesh>(null);
-  const glowRef   = useRef<THREE.PointLight>(null);
+  const planeRef = useRef<THREE.Group>(null);
+  const trailRef = useRef<THREE.Mesh>(null);
+  const glowRef  = useRef<THREE.PointLight>(null);
 
   useFrame(({ clock }) => {
     if (!planeRef.current) return;
     const t = clock.elapsedTime;
 
-    // Gentle floating bob + slight yaw
     planeRef.current.position.y = Math.sin(t * 0.8) * 0.12;
     planeRef.current.rotation.z = Math.sin(t * 0.5) * 0.06;
     planeRef.current.rotation.x = 0.15 + Math.sin(t * 0.6) * 0.04;
 
-    // Parse time → tilt urgency: early departure = nose up, late = level
     const [h = 12] = (time ?? '').split(':').map(Number);
-    const urgency = Math.max(0, (14 - h) / 14); // peaks around 06:00
+    const urgency = Math.max(0, (14 - h) / 14);
     planeRef.current.rotation.x += urgency * 0.18;
 
-    // Pulse engine glow
     if (glowRef.current) {
       glowRef.current.intensity = 1.0 + Math.sin(t * 3) * 0.25;
     }
-
-    // Trail fade
     if (trailRef.current) {
       (trailRef.current.material as THREE.MeshStandardMaterial).opacity =
         0.25 + Math.sin(t * 1.5) * 0.12;
@@ -51,72 +49,57 @@ function PlaneScene({ time }: { time: string }) {
   });
 
   const [h = 12] = (time ?? '').split(':').map(Number);
-  const isEarlyDep = h < 10;
-  const accentColor = isEarlyDep ? '#f97316' : '#a855f7';
+  const isEarlyDep  = h < 10;
+  const accentColor = isEarlyDep ? WARN : ACCENT;
 
   return (
     <group position={[2.0, 0, 0]}>
-      <ambientLight intensity={0.3} />
-      <pointLight position={[4, 5, 3]} intensity={1.5} color="#ffffff" />
+      <ambientLight intensity={0.25} />
+      <pointLight position={[4, 5, 3]} intensity={1.5} color="#b8d0f0" />
       <pointLight ref={glowRef} position={[-1, 0, 2]} intensity={1.0} color={accentColor} />
 
       <group ref={planeRef}>
         {/* Fuselage */}
-        <mesh position={[0, 0, 0]}>
+        <mesh>
           <capsuleGeometry args={[0.12, 0.85, 8, 16]} />
-          <meshStandardMaterial
-            color="#e8eaf6"
-            roughness={0.15}
-            metalness={0.8}
-          />
+          <meshStandardMaterial color="#c8d8f0" roughness={0.15} metalness={0.82} />
         </mesh>
-
         {/* Left wing */}
         <mesh position={[-0.42, 0, -0.05]} rotation={[0, 0, -0.18]}>
           <boxGeometry args={[0.52, 0.04, 0.22]} />
-          <meshStandardMaterial color="#c5cae9" roughness={0.2} metalness={0.7} />
+          <meshStandardMaterial color="#9ab8d8" roughness={0.20} metalness={0.75} />
         </mesh>
-
         {/* Right wing */}
         <mesh position={[0.42, 0, -0.05]} rotation={[0, 0, 0.18]}>
           <boxGeometry args={[0.52, 0.04, 0.22]} />
-          <meshStandardMaterial color="#c5cae9" roughness={0.2} metalness={0.7} />
+          <meshStandardMaterial color="#9ab8d8" roughness={0.20} metalness={0.75} />
         </mesh>
-
         {/* Tail fin */}
         <mesh position={[0, 0.16, -0.38]} rotation={[0.3, 0, 0]}>
           <boxGeometry args={[0.04, 0.22, 0.18]} />
-          <meshStandardMaterial color="#c5cae9" roughness={0.2} metalness={0.7} />
+          <meshStandardMaterial color="#9ab8d8" roughness={0.20} metalness={0.75} />
         </mesh>
-
         {/* Horizontal stabiliser */}
         <mesh position={[0, 0.02, -0.40]}>
           <boxGeometry args={[0.34, 0.03, 0.10]} />
-          <meshStandardMaterial color="#c5cae9" roughness={0.2} metalness={0.7} />
+          <meshStandardMaterial color="#9ab8d8" roughness={0.20} metalness={0.75} />
         </mesh>
-
         {/* Left engine */}
         <mesh position={[-0.28, -0.06, 0.05]}>
           <cylinderGeometry args={[0.05, 0.06, 0.18, 12]} />
-          <meshStandardMaterial color={accentColor} emissive={accentColor} emissiveIntensity={0.5} roughness={0.2} metalness={0.6} />
+          <meshStandardMaterial color={accentColor} emissive={accentColor} emissiveIntensity={0.55} roughness={0.20} metalness={0.65} />
         </mesh>
-
         {/* Right engine */}
         <mesh position={[0.28, -0.06, 0.05]}>
           <cylinderGeometry args={[0.05, 0.06, 0.18, 12]} />
-          <meshStandardMaterial color={accentColor} emissive={accentColor} emissiveIntensity={0.5} roughness={0.2} metalness={0.6} />
+          <meshStandardMaterial color={accentColor} emissive={accentColor} emissiveIntensity={0.55} roughness={0.20} metalness={0.65} />
         </mesh>
       </group>
 
       {/* Contrail */}
       <mesh ref={trailRef} position={[0, -0.05, 0.7]}>
         <planeGeometry args={[0.08, 1.1]} />
-        <meshStandardMaterial
-          color="#ffffff"
-          transparent
-          opacity={0.25}
-          side={THREE.DoubleSide}
-        />
+        <meshStandardMaterial color="#b8d0f0" transparent opacity={0.25} side={THREE.DoubleSide} />
       </mesh>
     </group>
   );
@@ -127,7 +110,7 @@ function PlaneScene({ time }: { time: string }) {
 const CONTAINER_VARIANTS = {
   hidden:  { opacity: 0, x: -40 },
   visible: { opacity: 1, x: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } },
-  exit:    { opacity: 0, x: 40,  transition: { duration: 0.35 } },
+  exit:    { opacity: 0, x: 40, transition: { duration: 0.35 } },
 };
 
 const QUICK_TIMES = [
@@ -152,12 +135,10 @@ export function DepartureTimeStep({
 
   return (
     <>
-      {/* Inject 3D plane into canvas */}
       <sceneContent.In>
         <PlaneScene time={departureTime || '14:00'} />
       </sceneContent.In>
 
-      {/* 2D UI overlay */}
       <motion.div
         variants={CONTAINER_VARIANTS}
         initial="hidden"
@@ -165,13 +146,17 @@ export function DepartureTimeStep({
         exit="exit"
         className="relative z-10 flex flex-col gap-6"
       >
-        {/* Step label */}
+        {/* Step badge */}
         <div className="flex items-center gap-2">
           <span
             className="px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-widest uppercase"
-            style={{ background: 'rgba(168,85,247,0.15)', color: '#a855f7', border: '1px solid rgba(168,85,247,0.25)' }}
+            style={{
+              background: `rgba(74,123,222,0.15)`,
+              color: ACCENT,
+              border: `1px solid rgba(74,123,222,0.30)`,
+            }}
           >
-            Step 2 of 2
+            Step 2 of 3
           </span>
         </div>
 
@@ -179,16 +164,16 @@ export function DepartureTimeStep({
         <div>
           <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-tight">
             When do you<br />
-            <span style={{ color: '#a855f7' }}>fly home?</span>
+            <span style={{ color: ACCENT }}>fly home?</span>
           </h2>
-          <p className="mt-2 text-sm text-white/40 max-w-xs">
+          <p className="mt-2 text-sm max-w-xs" style={{ color: '#4f5f76' }}>
             We&apos;ll make sure the last day wraps up in time — no missed flights.
           </p>
         </div>
 
         {/* Time input */}
         <div>
-          <label className="block text-xs font-semibold text-white/50 mb-2 tracking-wider uppercase">
+          <label className="block text-xs font-semibold mb-2 tracking-wider uppercase" style={{ color: '#4f5f76' }}>
             Departure time (local)
           </label>
           <input
@@ -197,14 +182,14 @@ export function DepartureTimeStep({
             onChange={(e) => setDepartureTime(e.target.value)}
             className="w-full px-4 py-3.5 rounded-2xl text-white text-lg font-mono font-bold outline-none transition-all"
             style={{
-              background: 'rgba(255,255,255,0.05)',
-              border: '1.5px solid rgba(255,255,255,0.12)',
+              background: `rgba(15,40,98,0.30)`,
+              border: `1.5px solid rgba(74,123,222,0.25)`,
               colorScheme: 'dark',
             }}
           />
         </div>
 
-        {/* Quick-select buttons */}
+        {/* Quick-select chips */}
         <div className="grid grid-cols-3 gap-2">
           {QUICK_TIMES.map(({ label, value, emoji }) => {
             const active = departureTime === value;
@@ -214,9 +199,9 @@ export function DepartureTimeStep({
                 onClick={() => setDepartureTime(value)}
                 className="flex flex-col items-center py-2.5 px-1 rounded-xl text-xs font-semibold transition-all"
                 style={{
-                  background: active ? 'rgba(168,85,247,0.18)' : 'rgba(255,255,255,0.04)',
-                  border: active ? '1.5px solid rgba(168,85,247,0.5)' : '1.5px solid rgba(255,255,255,0.08)',
-                  color: active ? '#a855f7' : 'rgba(255,255,255,0.5)',
+                  background: active ? `rgba(74,123,222,0.20)` : `rgba(15,40,98,0.20)`,
+                  border: active ? `1.5px solid rgba(74,123,222,0.55)` : `1.5px solid rgba(255,255,255,0.07)`,
+                  color: active ? ACCENT : '#4f5f76',
                 }}
               >
                 <span className="text-base mb-0.5">{emoji}</span>
@@ -233,12 +218,15 @@ export function DepartureTimeStep({
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             className="flex items-start gap-3 px-4 py-3 rounded-2xl"
-            style={{ background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.25)' }}
+            style={{
+              background: `rgba(249,115,22,0.10)`,
+              border: `1px solid rgba(249,115,22,0.28)`,
+            }}
           >
             <span className="text-lg shrink-0">⏰</span>
             <div>
               <p className="text-sm font-bold text-orange-400">Early flight detected</p>
-              <p className="text-xs text-white/40 mt-0.5">
+              <p className="text-xs mt-0.5" style={{ color: '#4f5f76' }}>
                 Your last day ends before {String(h + 2).padStart(2, '0')}:00 — we&apos;ll keep it light with a great breakfast and a quick morning stop.
               </p>
             </div>
@@ -249,8 +237,14 @@ export function DepartureTimeStep({
         <div className="flex gap-3">
           <button
             onClick={onBack}
-            className="flex-1 py-4 rounded-2xl text-sm font-bold text-white/40 hover:text-white/70 transition-all"
-            style={{ border: '1.5px solid rgba(255,255,255,0.08)' }}
+            className="flex-1 py-4 rounded-2xl text-sm font-bold transition-all"
+            style={{
+              color: '#4f5f76',
+              border: `1.5px solid rgba(255,255,255,0.07)`,
+              background: 'transparent',
+            }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = '#ffffff')}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = '#4f5f76')}
           >
             ← Back
           </button>
@@ -260,12 +254,12 @@ export function DepartureTimeStep({
             className="flex-[2] py-4 rounded-2xl text-sm font-black text-white tracking-wide transition-all disabled:opacity-35 disabled:cursor-not-allowed"
             style={{
               background: departureTime
-                ? 'linear-gradient(135deg, #a855f7, #6366f1)'
-                : 'rgba(255,255,255,0.08)',
-              boxShadow: departureTime ? '0 8px 32px -4px rgba(168,85,247,0.45)' : 'none',
+                ? `linear-gradient(135deg, ${ACCENT}, ${ACCENT_H})`
+                : `rgba(255,255,255,0.06)`,
+              boxShadow: departureTime ? `0 8px 32px -4px rgba(74,123,222,0.50)` : 'none',
             }}
           >
-            Build My Trip →
+            Continue →
           </button>
         </div>
       </motion.div>
