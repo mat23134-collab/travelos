@@ -29,6 +29,11 @@ export interface Props {
   days: DayPlan[];
   destination: string;
   focusedNeighborhood?: string;
+  basecampMarker?: {
+    lat: number;
+    lng: number;
+    label?: string;
+  } | null;
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -126,7 +131,7 @@ function EmptyState({ message }: { message: string }) {
 
 // ── ItineraryMap ─────────────────────────────────────────────────────────────
 
-function ItineraryMapInner({ days, destination, focusedNeighborhood }: Props) {
+function ItineraryMapInner({ days, destination, focusedNeighborhood, basecampMarker }: Props) {
   const mapRef = useRef<MapRef>(null);
   const markers = buildMarkers(days);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -134,18 +139,22 @@ function ItineraryMapInner({ days, destination, focusedNeighborhood }: Props) {
   // ── Fit all markers on first load ────────────────────────────────────────
   const handleLoad = useCallback(() => {
     const map = mapRef.current;
-    if (!map || markers.length === 0) return;
-    if (markers.length === 1) {
-      map.flyTo({ center: [markers[0].lng, markers[0].lat], zoom: 13, duration: 800 });
+    const allPoints = [
+      ...markers.map((m) => ({ lng: m.lng, lat: m.lat })),
+      ...(basecampMarker ? [{ lng: basecampMarker.lng, lat: basecampMarker.lat }] : []),
+    ];
+    if (!map || allPoints.length === 0) return;
+    if (allPoints.length === 1) {
+      map.flyTo({ center: [allPoints[0].lng, allPoints[0].lat], zoom: 13, duration: 800 });
       return;
     }
-    const lngs = markers.map((m) => m.lng);
-    const lats  = markers.map((m) => m.lat);
+    const lngs = allPoints.map((m) => m.lng);
+    const lats  = allPoints.map((m) => m.lat);
     map.fitBounds(
       [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
       { padding: 48, duration: 900, maxZoom: 14 },
     );
-  }, [markers]);
+  }, [markers, basecampMarker]);
 
   // ── focusedNeighborhood → flyTo + open popup ─────────────────────────────
   useEffect(() => {
@@ -163,14 +172,18 @@ function ItineraryMapInner({ days, destination, focusedNeighborhood }: Props) {
   if (!TOKEN) {
     return <EmptyState message="Add NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN to enable the trip map." />;
   }
-  if (markers.length === 0) {
+  if (markers.length === 0 && !basecampMarker) {
     return (
       <EmptyState message="Trip map will appear once activities have GPS coordinates. Expand a day card to see the per-day map." />
     );
   }
 
-  const initLng = markers.reduce((s, m) => s + m.lng, 0) / markers.length;
-  const initLat  = markers.reduce((s, m) => s + m.lat, 0) / markers.length;
+  const allPoints = [
+    ...markers.map((m) => ({ lng: m.lng, lat: m.lat })),
+    ...(basecampMarker ? [{ lng: basecampMarker.lng, lat: basecampMarker.lat }] : []),
+  ];
+  const initLng = allPoints.reduce((s, m) => s + m.lng, 0) / allPoints.length;
+  const initLat  = allPoints.reduce((s, m) => s + m.lat, 0) / allPoints.length;
 
   const activeMarker = activeId ? markers.find((m) => m.id === activeId) ?? null : null;
   const activeColor  = activeMarker
@@ -209,6 +222,51 @@ function ItineraryMapInner({ days, destination, focusedNeighborhood }: Props) {
             <DayPin marker={m} active={m.id === activeId} />
           </Marker>
         ))}
+
+        {/* Base camp marker (from onboarding hotel anchor) */}
+        {basecampMarker && (
+          <Marker
+            latitude={basecampMarker.lat}
+            longitude={basecampMarker.lng}
+            anchor="bottom"
+          >
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 4,
+              }}
+              title={basecampMarker.label || 'Base Camp'}
+            >
+              <div
+                style={{
+                  padding: '2px 8px',
+                  borderRadius: 999,
+                  fontSize: 10,
+                  fontWeight: 800,
+                  letterSpacing: '0.08em',
+                  color: '#111827',
+                  background: '#fbbf24',
+                  border: '1px solid rgba(255,255,255,0.8)',
+                  boxShadow: '0 2px 10px rgba(0,0,0,0.35)',
+                }}
+              >
+                BASE CAMP
+              </div>
+              <div
+                style={{
+                  width: 18,
+                  height: 18,
+                  borderRadius: '50%',
+                  background: '#fbbf24',
+                  border: '2px solid white',
+                  boxShadow: '0 0 0 4px rgba(251,191,36,0.25)',
+                }}
+              />
+            </div>
+          </Marker>
+        )}
 
         {/* Active popup */}
         {activeMarker && (

@@ -210,11 +210,12 @@ const heroVariant = {
 // ─── Mobile map overlay ───────────────────────────────────────────────────────
 
 function MobileMapOverlay({
-  days, destination, focusedNeighborhood, onClose,
+  days, destination, focusedNeighborhood, basecampMarker, onClose,
 }: {
   days: Itinerary['days'];
   destination: string;
   focusedNeighborhood?: string;
+  basecampMarker?: { lat: number; lng: number; label?: string } | null;
   onClose: () => void;
 }) {
   return (
@@ -248,7 +249,12 @@ function MobileMapOverlay({
             </motion.button>
           </div>
           <div className="h-full pb-14">
-            <ItineraryMap days={days} destination={destination} focusedNeighborhood={focusedNeighborhood} />
+            <ItineraryMap
+              days={days}
+              destination={destination}
+              focusedNeighborhood={focusedNeighborhood}
+              basecampMarker={basecampMarker}
+            />
           </div>
         </motion.div>
       </motion.div>
@@ -271,6 +277,21 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
   const [editBanner, setEditBanner] = useState('');
   const [mobileMapOpen, setMobileMapOpen] = useState(false);
   const [focusedNeighborhood, setFocusedNeighborhood] = useState<string | undefined>();
+  const basecampMarker = useMemo(() => {
+    if (
+      profile?.hotelLat != null &&
+      profile?.hotelLng != null &&
+      Number.isFinite(profile.hotelLat) &&
+      Number.isFinite(profile.hotelLng)
+    ) {
+      return {
+        lat: profile.hotelLat,
+        lng: profile.hotelLng,
+        label: profile.hotelAddress || profile.hotelBooked || 'Base Camp',
+      };
+    }
+    return null;
+  }, [profile]);
 
   // Admin check — reads the client-readable cookie set by middleware on ?key= login.
   // Used purely for UI visibility; actual data filtering happens server-side.
@@ -510,6 +531,7 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
             days={itinerary.days}
             destination={itinerary.destination}
             focusedNeighborhood={focusedNeighborhood}
+            basecampMarker={basecampMarker}
           />
         </section>
 
@@ -627,6 +649,7 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
           days={itinerary.days}
           destination={itinerary.destination}
           focusedNeighborhood={focusedNeighborhood}
+          basecampMarker={basecampMarker}
           onClose={() => { setMobileMapOpen(false); setFocusedNeighborhood(undefined); }}
         />
       )}

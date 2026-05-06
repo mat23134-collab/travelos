@@ -702,6 +702,11 @@ function PlanPage() {
     const preDeparture  = searchParams.get('departureTime')  ?? '';
     const preDailyStart = searchParams.get('dailyStartTime') ?? '08:30';
     const preSkipDay1   = searchParams.get('skipDay1') === '1';
+    const preHotelAddress = searchParams.get('hotelAddress') ?? '';
+    const preHotelLatRaw = searchParams.get('hotelLat');
+    const preHotelLngRaw = searchParams.get('hotelLng');
+    const preHotelLat = preHotelLatRaw != null ? Number(preHotelLatRaw) : null;
+    const preHotelLng = preHotelLngRaw != null ? Number(preHotelLngRaw) : null;
 
     setForm({
       groupSize: 2,
@@ -716,12 +721,22 @@ function PlanPage() {
       departureTime:  preDeparture,
       dailyStartTime: preDailyStart,
       skipDay1:       preSkipDay1,
+      hotelBooked:    preHotelAddress,
+      hotelAddress:   preHotelAddress,
+      hotelLat:       Number.isFinite(preHotelLat) ? preHotelLat : null,
+      hotelLng:       Number.isFinite(preHotelLng) ? preHotelLng : null,
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const question = PLAN_QUESTIONS[step];
-  const progress = ((step + 1) / TOTAL) * 100;
+  const hasHotelAnchor =
+    !!(form.hotelBooked as string)?.trim() ||
+    (typeof form.hotelLat === 'number' && typeof form.hotelLng === 'number');
+  const activeQuestions = PLAN_QUESTIONS.filter(
+    (q) => !(hasHotelAnchor && q.key === 'accommodation'),
+  );
+  const question = activeQuestions[step];
+  const progress = activeQuestions.length > 0 ? ((step + 1) / activeQuestions.length) * 100 : 100;
 
   const destinationChosen = FEATURED_DESTINATIONS.some(
     (d) => d.name === (form.destination as string),
@@ -790,7 +805,7 @@ function PlanPage() {
       );
       return;
     }
-    if (step < TOTAL - 1) {
+    if (step < activeQuestions.length - 1) {
       setDirection(1);
       setStep((s) => s + 1);
     } else {
@@ -834,6 +849,9 @@ function PlanPage() {
           : []),
       ].filter(Boolean).join(', '),
       hotelBooked: (form.hotelBooked as string) || '',
+      hotelAddress: (form.hotelAddress as string) || '',
+      hotelLat: (form.hotelLat as number | null) ?? undefined,
+      hotelLng: (form.hotelLng as number | null) ?? undefined,
       dailyStartTime: (form.dailyStartTime as string) || '08:30',
       arrivalTime: (form.arrivalTime as string) || '',
       departureTime: (form.departureTime as string) || '',
@@ -884,7 +902,7 @@ function PlanPage() {
 
   if (isSubmitting) return <LoadingScreen destination={(form.destination as string) || ''} />;
 
-  const isLast = step === TOTAL - 1;
+  const isLast = step === activeQuestions.length - 1;
 
   return (
     <div className="min-h-screen flex flex-col relative overflow-hidden" style={{ backgroundColor: '#091f36' }}>
@@ -908,7 +926,7 @@ function PlanPage() {
           Travel<span style={{ color: '#9e363a' }}>OS</span>
         </Link>
         <span className="text-sm font-mono tabular-nums" style={{ color: 'rgba(255,255,255,0.4)' }}>
-          {step + 1}<span style={{ color: 'rgba(255,255,255,0.18)' }}> / {TOTAL}</span>
+          {step + 1}<span style={{ color: 'rgba(255,255,255,0.18)' }}> / {activeQuestions.length}</span>
         </span>
       </div>
 
@@ -928,7 +946,7 @@ function PlanPage() {
 
           {/* Step dots */}
           <div className="flex items-center gap-1.5 mb-8 justify-center">
-            {PLAN_QUESTIONS.map((_, i) => (
+            {activeQuestions.map((_, i) => (
               <motion.div
                 key={i}
                 animate={{

@@ -89,6 +89,7 @@ export default function OnboardingPage() {
     departureTime,
     dailyStartTime,
     skipDay1,
+    hotelAddress,
     hotelLat,
     hotelLng,
     nextStep,
@@ -112,6 +113,7 @@ export default function OnboardingPage() {
     if (departureTime)  params.set('departureTime',  departureTime);
     if (dailyStartTime) params.set('dailyStartTime', dailyStartTime);
     if (skipDay1)       params.set('skipDay1',       '1');
+    if (hotelAddress)   params.set('hotelAddress',   hotelAddress);
     if (hotelLat != null && hotelLng != null) {
       params.set('hotelLat', String(hotelLat));
       params.set('hotelLng', String(hotelLng));
