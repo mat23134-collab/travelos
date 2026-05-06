@@ -59,11 +59,11 @@ export function CanvasShell() {
   }, []);
 
   return (
-    // z-0 → canvas sits in the document background.
-    // HTML content at z-10+ naturally layers above it.
+    // zIndex:-1 → canvas is strictly BELOW all HTML content (including z-0).
     // pointer-events-none prevents any click interception.
     <div
-      className="fixed inset-0 pointer-events-none z-0"
+      className="fixed inset-0 pointer-events-none"
+      style={{ zIndex: -1 }}
       aria-hidden="true"
     >
       <Canvas

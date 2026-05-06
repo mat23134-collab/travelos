@@ -5,15 +5,24 @@
  *
  * Dynamically imported with ssr:false in page.tsx so that neither
  * tunnel-rat nor R3F hooks run during server-side prerender.
+ *
+ * Props:
+ *  locationMarker — optional hotel {lat,lng} passed down to CompassScene
+ *                   so a gold marker appears on the compass face.
+ *                   Ready for the hotel-location feature milestone.
  */
 
 import { sceneContent } from './tunnel';
-import { CompassScene } from './CompassScene';
+import { CompassScene, type LocationMarker } from './CompassScene';
 
-export function CompassInjector() {
+export function CompassInjector({
+  locationMarker,
+}: {
+  locationMarker?: LocationMarker | null;
+}) {
   return (
     <sceneContent.In>
-      <CompassScene />
+      <CompassScene locationMarker={locationMarker} />
     </sceneContent.In>
   );
 }
