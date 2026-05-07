@@ -1,16 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import dynamic from 'next/dynamic';
 import { useAuth } from '@/lib/auth-context';
-import { useOnboardingStore } from '@/state/onboardingStore';
-
-// CompassInjector uses R3F (useFrame) + tunnel-rat — both require browser.
-// Dynamic import with ssr:false prevents the server-prerender crash.
-const CompassInjector = dynamic(
-  () => import('@/three/CompassInjector').then((m) => ({ default: m.CompassInjector })),
-  { ssr: false }
-);
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 // Background  : #091f36  (Purple Shadow)
@@ -100,23 +91,12 @@ const DIVIDER_LINE = (
 
 export default function HomePage() {
   const { user, loading } = useAuth();
-  // Read hotel coords from onboarding store so compass shows the gold marker
-  const { hotelLat, hotelLng } = useOnboardingStore();
-  const locationMarker =
-    hotelLat != null && hotelLng != null
-      ? { lat: hotelLat, lng: hotelLng }
-      : null;
 
   return (
     <main
       className="min-h-screen overflow-x-hidden relative"
       style={{ backgroundColor: BG, color: '#ffffff' }}
     >
-      {/* 3D Compass — injected into canvas background via tunnel.
-          Passes hotel coordinates so the gold marker appears once the
-          Hotel Center of Gravity step is completed. */}
-      <CompassInjector locationMarker={locationMarker} />
-
       {/* ── Nav ──────────────────────────────────────────────────────────────── */}
       <nav
         className="fixed top-0 inset-x-0 z-40 flex items-center justify-between px-8 py-5"
@@ -281,8 +261,24 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* ── Right: transparent — 3D canvas shines through ──────────────── */}
-          <div className="hidden lg:block" aria-hidden="true" />
+          {/* ── Right: static emblem image ─────────────────────────────────── */}
+          <div className="hidden lg:flex justify-center items-center" aria-hidden="true">
+            <div
+              className="rounded-[2rem] p-4"
+              style={{
+                background: 'rgba(9,31,54,0.18)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                boxShadow: '0 28px 60px -28px rgba(0,0,0,0.55)',
+              }}
+            >
+              <img
+                src="/travelos-static-emblem.svg"
+                alt="TravelOS emblem"
+                className="w-[360px] h-[360px] object-contain select-none"
+                draggable={false}
+              />
+            </div>
+          </div>
         </div>
       </section>
 

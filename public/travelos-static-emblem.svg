@@ -1,0 +1,32 @@
+<svg width="900" height="900" viewBox="0 0 900 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(450 450) rotate(90) scale(380)">
+      <stop offset="0" stop-color="#0f3561"/>
+      <stop offset="1" stop-color="#0a2748"/>
+    </radialGradient>
+    <linearGradient id="warm" x1="195" y1="450" x2="705" y2="450" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f0a43a"/>
+      <stop offset="1" stop-color="#f2b245"/>
+    </linearGradient>
+    <linearGradient id="cool" x1="195" y1="450" x2="705" y2="450" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#48bfd7"/>
+      <stop offset="1" stop-color="#6ed3e8"/>
+    </linearGradient>
+  </defs>
+
+  <circle cx="450" cy="450" r="372" fill="url(#bg)"/>
+
+  <path d="M450 78C244.366 78 78 244.366 78 450H162C162 290.757 290.757 162 450 162C609.243 162 738 290.757 738 450H822C822 244.366 655.634 78 450 78Z" fill="url(#cool)"/>
+  <path d="M822 450C822 655.634 655.634 822 450 822C244.366 822 78 655.634 78 450H162C162 609.243 290.757 738 450 738C609.243 738 738 609.243 738 450H822Z" fill="url(#warm)"/>
+
+  <text x="450" y="228" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="72" font-weight="800" fill="#F6FAFF">T</text>
+  <line x1="348" y1="640" x2="552" y2="640" stroke="#f2b245" stroke-width="4" opacity="0.75"/>
+  <text x="450" y="714" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="82" font-weight="800" fill="#F6FAFF">OS</text>
+
+  <polygon points="450,255 486,430 450,430 414,430" fill="#be2f35"/>
+  <polygon points="450,645 486,470 450,470 414,470" fill="#f4f7fb"/>
+  <polygon points="255,450 430,486 430,450 430,414" fill="#f4f7fb"/>
+  <polygon points="645,450 470,486 470,450 470,414" fill="#f4f7fb"/>
+  <circle cx="450" cy="450" r="40" fill="#0a2748"/>
+  <circle cx="450" cy="450" r="28" fill="#d8bd6a"/>
+</svg>
