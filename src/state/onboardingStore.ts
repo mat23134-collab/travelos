@@ -59,7 +59,7 @@ function isLateArrival(time: string): boolean {
 
 const INITIAL: Omit<
   OnboardingState,
-  | 'setDestination' | 'setDateRange'
+  | 'setDestination' | 'setDestinationGeo' | 'setDateRange'
   | 'setArrivalTime' | 'setDepartureTime' | 'setDailyStartTime'
   | 'setHotelLocation' | 'clearHotelLocation'
   | 'nextStep' | 'prevStep' | 'goToStep' | 'reset'
