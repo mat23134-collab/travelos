@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY;
-const RAPIDAPI_BOOKING_HOST = process.env.RAPIDAPI_BOOKING_HOST;
+const RAW_RAPIDAPI_BOOKING_HOST = process.env.RAPIDAPI_BOOKING_HOST ?? '';
+const RAPIDAPI_BOOKING_HOST = RAW_RAPIDAPI_BOOKING_HOST
+  .replace(/^https?:\/\//, '')
+  .replace(/\/+$/, '');
 const BOOKING_URL = RAPIDAPI_BOOKING_HOST
   ? `https://${RAPIDAPI_BOOKING_HOST}/v1/hotels/search-by-coordinates`
   : '';
@@ -35,6 +38,14 @@ function toNum(v: unknown): number | null {
   return null;
 }
 
+function fallbackHotels(lat: number, lng: number) {
+  return [
+    { id: 'fallback-1', name: 'Anchor Grand Hotel', address: 'Central District', lat: lat + 0.0042, lng: lng + 0.0035 },
+    { id: 'fallback-2', name: 'Urban Nest Suites', address: 'Old Town Area', lat: lat - 0.0038, lng: lng + 0.0024 },
+    { id: 'fallback-3', name: 'Skyline Boutique Stay', address: 'Riverside Quarter', lat: lat + 0.0021, lng: lng - 0.0041 },
+  ];
+}
+
 export async function GET(req: NextRequest) {
   const lat = toNum(req.nextUrl.searchParams.get('lat'));
   const lng = toNum(req.nextUrl.searchParams.get('lng'));
@@ -43,11 +54,12 @@ export async function GET(req: NextRequest) {
   if (lat == null || lng == null) {
     return NextResponse.json({ error: 'lat and lng are required' }, { status: 400 });
   }
-  if (!RAPIDAPI_KEY) {
-    return NextResponse.json({ error: 'RAPIDAPI_KEY is missing on server' }, { status: 500 });
-  }
-  if (!RAPIDAPI_BOOKING_HOST) {
-    return NextResponse.json({ error: 'RAPIDAPI_BOOKING_HOST is missing on server' }, { status: 500 });
+  if (!RAPIDAPI_KEY || !RAPIDAPI_BOOKING_HOST) {
+    return NextResponse.json({
+      hotels: fallbackHotels(lat, lng),
+      fallback: true,
+      reason: 'RapidAPI configuration missing',
+    });
   }
 
   const url = `${BOOKING_URL}?lat=${lat}&lng=${lng}&radius=${radius}`;
@@ -63,8 +75,11 @@ export async function GET(req: NextRequest) {
 
     if (!response.ok) {
       return NextResponse.json(
-        { error: `Booking.com request failed (${response.status})` },
-        { status: 502 },
+        {
+          hotels: fallbackHotels(lat, lng),
+          fallback: true,
+          reason: `Booking.com request failed (${response.status})`,
+        },
       );
     }
 
@@ -92,10 +107,14 @@ export async function GET(req: NextRequest) {
       })
       .filter((h) => h.lat != null && h.lng != null);
 
-    return NextResponse.json({ hotels });
+    return NextResponse.json({ hotels, fallback: false });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown Booking.com proxy error';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({
+      hotels: fallbackHotels(lat, lng),
+      fallback: true,
+      reason: message,
+    });
   }
 }
 

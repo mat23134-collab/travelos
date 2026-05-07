@@ -108,6 +108,9 @@ export function HotelStep({
             setErrMsg('No nearby hotels found for this destination.');
           } else if (!confirmed) {
             setStatus('idle');
+            if (data?.fallback) {
+              setErrMsg('Live Booking data is temporarily unavailable. Showing smart fallback suggestions.');
+            }
           }
         }
       } catch (e) {
