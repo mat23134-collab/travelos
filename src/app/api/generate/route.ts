@@ -310,25 +310,86 @@ export async function POST(req: NextRequest) {
 
     const itineraryDbId: string = data.id;
 
-    // Persist explicit hotel anchor row when user selected a hotel in onboarding.
-    if (profile.hotelAddress?.trim() && profile.hotelLat != null && profile.hotelLng != null) {
-      const anchorRow = {
+    // Persist hotel anchors for BOTH selected hotel and recommendations.
+    const hotelAnchorRows: Record<string, unknown>[] = [];
+    if (profile.hotelAddress?.trim()) {
+      hotelAnchorRows.push({
         itinerary_id: itineraryDbId,
         user_id: userId,
         hotel_name: profile.hotelBooked?.trim() || profile.hotelAddress.trim(),
         address: profile.hotelAddress.trim(),
-        lat: profile.hotelLat,
-        lng: profile.hotelLng,
-      };
+        lat: profile.hotelLat ?? null,
+        lng: profile.hotelLng ?? null,
+        source: 'selected',
+        is_selected: true,
+      });
+    }
+    const recs = itinerary.basecamp?.recommendations ?? [];
+    for (const rec of recs) {
+      if (!rec?.name) continue;
+      hotelAnchorRows.push({
+        itinerary_id: itineraryDbId,
+        user_id: userId,
+        hotel_name: rec.name,
+        address: rec.neighborhood ?? null,
+        lat: null,
+        lng: null,
+        source: 'recommended',
+        is_selected: false,
+      });
+    }
+    if (hotelAnchorRows.length > 0) {
       supabase
         .from('hotel_anchors')
-        .insert(anchorRow)
+        .insert(hotelAnchorRows)
         .then(({ error: anchorErr }) => {
           if (anchorErr) {
             console.warn('[generate] hotel_anchors insert skipped (non-critical):', anchorErr.message);
           }
         });
     }
+
+    // Persist step-by-step profile choices for full auditability.
+    const stepChoices = [
+      { step_key: 'destination', step_value: { destination: profile.destination } },
+      { step_key: 'dates', step_value: { startDate: profile.startDate, endDate: profile.endDate } },
+      {
+        step_key: 'tripTimes',
+        step_value: {
+          dailyStartTime: profile.dailyStartTime ?? null,
+          arrivalTime: profile.arrivalTime ?? null,
+          departureTime: profile.departureTime ?? null,
+          skipDay1: !!profile.skipDay1,
+        },
+      },
+      {
+        step_key: 'hotelAnchor',
+        step_value: {
+          hotelBooked: profile.hotelBooked ?? null,
+          hotelAddress: profile.hotelAddress ?? null,
+          hotelLat: profile.hotelLat ?? null,
+          hotelLng: profile.hotelLng ?? null,
+        },
+      },
+      { step_key: 'groupType', step_value: { groupType: profile.groupType } },
+      { step_key: 'groupSize', step_value: { groupSize: profile.groupSize } },
+      { step_key: 'budget', step_value: { budget: profile.budget } },
+      { step_key: 'pace', step_value: { pace: profile.pace } },
+      { step_key: 'interests', step_value: { interests: profile.interests ?? [] } },
+      { step_key: 'accommodation', step_value: { accommodation: profile.accommodation ?? null } },
+      { step_key: 'dietaryRestrictions', step_value: { dietaryRestrictions: profile.dietaryRestrictions ?? '' } },
+      { step_key: 'mustHave', step_value: { mustHave: profile.mustHave ?? '' } },
+    ].map((row) => ({
+      user_id: userId,
+      itinerary_id: itineraryDbId,
+      ...row,
+    }));
+    supabase
+      .from('user_step_choices')
+      .upsert(stepChoices, { onConflict: 'itinerary_id,step_key' })
+      .then(({ error: stepErr }) => {
+        if (stepErr) console.warn('[generate] user_step_choices upsert skipped (non-critical):', stepErr.message);
+      });
 
     // ── Optional: write tags column (non-critical — column may not exist yet) ───
     // Tags are derived from profile.interests; we try a PATCH and silently ignore
