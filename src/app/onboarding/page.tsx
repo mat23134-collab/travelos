@@ -15,7 +15,7 @@
  * Palette: Purple Shadow (#091f36) + per-step accents.
  */
 
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import { useEffect } from 'react';
@@ -80,6 +80,7 @@ const TOTAL_STEPS = 4;
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const {
     step,
     destination,
@@ -94,15 +95,22 @@ export default function OnboardingPage() {
     hotelLng,
     nextStep,
     prevStep,
+    goToStep,
     reset,
   } = useOnboardingStore();
 
   const dir = 1; // always forward
 
   useEffect(() => {
-    // Always start onboarding from a clean slate on every entry.
+    const resume = searchParams.get('resume') === '1';
+    if (resume) {
+      // Resume flow from final onboarding step when returning from /plan "Back".
+      goToStep(3);
+      return;
+    }
+    // Normal entry starts onboarding from a clean slate.
     reset();
-  }, [reset]);
+  }, [goToStep, reset, searchParams]);
 
   const handleComplete = () => {
     const params = new URLSearchParams();

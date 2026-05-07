@@ -15,6 +15,7 @@ const STORAGE_KEY = 'travelos_plan_draft';
 const PRE_ONBOARDING_KEYS = new Set(['destination', 'dates', 'tripTimes']);
 const PLAN_QUESTIONS = questions.filter((q) => !PRE_ONBOARDING_KEYS.has(q.key));
 const TOTAL = PLAN_QUESTIONS.length;
+const ONBOARDING_STEP_COUNT = 4;
 
 // ─── Animation variants ───────────────────────────────────────────────────────
 
@@ -736,7 +737,9 @@ function PlanPage() {
     (q) => !(hasHotelAnchor && q.key === 'accommodation'),
   );
   const question = activeQuestions[step];
-  const progress = activeQuestions.length > 0 ? ((step + 1) / activeQuestions.length) * 100 : 100;
+  const totalFlowSteps = ONBOARDING_STEP_COUNT + activeQuestions.length;
+  const currentFlowStep = ONBOARDING_STEP_COUNT + step + 1;
+  const progress = totalFlowSteps > 0 ? (currentFlowStep / totalFlowSteps) * 100 : 100;
 
   const destinationChosen = FEATURED_DESTINATIONS.some(
     (d) => d.name === (form.destination as string),
@@ -817,7 +820,9 @@ function PlanPage() {
     if (step > 0) {
       setDirection(-1);
       setStep((s) => s - 1);
+      return;
     }
+    router.push('/onboarding?resume=1');
   };
 
   const handleSubmit = async () => {
@@ -926,7 +931,7 @@ function PlanPage() {
           Travel<span style={{ color: '#9e363a' }}>OS</span>
         </Link>
         <span className="text-sm font-mono tabular-nums" style={{ color: 'rgba(255,255,255,0.4)' }}>
-          {step + 1}<span style={{ color: 'rgba(255,255,255,0.18)' }}> / {activeQuestions.length}</span>
+          {currentFlowStep}<span style={{ color: 'rgba(255,255,255,0.18)' }}> / {totalFlowSteps}</span>
         </span>
       </div>
 
@@ -978,7 +983,7 @@ function PlanPage() {
                   className="text-xs font-semibold uppercase tracking-widest mb-2"
                   style={{ color: '#9e363a' }}
                 >
-                  Step {step + 1}
+                  Step {currentFlowStep}
                 </motion.div>
                 <h2 className="text-2xl sm:text-3xl font-bold text-white leading-tight mb-2">
                   {question.title}
@@ -1262,20 +1267,17 @@ function PlanPage() {
               <div className="flex items-center justify-between">
                 <motion.button
                   onClick={handleBack}
-                  disabled={step === 0}
-                  whileHover={{ scale: step === 0 ? 1 : 1.03 }}
+                  whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
-                  className="px-6 py-3 rounded-xl border font-medium text-sm transition-colors disabled:opacity-25 disabled:cursor-not-allowed"
+                  className="px-6 py-3 rounded-xl border font-medium text-sm transition-colors"
                   style={{
                     borderColor: 'rgba(255,255,255,0.10)',
                     color: 'rgba(255,255,255,0.45)',
                   }}
                   onMouseEnter={(e) => {
-                    if (step > 0) {
-                      (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.75)';
-                      (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.22)';
-                      (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)';
-                    }
+                    (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.75)';
+                    (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.22)';
+                    (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)';
                   }}
                   onMouseLeave={(e) => {
                     (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.45)';
@@ -1283,7 +1285,7 @@ function PlanPage() {
                     (e.currentTarget as HTMLElement).style.background = 'transparent';
                   }}
                 >
-                  ← Back
+                  {step === 0 ? '← Back to setup' : '← Back'}
                 </motion.button>
 
                 <motion.button
