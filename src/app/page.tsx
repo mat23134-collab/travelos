@@ -108,9 +108,10 @@ export default function HomePage() {
         backgroundColor: BG,
         color: '#ffffff',
         backgroundImage:
-          'linear-gradient(rgba(9,31,54,0.78), rgba(9,31,54,0.86)), url("/landing-bg-preview.png")',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
+          'linear-gradient(rgba(9,31,54,0.78), rgba(9,31,54,0.86)), url("/hero-scatter-1.png"), url("/hero-scatter-2.png"), url("/hero-scatter-3.png"), url("/hero-scatter-4.png"), url("/hero-scatter-5.png"), url("/hero-scatter-6.png")',
+        backgroundSize: 'cover, 34% 34%, 34% 34%, 34% 34%, 34% 34%, 34% 34%, 34% 34%',
+        backgroundRepeat: 'no-repeat',
+        backgroundPosition: 'center, 0% 0%, 100% 0%, 0% 100%, 100% 100%, 25% 50%, 75% 50%',
         backgroundAttachment: 'fixed',
       }}
     >
