@@ -78,6 +78,13 @@ function toIsoDateTime(date?: string, time?: string): string | null {
   return `${d}T${m[1]}:${m[2]}:00Z`;
 }
 
+function dropMissingColumnFromRow(row: Record<string, unknown>, errorMessage: string): boolean {
+  const missingCol = errorMessage.match(/Could not find the '([^']+)' column/)?.[1];
+  if (!missingCol || !(missingCol in row)) return false;
+  delete row[missingCol];
+  return true;
+}
+
 // ── Claude call ───────────────────────────────────────────────────────────────
 
 async function callClaude(
@@ -311,6 +318,7 @@ export async function POST(req: NextRequest) {
     const itineraryDbId: string = data.id;
 
     // Persist hotel anchors for BOTH selected hotel and recommendations.
+    // Insert row-by-row so one schema mismatch doesn't drop all rows.
     const hotelAnchorRows: Record<string, unknown>[] = [];
     if (profile.hotelAddress?.trim()) {
       hotelAnchorRows.push({
@@ -332,25 +340,29 @@ export async function POST(req: NextRequest) {
         user_id: userId,
         hotel_name: rec.name,
         address: rec.neighborhood ?? null,
-        lat: null,
-        lng: null,
+        // Keep coordinates best-effort for legacy schemas where lat/lng are NOT NULL.
+        lat: profile.hotelLat ?? null,
+        lng: profile.hotelLng ?? null,
         source: 'recommended',
         is_selected: false,
       });
     }
-    if (hotelAnchorRows.length > 0) {
-      supabase
-        .from('hotel_anchors')
-        .insert(hotelAnchorRows)
-        .then(({ error: anchorErr }) => {
-          if (anchorErr) {
-            console.warn('[generate] hotel_anchors insert skipped (non-critical):', anchorErr.message);
-          }
-        });
+    for (const row of hotelAnchorRows) {
+      for (let i = 0; i < 6; i++) {
+        const { error: anchorErr } = await supabase.from('hotel_anchors').insert(row);
+        if (!anchorErr) break;
+        const dropped = dropMissingColumnFromRow(row, anchorErr.message ?? '');
+        if (dropped) {
+          console.warn('[generate] hotel_anchors retry without missing column');
+          continue;
+        }
+        console.warn('[generate] hotel_anchors insert skipped (non-critical):', anchorErr.message);
+        break;
+      }
     }
 
     // Persist step-by-step profile choices for full auditability.
-    const stepChoices = [
+    const stepChoices: Record<string, unknown>[] = [
       { step_key: 'destination', step_value: { destination: profile.destination } },
       { step_key: 'dates', step_value: { startDate: profile.startDate, endDate: profile.endDate } },
       {
@@ -384,12 +396,15 @@ export async function POST(req: NextRequest) {
       itinerary_id: itineraryDbId,
       ...row,
     }));
-    supabase
-      .from('user_step_choices')
-      .upsert(stepChoices, { onConflict: 'itinerary_id,step_key' })
-      .then(({ error: stepErr }) => {
-        if (stepErr) console.warn('[generate] user_step_choices upsert skipped (non-critical):', stepErr.message);
-      });
+    if (stepChoices.length > 0) {
+      // Use insert (not upsert) to avoid extra RLS requirements on update path.
+      const { error: stepErr } = await supabase
+        .from('user_step_choices')
+        .insert(stepChoices);
+      if (stepErr) {
+        console.warn('[generate] user_step_choices insert skipped (non-critical):', stepErr.message);
+      }
+    }
 
     // ── Optional: write tags column (non-critical — column may not exist yet) ───
     // Tags are derived from profile.interests; we try a PATCH and silently ignore
