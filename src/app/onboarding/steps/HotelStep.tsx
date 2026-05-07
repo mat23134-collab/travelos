@@ -57,6 +57,13 @@ interface SuggestedHotel {
   lng: number;
 }
 
+interface NominatimResult {
+  lat: string;
+  lon: string;
+  display_name: string;
+  name?: string;
+}
+
 export function HotelStep({
   onNext,
   onBack,
@@ -78,6 +85,8 @@ export function HotelStep({
   const [status, setStatus] = useState<Status>(hotelLat != null ? 'found' : 'idle');
   const [errMsg, setErrMsg] = useState('');
   const [hotels, setHotels] = useState<SuggestedHotel[]>([]);
+  const [manualQuery, setManualQuery] = useState('');
+  const [isManualSearching, setIsManualSearching] = useState(false);
 
   const confirmed = status === 'found' && hotelLat != null && hotelLng != null;
   const locationMarker = useMemo(
@@ -132,6 +141,45 @@ export function HotelStep({
     setErrMsg('');
   };
 
+  const handleManualSearch = async () => {
+    if (!manualQuery.trim()) return;
+    setIsManualSearching(true);
+    setErrMsg('');
+    try {
+      const q = `${manualQuery.trim()} ${destination || ''}`.trim();
+      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`;
+      const res = await fetch(url, {
+        headers: {
+          'Accept-Language': 'en',
+        },
+      });
+      if (!res.ok) throw new Error('Could not search this hotel right now');
+      const data: NominatimResult[] = await res.json();
+      const first = data?.[0];
+      if (!first) {
+        setStatus('error');
+        setErrMsg('Hotel not found. Try a more specific name (hotel + city).');
+        return;
+      }
+      const lat = Number(first.lat);
+      const lng = Number(first.lon);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        setStatus('error');
+        setErrMsg('Found hotel but coordinates are invalid. Please try again.');
+        return;
+      }
+      const label = first.display_name || manualQuery.trim();
+      setHotelLocation(label, lat, lng);
+      setStatus('found');
+      setErrMsg('');
+    } catch (e) {
+      setStatus('error');
+      setErrMsg(e instanceof Error ? e.message : 'Manual search failed');
+    } finally {
+      setIsManualSearching(false);
+    }
+  };
+
   const handleClear = () => {
     clearHotelLocation();
     setStatus('idle');
@@ -182,6 +230,40 @@ export function HotelStep({
             Choose one to center your itinerary around it.
           </p>
         </div>
+
+        {/* Free text search */}
+        <div className="space-y-2">
+          <label className="block text-xs font-semibold uppercase tracking-widest" style={{ color: GREY_BLUE }}>
+            Search your own hotel
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={manualQuery}
+              onChange={(e) => setManualQuery(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && void handleManualSearch()}
+              placeholder="e.g. Hilton Athens"
+              className="flex-1 px-4 py-3 rounded-2xl text-sm text-white outline-none"
+              style={{
+                background: 'rgba(15,40,98,0.36)',
+                border: '1px solid rgba(255,255,255,0.12)',
+              }}
+            />
+            <button
+              onClick={() => void handleManualSearch()}
+              disabled={!manualQuery.trim() || isManualSearching}
+              className="px-4 py-3 rounded-2xl text-sm font-bold disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{
+                background: 'rgba(197,145,42,0.18)',
+                border: '1px solid rgba(197,145,42,0.35)',
+                color: '#d4a235',
+              }}
+            >
+              {isManualSearching ? 'Searching...' : 'Find'}
+            </button>
+          </div>
+        </div>
+
         {status === 'loading' && (
           <div className="px-4 py-3 rounded-2xl border text-sm" style={{ background: 'rgba(15,40,98,0.35)', borderColor: 'rgba(255,255,255,0.08)', color: '#fff' }}>
             Loading Booking.com hotels...
