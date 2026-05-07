@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/auth-context';
 
 type Mode = 'login' | 'signup';
+type Gender = 'male' | 'female';
 
 // ── Grain texture ─────────────────────────────────────────────────────────────
 const GRAIN = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
@@ -18,14 +19,34 @@ export default function AuthPage() {
   const [mode,     setMode]     = useState<Mode>('login');
   const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
+  const [phone,    setPhone]    = useState('');
+  const [gender,   setGender]   = useState<Gender>('male');
+  const [age,      setAge]      = useState('');
   const [error,    setError]    = useState('');
   const [busy,     setBusy]     = useState(false);
   const [success,  setSuccess]  = useState('');
+
+  const resetAuthForm = () => {
+    setMode('login');
+    setEmail('');
+    setPassword('');
+    setPhone('');
+    setGender('male');
+    setAge('');
+    setError('');
+    setSuccess('');
+    setBusy(false);
+  };
 
   // Already logged in → redirect to dashboard
   useEffect(() => {
     if (!loading && user) router.replace('/dashboard');
   }, [user, loading, router]);
+
+  // Always enter this page in a clean state.
+  useEffect(() => {
+    resetAuthForm();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,12 +54,33 @@ export default function AuthPage() {
       setError('Please enter both email and password.');
       return;
     }
+    if (mode === 'signup') {
+      const ageNum = Number(age);
+      const onlyDigitsPhone = phone.replace(/\D/g, '');
+      if (!onlyDigitsPhone || onlyDigitsPhone.length < 8) {
+        setError('Please enter a valid phone number.');
+        return;
+      }
+      if (!Number.isFinite(ageNum) || ageNum < 13 || ageNum > 120) {
+        setError('Please enter a valid age between 13 and 120.');
+        return;
+      }
+    }
     setBusy(true);
     setError('');
     setSuccess('');
-
-    const fn = mode === 'login' ? signIn : signUp;
-    const { error: authError } = await fn(email.trim(), password);
+    let authError: string | null = null;
+    if (mode === 'login') {
+      const result = await signIn(email.trim(), password);
+      authError = result.error;
+    } else {
+      const result = await signUp(email.trim(), password, {
+        phone: phone.trim(),
+        gender,
+        age: Number(age),
+      });
+      authError = result.error;
+    }
 
     if (authError) {
       setError(authError);
@@ -49,6 +91,11 @@ export default function AuthPage() {
       setSuccess('Account created! Check your email to confirm, then log in.');
       setBusy(false);
       setMode('login');
+      setEmail('');
+      setPassword('');
+      setPhone('');
+      setGender('male');
+      setAge('');
     } else {
       // Successful login → go to dashboard
       router.push('/dashboard');
@@ -149,6 +196,7 @@ export default function AuthPage() {
               transition={{ duration: 0.18 }}
               onSubmit={handleSubmit}
               className="flex flex-col gap-4"
+              autoComplete="off"
             >
               {/* Email */}
               <div>
@@ -160,7 +208,7 @@ export default function AuthPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
-                  autoComplete="email"
+                  autoComplete="off"
                   required
                   className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-white/20 outline-none transition-all"
                   style={{
@@ -182,7 +230,7 @@ export default function AuthPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={mode === 'signup' ? 'Min. 6 characters' : '••••••••'}
-                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                  autoComplete="off"
                   required
                   minLength={6}
                   className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-white/20 outline-none transition-all"
@@ -194,6 +242,79 @@ export default function AuthPage() {
                   onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
                 />
               </div>
+
+              {mode === 'signup' && (
+                <>
+                  {/* Phone */}
+                  <div>
+                    <label className="block text-xs font-semibold text-white/40 uppercase tracking-widest mb-2">
+                      Phone Number
+                    </label>
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="+972 50 123 4567"
+                      autoComplete="off"
+                      required={mode === 'signup'}
+                      className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-white/20 outline-none transition-all"
+                      style={{
+                        background: 'rgba(255,255,255,0.05)',
+                        border: '1px solid rgba(255,255,255,0.10)',
+                      }}
+                      onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(158,54,58,0.55)'; e.currentTarget.style.background = 'rgba(158,54,58,0.07)'; }}
+                      onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                    />
+                  </div>
+
+                  {/* Gender + Age */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-white/40 uppercase tracking-widest mb-2">
+                        Gender
+                      </label>
+                      <select
+                        value={gender}
+                        onChange={(e) => setGender(e.target.value as Gender)}
+                        required={mode === 'signup'}
+                        className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
+                        style={{
+                          background: 'rgba(255,255,255,0.05)',
+                          border: '1px solid rgba(255,255,255,0.10)',
+                        }}
+                        onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(158,54,58,0.55)'; e.currentTarget.style.background = 'rgba(158,54,58,0.07)'; }}
+                        onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                      >
+                        <option value="male" style={{ background: '#091f36', color: '#fff' }}>גבר</option>
+                        <option value="female" style={{ background: '#091f36', color: '#fff' }}>אישה</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-white/40 uppercase tracking-widest mb-2">
+                        Age
+                      </label>
+                      <input
+                        type="number"
+                        value={age}
+                        onChange={(e) => setAge(e.target.value)}
+                        min={13}
+                        max={120}
+                        placeholder="25"
+                        autoComplete="off"
+                        required={mode === 'signup'}
+                        className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-white/20 outline-none transition-all"
+                        style={{
+                          background: 'rgba(255,255,255,0.05)',
+                          border: '1px solid rgba(255,255,255,0.10)',
+                        }}
+                        onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(158,54,58,0.55)'; e.currentTarget.style.background = 'rgba(158,54,58,0.07)'; }}
+                        onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
 
               {/* Error */}
               <AnimatePresence>
