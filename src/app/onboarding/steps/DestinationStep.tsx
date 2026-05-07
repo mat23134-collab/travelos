@@ -12,8 +12,6 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { sceneContent } from '@/three/tunnel';
-import { CompassScene } from '@/three/CompassScene';
 import { useOnboardingStore } from '@/state/onboardingStore';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
@@ -53,13 +51,7 @@ export function DestinationStep({ onNext }: { onNext: () => void }) {
   const canContinue = inputVal.trim().length >= 2;
 
   return (
-    <>
-      {/* Inject the full 3D compass into the canvas background */}
-      <sceneContent.In>
-        <CompassScene />
-      </sceneContent.In>
-
-      <motion.div
+    <motion.div
         variants={CONTAINER_VARIANTS}
         initial="hidden"
         animate="visible"
@@ -165,6 +157,5 @@ export function DestinationStep({ onNext }: { onNext: () => void }) {
           {canContinue ? `Explore ${inputVal.trim()} →` : 'Pick a destination'}
         </button>
       </motion.div>
-    </>
   );
 }

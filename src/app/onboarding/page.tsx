@@ -229,27 +229,7 @@ function OnboardingPageContent() {
         </div>
       </div>
 
-      {/* ── Right panel — 3D canvas (CanvasShell renders here at z-index:-1) ── */}
-      <div
-        className="hidden md:flex flex-1 relative items-center justify-center"
-        aria-hidden="true"
-      >
-        {/* Subtle grid */}
-        <div
-          className="absolute inset-0 opacity-[0.032]"
-          style={{
-            backgroundImage:
-              'linear-gradient(rgba(255,255,255,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.8) 1px, transparent 1px)',
-            backgroundSize: '52px 52px',
-          }}
-        />
-        <p
-          className="text-[10px] tracking-widest uppercase font-semibold select-none"
-          style={{ color: 'rgba(79,95,118,0.45)' }}
-        >
-          Live 3D preview
-        </p>
-      </div>
+      <div className="hidden md:block flex-1" aria-hidden="true" />
     </main>
   );
 }

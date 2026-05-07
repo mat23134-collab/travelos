@@ -13,86 +13,12 @@
  * Palette: Redline (#9e363a) for arrival, warm orange (#f97316) for early-departure warning.
  */
 
-import { useRef } from 'react';
 import { motion } from 'framer-motion';
-import { useFrame } from '@react-three/fiber';
-import * as THREE from 'three';
-import { sceneContent } from '@/three/tunnel';
 import { useOnboardingStore } from '@/state/onboardingStore';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const PRIMARY   = '#9e363a';
 const PRIMARY_H = '#b5404a';
-
-// ── 3D Clock Scene (arrival time visual) ─────────────────────────────────────
-
-function parseTime(hhmm: string): { h: number; m: number } {
-  const [h = 0, m = 0] = (hhmm ?? '').split(':').map(Number);
-  return { h, m };
-}
-
-function ClockScene({ time }: { time: string }) {
-  const hourRef = useRef<THREE.Mesh>(null);
-  const minRef  = useRef<THREE.Mesh>(null);
-  const glowRef = useRef<THREE.PointLight>(null);
-
-  useFrame(({ clock }) => {
-    const { h, m } = parseTime(time);
-    if (hourRef.current) hourRef.current.rotation.z = -((h % 12) / 12 + m / 720) * Math.PI * 2;
-    if (minRef.current)  minRef.current.rotation.z  = -(m / 60) * Math.PI * 2;
-    if (glowRef.current) {
-      glowRef.current.intensity = 1.4 + Math.sin(clock.elapsedTime * 2) * 0.3;
-    }
-  });
-
-  const { h } = parseTime(time);
-  const isLate  = h >= 20;
-  const accent  = isLate ? PRIMARY_H : PRIMARY;
-
-  return (
-    <group position={[2.2, 0.2, 0]} scale={[0.9, 0.9, 0.9]}>
-      <ambientLight intensity={0.28} />
-      <pointLight position={[3, 4, 4]} intensity={1.2} color="#b8d0f0" />
-      <pointLight ref={glowRef} position={[0, 0, 2]} intensity={1.4} color={accent} />
-
-      {/* Face */}
-      <mesh>
-        <circleGeometry args={[1.1, 64]} />
-        <meshStandardMaterial color="#050f1e" roughness={0.25} metalness={0.65} />
-      </mesh>
-      {/* Ring */}
-      <mesh>
-        <torusGeometry args={[1.1, 0.045, 16, 80]} />
-        <meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={0.65} roughness={0.10} metalness={0.82} />
-      </mesh>
-      {/* Hour markers */}
-      {Array.from({ length: 12 }).map((_, i) => {
-        const angle = (i / 12) * Math.PI * 2;
-        return (
-          <mesh key={i} position={[Math.sin(angle) * 0.9, Math.cos(angle) * 0.9, 0.01]}>
-            <circleGeometry args={[0.035, 8]} />
-            <meshStandardMaterial color="#4a7aad" transparent opacity={0.7} />
-          </mesh>
-        );
-      })}
-      {/* Hour hand */}
-      <mesh ref={hourRef} position={[0, 0.22, 0.02]}>
-        <boxGeometry args={[0.07, 0.5, 0.04]} />
-        <meshStandardMaterial color="#c8daf0" roughness={0.3} metalness={0.75} />
-      </mesh>
-      {/* Minute hand */}
-      <mesh ref={minRef} position={[0, 0.32, 0.03]}>
-        <boxGeometry args={[0.045, 0.72, 0.03]} />
-        <meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={0.45} />
-      </mesh>
-      {/* Center cap */}
-      <mesh position={[0, 0, 0.05]}>
-        <sphereGeometry args={[0.07, 16, 16]} />
-        <meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={0.9} />
-      </mesh>
-    </group>
-  );
-}
 
 // ── Quick-select chip data ────────────────────────────────────────────────────
 
@@ -179,12 +105,7 @@ export function LogisticsStep({
   const canContinue = true;
 
   return (
-    <>
-      <sceneContent.In>
-        <ClockScene time={arrivalTime || '12:00'} />
-      </sceneContent.In>
-
-      <motion.div
+    <motion.div
         variants={CONTAINER_VARIANTS}
         initial="hidden"
         animate="visible"
@@ -346,6 +267,5 @@ export function LogisticsStep({
           Both fields are optional — you can skip and fill in later
         </p>
       </motion.div>
-    </>
   );
 }

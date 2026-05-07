@@ -31,10 +31,8 @@
  *   );
  */
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { sceneContent } from '@/three/tunnel';
-import { CompassScene } from '@/three/CompassScene';
 import { useOnboardingStore } from '@/state/onboardingStore';
 const GOLD = '#c5912a';
 const GOLD_H = '#d4a235';
@@ -89,11 +87,6 @@ export function HotelStep({
   const [isManualSearching, setIsManualSearching] = useState(false);
 
   const confirmed = status === 'found' && hotelLat != null && hotelLng != null;
-  const locationMarker = useMemo(
-    () => (confirmed ? { lat: hotelLat!, lng: hotelLng!, label: hotelAddress || 'Hotel anchor' } : null),
-    [confirmed, hotelAddress, hotelLat, hotelLng],
-  );
-
   useEffect(() => {
     if (destinationLat == null || destinationLng == null) {
       setStatus('error');
@@ -162,12 +155,7 @@ export function HotelStep({
   };
 
   return (
-    <>
-      <sceneContent.In>
-        <CompassScene locationMarker={locationMarker} />
-      </sceneContent.In>
-
-      <motion.div
+    <motion.div
         variants={CONTAINER_VARIANTS}
         initial="hidden"
         animate="visible"
@@ -361,6 +349,5 @@ export function HotelStep({
           </button>
         </div>
       </motion.div>
-    </>
   );
 }
