@@ -471,22 +471,39 @@ export async function POST(req: NextRequest) {
 
     if (itemRows.length > 0) {
       try {
-        const { data: insertedItems, error: itemsErr } = await supabase
-          .from('itinerary_items')
-          .insert(itemRows)
-          .select('id, day_number, item_order');
+        const insertedItems: { id: string; day_number: number; item_order: number }[] = [];
+        for (const originalRow of itemRows) {
+          const row = { ...originalRow };
+          for (let i = 0; i < 8; i++) {
+            const attempt = await supabase
+              .from('itinerary_items')
+              .insert(row)
+              .select('id, day_number, item_order')
+              .single();
+            if (!attempt.error && attempt.data) {
+              insertedItems.push(attempt.data as { id: string; day_number: number; item_order: number });
+              break;
+            }
+            const msg = attempt.error?.message ?? '';
+            const dropped = dropMissingColumnFromRow(row, msg);
+            if (dropped) {
+              console.warn('[generate] itinerary_items retry without missing column');
+              continue;
+            }
+            console.warn('[generate] itinerary_items row insert skipped (non-critical):', msg);
+            break;
+          }
+        }
 
-        if (itemsErr) {
-          console.warn('[generate] itinerary_items insert error (non-critical):', itemsErr.message);
-        } else if (insertedItems) {
-          for (const row of insertedItems as { id: string; day_number: number; item_order: number }[]) {
+        if (insertedItems.length > 0) {
+          for (const row of insertedItems) {
             itemIdMap[`day${row.day_number}-${row.item_order}`] = row.id;
           }
-          console.log(`[generate] inserted ${insertedItems.length} items to itinerary_items`);
+          console.log(`[generate] inserted ${insertedItems.length}/${itemRows.length} items to itinerary_items`);
 
           // Audit trail: connect users to places they created.
           if (userId) {
-            const events = (insertedItems as { id: string; day_number: number; item_order: number }[])
+            const events = insertedItems
               .map((row) => {
                 const key = `day${row.day_number}-${row.item_order}`;
                 const meta = itemMetaMap[key];
@@ -507,16 +524,21 @@ export async function POST(req: NextRequest) {
                   },
                 };
               })
-              .filter(Boolean);
-            if (events.length > 0) {
-              supabase
-                .from('user_place_events')
-                .insert(events)
-                .then(({ error: eventsErr }) => {
-                  if (eventsErr) {
-                    console.warn('[generate] user_place_events insert skipped (non-critical):', eventsErr.message);
-                  }
-                });
+              .filter(Boolean) as Record<string, unknown>[];
+
+            for (const eventRow of events) {
+              const row = { ...eventRow };
+              for (let i = 0; i < 8; i++) {
+                const { error: eventsErr } = await supabase.from('user_place_events').insert(row);
+                if (!eventsErr) break;
+                const dropped = dropMissingColumnFromRow(row, eventsErr.message ?? '');
+                if (dropped) {
+                  console.warn('[generate] user_place_events retry without missing column');
+                  continue;
+                }
+                console.warn('[generate] user_place_events row insert skipped (non-critical):', eventsErr.message);
+                break;
+              }
             }
           }
         }
