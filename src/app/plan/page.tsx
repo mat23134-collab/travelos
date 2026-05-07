@@ -300,56 +300,219 @@ const DIETARY_OPTIONS = [
 
 // ─── Step 10 — City-specific must-haves ───────────────────────────────────────
 
-const CITY_PICKS: Record<string, { icon: string; label: string }[]> = {
+type PickItem = { icon: string; label: string };
+type PickCategory = {
+  key: 'attractions' | 'restaurants' | 'historical' | 'popular';
+  title: string;
+  items: PickItem[];
+};
+
+const CITY_PICK_GROUPS: Record<string, PickCategory[]> = {
   Rome: [
-    { icon: '🏟️', label: 'Colosseum' },
-    { icon: '⛪',  label: 'Vatican Museums' },
-    { icon: '⛲',  label: 'Trevi Fountain' },
-    { icon: '🏛️', label: 'Pantheon' },
-    { icon: '🗺️', label: 'Roman Forum' },
-    { icon: '🛍️', label: "Campo de' Fiori Market" },
+    {
+      key: 'attractions',
+      title: 'Attractions',
+      items: [
+        { icon: '⛲', label: 'Trevi Fountain' },
+        { icon: '🗺️', label: 'Roman Forum' },
+      ],
+    },
+    {
+      key: 'restaurants',
+      title: 'Restaurants',
+      items: [
+        { icon: '🍝', label: 'Trastevere Pasta Spot' },
+        { icon: '🍕', label: 'Traditional Roman Pizzeria' },
+      ],
+    },
+    {
+      key: 'historical',
+      title: 'Historical',
+      items: [
+        { icon: '🏟️', label: 'Colosseum' },
+        { icon: '🏛️', label: 'Pantheon' },
+      ],
+    },
+    {
+      key: 'popular',
+      title: 'Most Popular (Touristy Too)',
+      items: [
+        { icon: '⛪', label: 'Vatican Museums' },
+        { icon: '🛍️', label: "Campo de' Fiori Market" },
+      ],
+    },
   ],
   Paris: [
-    { icon: '🗼',  label: 'Eiffel Tower' },
-    { icon: '🖼️', label: 'Louvre Museum' },
-    { icon: '⛪',  label: 'Notre-Dame Cathedral' },
-    { icon: '🎨',  label: "Musée d'Orsay" },
-    { icon: '🚶',  label: 'Le Marais Walk' },
-    { icon: '🏘️', label: 'Montmartre Village' },
+    {
+      key: 'attractions',
+      title: 'Attractions',
+      items: [
+        { icon: '🏘️', label: 'Montmartre Village' },
+        { icon: '🚶', label: 'Le Marais Walk' },
+      ],
+    },
+    {
+      key: 'restaurants',
+      title: 'Restaurants',
+      items: [
+        { icon: '🥐', label: 'Classic Parisian Bistro' },
+        { icon: '🧀', label: 'Cheese & Wine Dinner' },
+      ],
+    },
+    {
+      key: 'historical',
+      title: 'Historical',
+      items: [
+        { icon: '🖼️', label: 'Louvre Museum' },
+        { icon: '🎨', label: "Musée d'Orsay" },
+      ],
+    },
+    {
+      key: 'popular',
+      title: 'Most Popular (Touristy Too)',
+      items: [
+        { icon: '🗼', label: 'Eiffel Tower' },
+        { icon: '⛪', label: 'Notre-Dame Cathedral' },
+      ],
+    },
   ],
   London: [
-    { icon: '🕰️', label: 'Big Ben & Parliament' },
-    { icon: '🎡',  label: 'London Eye' },
-    { icon: '🏰',  label: 'Tower of London' },
-    { icon: '🏺',  label: 'British Museum' },
-    { icon: '🌿',  label: 'Hyde Park' },
-    { icon: '🍞',  label: 'Borough Market' },
+    {
+      key: 'attractions',
+      title: 'Attractions',
+      items: [
+        { icon: '🌿', label: 'Hyde Park' },
+        { icon: '🎡', label: 'London Eye' },
+      ],
+    },
+    {
+      key: 'restaurants',
+      title: 'Restaurants',
+      items: [
+        { icon: '🍞', label: 'Borough Market Tasting' },
+        { icon: '🍽️', label: 'Modern British Gastropub' },
+      ],
+    },
+    {
+      key: 'historical',
+      title: 'Historical',
+      items: [
+        { icon: '🏰', label: 'Tower of London' },
+        { icon: '🕰️', label: 'Big Ben & Parliament' },
+      ],
+    },
+    {
+      key: 'popular',
+      title: 'Most Popular (Touristy Too)',
+      items: [
+        { icon: '🏺', label: 'British Museum' },
+        { icon: '🚶', label: 'Covent Garden Walk' },
+      ],
+    },
   ],
   Athens: [
-    { icon: '🏛️', label: 'Acropolis' },
-    { icon: '🏺',  label: 'National Archaeology Museum' },
-    { icon: '🌊',  label: 'Cape Sounion Sunset' },
-    { icon: '🛍️', label: 'Monastiraki Flea Market' },
-    { icon: '🌄',  label: 'Lycabettus Hill View' },
-    { icon: '🥙',  label: 'Central Market Food Tour' },
+    {
+      key: 'attractions',
+      title: 'Attractions',
+      items: [
+        { icon: '🌄', label: 'Lycabettus Hill View' },
+        { icon: '🌊', label: 'Cape Sounion Sunset' },
+      ],
+    },
+    {
+      key: 'restaurants',
+      title: 'Restaurants',
+      items: [
+        { icon: '🥙', label: 'Central Market Food Tour' },
+        { icon: '🍢', label: 'Traditional Souvlaki Stop' },
+      ],
+    },
+    {
+      key: 'historical',
+      title: 'Historical',
+      items: [
+        { icon: '🏛️', label: 'Acropolis' },
+        { icon: '🏺', label: 'National Archaeology Museum' },
+      ],
+    },
+    {
+      key: 'popular',
+      title: 'Most Popular (Touristy Too)',
+      items: [
+        { icon: '🛍️', label: 'Monastiraki Flea Market' },
+        { icon: '🚶', label: 'Plaka Old Town Walk' },
+      ],
+    },
   ],
   Budapest: [
-    { icon: '🏰',  label: 'Buda Castle' },
-    { icon: '🛁',  label: 'Széchenyi Thermal Baths' },
-    { icon: '🏛️', label: 'Hungarian Parliament' },
-    { icon: '🌉',  label: 'Chain Bridge Walk' },
-    { icon: '🍺',  label: 'Ruin Bar Night Out' },
-    { icon: '🥐',  label: 'Great Market Hall' },
+    {
+      key: 'attractions',
+      title: 'Attractions',
+      items: [
+        { icon: '🌉', label: 'Chain Bridge Walk' },
+        { icon: '🛁', label: 'Széchenyi Thermal Baths' },
+      ],
+    },
+    {
+      key: 'restaurants',
+      title: 'Restaurants',
+      items: [
+        { icon: '🍲', label: 'Goulash Restaurant' },
+        { icon: '🥐', label: 'Great Market Hall' },
+      ],
+    },
+    {
+      key: 'historical',
+      title: 'Historical',
+      items: [
+        { icon: '🏰', label: 'Buda Castle' },
+        { icon: '🏛️', label: 'Hungarian Parliament' },
+      ],
+    },
+    {
+      key: 'popular',
+      title: 'Most Popular (Touristy Too)',
+      items: [
+        { icon: '🍺', label: 'Ruin Bar Night Out' },
+        { icon: '🚋', label: 'Danube Promenade' },
+      ],
+    },
   ],
 };
 
-const GENERIC_PICKS = [
-  { icon: '🏛️', label: 'Museums' },
-  { icon: '🛍️', label: 'Local Markets' },
-  { icon: '🌿',  label: 'Parks & Nature' },
-  { icon: '🏰',  label: 'Historic Sites' },
-  { icon: '🍽️', label: 'Food Tours' },
-  { icon: '🌃',  label: 'Nightlife' },
+const GENERIC_PICK_GROUPS: PickCategory[] = [
+  {
+    key: 'attractions',
+    title: 'Attractions',
+    items: [
+      { icon: '🌿', label: 'Parks & Nature' },
+      { icon: '🛍️', label: 'Local Markets' },
+    ],
+  },
+  {
+    key: 'restaurants',
+    title: 'Restaurants',
+    items: [
+      { icon: '🍽️', label: 'Food Tours' },
+      { icon: '🥘', label: 'Local Signature Restaurant' },
+    ],
+  },
+  {
+    key: 'historical',
+    title: 'Historical',
+    items: [
+      { icon: '🏛️', label: 'Museums' },
+      { icon: '🏰', label: 'Historic Sites' },
+    ],
+  },
+  {
+    key: 'popular',
+    title: 'Most Popular (Touristy Too)',
+    items: [
+      { icon: '📸', label: 'Most Photographed Spot' },
+      { icon: '🌃', label: 'Popular Nightlife Area' },
+    ],
+  },
 ];
 
 // ─── DietaryCubes — Step 9 ────────────────────────────────────────────────────
@@ -427,12 +590,12 @@ function MustHaveCubes({
   onToggle: (label: string) => void;
   onCustomChange: (text: string) => void;
 }) {
-  const picks = CITY_PICKS[destination] ?? GENERIC_PICKS;
+  const pickGroups = CITY_PICK_GROUPS[destination] ?? GENERIC_PICK_GROUPS;
   const otherSelected = selected.includes('Other');
 
   return (
     <div>
-      {destination && CITY_PICKS[destination] && (
+      {destination && CITY_PICK_GROUPS[destination] && (
         <div className="flex items-center gap-2 mb-3">
           <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#9e363a' }}>
             Top picks for {destination}
@@ -441,89 +604,102 @@ function MustHaveCubes({
         </div>
       )}
 
-      <motion.div
-        className="grid grid-cols-2 sm:grid-cols-3 gap-3"
-        variants={staggerContainer}
-        initial="hidden"
-        animate="show"
-      >
-        {picks.map((pick) => {
-          const sel = selected.includes(pick.label);
-          return (
-            <motion.button
-              key={pick.label}
-              variants={optionVariant}
-              onClick={() => onToggle(pick.label)}
-              whileHover={{ scale: 1.06, y: -3 }}
-              whileTap={{ scale: 0.94 }}
-              animate={
-                sel
-                  ? { boxShadow: '0 0 0 2px #9e363a, 0 8px 24px -4px rgba(158,54,58,0.22)' }
-                  : { boxShadow: '0 1px 3px rgba(0,0,0,0.25)' }
-              }
-              transition={{ type: 'spring', stiffness: 450, damping: 22 }}
-              className="relative p-4 rounded-2xl border text-center transition-colors"
-              style={
-                sel
-                  ? { borderColor: '#9e363a', background: 'rgba(158,54,58,0.14)' }
-                  : { borderColor: 'rgba(255,255,255,0.10)', background: 'rgba(15,40,98,0.22)' }
-              }
-            >
-              {sel && (
-                <motion.div
-                  initial={{ scale: 0, rotate: -15 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{ type: 'spring', stiffness: 500, damping: 20 }}
-                  className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: '#9e363a' }}
-                >
-                  <span className="text-white text-[9px] font-bold">✓</span>
-                </motion.div>
-              )}
-              <div className="text-2xl mb-2 leading-none">{pick.icon}</div>
-              <div className="text-xs font-semibold leading-snug" style={{ color: sel ? '#c05060' : 'rgba(255,255,255,0.75)' }}>
-                {pick.label}
-              </div>
-            </motion.button>
-          );
-        })}
-
-        {/* Other cube */}
-        <motion.button
-          variants={optionVariant}
-          onClick={() => onToggle('Other')}
-          whileHover={{ scale: 1.06, y: -3 }}
-          whileTap={{ scale: 0.94 }}
-          animate={
-            otherSelected
-              ? { boxShadow: '0 0 0 2px #9e363a, 0 8px 24px -4px rgba(158,54,58,0.22)' }
-              : { boxShadow: '0 1px 3px rgba(0,0,0,0.25)' }
-          }
-          transition={{ type: 'spring', stiffness: 450, damping: 22 }}
-          className="relative p-4 rounded-2xl border text-center transition-colors"
-          style={
-            otherSelected
-              ? { borderColor: '#9e363a', background: 'rgba(158,54,58,0.14)' }
-              : { borderColor: 'rgba(255,255,255,0.15)', borderStyle: 'dashed', background: 'rgba(15,40,98,0.14)' }
-          }
-        >
-          {otherSelected && (
-            <motion.div
-              initial={{ scale: 0, rotate: -15 }}
-              animate={{ scale: 1, rotate: 0 }}
-              transition={{ type: 'spring', stiffness: 500, damping: 20 }}
-              className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center"
-              style={{ backgroundColor: '#9e363a' }}
-            >
-              <span className="text-white text-[9px] font-bold">✓</span>
-            </motion.div>
-          )}
-          <div className="text-2xl mb-2 leading-none">✏️</div>
-          <div className="text-xs font-semibold leading-tight" style={{ color: otherSelected ? '#c05060' : 'rgba(255,255,255,0.38)' }}>
-            Other…
-          </div>
-        </motion.button>
+      <motion.div className="grid grid-cols-1 sm:grid-cols-2 gap-3" variants={staggerContainer} initial="hidden" animate="show">
+        {pickGroups.map((group) => (
+          <motion.div
+            key={group.key}
+            variants={optionVariant}
+            className="rounded-2xl border p-3"
+            style={{
+              borderColor: 'rgba(255,255,255,0.10)',
+              background: 'rgba(15,40,98,0.22)',
+            }}
+          >
+            <div className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: '#9e363a' }}>
+              {group.title}
+            </div>
+            <div className="grid grid-cols-1 gap-2">
+              {group.items.map((pick) => {
+                const sel = selected.includes(pick.label);
+                return (
+                  <motion.button
+                    key={pick.label}
+                    onClick={() => onToggle(pick.label)}
+                    whileHover={{ scale: 1.03, y: -2 }}
+                    whileTap={{ scale: 0.97 }}
+                    animate={
+                      sel
+                        ? { boxShadow: '0 0 0 2px #9e363a, 0 8px 24px -4px rgba(158,54,58,0.22)' }
+                        : { boxShadow: '0 1px 3px rgba(0,0,0,0.25)' }
+                    }
+                    transition={{ type: 'spring', stiffness: 450, damping: 22 }}
+                    className="relative p-3 rounded-xl border text-left transition-colors"
+                    style={
+                      sel
+                        ? { borderColor: '#9e363a', background: 'rgba(158,54,58,0.14)' }
+                        : { borderColor: 'rgba(255,255,255,0.10)', background: 'rgba(15,40,98,0.28)' }
+                    }
+                  >
+                    {sel && (
+                      <motion.div
+                        initial={{ scale: 0, rotate: -15 }}
+                        animate={{ scale: 1, rotate: 0 }}
+                        transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+                        className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center"
+                        style={{ backgroundColor: '#9e363a' }}
+                      >
+                        <span className="text-white text-[9px] font-bold">✓</span>
+                      </motion.div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <div className="text-xl leading-none">{pick.icon}</div>
+                      <div className="text-xs font-semibold leading-snug" style={{ color: sel ? '#c05060' : 'rgba(255,255,255,0.78)' }}>
+                        {pick.label}
+                      </div>
+                    </div>
+                  </motion.button>
+                );
+              })}
+            </div>
+          </motion.div>
+        ))}
       </motion.div>
+
+      {/* Other cube */}
+      <motion.button
+        variants={optionVariant}
+        onClick={() => onToggle('Other')}
+        whileHover={{ scale: 1.03, y: -2 }}
+        whileTap={{ scale: 0.97 }}
+        animate={
+          otherSelected
+            ? { boxShadow: '0 0 0 2px #9e363a, 0 8px 24px -4px rgba(158,54,58,0.22)' }
+            : { boxShadow: '0 1px 3px rgba(0,0,0,0.25)' }
+        }
+        transition={{ type: 'spring', stiffness: 450, damping: 22 }}
+        className="relative p-4 rounded-2xl border text-center transition-colors mt-3 w-full"
+        style={
+          otherSelected
+            ? { borderColor: '#9e363a', background: 'rgba(158,54,58,0.14)' }
+            : { borderColor: 'rgba(255,255,255,0.15)', borderStyle: 'dashed', background: 'rgba(15,40,98,0.14)' }
+        }
+      >
+        {otherSelected && (
+          <motion.div
+            initial={{ scale: 0, rotate: -15 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+            className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center"
+            style={{ backgroundColor: '#9e363a' }}
+          >
+            <span className="text-white text-[9px] font-bold">✓</span>
+          </motion.div>
+        )}
+        <div className="text-2xl mb-2 leading-none">✏️</div>
+        <div className="text-xs font-semibold leading-tight" style={{ color: otherSelected ? '#c05060' : 'rgba(255,255,255,0.38)' }}>
+          Other…
+        </div>
+      </motion.button>
 
       {/* Inline text input */}
       <AnimatePresence>
