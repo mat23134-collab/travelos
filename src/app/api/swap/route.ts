@@ -80,9 +80,14 @@ export async function POST(req: NextRequest) {
     if (itinerary_id) {
       try {
         const dayNumber = dayIndex + 1;
+        const { data: ownerRow } = await supabase
+          .from('itineraries')
+          .select('user_id')
+          .eq('id', itinerary_id)
+          .maybeSingle();
 
         // 1. Update the specific itinerary_items row
-        await supabase
+        const { data: updatedRows } = await supabase
           .from('itinerary_items')
           .update({
             name:           newActivity.name           ?? null,
@@ -97,7 +102,9 @@ export async function POST(req: NextRequest) {
           })
           .eq('itinerary_id', itinerary_id)
           .eq('day_number', dayNumber)
-          .eq('item_order', SLOT_ORDER[slot]);
+          .eq('item_order', SLOT_ORDER[slot])
+          .select('id')
+          .limit(1);
 
         // 2. Sync the JSON blob so the [id] page always reads current data
         const updatedDays = itinerary.days.map((day, i) =>
@@ -108,6 +115,28 @@ export async function POST(req: NextRequest) {
           .from('itineraries')
           .update({ itinerary_json: updatedBlob })
           .eq('id', itinerary_id);
+
+        // 3. Audit trail: track who swapped which place.
+        if (ownerRow?.user_id && updatedRows?.[0]?.id) {
+          await supabase
+            .from('user_place_events')
+            .insert({
+              user_id: ownerRow.user_id,
+              itinerary_id: itinerary_id,
+              itinerary_item_id: updatedRows[0].id,
+              event_type: 'swapped',
+              place_name: newActivity.name ?? 'Unknown place',
+              place_category: slot,
+              lat: newActivity.latitude != null ? Number(newActivity.latitude) : null,
+              lng: newActivity.longitude != null ? Number(newActivity.longitude) : null,
+              metadata: {
+                source: 'api/swap',
+                day_number: dayNumber,
+                slot,
+                request,
+              },
+            });
+        }
 
         console.log(`[swap] DB synced — itinerary ${itinerary_id} day${dayNumber} ${slot}`);
       } catch (dbErr) {

@@ -392,6 +392,15 @@ export async function POST(req: NextRequest) {
 
     // Bulk-insert items and collect returned IDs to embed back into the blob
     const itemIdMap: Record<string, string> = {}; // key: "day{n}-{item_order}" → UUID
+    const itemMetaMap: Record<string, { name: string | null; category: string | null; lat: number | null; lng: number | null }> = {};
+    for (const row of itemRows) {
+      itemMetaMap[`day${row.day_number}-${row.item_order}`] = {
+        name: row.name ?? null,
+        category: row.category ?? null,
+        lat: row.lat ?? null,
+        lng: row.lng ?? null,
+      };
+    }
 
     if (itemRows.length > 0) {
       try {
@@ -407,6 +416,42 @@ export async function POST(req: NextRequest) {
             itemIdMap[`day${row.day_number}-${row.item_order}`] = row.id;
           }
           console.log(`[generate] inserted ${insertedItems.length} items to itinerary_items`);
+
+          // Audit trail: connect users to places they created.
+          if (userId) {
+            const events = (insertedItems as { id: string; day_number: number; item_order: number }[])
+              .map((row) => {
+                const key = `day${row.day_number}-${row.item_order}`;
+                const meta = itemMetaMap[key];
+                if (!meta?.name) return null;
+                return {
+                  user_id: userId,
+                  itinerary_id: itineraryDbId,
+                  itinerary_item_id: row.id,
+                  event_type: 'created',
+                  place_name: meta.name,
+                  place_category: meta.category,
+                  lat: meta.lat,
+                  lng: meta.lng,
+                  metadata: {
+                    source: 'api/generate',
+                    day_number: row.day_number,
+                    item_order: row.item_order,
+                  },
+                };
+              })
+              .filter(Boolean);
+            if (events.length > 0) {
+              supabase
+                .from('user_place_events')
+                .insert(events)
+                .then(({ error: eventsErr }) => {
+                  if (eventsErr) {
+                    console.warn('[generate] user_place_events insert skipped (non-critical):', eventsErr.message);
+                  }
+                });
+            }
+          }
         }
       } catch (err) {
         console.warn('[generate] itinerary_items insert failed (non-critical):', err instanceof Error ? err.message : err);
