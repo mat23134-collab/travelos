@@ -20,6 +20,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import { Suspense, useEffect } from 'react';
 import { useOnboardingStore } from '@/state/onboardingStore';
+import { getStepBackground } from '@/lib/stepBackgrounds';
 
 // All step components use R3F (useFrame) + tunnel-rat → must be ssr:false
 function StepSkeleton() {
@@ -131,11 +132,18 @@ function OnboardingPageContent() {
 
   // Gold flare on hotel step
   const isHotelStep = step === 3;
+  const bg = getStepBackground(step, 0);
 
   return (
     <main
       className="min-h-screen flex flex-col md:flex-row relative overflow-hidden"
-      style={{ backgroundColor: '#091f36' }}
+      style={{
+        backgroundColor: '#091f36',
+        backgroundImage: `linear-gradient(rgba(9,31,54,0.80), rgba(9,31,54,0.87)), url("${bg.imageUrl}")`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
+      }}
     >
       {/* ── Ambient blobs ──────────────────────────────────────────────────── */}
       <div className="fixed inset-0 pointer-events-none z-0" aria-hidden="true">

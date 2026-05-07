@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { questions } from '@/lib/questionnaire';
 import { TravelerProfile } from '@/lib/types';
 import { useAuth } from '@/lib/auth-context';
+import { getStepBackground } from '@/lib/stepBackgrounds';
 
 type FormData = Record<string, unknown>;
 
@@ -740,6 +741,7 @@ function PlanPage() {
   const totalFlowSteps = ONBOARDING_STEP_COUNT + activeQuestions.length;
   const currentFlowStep = ONBOARDING_STEP_COUNT + step + 1;
   const progress = totalFlowSteps > 0 ? (currentFlowStep / totalFlowSteps) * 100 : 100;
+  const bg = getStepBackground(currentFlowStep, 5);
 
   const destinationChosen = FEATURED_DESTINATIONS.some(
     (d) => d.name === (form.destination as string),
@@ -910,7 +912,16 @@ function PlanPage() {
   const isLast = step === activeQuestions.length - 1;
 
   return (
-    <div className="min-h-screen flex flex-col relative overflow-hidden" style={{ backgroundColor: '#091f36' }}>
+    <div
+      className="min-h-screen flex flex-col relative overflow-hidden"
+      style={{
+        backgroundColor: '#091f36',
+        backgroundImage: `linear-gradient(rgba(9,31,54,0.82), rgba(9,31,54,0.90)), url("${bg.imageUrl}")`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
+      }}
+    >
 
       {/* Background orbs */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
