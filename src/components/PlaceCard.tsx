@@ -329,11 +329,9 @@ function PlaceTile({ data, onClick, isSelected }: TileProps) {
           )}
           <div className="flex items-center gap-2.5">
             {/* Maps shortcut — only rendered when a URL is available */}
-            {(data.mapsUrl ?? (data.lat && data.lng
-              ? `https://www.google.com/maps/search/?api=1&query=${data.lat},${data.lng}`
-              : null)) && (
+            {(data.mapsUrl ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([data.name, data.city].filter(Boolean).join(' '))}`) && (
               <a
-                href={data.mapsUrl ?? `https://www.google.com/maps/search/?api=1&query=${data.lat},${data.lng}`}
+                href={data.mapsUrl ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([data.name, data.city].filter(Boolean).join(' '))}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
@@ -377,11 +375,8 @@ function PlaceModal({ data, onClose }: ModalProps) {
   const vibe     = getVibe(data.vibeLabel);
   const bullets  = buildHighlights(data.description, data.highlights);
   // Use explicit mapsUrl when set; fall back to coordinate-based URL; null = no button
-  const mapUrl =
-    data.mapsUrl ??
-    (data.lat && data.lng
-      ? `https://www.google.com/maps/search/?api=1&query=${data.lat},${data.lng}`
-      : null);
+  const mapUrl = data.mapsUrl ??
+    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([data.name, data.city].filter(Boolean).join(' '))}`;
 
   // Fetch website from Google Places (server-cached; near-instant if photo was already fetched)
   const { website: fetchedWebsite } = usePlaceDetails(data.name, data.city);
