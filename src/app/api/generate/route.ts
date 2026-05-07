@@ -362,48 +362,39 @@ export async function POST(req: NextRequest) {
     }
 
     // Persist step-by-step profile choices for full auditability.
-    const stepChoices: Record<string, unknown>[] = [
-      { step_key: 'destination', step_value: { destination: profile.destination } },
-      { step_key: 'dates', step_value: { startDate: profile.startDate, endDate: profile.endDate } },
-      {
-        step_key: 'tripTimes',
-        step_value: {
-          dailyStartTime: profile.dailyStartTime ?? null,
-          arrivalTime: profile.arrivalTime ?? null,
-          departureTime: profile.departureTime ?? null,
-          skipDay1: !!profile.skipDay1,
-        },
-      },
-      {
-        step_key: 'hotelAnchor',
-        step_value: {
-          hotelBooked: profile.hotelBooked ?? null,
-          hotelAddress: profile.hotelAddress ?? null,
-          hotelLat: profile.hotelLat ?? null,
-          hotelLng: profile.hotelLng ?? null,
-        },
-      },
-      { step_key: 'groupType', step_value: { groupType: profile.groupType } },
-      { step_key: 'groupSize', step_value: { groupSize: profile.groupSize } },
-      { step_key: 'budget', step_value: { budget: profile.budget } },
-      { step_key: 'pace', step_value: { pace: profile.pace } },
-      { step_key: 'interests', step_value: { interests: profile.interests ?? [] } },
-      { step_key: 'accommodation', step_value: { accommodation: profile.accommodation ?? null } },
-      { step_key: 'dietaryRestrictions', step_value: { dietaryRestrictions: profile.dietaryRestrictions ?? '' } },
-      { step_key: 'mustHave', step_value: { mustHave: profile.mustHave ?? '' } },
-    ].map((row) => ({
+    // Persist one wide row per trip for easy analytics/UI browsing.
+    const tripChoiceRow: Record<string, unknown> = {
       user_id: userId,
       itinerary_id: itineraryDbId,
-      ...row,
-    }));
-    if (stepChoices.length > 0) {
-      // Use insert (not upsert) to avoid extra RLS requirements on update path.
-      const { error: stepErr } = await supabase
-        .from('user_step_choices')
-        .insert(stepChoices);
-      if (stepErr) {
-        console.warn('[generate] user_step_choices insert skipped (non-critical):', stepErr.message);
-      }
+      destination: profile.destination ?? null,
+      start_date: profile.startDate ? profile.startDate.slice(0, 10) : null,
+      end_date: profile.endDate ? profile.endDate.slice(0, 10) : null,
+      trip_times: {
+        dailyStartTime: profile.dailyStartTime ?? null,
+        arrivalTime: profile.arrivalTime ?? null,
+        departureTime: profile.departureTime ?? null,
+        skipDay1: !!profile.skipDay1,
+      },
+      hotel_anchor: {
+        hotelBooked: profile.hotelBooked ?? null,
+        hotelAddress: profile.hotelAddress ?? null,
+        hotelLat: profile.hotelLat ?? null,
+        hotelLng: profile.hotelLng ?? null,
+      },
+      group_type: profile.groupType ?? null,
+      group_size: profile.groupSize ?? null,
+      budget: profile.budget ?? null,
+      pace: profile.pace ?? null,
+      interests: profile.interests ?? [],
+      accommodation: profile.accommodation ?? null,
+      dietary_restrictions: profile.dietaryRestrictions ?? '',
+      must_have: profile.mustHave ?? '',
+    };
+    const { error: tripChoicesErr } = await supabase
+      .from('user_trip_choices')
+      .upsert(tripChoiceRow, { onConflict: 'itinerary_id' });
+    if (tripChoicesErr) {
+      console.warn('[generate] user_trip_choices upsert skipped (non-critical):', tripChoicesErr.message);
     }
 
     // ── Optional: write tags column (non-critical — column may not exist yet) ───
