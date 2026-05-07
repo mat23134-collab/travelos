@@ -131,15 +131,36 @@ function classifyActivity(activity: Activity): GenreKey {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /** Build a Google Maps place-search URL to open the actual POI page. */
+const COUNTRY_BY_CITY: Record<string, string> = {
+  budapest: 'Hungary',
+  athens: 'Greece',
+  paris: 'France',
+  london: 'United Kingdom',
+  rome: 'Italy',
+};
+
+function inferCountry(city?: string | null): string | undefined {
+  if (!city) return undefined;
+  return COUNTRY_BY_CITY[city.trim().toLowerCase()];
+}
+
 function buildMapsUrl(
   name?: string | null,
+  neighborhood?: string | null,
   city?: string | null,
   lat?: number | null,
   lng?: number | null,
 ): string | undefined {
-  const q = [name?.trim(), city?.trim()].filter(Boolean).join(' ');
+  const country = inferCountry(city);
+  const q = [name?.trim(), neighborhood?.trim(), city?.trim(), country].filter(Boolean).join(', ');
   if (q) {
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+    let url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+    const la = Number(lat);
+    const lo = Number(lng);
+    if (Number.isFinite(la) && Number.isFinite(lo)) {
+      url += `&center=${la},${lo}&zoom=17`;
+    }
+    return url;
   }
   const la = Number(lat);
   const lo = Number(lng);
@@ -236,7 +257,7 @@ function activityToCard(
     estimatedCost: activity.estimatedCost,
     lat:         activity.latitude,
     lng:         activity.longitude,
-    mapsUrl:     buildMapsUrl(activity.name, city, activity.latitude, activity.longitude),
+    mapsUrl:     buildMapsUrl(activity.name, activity.neighborhood, city, activity.latitude, activity.longitude),
     mealSlot,
     verificationStatus: activity.verificationStatus,
     verifiedAt:  activity.verifiedAt,
@@ -270,7 +291,7 @@ function diningToCard(
     // Pass GPS if the AI returned it — feeds into mapPlaces below
     lat:         spot.latitude  != null ? Number(spot.latitude)  : undefined,
     lng:         spot.longitude != null ? Number(spot.longitude) : undefined,
-    mapsUrl:     buildMapsUrl(spot.name, city, spot.latitude, spot.longitude),
+    mapsUrl:     buildMapsUrl(spot.name, spot.neighborhood, city, spot.latitude, spot.longitude),
   };
 }
 
@@ -1045,6 +1066,9 @@ export function DayCard({ day, index, destination, groupType, onSwapSlot }: DayC
         vibeLabel: act.vibeLabel ?? 'classic',
         category:  genre,
         slotLabel: `${slotMeta.icon} ${slotMeta.label} · ${catLabel}`,
+        city: destination,
+        country: inferCountry(destination),
+        neighborhood: act.neighborhood,
       });
     }
 
@@ -1075,6 +1099,9 @@ export function DayCard({ day, index, destination, groupType, onSwapSlot }: DayC
         vibeLabel: 'local-favorite',
         category:  'food',
         slotLabel: `${icon} ${label} · Food & Dining`,
+        city: destination,
+        country: inferCountry(destination),
+        neighborhood: spot.neighborhood,
       });
     }
 

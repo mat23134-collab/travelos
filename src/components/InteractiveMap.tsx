@@ -40,6 +40,9 @@ export interface MapPlace {
   category?: 'sightseeing' | 'food' | 'shopping' | 'nightlife' | string;
   /** Human-readable slot label shown in popups, e.g. "Morning · Sightseeing" */
   slotLabel?: string;
+  city?: string;
+  country?: string;
+  neighborhood?: string;
 }
 
 interface Props {
@@ -145,7 +148,8 @@ function PlacePopup({ place }: { place: MapPlace }) {
   const c = pinAccent(place.category, place.vibeLabel);
   const catLabel = place.slotLabel
     ?? (place.category ? CATEGORY_LABEL[place.category] ?? place.category : null);
-  const mapsHref = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}&ll=${place.lat},${place.lng}`;
+  const q = [place.name, place.neighborhood, place.city, place.country].filter(Boolean).join(', ');
+  const mapsHref = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}&center=${place.lat},${place.lng}&zoom=17`;
   return (
     <div
       style={{

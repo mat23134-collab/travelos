@@ -375,8 +375,16 @@ function PlaceModal({ data, onClose }: ModalProps) {
   const vibe     = getVibe(data.vibeLabel);
   const bullets  = buildHighlights(data.description, data.highlights);
   // Use explicit mapsUrl when set; fall back to coordinate-based URL; null = no button
+  const cityKey = (data.city ?? '').trim().toLowerCase();
+  const countryHint = cityKey === 'budapest' ? 'Hungary'
+    : cityKey === 'athens' ? 'Greece'
+    : cityKey === 'paris' ? 'France'
+    : cityKey === 'london' ? 'United Kingdom'
+    : cityKey === 'rome' ? 'Italy'
+    : '';
+  const placeQuery = [data.name, data.neighborhood, data.city, countryHint].filter(Boolean).join(', ');
   const mapUrl = data.mapsUrl ??
-    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([data.name, data.city].filter(Boolean).join(' '))}`;
+    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(placeQuery)}`;
 
   // Fetch website from Google Places (server-cached; near-instant if photo was already fetched)
   const { website: fetchedWebsite } = usePlaceDetails(data.name, data.city);
