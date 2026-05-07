@@ -18,6 +18,8 @@ export interface OnboardingState {
 
   // Step 0: Destination
   destination: string;
+  destinationLat: number | null;
+  destinationLng: number | null;
 
   // Step 1: Dates (YYYY-MM-DD strings)
   startDate: string;
@@ -36,6 +38,7 @@ export interface OnboardingState {
 
   // ── Actions ──────────────────────────────────────────────────────────────
   setDestination:    (d: string) => void;
+  setDestinationGeo: (d: string, lat: number | null, lng: number | null) => void;
   setDateRange:      (start: string, end: string) => void;
   setArrivalTime:    (time: string) => void;
   setDepartureTime:  (time: string) => void;
@@ -72,6 +75,8 @@ const INITIAL: Omit<
   hotelAddress:   '',
   hotelLat:       null,
   hotelLng:       null,
+  destinationLat: null,
+  destinationLng: null,
 };
 
 export const useOnboardingStore = create<OnboardingState>()(
@@ -79,7 +84,8 @@ export const useOnboardingStore = create<OnboardingState>()(
     (set) => ({
       ...INITIAL,
 
-      setDestination: (d) => set({ destination: d }),
+      setDestination: (d) => set({ destination: d, destinationLat: null, destinationLng: null }),
+      setDestinationGeo: (d, lat, lng) => set({ destination: d, destinationLat: lat, destinationLng: lng }),
 
       setDateRange: (start, end) => set({ startDate: start, endDate: end }),
 
@@ -106,6 +112,8 @@ export const useOnboardingStore = create<OnboardingState>()(
       name: 'travelos-onboarding',
       partialize: (s) => ({
         destination:    s.destination,
+        destinationLat: s.destinationLat,
+        destinationLng: s.destinationLng,
         startDate:      s.startDate,
         endDate:        s.endDate,
         arrivalTime:    s.arrivalTime,

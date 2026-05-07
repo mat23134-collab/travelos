@@ -31,152 +31,14 @@
  *   );
  */
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useFrame } from '@react-three/fiber';
-import * as THREE from 'three';
 import { sceneContent } from '@/three/tunnel';
+import { CompassScene } from '@/three/CompassScene';
 import { useOnboardingStore } from '@/state/onboardingStore';
-import { supabase } from '@/lib/supabase';
-
-// ── Palette ───────────────────────────────────────────────────────────────────
-const GOLD    = '#c5912a';   // hotel anchor gold
-const GOLD_H  = '#d4a235';
-const PRIMARY = '#9e363a';   // fallback
-
-// ── Session key — stable anonymous identifier ─────────────────────────────────
-function getSessionKey(): string {
-  if (typeof window === 'undefined') return 'ssr';
-  const KEY = 'travelos_session_key';
-  let k = sessionStorage.getItem(KEY);
-  if (!k) {
-    k = crypto.randomUUID();
-    sessionStorage.setItem(KEY, k);
-  }
-  return k;
-}
-
-// ── Geocoding via OpenStreetMap Nominatim (free, no API key) ──────────────────
-interface NominatimResult {
-  lat: string;
-  lon: string;
-  display_name: string;
-}
-
-async function geocodeAddress(
-  address: string,
-): Promise<{ lat: number; lng: number; displayName: string } | null> {
-  const url =
-    `https://nominatim.openstreetmap.org/search?` +
-    `q=${encodeURIComponent(address)}&format=json&limit=1&addressdetails=0`;
-
-  const res = await fetch(url, {
-    headers: {
-      // Nominatim requires a descriptive User-Agent
-      'User-Agent': 'TravelOS/1.0 (travel-os-app)',
-      'Accept-Language': 'en',
-    },
-  });
-
-  if (!res.ok) return null;
-  const data: NominatimResult[] = await res.json();
-  if (!data.length) return null;
-
-  return {
-    lat: parseFloat(data[0].lat),
-    lng: parseFloat(data[0].lon),
-    displayName: data[0].display_name,
-  };
-}
-
-// ── 3D Pin Scene — gold glowing sphere + ring ─────────────────────────────────
-
-function PinScene({ confirmed }: { confirmed: boolean }) {
-  const sphereRef = useRef<THREE.Mesh>(null);
-  const ringRef   = useRef<THREE.Mesh>(null);
-  const glowRef   = useRef<THREE.PointLight>(null);
-
-  useFrame(({ clock }) => {
-    const t = clock.elapsedTime;
-
-    if (sphereRef.current) {
-      sphereRef.current.position.y = Math.sin(t * 1.2) * 0.12;
-      sphereRef.current.rotation.y = t * 0.6;
-    }
-
-    if (ringRef.current) {
-      const scale = 1 + Math.sin(t * 2.0) * 0.12;
-      ringRef.current.scale.setScalar(scale);
-      (ringRef.current.material as THREE.MeshStandardMaterial).opacity =
-        0.55 - Math.sin(t * 2.0) * 0.25;
-    }
-
-    if (glowRef.current) {
-      glowRef.current.intensity = confirmed
-        ? 2.8 + Math.sin(t * 2.5) * 0.5
-        : 1.2 + Math.sin(t * 1.8) * 0.3;
-    }
-  });
-
-  const color = confirmed ? GOLD : '#4a7aad';
-
-  return (
-    <group position={[2.2, 0, 0]}>
-      <ambientLight intensity={0.2} />
-      <pointLight position={[3, 4, 4]} intensity={1.0} color="#b8d0f0" />
-      <pointLight
-        ref={glowRef}
-        position={[0, 0, 3]}
-        intensity={1.2}
-        color={color}
-        distance={12}
-        decay={2}
-      />
-
-      {/* Main sphere — the hotel anchor */}
-      <mesh ref={sphereRef}>
-        <sphereGeometry args={[0.42, 32, 32]} />
-        <meshStandardMaterial
-          color={color}
-          emissive={color}
-          emissiveIntensity={confirmed ? 1.8 : 0.6}
-          metalness={0.55}
-          roughness={0.18}
-        />
-      </mesh>
-
-      {/* Pulsing halo ring */}
-      <mesh ref={ringRef}>
-        <torusGeometry args={[0.72, 0.028, 12, 64]} />
-        <meshStandardMaterial
-          color={color}
-          emissive={color}
-          emissiveIntensity={1.2}
-          transparent
-          opacity={0.55}
-        />
-      </mesh>
-
-      {/* Outer atmosphere */}
-      <mesh>
-        <sphereGeometry args={[0.85, 12, 8]} />
-        <meshBasicMaterial color={color} transparent opacity={confirmed ? 0.045 : 0.018} />
-      </mesh>
-
-      {/* Pin stem */}
-      <mesh position={[0, -0.65, 0]}>
-        <cylinderGeometry args={[0.022, 0.008, 0.46, 8]} />
-        <meshStandardMaterial
-          color={color}
-          emissive={color}
-          emissiveIntensity={0.8}
-          metalness={0.6}
-          roughness={0.15}
-        />
-      </mesh>
-    </group>
-  );
-}
+const GOLD = '#c5912a';
+const GOLD_H = '#d4a235';
+const GREY_BLUE = '#4f5f76';
 
 // ── Step UI ───────────────────────────────────────────────────────────────────
 
@@ -187,13 +49,13 @@ const CONTAINER_VARIANTS = {
 };
 
 type Status = 'idle' | 'loading' | 'found' | 'error';
-
-const HOTEL_PRESETS = [
-  'Hotel name + city',
-  'Airbnb address',
-  'Hostel / guesthouse',
-  'Resort name',
-];
+interface SuggestedHotel {
+  id: string;
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+}
 
 export function HotelStep({
   onNext,
@@ -202,60 +64,81 @@ export function HotelStep({
   onNext: () => void;
   onBack: () => void;
 }) {
-  const { hotelAddress, hotelLat, hotelLng, setHotelLocation, clearHotelLocation } =
-    useOnboardingStore();
+  const {
+    destination,
+    destinationLat,
+    destinationLng,
+    hotelAddress,
+    hotelLat,
+    hotelLng,
+    setHotelLocation,
+    clearHotelLocation,
+  } = useOnboardingStore();
 
-  const [query,   setQuery]   = useState(hotelAddress);
-  const [status,  setStatus]  = useState<Status>(hotelLat != null ? 'found' : 'idle');
-  const [display, setDisplay] = useState('');
-  const [errMsg,  setErrMsg]  = useState('');
-  const abortRef = useRef<AbortController | null>(null);
+  const [status, setStatus] = useState<Status>(hotelLat != null ? 'found' : 'idle');
+  const [errMsg, setErrMsg] = useState('');
+  const [hotels, setHotels] = useState<SuggestedHotel[]>([]);
 
-  const confirmed = status === 'found' && hotelLat != null;
+  const confirmed = status === 'found' && hotelLat != null && hotelLng != null;
+  const locationMarker = useMemo(
+    () => (confirmed ? { lat: hotelLat!, lng: hotelLng!, label: hotelAddress || 'Hotel anchor' } : null),
+    [confirmed, hotelAddress, hotelLat, hotelLng],
+  );
 
-  const handleSearch = useCallback(async () => {
-    if (!query.trim()) return;
-    setStatus('loading');
-    setErrMsg('');
-
-    try {
-      const result = await geocodeAddress(query.trim());
-      if (!result) {
-        setStatus('error');
-        setErrMsg('Address not found. Try adding the city or country.');
-        return;
-      }
-
-      setHotelLocation(query.trim(), result.lat, result.lng);
-      setDisplay(result.displayName);
-      setStatus('found');
-
-      // Persist to Supabase (fire-and-forget — don't block the UI)
-      void supabase.from('hotel_anchors').insert({
-        session_key: getSessionKey(),
-        address:     query.trim(),
-        lat:         result.lat,
-        lng:         result.lng,
-      });
-
-    } catch {
+  useEffect(() => {
+    if (destinationLat == null || destinationLng == null) {
       setStatus('error');
-      setErrMsg('Network error. Please check your connection and try again.');
+      setErrMsg('Please choose one of the featured destinations first.');
+      return;
     }
-  }, [query, setHotelLocation]);
+
+    let cancelled = false;
+    const loadHotels = async () => {
+      setStatus('loading');
+      setErrMsg('');
+      try {
+        const res = await fetch(`/api/hotels/search?lat=${destinationLat}&lng=${destinationLng}&radius=25`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error ?? 'Failed loading hotels');
+        const picks: SuggestedHotel[] = (data?.hotels ?? []).slice(0, 3);
+        if (!cancelled) {
+          setHotels(picks);
+          if (!picks.length) {
+            setStatus('error');
+            setErrMsg('No nearby hotels found for this destination.');
+          } else if (!confirmed) {
+            setStatus('idle');
+          }
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setStatus('error');
+          setErrMsg(e instanceof Error ? e.message : 'Could not fetch Booking.com hotels');
+        }
+      }
+    };
+    void loadHotels();
+    return () => {
+      cancelled = true;
+    };
+  }, [confirmed, destinationLat, destinationLng]);
+
+  const handlePickHotel = (hotel: SuggestedHotel) => {
+    setHotelLocation(`${hotel.name}, ${hotel.address}`, hotel.lat, hotel.lng);
+    setStatus('found');
+    setErrMsg('');
+  };
 
   const handleClear = () => {
     clearHotelLocation();
-    setQuery('');
     setStatus('idle');
-    setDisplay('');
     setErrMsg('');
   };
 
   return (
     <>
       <sceneContent.In>
-        <PinScene confirmed={confirmed} />
+        <CompassScene locationMarker={locationMarker} />
       </sceneContent.In>
 
       <motion.div
@@ -271,7 +154,7 @@ export function HotelStep({
             className="px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-widest uppercase"
             style={{
               background: `rgba(197,145,42,0.15)`,
-              color: GOLD,
+              color: '#c5912a',
               border: `1px solid rgba(197,145,42,0.32)`,
             }}
           >
@@ -279,7 +162,7 @@ export function HotelStep({
           </span>
           <span
             className="px-2 py-0.5 rounded-full text-[9px] font-bold tracking-widest uppercase"
-            style={{ background: `rgba(158,54,58,0.12)`, color: PRIMARY }}
+            style={{ background: `rgba(158,54,58,0.12)`, color: '#9e363a' }}
           >
             The Anchor
           </span>
@@ -288,88 +171,50 @@ export function HotelStep({
         {/* Heading */}
         <div>
           <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-tight">
-            Where are you<br />
-            <span style={{ color: GOLD }}>staying?</span>
+            Pick your hotel<br />
+            <span style={{ color: '#c5912a' }}>anchor</span>
           </h2>
           <p className="mt-2 text-sm max-w-xs" style={{ color: '#4f5f76' }}>
-            Your hotel becomes the gravitational center — every day radiates
-            out from here with zero wasted transit.
+            Top 3 Booking.com suggestions around {destination || 'your destination'}.
+            Choose one to center your itinerary around it.
           </p>
         </div>
-
-        {/* Address input + search */}
-        <div>
-          <label
-            className="block text-xs font-semibold mb-2 tracking-wider uppercase"
-            style={{ color: '#4f5f76' }}
-          >
-            Hotel name or address
-          </label>
-
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => { setQuery(e.target.value); if (status === 'found') setStatus('idle'); }}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              placeholder="e.g. Marriott Paris Champs-Élysées"
-              className="flex-1 px-4 py-3.5 rounded-2xl text-white text-sm font-medium outline-none transition-all"
-              style={{
-                background: `rgba(15,40,98,0.30)`,
-                border: confirmed
-                  ? `1.5px solid rgba(197,145,42,0.55)`
-                  : `1.5px solid rgba(255,255,255,0.10)`,
-                colorScheme: 'dark',
-              }}
-            />
-            <button
-              onClick={handleSearch}
-              disabled={!query.trim() || status === 'loading'}
-              className="px-4 py-3.5 rounded-2xl text-sm font-bold text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
-              style={{
-                background: `rgba(197,145,42,0.20)`,
-                border: `1.5px solid rgba(197,145,42,0.35)`,
-                color: GOLD,
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLElement).style.background = `rgba(197,145,42,0.32)`;
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLElement).style.background = `rgba(197,145,42,0.20)`;
-              }}
-            >
-              {status === 'loading' ? '⏳' : '📍 Find'}
-            </button>
+        {status === 'loading' && (
+          <div className="px-4 py-3 rounded-2xl border text-sm" style={{ background: 'rgba(15,40,98,0.35)', borderColor: 'rgba(255,255,255,0.08)', color: '#fff' }}>
+            Loading Booking.com hotels...
           </div>
+        )}
 
-          {/* Helper hint */}
-          <p className="mt-1.5 text-[11px]" style={{ color: 'rgba(79,95,118,0.7)' }}>
-            Try: hotel name + city, or full street address
-          </p>
-        </div>
-
-        {/* Preset hint chips */}
-        {status === 'idle' && (
-          <div className="flex flex-wrap gap-2">
-            {HOTEL_PRESETS.map((p) => (
-              <span
-                key={p}
-                className="px-2.5 py-1 rounded-lg text-[10px] font-medium"
-                style={{
-                  background: `rgba(15,40,98,0.22)`,
-                  border: `1px solid rgba(255,255,255,0.06)`,
-                  color: '#4f5f76',
-                }}
-              >
-                {p}
-              </span>
-            ))}
+        {hotels.length > 0 && (
+          <div className="grid gap-3">
+            {hotels.map((hotel) => {
+              const selected = hotelAddress.includes(hotel.name);
+              return (
+                <button
+                  key={hotel.id}
+                  onClick={() => handlePickHotel(hotel)}
+                  className="w-full text-left p-4 rounded-2xl border transition-all"
+                  style={{
+                    background: selected ? 'rgba(15,40,98,0.52)' : 'rgba(15,40,98,0.34)',
+                    borderColor: selected ? 'rgba(197,145,42,0.55)' : 'rgba(255,255,255,0.12)',
+                    boxShadow: '0 10px 24px -14px rgba(0,0,0,0.7)',
+                    backdropFilter: 'blur(16px)',
+                  }}
+                >
+                  <div className="text-sm font-bold text-white">{hotel.name}</div>
+                  <div className="text-xs mt-1" style={{ color: GREY_BLUE }}>{hotel.address}</div>
+                  <div className="text-[11px] mt-2" style={{ color: selected ? '#d4a235' : 'rgba(255,255,255,0.55)' }}>
+                    {selected ? 'Selected as your base camp' : 'Use as base camp'}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         )}
 
         {/* Result card */}
         <AnimatePresence mode="wait">
-          {status === 'found' && hotelLat != null && (
+          {status === 'found' && hotelLat != null && hotelLng != null && (
             <motion.div
               key="found"
               initial={{ opacity: 0, y: 10, scale: 0.97 }}
@@ -383,25 +228,25 @@ export function HotelStep({
             >
               <span className="text-xl shrink-0 mt-0.5">📍</span>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold" style={{ color: GOLD }}>
+                <p className="text-sm font-bold" style={{ color: '#c5912a' }}>
                   Hotel anchor set
                 </p>
                 <p
                   className="text-xs mt-0.5 truncate"
                   style={{ color: '#4f5f76' }}
-                  title={display || query}
+                  title={hotelAddress}
                 >
-                  {display || query}
+                  {hotelAddress}
                 </p>
                 <p className="text-[10px] mt-1 font-mono" style={{ color: 'rgba(79,95,118,0.6)' }}>
-                  {hotelLat.toFixed(5)}, {hotelLng!.toFixed(5)}
+                  {hotelLat.toFixed(5)}, {hotelLng.toFixed(5)}
                 </p>
               </div>
               <button
                 onClick={handleClear}
                 className="shrink-0 text-xs transition-colors mt-0.5"
                 style={{ color: 'rgba(197,145,42,0.5)' }}
-                onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = GOLD)}
+                onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = '#c5912a')}
                 onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = 'rgba(197,145,42,0.5)')}
               >
                 ✕
@@ -437,8 +282,7 @@ export function HotelStep({
         >
           <span className="text-base shrink-0">🧭</span>
           <p className="text-xs leading-relaxed" style={{ color: '#4f5f76' }}>
-            The compass on the right will show your hotel as a gold marker.
-            Every day in your itinerary radiates within walking distance of this anchor.
+            Compass receives your selected hotel coordinates and locks the trip around this anchor.
           </p>
         </div>
 

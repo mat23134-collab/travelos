@@ -292,6 +292,26 @@ export async function POST(req: NextRequest) {
 
     const itineraryDbId: string = data.id;
 
+    // Persist explicit hotel anchor row when user selected a hotel in onboarding.
+    if (profile.hotelAddress?.trim() && profile.hotelLat != null && profile.hotelLng != null) {
+      const anchorRow = {
+        itinerary_id: itineraryDbId,
+        user_id: userId,
+        hotel_name: profile.hotelBooked?.trim() || profile.hotelAddress.trim(),
+        address: profile.hotelAddress.trim(),
+        lat: profile.hotelLat,
+        lng: profile.hotelLng,
+      };
+      supabase
+        .from('hotel_anchors')
+        .insert(anchorRow)
+        .then(({ error: anchorErr }) => {
+          if (anchorErr) {
+            console.warn('[generate] hotel_anchors insert skipped (non-critical):', anchorErr.message);
+          }
+        });
+    }
+
     // ── Optional: write tags column (non-critical — column may not exist yet) ───
     // Tags are derived from profile.interests; we try a PATCH and silently ignore
     // "column does not exist" errors so the app works even without the migration.
@@ -397,7 +417,7 @@ export async function POST(req: NextRequest) {
     // Persist the updated blob (with embedded item_ids and _id)
     await supabase
       .from('itineraries')
-      .update({ itinerary_json: { ...itinerary, _profile: profile } })
+      .update({ itinerary_json: { ...itinerary, _profile: profile, hotel_info: hotelInfo } })
       .eq('id', itineraryDbId);
 
     return NextResponse.json({ id: itineraryDbId, itinerary });

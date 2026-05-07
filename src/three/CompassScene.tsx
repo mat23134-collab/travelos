@@ -19,6 +19,7 @@ export function CompassScene({
 }) {
   const { viewport, invalidate } = useThree();
   const compassRef = useRef<THREE.Group>(null);
+  const needleRef = useRef<THREE.Mesh>(null);
   const markerRef = useRef<THREE.Mesh>(null);
   const texture = useTexture('/travelos-logo-future.svg');
 
@@ -45,6 +46,16 @@ export function CompassScene({
       const pulse = 1 + Math.sin(t * 2.3) * 0.14;
       markerRef.current.scale.setScalar(pulse);
     }
+
+    if (needleRef.current && locationMarker) {
+      const raw = Math.atan2(locationMarker.lng, locationMarker.lat);
+      const overshoot = raw * 1.06;
+      needleRef.current.rotation.z = THREE.MathUtils.lerp(
+        needleRef.current.rotation.z,
+        overshoot,
+        0.09,
+      );
+    }
   });
 
   return (
@@ -67,6 +78,14 @@ export function CompassScene({
           <planeGeometry args={[2.8, 2.8]} />
           <meshBasicMaterial map={texture} transparent opacity={0.92} />
         </mesh>
+
+        {/* heading needle with subtle 1.06x overshoot */}
+        {locationMarker && (
+          <mesh ref={needleRef} position={[0, 0, 0.04]}>
+            <planeGeometry args={[0.12, 1.2]} />
+            <meshBasicMaterial color="#fbbf24" transparent opacity={0.9} />
+          </mesh>
+        )}
 
         {/* subtle base-camp pulse marker */}
         {locationMarker && (

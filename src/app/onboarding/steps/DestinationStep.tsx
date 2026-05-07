@@ -22,11 +22,11 @@ const PRIMARY_H = '#b5404a';
 
 // ── Featured destinations ─────────────────────────────────────────────────────
 const DESTINATIONS = [
-  { name: 'Rome',     flag: '🇮🇹', tagline: 'La Dolce Vita' },
-  { name: 'London',   flag: '🇬🇧', tagline: 'Iconic & Eclectic' },
-  { name: 'Athens',   flag: '🇬🇷', tagline: 'Cradle of Civilization' },
-  { name: 'Paris',    flag: '🇫🇷', tagline: 'City of Light' },
-  { name: 'Budapest', flag: '🇭🇺', tagline: 'Paris of the East' },
+  { name: 'Rome',     flag: '🇮🇹', tagline: 'La Dolce Vita', lat: 41.9028, lng: 12.4964 },
+  { name: 'London',   flag: '🇬🇧', tagline: 'Iconic & Eclectic', lat: 51.5074, lng: -0.1278 },
+  { name: 'Athens',   flag: '🇬🇷', tagline: 'Cradle of Civilization', lat: 37.9838, lng: 23.7275 },
+  { name: 'Paris',    flag: '🇫🇷', tagline: 'City of Light', lat: 48.8566, lng: 2.3522 },
+  { name: 'Budapest', flag: '🇭🇺', tagline: 'Paris of the East', lat: 47.4979, lng: 19.0402 },
 ];
 
 // ── Animation variants ────────────────────────────────────────────────────────
@@ -37,12 +37,12 @@ const CONTAINER_VARIANTS = {
 };
 
 export function DestinationStep({ onNext }: { onNext: () => void }) {
-  const { destination, setDestination } = useOnboardingStore();
+  const { destination, setDestination, setDestinationGeo } = useOnboardingStore();
   const [inputVal, setInputVal] = useState(destination);
 
-  const handleSelect = (name: string) => {
+  const handleSelect = (name: string, lat: number, lng: number) => {
     setInputVal(name);
-    setDestination(name);
+    setDestinationGeo(name, lat, lng);
   };
 
   const handleInputChange = (v: string) => {
@@ -117,12 +117,12 @@ export function DestinationStep({ onNext }: { onNext: () => void }) {
 
         {/* Featured destination chips */}
         <div className="grid grid-cols-2 gap-2">
-          {DESTINATIONS.map(({ name, flag, tagline }) => {
+          {DESTINATIONS.map(({ name, flag, tagline, lat, lng }) => {
             const active = destination === name;
             return (
               <button
                 key={name}
-                onClick={() => handleSelect(name)}
+                onClick={() => handleSelect(name, lat, lng)}
                 className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left text-xs font-semibold transition-all"
                 style={{
                   background: active ? `rgba(158,54,58,0.20)` : `rgba(15,40,98,0.20)`,
