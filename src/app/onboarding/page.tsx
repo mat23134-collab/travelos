@@ -18,7 +18,7 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useOnboardingStore } from '@/state/onboardingStore';
 
 // All step components use R3F (useFrame) + tunnel-rat → must be ssr:false
@@ -78,7 +78,7 @@ const TOTAL_STEPS = 4;
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-export default function OnboardingPage() {
+function OnboardingPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const {
@@ -243,5 +243,22 @@ export default function OnboardingPage() {
         </p>
       </div>
     </main>
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense
+      fallback={
+        <main
+          className="min-h-screen flex items-center justify-center px-8"
+          style={{ backgroundColor: '#091f36' }}
+        >
+          <StepSkeleton />
+        </main>
+      }
+    >
+      <OnboardingPageContent />
+    </Suspense>
   );
 }
