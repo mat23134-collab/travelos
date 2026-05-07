@@ -63,6 +63,21 @@ async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
   throw lastErr;
 }
 
+function toTimeOnly(time?: string): string | null {
+  if (!time) return null;
+  const m = time.match(/^(\d{2}):(\d{2})/);
+  if (!m) return null;
+  return `${m[1]}:${m[2]}:00`;
+}
+
+function toIsoDateTime(date?: string, time?: string): string | null {
+  if (!date || !time) return null;
+  const d = date.slice(0, 10);
+  const m = time.match(/^(\d{2}):(\d{2})/);
+  if (!m) return null;
+  return `${d}T${m[1]}:${m[2]}:00Z`;
+}
+
 // ── Claude call ───────────────────────────────────────────────────────────────
 
 async function callClaude(
@@ -228,10 +243,24 @@ export async function POST(req: NextRequest) {
     };
 
     // ── Save to Supabase ────────────────────────────────────────────────────────
-    const hotelInfo =
-      itinerary.basecamp?.booked?.name ??
-      itinerary.basecamp?.recommendations?.[0]?.name ??
-      null;
+    const hotelInfo = profile.hotelAddress?.trim()
+      ? {
+          name: profile.hotelBooked?.trim() || profile.hotelAddress.trim(),
+          address: profile.hotelAddress.trim(),
+          lat: profile.hotelLat ?? null,
+          lng: profile.hotelLng ?? null,
+        }
+      : itinerary.basecamp?.booked
+        ? {
+            name: itinerary.basecamp.booked.name ?? null,
+            neighborhood: itinerary.basecamp.booked.neighborhood ?? null,
+          }
+        : itinerary.basecamp?.recommendations?.[0]
+          ? {
+              name: itinerary.basecamp.recommendations[0].name ?? null,
+              neighborhood: itinerary.basecamp.recommendations[0].neighborhood ?? null,
+            }
+          : null;
 
     // Normalise start_date: accept ISO string or "YYYY-MM-DD", coerce to date-only
     const rawDate = profile.startDate?.trim();
@@ -244,6 +273,12 @@ export async function POST(req: NextRequest) {
         destination_city: itinerary.destination || profile.destination,
         start_date:       startDate,
         hotel_info:       hotelInfo,
+        squad_vibe:       profile.groupType ?? null,
+        profile_json:     profile,
+        daily_start_time: toTimeOnly(profile.dailyStartTime),
+        arrival_time:     toIsoDateTime(profile.startDate, profile.arrivalTime),
+        departure_time:   toIsoDateTime(profile.endDate, profile.departureTime),
+        skip_day_1:       !!profile.skipDay1,
         user_id:          userId,   // null when generated anonymously
         itinerary_json:   { ...itinerary, _profile: profile },
       }])
@@ -276,7 +311,7 @@ export async function POST(req: NextRequest) {
 
     // ── Atomic item insertion → itinerary_items ─────────────────────────────────
     // Each activity/dining slot becomes an independent row keyed by
-    // (itinerary_id, day_number, slot).  This enables targeted row-level swaps
+    // (itinerary_id, day_number, item_order).  This enables targeted row-level swaps
     // without re-generating the whole trip.
     const SLOT_ORDER: Record<string, number> = {
       breakfast: 0, morning: 1, lunch: 2, afternoon: 3, dinner: 4, evening: 5,
@@ -300,37 +335,38 @@ export async function POST(req: NextRequest) {
           itinerary_id:   itineraryDbId,
           day_number:     dayIdx + 1,
           item_order:     SLOT_ORDER[slot] ?? 99,
-          slot,
-          item_type:      isActivity ? 'activity' : 'dining',
           name:           item.name            ?? null,
-          neighborhood:   item.neighborhood    ?? null,
-          latitude:       item.latitude        != null ? Number(item.latitude)  : null,
-          longitude:      item.longitude       != null ? Number(item.longitude) : null,
-          estimated_cost: isActivity ? (item.estimatedCost ?? null) : (item.priceRange ?? null),
+          category:       slot,
+          description:    isActivity
+                            ? (item.description ?? null)
+                            : ((item.mustTry ? `Must try: ${item.mustTry}` : item.cuisine) ?? null),
+          lat:            item.latitude        != null ? Number(item.latitude)  : null,
+          lng:            item.longitude       != null ? Number(item.longitude) : null,
+          google_place_id: null,
+          photo_url:      null,
           website_url:    item.website_url     ?? null,
-          tags:           isActivity
-                            ? (Array.isArray(item.tags) && item.tags.length > 0 ? item.tags : null)
-                            : (item.cuisine ? [item.cuisine] : null),
-          item_json:      item,
+          item_tags:      isActivity
+                            ? (Array.isArray(item.tags) && item.tags.length > 0 ? item.tags : [])
+                            : (item.cuisine ? [item.cuisine] : []),
         });
       }
     }
 
     // Bulk-insert items and collect returned IDs to embed back into the blob
-    const itemIdMap: Record<string, string> = {}; // key: "day{n}-{slot}" → UUID
+    const itemIdMap: Record<string, string> = {}; // key: "day{n}-{item_order}" → UUID
 
     if (itemRows.length > 0) {
       try {
         const { data: insertedItems, error: itemsErr } = await supabase
           .from('itinerary_items')
           .insert(itemRows)
-          .select('id, day_number, slot');
+          .select('id, day_number, item_order');
 
         if (itemsErr) {
           console.warn('[generate] itinerary_items insert error (non-critical):', itemsErr.message);
         } else if (insertedItems) {
-          for (const row of insertedItems as { id: string; day_number: number; slot: string }[]) {
-            itemIdMap[`day${row.day_number}-${row.slot}`] = row.id;
+          for (const row of insertedItems as { id: string; day_number: number; item_order: number }[]) {
+            itemIdMap[`day${row.day_number}-${row.item_order}`] = row.id;
           }
           console.log(`[generate] inserted ${insertedItems.length} items to itinerary_items`);
         }
@@ -350,7 +386,7 @@ export async function POST(req: NextRequest) {
         for (const slot of ['breakfast', 'morning', 'lunch', 'afternoon', 'dinner', 'evening'] as const) {
           const item = day[slot];
           if (item) {
-            const itemId = itemIdMap[`day${dayIdx + 1}-${slot}`];
+            const itemId = itemIdMap[`day${dayIdx + 1}-${SLOT_ORDER[slot] ?? 99}`];
             if (itemId) item.item_id = itemId;
           }
         }

@@ -13,8 +13,14 @@ interface TripRow {
   id:          string;
   destination: string;
   start_date:  string | null;
-  hotel_info:  string | null;
+  hotel_info:  string | { name?: string; address?: string } | null;
   created_at:  string;
+}
+
+function hotelInfoText(v: TripRow['hotel_info']): string {
+  if (!v) return '';
+  if (typeof v === 'string') return v;
+  return v.name || v.address || '';
 }
 
 // ── Grain texture ─────────────────────────────────────────────────────────────
@@ -138,10 +144,10 @@ function TripCard({ trip, index }: { trip: TripRow; index: number }) {
 
       {/* Card body */}
       <div className="flex-1 p-4 flex flex-col gap-3">
-        {trip.hotel_info && (
+        {hotelInfoText(trip.hotel_info) && (
           <p className="text-[11px] text-white/35 flex items-center gap-1.5">
             <span>🏨</span>
-            <span className="truncate">{trip.hotel_info}</span>
+            <span className="truncate">{hotelInfoText(trip.hotel_info)}</span>
           </p>
         )}
         <p className="text-[10px] text-white/20 mt-auto">

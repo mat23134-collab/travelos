@@ -21,6 +21,11 @@ export interface SwapResult {
 }
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const SLOT_ORDER: Record<'morning' | 'afternoon' | 'evening', number> = {
+  morning: 1,
+  afternoon: 3,
+  evening: 5,
+};
 
 export async function POST(req: NextRequest) {
   if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY.includes('your_')) {
@@ -81,19 +86,18 @@ export async function POST(req: NextRequest) {
           .from('itinerary_items')
           .update({
             name:           newActivity.name           ?? null,
-            neighborhood:   newActivity.neighborhood   ?? null,
-            latitude:       newActivity.latitude       != null ? Number(newActivity.latitude)  : null,
-            longitude:      newActivity.longitude      != null ? Number(newActivity.longitude) : null,
-            estimated_cost: newActivity.estimatedCost  ?? null,
+            category:       slot,
+            description:    newActivity.description    ?? null,
+            lat:            newActivity.latitude       != null ? Number(newActivity.latitude)  : null,
+            lng:            newActivity.longitude      != null ? Number(newActivity.longitude) : null,
             website_url:    newActivity.website_url    ?? null,
-            tags:           Array.isArray(newActivity.tags) && newActivity.tags.length > 0
+            item_tags:      Array.isArray(newActivity.tags) && newActivity.tags.length > 0
                               ? newActivity.tags
-                              : null,
-            item_json:      newActivity,
+                              : [],
           })
           .eq('itinerary_id', itinerary_id)
           .eq('day_number', dayNumber)
-          .eq('slot', slot);
+          .eq('item_order', SLOT_ORDER[slot]);
 
         // 2. Sync the JSON blob so the [id] page always reads current data
         const updatedDays = itinerary.days.map((day, i) =>
