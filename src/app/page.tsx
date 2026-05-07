@@ -104,7 +104,15 @@ export default function HomePage() {
   return (
     <main
       className="min-h-screen overflow-x-hidden relative"
-      style={{ backgroundColor: BG, color: '#ffffff' }}
+      style={{
+        backgroundColor: BG,
+        color: '#ffffff',
+        backgroundImage:
+          'linear-gradient(rgba(9,31,54,0.78), rgba(9,31,54,0.86)), url("/landing-bg-preview.png")',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
+      }}
     >
       {/* ── Nav ──────────────────────────────────────────────────────────────── */}
       <nav
