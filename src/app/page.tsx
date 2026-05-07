@@ -68,6 +68,15 @@ const testimonials = [
   },
 ];
 
+const HERO_SCATTER = [
+  { src: '/hero-scatter-1.png', cls: '-top-10 -left-12 rotate-[-7deg]' },
+  { src: '/hero-scatter-2.png', cls: '-top-12 right-0 rotate-[6deg]' },
+  { src: '/hero-scatter-3.png', cls: 'top-1/2 -left-16 -translate-y-1/2 rotate-[-5deg]' },
+  { src: '/hero-scatter-4.png', cls: 'top-1/2 -right-16 -translate-y-1/2 rotate-[5deg]' },
+  { src: '/hero-scatter-5.png', cls: '-bottom-12 left-2 rotate-[8deg]' },
+  { src: '/hero-scatter-6.png', cls: '-bottom-14 right-0 rotate-[-6deg]' },
+];
+
 // ── Shared inline-style helpers ───────────────────────────────────────────────
 
 const CARD_STYLE = {
@@ -263,20 +272,33 @@ export default function HomePage() {
 
           {/* ── Right: static emblem image ─────────────────────────────────── */}
           <div className="hidden lg:flex justify-center items-center" aria-hidden="true">
-            <div
-              className="rounded-[2rem] p-4"
-              style={{
-                background: 'rgba(9,31,54,0.18)',
-                border: '1px solid rgba(255,255,255,0.06)',
-                boxShadow: '0 28px 60px -28px rgba(0,0,0,0.55)',
-              }}
-            >
-              <img
-                src="/hero-globe.png"
-                alt="TravelOS global intelligence"
-                className="w-[360px] h-[360px] object-contain select-none"
-                draggable={false}
-              />
+            <div className="relative w-[520px] h-[520px] flex items-center justify-center">
+              {HERO_SCATTER.map((item, i) => (
+                <img
+                  key={i}
+                  src={item.src}
+                  alt=""
+                  className={`absolute ${item.cls} w-[116px] h-[116px] rounded-2xl object-cover border border-white/20 shadow-xl opacity-90`}
+                  style={{ boxShadow: '0 18px 28px -18px rgba(0,0,0,0.75)' }}
+                  draggable={false}
+                />
+              ))}
+
+              <div
+                className="rounded-[2rem] p-4 relative z-10"
+                style={{
+                  background: 'rgba(9,31,54,0.18)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  boxShadow: '0 28px 60px -28px rgba(0,0,0,0.55)',
+                }}
+              >
+                <img
+                  src="/hero-globe.png"
+                  alt="TravelOS global intelligence"
+                  className="w-[360px] h-[360px] object-contain select-none rounded-[1.5rem]"
+                  draggable={false}
+                />
+              </div>
             </div>
           </div>
         </div>
