@@ -84,7 +84,7 @@ export function HotelStep({
 
   const [status, setStatus] = useState<Status>(hotelLat != null ? 'found' : 'idle');
   const [errMsg, setErrMsg] = useState('');
-  const [hotels, setHotels] = useState<SuggestedHotel[]>([]);
+  const [manualResult, setManualResult] = useState<SuggestedHotel | null>(null);
   const [manualQuery, setManualQuery] = useState('');
   const [isManualSearching, setIsManualSearching] = useState(false);
 
@@ -98,42 +98,8 @@ export function HotelStep({
     if (destinationLat == null || destinationLng == null) {
       setStatus('error');
       setErrMsg('Please choose one of the featured destinations first.');
-      return;
     }
-
-    let cancelled = false;
-    const loadHotels = async () => {
-      setStatus('loading');
-      setErrMsg('');
-      try {
-        const res = await fetch(`/api/hotels/search?lat=${destinationLat}&lng=${destinationLng}&radius=25`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error ?? 'Failed loading hotels');
-        const picks: SuggestedHotel[] = (data?.hotels ?? []).slice(0, 3);
-        if (!cancelled) {
-          setHotels(picks);
-          if (!picks.length) {
-            setStatus('error');
-            setErrMsg('No nearby hotels found for this destination.');
-          } else if (!confirmed) {
-            setStatus('idle');
-            if (data?.fallback) {
-              setErrMsg('Live Booking data is temporarily unavailable. Showing smart fallback suggestions.');
-            }
-          }
-        }
-      } catch (e) {
-        if (!cancelled) {
-          setStatus('error');
-          setErrMsg(e instanceof Error ? e.message : 'Could not fetch Booking.com hotels');
-        }
-      }
-    };
-    void loadHotels();
-    return () => {
-      cancelled = true;
-    };
-  }, [confirmed, destinationLat, destinationLng]);
+  }, [destinationLat, destinationLng]);
 
   const handlePickHotel = (hotel: SuggestedHotel) => {
     setHotelLocation(`${hotel.name}, ${hotel.address}`, hotel.lat, hotel.lng);
@@ -169,7 +135,15 @@ export function HotelStep({
         return;
       }
       const label = first.display_name || manualQuery.trim();
-      setHotelLocation(label, lat, lng);
+      const parsed: SuggestedHotel = {
+        id: `manual-${Date.now()}`,
+        name: manualQuery.trim().toUpperCase(),
+        address: label,
+        lat,
+        lng,
+      };
+      setManualResult(parsed);
+      setHotelLocation(parsed.address, parsed.lat, parsed.lng);
       setStatus('found');
       setErrMsg('');
     } catch (e) {
@@ -182,6 +156,7 @@ export function HotelStep({
 
   const handleClear = () => {
     clearHotelLocation();
+    setManualResult(null);
     setStatus('idle');
     setErrMsg('');
   };
@@ -226,8 +201,7 @@ export function HotelStep({
             <span style={{ color: '#c5912a' }}>anchor</span>
           </h2>
           <p className="mt-2 text-sm max-w-xs" style={{ color: '#4f5f76' }}>
-            Top 3 Booking.com suggestions around {destination || 'your destination'}.
-            Choose one to center your itinerary around it.
+            Search your hotel and we will set it as your base camp.
           </p>
         </div>
 
@@ -264,37 +238,23 @@ export function HotelStep({
           </div>
         </div>
 
-        {status === 'loading' && (
-          <div className="px-4 py-3 rounded-2xl border text-sm" style={{ background: 'rgba(15,40,98,0.35)', borderColor: 'rgba(255,255,255,0.08)', color: '#fff' }}>
-            Loading Booking.com hotels...
-          </div>
-        )}
-
-        {hotels.length > 0 && (
-          <div className="grid gap-3">
-            {hotels.map((hotel) => {
-              const selected = hotelAddress.includes(hotel.name);
-              return (
-                <button
-                  key={hotel.id}
-                  onClick={() => handlePickHotel(hotel)}
-                  className="w-full text-left p-4 rounded-2xl border transition-all"
-                  style={{
-                    background: selected ? 'rgba(15,40,98,0.52)' : 'rgba(15,40,98,0.34)',
-                    borderColor: selected ? 'rgba(197,145,42,0.55)' : 'rgba(255,255,255,0.12)',
-                    boxShadow: '0 10px 24px -14px rgba(0,0,0,0.7)',
-                    backdropFilter: 'blur(16px)',
-                  }}
-                >
-                  <div className="text-sm font-bold text-white">{hotel.name}</div>
-                  <div className="text-xs mt-1" style={{ color: GREY_BLUE }}>{hotel.address}</div>
-                  <div className="text-[11px] mt-2" style={{ color: selected ? '#d4a235' : 'rgba(255,255,255,0.55)' }}>
-                    {selected ? 'Selected as your base camp' : 'Use as base camp'}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+        {manualResult && (
+          <button
+            onClick={() => handlePickHotel(manualResult)}
+            className="w-full text-left p-4 rounded-2xl border transition-all"
+            style={{
+              background: 'rgba(15,40,98,0.52)',
+              borderColor: 'rgba(197,145,42,0.55)',
+              boxShadow: '0 10px 24px -14px rgba(0,0,0,0.7)',
+              backdropFilter: 'blur(16px)',
+            }}
+          >
+            <div className="text-sm font-bold text-white">{manualResult.name}</div>
+            <div className="text-xs mt-1" style={{ color: GREY_BLUE }}>{manualResult.address}</div>
+            <div className="text-[11px] mt-2" style={{ color: '#d4a235' }}>
+              Selected as your base camp
+            </div>
+          </button>
         )}
 
         {/* Result card */}
