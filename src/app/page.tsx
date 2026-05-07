@@ -272,8 +272,8 @@ export default function HomePage() {
               }}
             >
               <img
-                src="/travelos-static-emblem.svg"
-                alt="TravelOS emblem"
+                src="/hero-globe.png"
+                alt="TravelOS global intelligence"
                 className="w-[360px] h-[360px] object-contain select-none"
                 draggable={false}
               />
