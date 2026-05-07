@@ -6,7 +6,7 @@
  * Combined arrival + departure logistics on ONE screen.
  * Replaces the old ArrivalTimeStep + DepartureTimeStep (two separate steps).
  *
- * skipDay1 logic: if arrivalTime hour >= 20, skipDay1 = true in the store
+ * skipDay1 logic: if arrivalTime is after 18:00, skipDay1 = true in the store
  * (set automatically by setArrivalTime). This is the single source of truth.
  *
  * 3D: clock scene tracking the arrival time.
@@ -263,7 +263,7 @@ export function LogisticsStep({
               <div>
                 <p className="text-xs font-bold" style={{ color: '#f87171' }}>Late arrival — Day 1 simplified</p>
                 <p className="text-[10px] mt-0.5" style={{ color: '#4f5f76' }}>
-                  Arriving after 8 PM? Day 1 = hotel check-in + dinner only. Full schedule starts Day 2.
+                  Arriving after 18:00? Day 1 = hotel check-in + dinner only. Full schedule starts Day 2.
                 </p>
               </div>
             </motion.div>

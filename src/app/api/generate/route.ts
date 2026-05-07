@@ -266,28 +266,46 @@ export async function POST(req: NextRequest) {
     const rawDate = profile.startDate?.trim();
     const startDate = rawDate ? rawDate.slice(0, 10) : null;   // "YYYY-MM-DD" or null
 
-    const { data, error: dbErr } = await supabase
-      .from('itineraries')
-      .insert([{
-        destination:      itinerary.destination || profile.destination,
-        destination_city: itinerary.destination || profile.destination,
-        start_date:       startDate,
-        hotel_info:       hotelInfo,
-        squad_vibe:       profile.groupType ?? null,
-        profile_json:     profile,
-        daily_start_time: toTimeOnly(profile.dailyStartTime),
-        arrival_time:     toIsoDateTime(profile.startDate, profile.arrivalTime),
-        departure_time:   toIsoDateTime(profile.endDate, profile.departureTime),
-        skip_day_1:       !!profile.skipDay1,
-        user_id:          userId,   // null when generated anonymously
-        itinerary_json:   { ...itinerary, _profile: profile },
-      }])
-      .select('id')
-      .single();
+    // Some deployed DBs may lag behind schema migrations.
+    // Retry insert by stripping unknown columns reported by PostgREST.
+    const insertRow: Record<string, unknown> = {
+      destination:      itinerary.destination || profile.destination,
+      destination_city: itinerary.destination || profile.destination,
+      start_date:       startDate,
+      hotel_info:       hotelInfo,
+      squad_vibe:       profile.groupType ?? null,
+      profile_json:     profile,
+      daily_start_time: toTimeOnly(profile.dailyStartTime),
+      arrival_time:     toIsoDateTime(profile.startDate, profile.arrivalTime),
+      departure_time:   toIsoDateTime(profile.endDate, profile.departureTime),
+      skip_day_1:       !!profile.skipDay1,
+      user_id:          userId,   // null when generated anonymously
+      itinerary_json:   { ...itinerary, _profile: profile },
+    };
 
-    if (dbErr) {
-      console.error('[generate] Supabase insert error:', dbErr.message);
-      return NextResponse.json({ error: 'Database error: ' + dbErr.message }, { status: 500 });
+    let data: { id: string } | null = null;
+    let dbErr: { message: string } | null = null;
+    for (let i = 0; i < 8; i++) {
+      const attempt = await supabase
+        .from('itineraries')
+        .insert([insertRow])
+        .select('id')
+        .single();
+
+      data = attempt.data as { id: string } | null;
+      dbErr = attempt.error as { message: string } | null;
+      if (!dbErr) break;
+
+      const msg = dbErr.message || '';
+      const missingCol = msg.match(/Could not find the '([^']+)' column/)?.[1];
+      if (!missingCol || !(missingCol in insertRow)) break;
+      delete insertRow[missingCol];
+      console.warn(`[generate] itineraries insert retry without missing column: ${missingCol}`);
+    }
+
+    if (dbErr || !data?.id) {
+      console.error('[generate] Supabase insert error:', dbErr?.message ?? 'unknown');
+      return NextResponse.json({ error: 'Database error: ' + (dbErr?.message ?? 'unknown') }, { status: 500 });
     }
 
     const itineraryDbId: string = data.id;

@@ -29,7 +29,7 @@ export interface OnboardingState {
   arrivalTime:    string;  // HH:MM, e.g. "21:30"
   departureTime:  string;  // HH:MM, e.g. "14:00"
   dailyStartTime: string;  // HH:MM, e.g. "08:30"
-  skipDay1:       boolean; // derived: true when arrivalTime hour >= 20
+  skipDay1:       boolean; // derived: true when arrivalTime is after 18:00
 
   // Step 3: Hotel Center of Gravity
   hotelAddress: string;
@@ -53,8 +53,9 @@ export interface OnboardingState {
 
 function isLateArrival(time: string): boolean {
   if (!time) return false;
-  const [h] = time.split(':').map(Number);
-  return h >= 20;
+  const [h = 0, m = 0] = time.split(':').map(Number);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return false;
+  return h > 18 || (h === 18 && m > 0);
 }
 
 const INITIAL: Omit<
