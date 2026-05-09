@@ -146,20 +146,20 @@ export function SharePanel({ itinerary, profile, itineraryDbId, accessToken }: P
       <AnimatePresence>
         {open && (
           <motion.div
-            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 sm:p-6"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto overscroll-contain"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
             {/* Backdrop */}
             <div
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm"
               onClick={() => setOpen(false)}
             />
 
-            {/* Panel */}
+            {/* Panel — centered; scroll inside if taller than viewport */}
             <motion.div
-              className="relative w-full max-w-sm rounded-3xl overflow-hidden"
+              className="relative z-10 w-full max-w-sm max-h-[min(90vh,720px)] my-4 overflow-y-auto rounded-3xl overscroll-contain shadow-2xl"
               style={{
                 background: 'rgba(15,17,23,0.96)',
                 backdropFilter: 'blur(28px)',
