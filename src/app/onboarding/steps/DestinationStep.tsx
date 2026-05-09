@@ -20,11 +20,13 @@ const PRIMARY_H = '#b5404a';
 
 // ── Featured destinations ─────────────────────────────────────────────────────
 const DESTINATIONS = [
-  { name: 'Rome',     flag: '🇮🇹', tagline: 'La Dolce Vita', lat: 41.9028, lng: 12.4964 },
-  { name: 'London',   flag: '🇬🇧', tagline: 'Iconic & Eclectic', lat: 51.5074, lng: -0.1278 },
-  { name: 'Athens',   flag: '🇬🇷', tagline: 'Cradle of Civilization', lat: 37.9838, lng: 23.7275 },
-  { name: 'Paris',    flag: '🇫🇷', tagline: 'City of Light', lat: 48.8566, lng: 2.3522 },
-  { name: 'Budapest', flag: '🇭🇺', tagline: 'Paris of the East', lat: 47.4979, lng: 19.0402 },
+  { name: 'Rome',       flag: '🇮🇹', tagline: 'La Dolce Vita', lat: 41.9028, lng: 12.4964 },
+  { name: 'London',     flag: '🇬🇧', tagline: 'Iconic & Eclectic', lat: 51.5074, lng: -0.1278 },
+  { name: 'Athens',     flag: '🇬🇷', tagline: 'Cradle of Civilization', lat: 37.9838, lng: 23.7275 },
+  { name: 'Paris',      flag: '🇫🇷', tagline: 'City of Light', lat: 48.8566, lng: 2.3522 },
+  { name: 'Budapest',   flag: '🇭🇺', tagline: 'Paris of the East', lat: 47.4979, lng: 19.0402 },
+  { name: 'Vienna',     flag: '🇦🇹', tagline: 'Imperial & Café Culture', lat: 48.2082, lng: 16.3738 },
+  { name: 'Amsterdam',  flag: '🇳🇱', tagline: 'Canals & Contrasts', lat: 52.3676, lng: 4.9041 },
 ];
 
 // ── Animation variants ────────────────────────────────────────────────────────

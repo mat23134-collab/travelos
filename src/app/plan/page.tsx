@@ -58,11 +58,13 @@ const optionVariant = {
 // ─── Destination grid (Step 1 — ONLY valid UI for destination) ────────────────
 
 const FEATURED_DESTINATIONS = [
-  { name: 'Rome',     country: 'Italy',   flag: '🇮🇹', tagline: 'La Dolce Vita',         accent: '#f97316' },
-  { name: 'Paris',    country: 'France',  flag: '🇫🇷', tagline: 'City of Light',          accent: '#a855f7' },
-  { name: 'London',   country: 'UK',      flag: '🇬🇧', tagline: 'Iconic & Eclectic',      accent: '#3b82f6' },
-  { name: 'Athens',   country: 'Greece',  flag: '🇬🇷', tagline: 'Cradle of Civilization', accent: '#10b981' },
-  { name: 'Budapest', country: 'Hungary', flag: '🇭🇺', tagline: 'Paris of the East',      accent: '#ec4899' },
+  { name: 'Rome',       country: 'Italy',       flag: '🇮🇹', tagline: 'La Dolce Vita',           accent: '#f97316' },
+  { name: 'Paris',      country: 'France',      flag: '🇫🇷', tagline: 'City of Light',            accent: '#a855f7' },
+  { name: 'London',     country: 'UK',          flag: '🇬🇧', tagline: 'Iconic & Eclectic',       accent: '#3b82f6' },
+  { name: 'Athens',     country: 'Greece',      flag: '🇬🇷', tagline: 'Cradle of Civilization', accent: '#10b981' },
+  { name: 'Budapest',   country: 'Hungary',     flag: '🇭🇺', tagline: 'Paris of the East',       accent: '#ec4899' },
+  { name: 'Vienna',     country: 'Austria',     flag: '🇦🇹', tagline: 'Imperial & Café Culture',   accent: '#eab308' },
+  { name: 'Amsterdam',  country: 'Netherlands', flag: '🇳🇱', tagline: 'Canals & Contrasts',      accent: '#06b6d4' },
 ];
 
 function DestinationGrid({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -90,7 +92,9 @@ function DestinationGrid({ value, onChange }: { value: string; onChange: (v: str
             transition={{ type: 'spring', stiffness: 400, damping: 24 }}
             className={[
               'relative flex flex-col items-start p-5 rounded-2xl border-2 text-left transition-colors',
-              i === 4 ? 'col-span-2 sm:col-span-1' : '',
+              i === FEATURED_DESTINATIONS.length - 1 && FEATURED_DESTINATIONS.length % 2 === 1
+                ? 'col-span-2 sm:col-span-1'
+                : '',
               selected
                 ? ''
                 : 'border-white/10 hover:border-white/20',
@@ -475,6 +479,74 @@ const CITY_PICK_GROUPS: Record<string, PickCategory[]> = {
       items: [
         { icon: '🍺', label: 'Ruin Bar Night Out' },
         { icon: '🚋', label: 'Danube Promenade' },
+      ],
+    },
+  ],
+  Vienna: [
+    {
+      key: 'attractions',
+      title: 'Attractions',
+      items: [
+        { icon: '🏰', label: 'Schönbrunn Palace' },
+        { icon: '🎨', label: 'MuseumsQuartier' },
+      ],
+    },
+    {
+      key: 'restaurants',
+      title: 'Restaurants',
+      items: [
+        { icon: '☕', label: 'Classic Viennese Café' },
+        { icon: '🥨', label: 'Naschmarkt Food Walk' },
+      ],
+    },
+    {
+      key: 'historical',
+      title: 'Historical',
+      items: [
+        { icon: '⛪', label: 'St. Stephen\'s Cathedral' },
+        { icon: '🏛️', label: 'Hofburg Palace' },
+      ],
+    },
+    {
+      key: 'popular',
+      title: 'Most Popular (Touristy Too)',
+      items: [
+        { icon: '🎡', label: 'Prater Giant Ferris Wheel' },
+        { icon: '🖼️', label: 'Belvedere Palace' },
+      ],
+    },
+  ],
+  Amsterdam: [
+    {
+      key: 'attractions',
+      title: 'Attractions',
+      items: [
+        { icon: '🛶', label: 'Canal Ring Walk' },
+        { icon: '🏘️', label: 'Jordaan Streets' },
+      ],
+    },
+    {
+      key: 'restaurants',
+      title: 'Restaurants',
+      items: [
+        { icon: '🧇', label: 'Stroopwafel & Markets' },
+        { icon: '🍛', label: 'Indonesian Rijsttafel Dinner' },
+      ],
+    },
+    {
+      key: 'historical',
+      title: 'Historical',
+      items: [
+        { icon: '📔', label: 'Anne Frank House' },
+        { icon: '🖼️', label: 'Rijksmuseum' },
+      ],
+    },
+    {
+      key: 'popular',
+      title: 'Most Popular (Touristy Too)',
+      items: [
+        { icon: '🎨', label: 'Van Gogh Museum' },
+        { icon: '📍', label: 'Dam Square & Royal Palace' },
       ],
     },
   ],

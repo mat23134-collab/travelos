@@ -7,6 +7,18 @@ export interface HotelRecommendation {
   whyItFits: string;
   priceRange: string;
   neighborhoodInsight: string;
+  /** Official property website — only when confident from HOTEL_SEARCH_DATA URLs */
+  websiteUrl?: string | null;
+  /** Indicative nightly rate band anchored to the user's trip dates (not a live quote) */
+  estimatedPriceRangeTripDates?: string | null;
+  /** Qualitative availability / booking pressure note */
+  availabilitySummary?: string | null;
+  /** Aggregate rating when grounded (typically 1–5 scale); omit when unknown */
+  ratingStars?: number | null;
+  ratingSource?: string | null;
+  reviewCountHint?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface Basecamp {

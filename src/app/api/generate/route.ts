@@ -6,6 +6,7 @@ import { runChainOfThoughtSearch, searchWeb } from '@/lib/rag';
 import { supabase } from '@/lib/supabase';
 import { queryPlacesForCity, formatPlacesForPrompt } from '@/lib/places';
 import { batchVerifyPlaces } from '@/lib/verification';
+import { normalizeBasecampHotels } from '@/lib/hotelNormalize';
 
 // ── JSON instruction prepended to every system prompt ────────────────────────
 
@@ -166,6 +167,8 @@ export async function POST(req: NextRequest) {
     const raw = await withRetry(() => callClaude(profile, classifiedResults, hotelContext, internalPlaces));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const itinerary: any = parseAIJson(raw);
+
+    normalizeBasecampHotels(itinerary.basecamp);
 
     // ── JIT Verification Shield ─────────────────────────────────────────────────
     // Run Exa highlights checks on every selected activity in parallel.

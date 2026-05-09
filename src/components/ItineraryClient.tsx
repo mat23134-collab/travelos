@@ -24,10 +24,204 @@ type ViewMode = 'draft' | 'final';
 
 // ─── Basecamp section ─────────────────────────────────────────────────────────
 
-function HotelCard({ hotel }: { hotel: HotelRecommendation }) {
+const HOTEL_DETAIL_SPRING = { type: 'spring' as const, stiffness: 380, damping: 30 };
+
+function bookingCompareUrl(
+  hotelName: string,
+  destination: string,
+  opts?: { checkIn?: string; checkOut?: string; adults?: number },
+): string {
+  const params = new URLSearchParams();
+  params.set('ss', `${hotelName}, ${destination}`);
+  const ci = opts?.checkIn?.slice(0, 10);
+  const co = opts?.checkOut?.slice(0, 10);
+  if (ci && /^\d{4}-\d{2}-\d{2}$/.test(ci)) params.set('checkin', ci);
+  if (co && /^\d{4}-\d{2}-\d{2}$/.test(co)) params.set('checkout', co);
+  const adults = opts?.adults && opts.adults > 0 ? opts.adults : 2;
+  params.set('group_adults', String(adults));
+  return `https://www.booking.com/searchresults.html?${params.toString()}`;
+}
+
+function starRow(score?: number | null): string | null {
+  if (score == null || !Number.isFinite(score)) return null;
+  const clamped = Math.max(0, Math.min(5, score));
+  const full = Math.floor(clamped);
+  const half = clamped - full >= 0.5 ? 1 : 0;
+  const empty = Math.max(0, 5 - full - half);
+  return `${'★'.repeat(full)}${half ? '½' : ''}${'☆'.repeat(empty)}`;
+}
+
+function HotelDetailCube({
+  hotel,
+  destination,
+  profile,
+  onClose,
+}: {
+  hotel: HotelRecommendation;
+  destination: string;
+  profile: TravelerProfile | null;
+  onClose: () => void;
+}) {
+  const checkIn = profile?.startDate?.slice(0, 10);
+  const checkOut = profile?.endDate?.slice(0, 10);
+  const adults = profile?.groupSize && profile.groupSize > 0 ? profile.groupSize : 2;
+  const bookingHref = bookingCompareUrl(hotel.name, destination, { checkIn, checkOut, adults });
+  const reviewsHref = `https://www.google.com/search?q=${encodeURIComponent(`${hotel.name} hotel ${destination} reviews`)}`;
+  const stars = starRow(hotel.ratingStars);
+  const photoQuery = `${hotel.name} ${destination}`.trim();
+
   return (
-    <div
-      className="relative flex flex-col rounded-2xl border border-white/10 overflow-hidden transition-all duration-200 hover:-translate-y-1 hover:border-[#9e363a]/40"
+    <motion.div
+      className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} />
+
+      <motion.div
+        className="relative w-full sm:max-w-lg rounded-t-[2rem] sm:rounded-[2rem] overflow-hidden flex flex-col z-10"
+        style={{
+          background: '#0f1117',
+          border: '1px solid rgba(255,255,255,0.08)',
+          boxShadow: '0 40px 100px -20px rgba(0,0,0,0.85)',
+          maxHeight: '92dvh',
+        }}
+        initial={{ y: '100%', scale: 0.96 }}
+        animate={{ y: 0, scale: 1 }}
+        exit={{ y: '60%', opacity: 0, scale: 0.94 }}
+        transition={HOTEL_DETAIL_SPRING}
+      >
+        <div className="relative flex-shrink-0">
+          <DayPhoto query={photoQuery} alt={hotel.name} height={220} dark />
+          <motion.button
+            type="button"
+            onClick={onClose}
+            whileTap={{ scale: 0.85 }}
+            className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold z-10"
+            style={{ background: 'rgba(15,17,23,0.75)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.12)' }}
+          >
+            ✕
+          </motion.button>
+          <div
+            className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-white text-[10px] font-bold uppercase tracking-wide z-10"
+            style={{ background: 'rgba(15,17,23,0.75)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.12)' }}
+          >
+            🏨 Basecamp pick
+          </div>
+        </div>
+
+        <div className="overflow-y-auto flex-1 px-5 pt-5 pb-6">
+          <h3 className="text-white font-bold text-xl tracking-tight leading-tight">{hotel.name}</h3>
+          <p className="text-white/45 text-sm mt-1">📍 {hotel.neighborhood}</p>
+
+          <div className="flex flex-wrap gap-2 mt-3 mb-4">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#9e363a] bg-[#9e363a]/12 px-2 py-0.5 rounded-full">
+              {hotel.neighborhoodVibe}
+            </span>
+            <span className="text-[10px] text-white/45 font-mono bg-white/5 px-2 py-0.5 rounded-full border border-white/10">
+              {hotel.priceRange}
+            </span>
+            {stars && hotel.ratingStars != null && Number.isFinite(hotel.ratingStars) && (
+              <span className="text-[10px] text-amber-300/90 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                {stars} {hotel.ratingStars.toFixed(1)}/5
+                {hotel.ratingSource ? ` · ${hotel.ratingSource}` : ''}
+              </span>
+            )}
+            {hotel.reviewCountHint && (
+              <span className="text-[10px] text-white/35 bg-white/5 px-2 py-0.5 rounded-full border border-white/10">
+                {hotel.reviewCountHint}
+              </span>
+            )}
+          </div>
+
+          {(checkIn || checkOut) && (
+            <div className="mb-3 text-[11px] text-white/40">
+              Your dates:{' '}
+              <span className="text-white/70 font-mono">
+                {checkIn ?? '—'} → {checkOut ?? '—'}
+              </span>
+            </div>
+          )}
+
+          {hotel.estimatedPriceRangeTripDates && (
+            <div
+              className="mb-3 rounded-xl px-3 py-2.5 border border-amber-500/20"
+              style={{ background: 'rgba(245,158,11,0.07)' }}
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-200/80 mb-1">Price band (your dates)</p>
+              <p className="text-xs text-amber-100/85 leading-relaxed">{hotel.estimatedPriceRangeTripDates}</p>
+            </div>
+          )}
+
+          {hotel.availabilitySummary && (
+            <div
+              className="mb-3 rounded-xl px-3 py-2.5 border border-sky-500/20"
+              style={{ background: 'rgba(56,189,248,0.06)' }}
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-sky-200/80 mb-1">Availability</p>
+              <p className="text-xs text-sky-100/80 leading-relaxed">{hotel.availabilitySummary}</p>
+            </div>
+          )}
+
+          <p className="text-xs text-white/65 leading-relaxed mb-4">{hotel.whyItFits}</p>
+
+          <div
+            className="rounded-xl px-3 py-2 mb-4"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+          >
+            <p className="text-[10px] text-white/40 uppercase tracking-widest mb-0.5">Neighborhood Edge</p>
+            <p className="text-[11px] text-white/60 leading-relaxed">{hotel.neighborhoodInsight}</p>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            {hotel.websiteUrl && (
+              <a
+                href={hotel.websiteUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-3 rounded-xl text-sm font-bold text-center text-white transition-opacity hover:opacity-95"
+                style={{ background: '#9e363a', boxShadow: '0 4px 18px rgba(158,54,58,0.28)' }}
+              >
+                Official hotel site →
+              </a>
+            )}
+            <a
+              href={bookingHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-3 rounded-xl text-sm font-semibold text-center border border-white/15 text-white/85 hover:bg-white/8 transition-colors"
+            >
+              Compare rates & live availability →
+            </a>
+            <a
+              href={reviewsHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-2.5 rounded-xl text-xs font-semibold text-center text-white/45 hover:text-white/70 border border-white/10"
+            >
+              Read reviews (Google) ↗
+            </a>
+          </div>
+
+          <p className="text-[10px] text-white/25 mt-4 leading-relaxed text-center">
+            Price hints are indicative unless sourced from a live booking integration. Opening booking links shows real-time availability from the provider.
+          </p>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function HotelCard({ hotel, onOpen }: { hotel: HotelRecommendation; onOpen: () => void }) {
+  const stars = starRow(hotel.ratingStars);
+  return (
+    <motion.button
+      type="button"
+      onClick={onOpen}
+      whileHover={{ y: -3 }}
+      whileTap={{ scale: 0.98 }}
+      className="relative flex flex-col rounded-2xl border border-white/10 overflow-hidden transition-all duration-200 hover:border-[#9e363a]/40 text-left w-full cursor-pointer"
       style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(12px)' }}
     >
       <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#9e363a]/50 to-transparent" />
@@ -37,6 +231,9 @@ function HotelCard({ hotel }: { hotel: HotelRecommendation }) {
             {hotel.neighborhoodVibe}
           </span>
           <span className="text-[10px] text-white/40 font-mono">{hotel.priceRange}</span>
+          {stars && hotel.ratingStars != null && (
+            <span className="text-[10px] text-amber-300/80">{stars}</span>
+          )}
         </div>
         <div>
           <p className="text-sm font-bold text-white leading-tight">{hotel.name}</p>
@@ -50,12 +247,81 @@ function HotelCard({ hotel }: { hotel: HotelRecommendation }) {
           <p className="text-[10px] text-white/40 uppercase tracking-widest mb-0.5">Neighborhood Edge</p>
           <p className="text-[11px] text-white/60 leading-relaxed">{hotel.neighborhoodInsight}</p>
         </div>
+        <p className="text-[10px] text-white/30 text-center pt-1">Tap for rates, links & reviews</p>
       </div>
-    </div>
+    </motion.button>
   );
 }
 
-function BasecampSection({ basecamp, groupType }: { basecamp: Basecamp; groupType?: TravelerProfile['groupType'] | null }) {
+function RecommendationsBasecampInner({
+  recommendations,
+  title,
+  target,
+  destination,
+  profile,
+}: {
+  recommendations: HotelRecommendation[];
+  title: string;
+  target: string;
+  destination: string;
+  profile: TravelerProfile | null;
+}) {
+  const [selected, setSelected] = useState<HotelRecommendation | null>(null);
+
+  return (
+    <>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1, type: 'spring', stiffness: 280, damping: 26 }}
+        className="relative rounded-2xl overflow-hidden mb-8"
+        style={{ background: '#0f1117', border: '1px solid rgba(255,255,255,0.08)' }}
+      >
+        <div className="absolute top-0 right-0 w-80 h-80 bg-[#9e363a]/08 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-60 h-60 bg-[#8b5cf6]/08 rounded-full blur-[80px] pointer-events-none" />
+        <div className="relative z-10 p-5 sm:p-6">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#9e363a]">🏠 Basecamp</span>
+            <span className="text-[10px] text-white/30">{title}-Approved Picks</span>
+          </div>
+          <h3 className="text-base font-bold text-white mb-4">Where should {target} stay?</h3>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {recommendations.map((hotel, i) => (
+              <HotelCard key={`${hotel.name}-${hotel.neighborhood}-${i}`} hotel={hotel} onOpen={() => setSelected(hotel)} />
+            ))}
+          </div>
+          <p className="text-[10px] text-white/25 mt-4 text-center">
+            Based on your interests, budget, and optimal neighborhood positioning
+          </p>
+        </div>
+      </motion.div>
+
+      <AnimatePresence>
+        {selected && (
+          <HotelDetailCube
+            key={`${selected.name}|${selected.neighborhood}`}
+            hotel={selected}
+            destination={destination}
+            profile={profile}
+            onClose={() => setSelected(null)}
+          />
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
+
+function BasecampSection({
+  basecamp,
+  groupType,
+  destination,
+  profile,
+}: {
+  basecamp: Basecamp;
+  groupType?: TravelerProfile['groupType'] | null;
+  destination: string;
+  profile: TravelerProfile | null;
+}) {
   const title = audienceTitle(groupType);
   const target = audienceTarget(groupType);
   if (basecamp.type === 'booked' && basecamp.booked) {
@@ -91,31 +357,13 @@ function BasecampSection({ basecamp, groupType }: { basecamp: Basecamp; groupTyp
 
   if (basecamp.type === 'recommendations' && basecamp.recommendations?.length) {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1, type: 'spring', stiffness: 280, damping: 26 }}
-        className="relative rounded-2xl overflow-hidden mb-8"
-        style={{ background: '#0f1117', border: '1px solid rgba(255,255,255,0.08)' }}
-      >
-        <div className="absolute top-0 right-0 w-80 h-80 bg-[#9e363a]/08 rounded-full blur-[100px] pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-60 h-60 bg-[#8b5cf6]/08 rounded-full blur-[80px] pointer-events-none" />
-        <div className="relative z-10 p-5 sm:p-6">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[#9e363a]">🏠 Basecamp</span>
-            <span className="text-[10px] text-white/30">{title}-Approved Picks</span>
-          </div>
-          <h3 className="text-base font-bold text-white mb-4">Where should {target} stay?</h3>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {basecamp.recommendations.map((hotel, i) => (
-              <HotelCard key={i} hotel={hotel} />
-            ))}
-          </div>
-          <p className="text-[10px] text-white/25 mt-4 text-center">
-            Based on your interests, budget, and optimal neighborhood positioning
-          </p>
-        </div>
-      </motion.div>
+      <RecommendationsBasecampInner
+        recommendations={basecamp.recommendations}
+        title={title}
+        target={target}
+        destination={destination}
+        profile={profile}
+      />
     );
   }
 
@@ -497,7 +745,14 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
         </motion.div>
 
         {/* Basecamp */}
-        {itinerary.basecamp && <BasecampSection basecamp={itinerary.basecamp} groupType={profile?.groupType} />}
+        {itinerary.basecamp && (
+          <BasecampSection
+            basecamp={itinerary.basecamp}
+            groupType={profile?.groupType}
+            destination={itinerary.destination ?? ''}
+            profile={profile}
+          />
+        )}
 
         {/* Budget summary */}
         {itinerary.budgetSummary && (

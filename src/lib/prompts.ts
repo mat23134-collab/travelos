@@ -225,13 +225,37 @@ CRITICAL: Return ONLY a valid JSON object — no markdown fences, no prose. Stru
   "bestLocalTips": ["tip1","tip2","tip3","tip4","tip5"],
   "basecamp": {
     "type": "booked",
-    "booked": { "name": "string", "neighborhood": "string", "neighborhoodInsight": "max 20 words" }
+    "booked": { "name": "string", "neighborhood": "string", "neighborhoodInsight": "max 20 words" },
+    "recommendations": [
+      {
+        "name": "Official hotel name",
+        "neighborhood": "district",
+        "neighborhoodVibe": "3-word vibe tag",
+        "whyItFits": "max 12 words tied to traveler interests",
+        "priceRange": "$$, $$$, etc.",
+        "neighborhoodInsight": "max 15 words strategic advantage",
+        "websiteUrl": "https://official-hotel-site.example OR null — NEVER invent",
+        "estimatedPriceRangeTripDates": "Indicative nightly band for TRIP_HOTEL_DATES e.g. €260–€420/night (indicative — verify)",
+        "availabilitySummary": "qualitative booking pressure / typical availability note",
+        "ratingStars": 4.6,
+        "ratingSource": "Google Maps aggregate OR named roundup cited from HOTEL_SEARCH_DATA — NEVER invent platform IDs",
+        "reviewCountHint": "~800 reviews OR null when unknown",
+        "latitude": 51.5074,
+        "longitude": -0.1278
+      }
+    ]
   }
 }
 
 BASECAMP RULES (critical):
 - If HOTEL_BOOKED is provided: set basecamp.type="booked", populate booked{} with name + neighborhood from user input, write a neighborhoodInsight explaining why this neighborhood is strategically ideal for this specific trip
-- If no hotel: set basecamp.type="recommendations", omit booked{}, provide exactly 3 hotel recommendations in recommendations[] based on HOTEL_SEARCH_DATA (if available) or expertise. Each must have: name, neighborhood, neighborhoodVibe (2-3 words), whyItFits (tie to traveler interests, max 12 words), priceRange (e.g. "$$"), neighborhoodInsight (max 15 words strategic advantage)
+- If no hotel: set basecamp.type="recommendations", omit booked{}, provide exactly 3 hotel recommendations in recommendations[] based on HOTEL_SEARCH_DATA (if available) or expertise. Each must include ALL keys shown in the sample recommendations[] object:
+  • Core fields (mandatory): name, neighborhood, neighborhoodVibe (2–3 words), whyItFits (max 12 words), priceRange (e.g. "$$"), neighborhoodInsight (max 15 words strategic advantage)
+  • websiteUrl: ONLY when an obvious official hotel domain appears in HOTEL_SEARCH_DATA URLs/snippets — otherwise null (never fabricate)
+  • estimatedPriceRangeTripDates: MUST reference TRIP_HOTEL_DATES from the user prompt when present; phrase explicitly as indicative guidance (not a live fare quote)
+  • availabilitySummary: qualitative realistic booking note — avoid pretending live inventory checks
+  • ratingStars / ratingSource / reviewCountHint: include ONLY when grounded by HOTEL_SEARCH_DATA or other cited roundup tone — omit/null instead of guessing
+  • latitude / longitude: best-effort accurate GPS for the property when confident — otherwise null
 
 PACE RULES:
 - relaxed: morning + evening activity slots only (omit afternoon key); ALWAYS include breakfast, lunch, dinner DiningSpots; evening SHOULD be a relaxed bar or wine spot
@@ -295,11 +319,17 @@ export function buildUserPrompt(profile: TravelerProfile, searchResults?: Classi
   const vibeDirective = buildVibeDirective(profile);
   const tagScoutBlock = buildTagScoutBlock(profile.interests);
 
+  const hotelDateAnchoring =
+    !profile.hotelBooked?.trim() && profile.startDate && profile.endDate
+      ? `\nTRIP_HOTEL_DATES: ${profile.startDate.slice(0, 10)} → ${profile.endDate.slice(0, 10)}`
+      + `\nestimatedPriceRangeTripDates MUST cite these exact dates and explicitly note pricing is indicative (TravelOS does not query live OTA inventory automatically)`
+      : '';
+
   const hotelBlock = profile.hotelBooked?.trim()
     ? `\nHOTEL_BOOKED: ${profile.hotelBooked.trim()}\n(Use this for basecamp.type="booked" — extract name and neighborhood from the text above)`
     : hotelContext
-      ? `\nHOTEL_SEARCH_DATA (use to generate 3 squad-approved recommendations for basecamp.recommendations[]):\n${hotelContext}`
-      : `\nHOTEL_BOOKED: none — generate 3 squad-approved hotel recommendations for basecamp.recommendations[] based on expertise`;
+      ? `\nHOTEL_SEARCH_DATA (use to generate 3 squad-approved recommendations for basecamp.recommendations[]):\n${hotelContext}${hotelDateAnchoring}`
+      : `\nHOTEL_BOOKED: none — generate 3 squad-approved hotel recommendations for basecamp.recommendations[] based on expertise${hotelDateAnchoring}`;
 
   const internalPlacesBlock = internalPlaces
     ? `\n${internalPlaces}\n`

@@ -101,33 +101,142 @@ interface ExaSearchResponse {
   results: ExaResult[];
 }
 
-// ── Exa search — strategic wide batching ──────────────────────────────────────
-// Single Exa phase, parallel broad queries, no deprecated categories.
+interface ExaContentsResponse {
+  results?: Array<{
+    id?: string;
+    url?: string;
+    text?: string;
+  }>;
+}
+
+interface QueryPlanResponse {
+  categories?: {
+    dining?: string[];
+    atmosphere?: string[];
+    culture?: string[];
+  };
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values.map((v) => v.trim()).filter(Boolean))];
+}
+
+async function generateStrategicExaQueries(city: string): Promise<string[]> {
+  const model = process.env.GEMINI_MODEL ?? 'gemini-3-flash-preview';
+  const apiKey = process.env.GEMINI_API_KEY ?? '';
+  if (!apiKey || apiKey.includes('your_')) {
+    throw new Error('GEMINI_API_KEY is not set for query generation');
+  }
+
+  const prompt = `You are generating premium web-research queries for city intelligence.
+
+CITY: ${city}
+
+Rules:
+1) Avoid tourism buzzwords: do NOT use "hidden gem", "secret", "locals only", or similar cliches.
+2) Output 2 queries per category (6 total), high-signal, natural-language, recommendation-style.
+3) Queries should sound like an opening sentence from a trusted insider recommendation.
+4) Focus only on quality venues/events with concrete evidence.
+
+Categories:
+- dining: restaurant quality with ingredient sourcing / farm-to-table focus
+- atmosphere: outstanding interior design OR unique acoustics
+- culture: pop-up events OR private galleries
+
+Return ONLY minified JSON with this exact shape:
+{"categories":{"dining":["q1","q2"],"atmosphere":["q3","q4"],"culture":["q5","q6"]}}`;
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 1600,
+        responseMimeType: 'application/json',
+      },
+    }),
+  });
+  if (!res.ok) {
+    throw new Error(`Gemini query-plan API ${res.status}: ${await res.text()}`);
+  }
+
+  const data = (await res.json()) as GeminiResponse;
+  const raw = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
+  if (!raw) throw new Error('Gemini query-plan returned empty content');
+
+  let parsed: QueryPlanResponse | null = null;
+  try {
+    parsed = JSON.parse(raw) as QueryPlanResponse;
+  } catch {
+    // keep null; fallback below
+  }
+
+  const planned = uniqueStrings([
+    ...(parsed?.categories?.dining ?? []),
+    ...(parsed?.categories?.atmosphere ?? []),
+    ...(parsed?.categories?.culture ?? []),
+  ]);
+
+  if (planned.length >= 6) return planned.slice(0, 6);
+
+  // Safe fallback if model formatting fails
+  return [
+    `The absolute best farm-to-table restaurants in ${city} with chef-led sourcing and seasonal menus`,
+    `Most respected ingredient-driven dining rooms in ${city} recommended by food critics and chefs`,
+    `The most design-forward bars and cafes in ${city} with exceptional interior architecture`,
+    `Top venues in ${city} known for unique acoustics, listening-room quality, or immersive sound design`,
+    `Upcoming private gallery openings and curator-led pop-up exhibitions in ${city}`,
+    `Independent culture calendar in ${city}: temporary installations, invite-only showcases, and experimental art pop-ups`,
+  ];
+}
+
+async function fetchExaFullContentsByIds(apiKey: string, ids: string[]): Promise<Map<string, string>> {
+  const idChunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += 25) idChunks.push(ids.slice(i, i + 25));
+
+  const textById = new Map<string, string>();
+  for (const chunk of idChunks) {
+    const res = await fetch('https://api.exa.ai/contents', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+      },
+      body: JSON.stringify({
+        ids: chunk,
+        text: {
+          maxCharacters: 12000,
+        },
+      }),
+    });
+    if (!res.ok) continue;
+    const data = (await res.json()) as ExaContentsResponse;
+    for (const item of data.results ?? []) {
+      if (item.id && typeof item.text === 'string' && item.text.trim()) {
+        textById.set(item.id, item.text);
+      }
+    }
+  }
+  return textById;
+}
+
+// ── Exa search — strategic category batching + full article fetch ─────────────
 
 async function searchExa(city: string): Promise<string> {
   const apiKey = process.env.EXA_API_KEY ?? '';
 
-  const queries: Array<{
-    query: string;
-    type: 'neural' | 'keyword';
-    use_autoprompt: boolean;
-    num_results: number;
-  }> = [
-    {
-      query: `${city} best fine dining luxury restaurant chef tasting menu Michelin hidden gems cocktail bar speakeasy rooftop`,
-      type: 'neural',
-      use_autoprompt: true,
-      num_results: 50,
-    },
-    {
-      query: `${city} local favorite hidden gem boutique hotel luxury cafe premium experience neighborhood guide 2026`,
-      type: 'keyword',
-      use_autoprompt: false,
-      num_results: 50,
-    },
-  ];
+  const queryStrings = await generateStrategicExaQueries(city);
+  const queries = queryStrings.map((query) => ({
+    query,
+    type: 'neural' as const,
+    use_autoprompt: true,
+    num_results: 25,
+  }));
 
-  console.log(`  → Exa neural search (${queries.length} targeted queries)…`);
+  console.log(`  → Exa strategic search (${queries.length} category queries)…`);
 
   const settled = await Promise.allSettled(
     queries.map(async ({ query, type, use_autoprompt, num_results }) => {
@@ -137,15 +246,12 @@ async function searchExa(city: string): Promise<string> {
         type,
         use_autoprompt,
         contents: {
-          // Full text — up to 1500 chars per result for Claude context
-          text: { maxCharacters: 1500 },
-          // AI-extracted highlights most relevant to "local travel gems"
+          text: { maxCharacters: 1200 },
           highlights: {
-            query: `hidden gem local favorite viral spot ${city}`,
+            query: `fine dining design acoustics gallery pop-up ${city}`,
             numSentences: 3,
             highlightsPerUrl: 2,
           },
-          // Short summary for quick signal
           summary: { query: `What makes this place special in ${city}?` },
         },
       };
@@ -169,16 +275,18 @@ async function searchExa(city: string): Promise<string> {
   );
 
   const chunks: string[] = [];
-  let socialUrls: string[] = [];
+  const socialUrls: string[] = [];
+  const allIds: string[] = [];
+  const allResults: ExaResult[] = [];
 
   for (const result of settled) {
     if (result.status === 'rejected') {
       console.warn(`  ⚠️  Exa query failed: ${result.reason}`);
       continue;
     }
-
     for (const r of result.value.results) {
-      // Collect social proof URLs from tweet/Instagram/TikTok results
+      allResults.push(r);
+      if (r.id) allIds.push(r.id);
       if (
         r.url.includes('twitter.com') ||
         r.url.includes('x.com') ||
@@ -187,20 +295,36 @@ async function searchExa(city: string): Promise<string> {
       ) {
         socialUrls.push(r.url);
       }
-
-      const parts: string[] = [];
-      parts.push(`[${r.title ?? 'Untitled'}] (${r.url})`);
-      if (r.summary)    parts.push(`Summary: ${r.summary}`);
-      if (r.highlights?.length) parts.push(`Highlights: ${r.highlights.join(' | ')}`);
-      if (r.text)       parts.push(r.text.slice(0, 800));
-
-      chunks.push(parts.join('\n'));
     }
   }
 
-  if (chunks.length === 0) throw new Error('Exa returned no results');
+  if (allResults.length === 0) throw new Error('Exa returned no results');
 
-  // Append deduplicated social URLs as a signal block for Claude
+  // Pull full article text for deeper downstream extraction.
+  let fullTextById = new Map<string, string>();
+  try {
+    fullTextById = await fetchExaFullContentsByIds(apiKey, uniqueStrings(allIds));
+    if (fullTextById.size > 0) {
+      console.log(`  → Exa full contents fetched for ${fullTextById.size} results`);
+    }
+  } catch (err) {
+    console.warn(`  ⚠️  Exa full content fetch failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  for (const r of allResults) {
+    const parts: string[] = [];
+    parts.push(`[${r.title ?? 'Untitled'}] (${r.url})`);
+    if (r.summary) parts.push(`Summary: ${r.summary}`);
+    if (r.highlights?.length) parts.push(`Highlights: ${r.highlights.join(' | ')}`);
+    const full = r.id ? fullTextById.get(r.id) : undefined;
+    if (full) {
+      parts.push(`FullContent:\n${full.slice(0, 10000)}`);
+    } else if (r.text) {
+      parts.push(`Snippet:\n${r.text.slice(0, 1200)}`);
+    }
+    chunks.push(parts.join('\n'));
+  }
+
   const deduped = [...new Set(socialUrls)];
   const socialBlock = deduped.length
     ? `\n\nSOCIAL PROOF URLS FOUND (use as social_proof_url if the place matches):\n${deduped.map((u) => `  - ${u}`).join('\n')}`
