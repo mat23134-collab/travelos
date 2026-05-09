@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Itinerary, TravelerProfile } from '@/lib/types';
 import { audienceNounPlural, audienceTitle } from '@/lib/audienceCopy';
@@ -41,6 +42,7 @@ interface Props {
 }
 
 export function SharePanel({ itinerary, profile, itineraryDbId, accessToken }: Props) {
+  const [portalEl, setPortalEl] = useState<HTMLElement | null>(null);
   const [open, setOpen]     = useState(false);
   const [copied, setCopied] = useState(false);
   const [shareUsername, setShareUsername] = useState('');
@@ -48,6 +50,10 @@ export function SharePanel({ itinerary, profile, itineraryDbId, accessToken }: P
   const [shareMsg, setShareMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
   const canShareInApp = !!itineraryDbId && !!accessToken;
+
+  useEffect(() => {
+    setPortalEl(document.body);
+  }, []);
 
   const handlePrint = () => {
     setOpen(false);
@@ -143,145 +149,154 @@ export function SharePanel({ itinerary, profile, itineraryDbId, accessToken }: P
         <span>↗</span> Share
       </motion.button>
 
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto overscroll-contain"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            {/* Backdrop */}
-            <div
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm"
-              onClick={() => setOpen(false)}
-            />
+      {portalEl &&
+        createPortal(
+          <AnimatePresence>
+            {open && (
+              <motion.div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="share-panel-title"
+                className="fixed inset-0 z-[300] flex min-h-0 items-center justify-center p-4 sm:p-6 overflow-y-auto overscroll-contain"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                {/* Backdrop */}
+                <div
+                  className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+                  onClick={() => setOpen(false)}
+                />
 
-            {/* Panel — centered; scroll inside if taller than viewport */}
-            <motion.div
-              className="relative z-10 w-full max-w-sm max-h-[min(90vh,720px)] my-4 overflow-y-auto rounded-3xl overscroll-contain shadow-2xl"
-              style={{
-                background: 'rgba(15,17,23,0.96)',
-                backdropFilter: 'blur(28px)',
-                border: '1px solid rgba(255,255,255,0.08)',
-                boxShadow: '0 32px 80px -12px rgba(0,0,0,0.7)',
-              }}
-              initial={{ y: 60, opacity: 0, scale: 0.95 }}
-              animate={{ y: 0, opacity: 1, scale: 1 }}
-              exit={{ y: 40, opacity: 0, scale: 0.96 }}
-              transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-            >
-              {/* Coral orb */}
-              <div className="absolute top-0 right-0 w-48 h-48 bg-[#ff5a5f]/12 rounded-full blur-[70px] pointer-events-none" />
-              {/* Cyan orb */}
-              <div className="absolute bottom-0 left-0 w-32 h-32 bg-[#00d4ff]/8 rounded-full blur-[50px] pointer-events-none" />
+                {/* Panel — viewport-centered (portal escapes nav backdrop-filter containing block) */}
+                <motion.div
+                  className="relative z-10 w-full max-w-sm max-h-[min(90dvh,720px)] my-auto overflow-y-auto rounded-3xl overscroll-contain shadow-2xl"
+                  style={{
+                    background: 'rgba(15,17,23,0.96)',
+                    backdropFilter: 'blur(28px)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    boxShadow: '0 32px 80px -12px rgba(0,0,0,0.7)',
+                  }}
+                  initial={{ y: 24, opacity: 0, scale: 0.96 }}
+                  animate={{ y: 0, opacity: 1, scale: 1 }}
+                  exit={{ y: 16, opacity: 0, scale: 0.97 }}
+                  transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+                >
+                  {/* Coral orb */}
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-[#ff5a5f]/12 rounded-full blur-[70px] pointer-events-none" />
+                  {/* Cyan orb */}
+                  <div className="absolute bottom-0 left-0 w-32 h-32 bg-[#00d4ff]/8 rounded-full blur-[50px] pointer-events-none" />
 
-              <div className="relative z-10 p-6">
-                {/* Header */}
-                <div className="flex items-start justify-between mb-5">
-                  <div>
-                    <h3 className="font-bold text-white text-base tracking-tight">
-                      Share the {audienceTitle(profile?.groupType)} Plan
-                    </h3>
-                    <p className="text-white/35 text-xs mt-0.5">
-                      {itinerary.destination} · {itinerary.totalDays} days
-                    </p>
-                  </div>
-                  <motion.button
-                    onClick={() => setOpen(false)}
-                    whileTap={{ scale: 0.85 }}
-                    className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-white/50 hover:bg-white/15 transition-colors text-xs"
-                  >
-                    ✕
-                  </motion.button>
-                </div>
-
-                {/* Option cards */}
-                <div className="flex flex-col gap-2.5">
-                  {OPTIONS.map(({ id, icon, label, sub, gradient, action }) => (
-                    <motion.button
-                      key={id}
-                      onClick={action}
-                      whileHover={{ scale: 1.02, x: 3 }}
-                      whileTap={{ scale: 0.97, transition: { type: 'spring', stiffness: 600, damping: 18 } }}
-                      className="flex items-center gap-4 p-4 rounded-2xl border border-white/8 bg-white/5 hover:bg-white/8 transition-colors text-left group"
-                    >
-                      {/* Icon bubble */}
-                      <div
-                        className="w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0 shadow-lg"
-                        style={{ background: gradient }}
+                  <div className="relative z-10 p-6">
+                    {/* Header */}
+                    <div className="flex items-start justify-between mb-5">
+                      <div>
+                        <h3 id="share-panel-title" className="font-bold text-white text-base tracking-tight">
+                          Share the {audienceTitle(profile?.groupType)} Plan
+                        </h3>
+                        <p className="text-white/35 text-xs mt-0.5">
+                          {itinerary.destination} · {itinerary.totalDays} days
+                        </p>
+                      </div>
+                      <motion.button
+                        type="button"
+                        onClick={() => setOpen(false)}
+                        whileTap={{ scale: 0.85 }}
+                        className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-white/50 hover:bg-white/15 transition-colors text-xs"
                       >
-                        {icon}
-                      </div>
+                        ✕
+                      </motion.button>
+                    </div>
 
-                      {/* Text */}
-                      <div className="min-w-0 flex-1">
-                        <div className="font-semibold text-white text-sm group-hover:text-[#ff8c8f] transition-colors">
-                          {label}
-                        </div>
-                        <div className="text-white/35 text-xs mt-0.5 leading-snug">{sub}</div>
-                      </div>
-
-                      <span className="text-white/20 group-hover:text-white/50 transition-colors flex-shrink-0">
-                        →
-                      </span>
-                    </motion.button>
-                  ))}
-                </div>
-
-                <div className="mt-5 pt-5 border-t border-white/10">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-[#9e363a] mb-2">TravelOS users</p>
-                  <p className="text-white/40 text-xs mb-3 leading-relaxed">
-                    Send this saved trip to someone&apos;s dashboard by username. They&apos;ll see it under &quot;Shared with you&quot;. Or use Copy link for anyone.
-                  </p>
-                  {canShareInApp ? (
-                    <>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={shareUsername}
-                          onChange={(e) => setShareUsername(e.target.value)}
-                          placeholder="friend_username"
-                          className="flex-1 min-w-0 px-3 py-2.5 rounded-xl text-sm text-white placeholder-white/25 outline-none"
-                          style={{
-                            background: 'rgba(255,255,255,0.06)',
-                            border: '1px solid rgba(255,255,255,0.10)',
-                          }}
-                        />
+                    {/* Option cards */}
+                    <div className="flex flex-col gap-2.5">
+                      {OPTIONS.map(({ id, icon, label, sub, gradient, action }) => (
                         <motion.button
+                          key={id}
                           type="button"
-                          disabled={shareBusy}
-                          onClick={handleShareWithUser}
-                          whileTap={{ scale: 0.95 }}
-                          className="px-4 py-2.5 rounded-xl text-xs font-bold text-white shrink-0 disabled:opacity-50"
-                          style={{
-                            background: 'linear-gradient(135deg, #4a7bde 0%, #6b93ee 100%)',
-                            boxShadow: '0 4px 20px -4px rgba(74,123,222,0.45)',
-                          }}
+                          onClick={action}
+                          whileHover={{ scale: 1.02, x: 3 }}
+                          whileTap={{ scale: 0.97, transition: { type: 'spring', stiffness: 600, damping: 18 } }}
+                          className="flex items-center gap-4 p-4 rounded-2xl border border-white/8 bg-white/5 hover:bg-white/8 transition-colors text-left group"
                         >
-                          {shareBusy ? '…' : 'Send'}
+                          {/* Icon bubble */}
+                          <div
+                            className="w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0 shadow-lg"
+                            style={{ background: gradient }}
+                          >
+                            {icon}
+                          </div>
+
+                          {/* Text */}
+                          <div className="min-w-0 flex-1">
+                            <div className="font-semibold text-white text-sm group-hover:text-[#ff8c8f] transition-colors">
+                              {label}
+                            </div>
+                            <div className="text-white/35 text-xs mt-0.5 leading-snug">{sub}</div>
+                          </div>
+
+                          <span className="text-white/20 group-hover:text-white/50 transition-colors flex-shrink-0">
+                            →
+                          </span>
                         </motion.button>
-                      </div>
-                      {shareMsg && (
-                        <p
-                          className="text-xs mt-2 leading-relaxed"
-                          style={{ color: shareMsg.type === 'ok' ? 'rgba(52,211,153,0.95)' : 'rgba(255,140,143,0.95)' }}
-                        >
-                          {shareMsg.text}
+                      ))}
+                    </div>
+
+                    <div className="mt-5 pt-5 border-t border-white/10">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-[#9e363a] mb-2">TravelOS users</p>
+                      <p className="text-white/40 text-xs mb-3 leading-relaxed">
+                        Send this saved trip to someone&apos;s dashboard by username. They&apos;ll see it under &quot;Shared with you&quot;. Or use Copy link for anyone.
+                      </p>
+                      {canShareInApp ? (
+                        <>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={shareUsername}
+                              onChange={(e) => setShareUsername(e.target.value)}
+                              placeholder="friend_username"
+                              className="flex-1 min-w-0 px-3 py-2.5 rounded-xl text-sm text-white placeholder-white/25 outline-none"
+                              style={{
+                                background: 'rgba(255,255,255,0.06)',
+                                border: '1px solid rgba(255,255,255,0.10)',
+                              }}
+                            />
+                            <motion.button
+                              type="button"
+                              disabled={shareBusy}
+                              onClick={handleShareWithUser}
+                              whileTap={{ scale: 0.95 }}
+                              className="px-4 py-2.5 rounded-xl text-xs font-bold text-white shrink-0 disabled:opacity-50"
+                              style={{
+                                background: 'linear-gradient(135deg, #4a7bde 0%, #6b93ee 100%)',
+                                boxShadow: '0 4px 20px -4px rgba(74,123,222,0.45)',
+                              }}
+                            >
+                              {shareBusy ? '…' : 'Send'}
+                            </motion.button>
+                          </div>
+                          {shareMsg && (
+                            <p
+                              className="text-xs mt-2 leading-relaxed"
+                              style={{ color: shareMsg.type === 'ok' ? 'rgba(52,211,153,0.95)' : 'rgba(255,140,143,0.95)' }}
+                            >
+                              {shareMsg.text}
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-white/25 text-[11px] leading-relaxed">
+                          Save the trip to your account first (finish generating), then open Share again to send by username.
                         </p>
                       )}
-                    </>
-                  ) : (
-                    <p className="text-white/25 text-[11px] leading-relaxed">
-                      Save the trip to your account first (finish generating), then open Share again to send by username.
-                    </p>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
+                    </div>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          portalEl,
         )}
-      </AnimatePresence>
     </div>
   );
 }
