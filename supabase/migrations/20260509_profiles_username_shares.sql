@@ -1,13 +1,47 @@
 -- Usernames (signup) + share trips with another user by username
+--
+-- NOTE: Supabase starter projects often already have public.profiles WITHOUT
+-- a "username" column. CREATE TABLE IF NOT EXISTS then skips — and the index
+-- on username fails. This migration creates the table OR patches the existing one.
 
--- ── profiles ───────────────────────────────────────────────────────────────
-create table if not exists public.profiles (
-  id uuid primary key references auth.users (id) on delete cascade,
-  username text not null,
-  created_at timestamptz not null default now(),
-  constraint profiles_username_len check (char_length(username) between 3 and 24),
-  constraint profiles_username_chars check (username ~ '^[a-z0-9_]+$')
-);
+-- ── profiles (create OR add username to existing template table) ─────────────
+do $$
+begin
+  if not exists (
+    select 1 from information_schema.tables
+    where table_schema = 'public' and table_name = 'profiles'
+  ) then
+    create table public.profiles (
+      id uuid primary key references auth.users (id) on delete cascade,
+      username text not null,
+      created_at timestamptz not null default now(),
+      constraint profiles_username_len check (char_length(username) between 3 and 24),
+      constraint profiles_username_chars check (username ~ '^[a-z0-9_]+$')
+    );
+  else
+    if not exists (
+      select 1 from information_schema.columns
+      where table_schema = 'public' and table_name = 'profiles' and column_name = 'username'
+    ) then
+      alter table public.profiles add column username text;
+      -- Deterministic unique slug from user id (hex, 3–24 chars, valid for app regex)
+      update public.profiles
+      set username = 'u' || substr(replace(id::text, '-', ''), 1, 23)
+      where username is null or btrim(username) = '';
+      alter table public.profiles alter column username set not null;
+    end if;
+
+    alter table public.profiles drop constraint if exists profiles_username_len;
+    alter table public.profiles drop constraint if exists profiles_username_chars;
+    alter table public.profiles
+      add constraint profiles_username_len check (char_length(username) between 3 and 24);
+    alter table public.profiles
+      add constraint profiles_username_chars check (username ~ '^[a-z0-9_]+$');
+  end if;
+end $$;
+
+-- created_at (only if we are patching an old table that never had it)
+alter table public.profiles add column if not exists created_at timestamptz not null default now();
 
 create unique index if not exists profiles_username_lower_idx
   on public.profiles (lower(username));
