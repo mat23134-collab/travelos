@@ -28,12 +28,34 @@ export interface HotelRecommendation {
   longitude?: number | null;
 }
 
+/** One nearby public-transport anchor from the hotel (names stay English for maps). */
+export interface TransitNearHotelLine {
+  modeLabel: string;
+  lineOrRoute: string;
+  walkMinutes?: string;
+}
+
+/** Rich “around your pre-booked hotel” intel — only when basecamp.type is booked. */
+export interface BookedHotelAround {
+  /** One vivid sentence: what it feels like to step outside the hotel */
+  areaHeadline?: string;
+  /** Short vibe tags (English 2–4 words each is OK for scanability) */
+  vibes?: string[];
+  /** Things to do within ~10–15 min walk */
+  walkableHighlights?: string[];
+  transitNearHotel?: TransitNearHotelLine[];
+  /** One punchy “unlock” — insider micro-itinerary from the doorstep */
+  signatureMove?: string;
+}
+
 export interface Basecamp {
   type: 'booked' | 'recommendations';
   booked?: {
     name: string;
     neighborhood: string;
     neighborhoodInsight: string;
+    /** Extra neighborhood field guide for travelers who already locked a hotel */
+    aroundHotel?: BookedHotelAround;
   };
   recommendations?: HotelRecommendation[];
 }

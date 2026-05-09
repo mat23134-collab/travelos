@@ -93,6 +93,18 @@ export function itineraryUi(lang: TripUiLang) {
       ? 'מבוסס על התחומים שבחרתם, התקציב, ומיקום אופטימלי בשכונות.'
       : 'Based on your interests, budget, and optimal neighborhood positioning',
 
+    aroundHotelBadge: he ? 'מסביב למלון' : 'Around your stay',
+    aroundHotelTitle: he ? 'מדריך השכונה מהדלת' : 'Doorstep neighborhood field guide',
+    aroundHotelSub: (hood: string) =>
+      he
+        ? `מיקוד: ${hood} — מה מרגישים, מה לעשות ברגל, ואיך לזוז מכאן`
+        : `Focused on ${hood} — feel of the blocks, walkable wins, and how to move from here`,
+    aroundHotelVibes: he ? 'וויבים בשכונה' : 'Block vibes',
+    aroundHotelWalk: he ? 'מה עושים בקרבת המלון' : 'Walkable from your hotel',
+    aroundHotelTransit: he ? 'תחבורה ציבורית קרובה' : 'Public transport nearby',
+    aroundHotelSignature: he ? 'טיפ מגנטי' : 'Signature move',
+    aroundHotelPerkChip: he ? 'בונוס למזמינים מראש' : 'Pre-booked perk',
+
     hotelCardHint: he ? 'לחצו למחירים, קישורים וביקורות' : 'Tap for rates, links & reviews',
     hotelNeighborhoodEdge: he ? 'יתרון השכונה' : 'Neighborhood Edge',
     hotelModalBadge: he ? '🏨 בחירת בסיס' : '🏨 Basecamp pick',

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Itinerary, TravelerProfile, Basecamp, HotelRecommendation } from '@/lib/types';
+import { Itinerary, TravelerProfile, Basecamp, HotelRecommendation, type BookedHotelAround } from '@/lib/types';
 import { DayCard } from '@/components/DayCard';
 import { DayPhoto } from '@/components/DayPhoto';
 import { QuickEdit } from '@/components/QuickEdit';
@@ -376,6 +376,134 @@ function BasecampSection({
   }
 
   return null;
+}
+
+function hasAroundHotelContent(a?: BookedHotelAround | null): boolean {
+  if (!a) return false;
+  return !!(
+    (a.areaHeadline && a.areaHeadline.trim()) ||
+    (a.vibes && a.vibes.length > 0) ||
+    (a.walkableHighlights && a.walkableHighlights.length > 0) ||
+    (a.transitNearHotel && a.transitNearHotel.length > 0) ||
+    (a.signatureMove && a.signatureMove.trim())
+  );
+}
+
+function BookedHotelAroundSection({
+  around,
+  neighborhood,
+  ui,
+}: {
+  around: BookedHotelAround;
+  neighborhood: string;
+  ui: ItineraryUiStrings;
+}) {
+  if (!hasAroundHotelContent(around)) return null;
+
+  return (
+    <motion.div
+      dir={ui.dir}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.14, type: 'spring', stiffness: 280, damping: 26 }}
+      className="relative rounded-2xl overflow-hidden mb-8"
+      style={{
+        background: 'linear-gradient(145deg, rgba(74,123,222,0.12) 0%, rgba(15,17,23,0.98) 42%, #0f1117 100%)',
+        border: '1px solid rgba(139,92,246,0.22)',
+        boxShadow: '0 0 0 1px rgba(158,54,58,0.12) inset, 0 20px 60px -30px rgba(0,0,0,0.5)',
+      }}
+    >
+      <div className="absolute -top-20 -right-16 w-72 h-72 rounded-full bg-[#4a7bde]/15 blur-[90px] pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-56 h-56 rounded-full bg-[#9e363a]/10 blur-[70px] pointer-events-none" />
+      <div className="relative z-10 p-5 sm:p-6">
+        <div className="flex flex-wrap items-center gap-2 mb-2">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-[#9e363a]">{ui.aroundHotelBadge}</span>
+          <span className="text-[10px] text-white/35 px-2 py-0.5 rounded-full border border-white/10 bg-white/[0.04]">
+            {ui.aroundHotelPerkChip}
+          </span>
+        </div>
+        <h3 className="text-lg font-bold text-white tracking-tight mb-1">{ui.aroundHotelTitle}</h3>
+        <p className="text-xs text-white/45 mb-4">{ui.aroundHotelSub(neighborhood)}</p>
+        {around.areaHeadline && (
+          <p className="text-sm text-white/85 leading-relaxed mb-5 border-l-2 border-[#9e363a] pl-3">{around.areaHeadline}</p>
+        )}
+        <div className="grid gap-4 lg:grid-cols-2">
+          {!!around.vibes?.length && (
+            <div
+              className="rounded-xl p-4"
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-[#ff8c8f] mb-2">{ui.aroundHotelVibes}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {around.vibes.map((v, i) => (
+                  <span
+                    key={i}
+                    className="text-[11px] px-2.5 py-1 rounded-full font-medium"
+                    style={{
+                      background: 'rgba(158,54,58,0.18)',
+                      color: '#f0d0d4',
+                      border: '1px solid rgba(158,54,58,0.35)',
+                    }}
+                  >
+                    {v}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {!!around.transitNearHotel?.length && (
+            <div
+              className="rounded-xl p-4"
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-[#ff8c8f] mb-2">{ui.aroundHotelTransit}</p>
+              <ul className="space-y-2">
+                {around.transitNearHotel.map((t, i) => (
+                  <li key={i} className="text-xs text-white/70 leading-snug">
+                    <span className="text-white/90 font-semibold">{t.modeLabel}</span>
+                    {' · '}
+                    <span>{t.lineOrRoute}</span>
+                    {t.walkMinutes && <span className="text-white/40"> · {t.walkMinutes}</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+        {!!around.walkableHighlights?.length && (
+          <div
+            className="mt-4 rounded-xl p-4"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+          >
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-[#ff8c8f] mb-2">{ui.aroundHotelWalk}</p>
+            <ul className="grid sm:grid-cols-2 gap-2">
+              {around.walkableHighlights.map((h, i) => (
+                <li key={i} className="text-xs text-white/72 leading-relaxed flex gap-2">
+                  <span className="text-[#9e363a] shrink-0">▸</span>
+                  <span>{h}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {around.signatureMove && (
+          <div
+            className="mt-4 rounded-xl p-4 relative overflow-hidden"
+            style={{
+              background: 'linear-gradient(120deg, rgba(158,54,58,0.2) 0%, rgba(15,40,98,0.35) 100%)',
+              border: '1px solid rgba(158,54,58,0.35)',
+            }}
+          >
+            <div className="absolute top-2 right-3 text-lg opacity-30 select-none" aria-hidden>
+              ✦
+            </div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/60 mb-1">{ui.aroundHotelSignature}</p>
+            <p className="text-sm text-white/92 leading-relaxed pr-6">{around.signatureMove}</p>
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
 }
 
 // ─── Trip Intelligence modal ──────────────────────────────────────────────────
@@ -812,6 +940,16 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
             ui={ui}
           />
         )}
+
+        {itinerary.basecamp?.type === 'booked' &&
+          itinerary.basecamp.booked?.aroundHotel &&
+          hasAroundHotelContent(itinerary.basecamp.booked.aroundHotel) && (
+            <BookedHotelAroundSection
+              around={itinerary.basecamp.booked.aroundHotel}
+              neighborhood={itinerary.basecamp.booked.neighborhood}
+              ui={ui}
+            />
+          )}
 
         {/* Budget summary */}
         {itinerary.budgetSummary && (

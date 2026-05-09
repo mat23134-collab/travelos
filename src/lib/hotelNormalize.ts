@@ -1,4 +1,4 @@
-import type { HotelRecommendation } from '@/lib/types';
+import type { BookedHotelAround, HotelRecommendation, TransitNearHotelLine } from '@/lib/types';
 
 function sanitizeHttpsUrl(raw?: string): string | null {
   if (!raw?.trim()) return null;
@@ -79,10 +79,76 @@ export function normalizeHotelRecommendation(raw: unknown): HotelRecommendation 
   };
 }
 
+function pickStrArr(obj: Record<string, unknown>, ...keys: string[]): string[] | undefined {
+  for (const k of keys) {
+    const v = obj[k];
+    if (!Array.isArray(v)) continue;
+    const out = v
+      .map((x) => (typeof x === 'string' ? x.trim() : ''))
+      .filter(Boolean);
+    if (out.length) return out;
+  }
+  return undefined;
+}
+
+function normalizeTransitLine(raw: unknown): TransitNearHotelLine | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  const modeLabel = pickStr(o, 'modeLabel', 'mode_label', 'mode');
+  const lineOrRoute = pickStr(o, 'lineOrRoute', 'line_or_route', 'line', 'route');
+  if (!modeLabel || !lineOrRoute) return null;
+  const walkMinutes = pickStr(o, 'walkMinutes', 'walk_minutes', 'walk');
+  return { modeLabel, lineOrRoute, walkMinutes };
+}
+
+/** Coerce snake_case / loose shapes for booked.aroundHotel */
+function normalizeBookedAroundInPlace(booked: Record<string, unknown>): void {
+  const raw = booked.aroundHotel ?? booked.around_hotel;
+  if (!raw || typeof raw !== 'object') return;
+  const r = raw as Record<string, unknown>;
+
+  const areaHeadline = pickStr(r, 'areaHeadline', 'area_headline', 'headline');
+  const vibes = pickStrArr(r, 'vibes', 'vibe_tags');
+  const walkableHighlights = pickStrArr(r, 'walkableHighlights', 'walkable_highlights', 'highlights', 'nearbyHighlights');
+  const sig = pickStr(r, 'signatureMove', 'signature_move', 'localUnlock', 'magneticMove');
+
+  let transitRaw = r.transitNearHotel ?? r.transit_near_hotel ?? r.transit;
+  const transitLines: TransitNearHotelLine[] = [];
+  if (Array.isArray(transitRaw)) {
+    for (const row of transitRaw) {
+      const line = normalizeTransitLine(row);
+      if (line) transitLines.push(line);
+    }
+  }
+
+  const out: BookedHotelAround = {};
+  if (areaHeadline) out.areaHeadline = areaHeadline;
+  if (vibes?.length) out.vibes = vibes.slice(0, 8);
+  if (walkableHighlights?.length) out.walkableHighlights = walkableHighlights.slice(0, 8);
+  if (transitLines.length) out.transitNearHotel = transitLines.slice(0, 6);
+  if (sig) out.signatureMove = sig;
+
+  if (
+    out.areaHeadline ||
+    (out.vibes && out.vibes.length > 0) ||
+    (out.walkableHighlights && out.walkableHighlights.length > 0) ||
+    (out.transitNearHotel && out.transitNearHotel.length > 0) ||
+    out.signatureMove
+  ) {
+    booked.aroundHotel = out;
+    delete booked.around_hotel;
+  }
+}
+
 /** Mutates itinerary.basecamp in place — tolerates loose AI JSON. */
 export function normalizeBasecampHotels(basecamp: unknown): void {
   if (!basecamp || typeof basecamp !== 'object') return;
-  const b = basecamp as { type?: string; recommendations?: unknown[] };
+  const b = basecamp as { type?: string; recommendations?: unknown[]; booked?: Record<string, unknown> };
+
+  if (b.type === 'booked' && b.booked && typeof b.booked === 'object') {
+    normalizeBookedAroundInPlace(b.booked as Record<string, unknown>);
+  }
+
   if (b.type !== 'recommendations' || !Array.isArray(b.recommendations)) return;
 
   const normalized = b.recommendations

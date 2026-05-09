@@ -226,7 +226,20 @@ CRITICAL: Return ONLY a valid JSON object — no markdown fences, no prose. Stru
   "bestLocalTips": ["tip1","tip2","tip3","tip4","tip5"],
   "basecamp": {
     "type": "booked",
-    "booked": { "name": "string", "neighborhood": "string", "neighborhoodInsight": "max 20 words" },
+    "booked": {
+      "name": "string",
+      "neighborhood": "string",
+      "neighborhoodInsight": "max 20 words",
+      "aroundHotel": {
+        "areaHeadline": "max 28 words — how it feels to step outside the hotel",
+        "vibes": ["2-4 word English vibe tag", "…4 to 6 tags total"],
+        "walkableHighlights": ["max 14 words each", "4-6 bullets within ~12 min walk"],
+        "transitNearHotel": [
+          { "modeLabel": "Metro|Bus|Tram|RER|S-Bahn|etc", "lineOrRoute": "real line name + direction hint", "walkMinutes": "e.g. 4 min walk" }
+        ],
+        "signatureMove": "max 22 words — one hyper-local unlock from the doorstep"
+      }
+    },
     "recommendations": [
       {
         "name": "Official hotel name",
@@ -249,7 +262,12 @@ CRITICAL: Return ONLY a valid JSON object — no markdown fences, no prose. Stru
 }
 
 BASECAMP RULES (critical):
-- If HOTEL_BOOKED is provided: set basecamp.type="booked", populate booked{} with name + neighborhood from user input, write a neighborhoodInsight explaining why this neighborhood is strategically ideal for this specific trip
+- If HOTEL_BOOKED is provided: set basecamp.type="booked", populate booked{} with name + neighborhood from user input, write a neighborhoodInsight explaining why this neighborhood is strategically ideal for this specific trip. ALSO populate booked.aroundHotel (mandatory for pre-booked stays):
+  • areaHeadline: one vivid sentence on the sensory / social feel of the blocks around THIS hotel (not generic city marketing)
+  • vibes: 4–6 ultra-short tags (2–4 English words each) capturing street energy, food, nightlife, shopping, or calm — specific to this micro-hood
+  • walkableHighlights: 4–6 bullets, max 14 words each — real cafés, parks, markets, galleries, or stroll loops reachable in roughly 10–15 minutes on foot from the hotel (no invented business names unless you are certain)
+  • transitNearHotel: 2–4 objects naming REAL modes/lines/stations plausible for this city & district; modeLabel + lineOrRoute stay English map-style; walkMinutes optional; never invent exact timetables
+  • signatureMove: ONE sentence — a memorable insider "move" from the hotel (cheap breakfast cluster, post-dinner liqueur walk, shortcut to a view, best bakery run) max 22 words
 - If no hotel: set basecamp.type="recommendations", omit booked{}, provide exactly 3 hotel recommendations in recommendations[] based on HOTEL_SEARCH_DATA (if available) or expertise. Each must include ALL keys shown in the sample recommendations[] object:
   • Core fields (mandatory): name, neighborhood, neighborhoodVibe (2–3 words), whyItFits (max 12 words), priceRange (e.g. "$$"), neighborhoodInsight (max 15 words strategic advantage)
   • websiteUrl: ONLY when an obvious official hotel domain appears in HOTEL_SEARCH_DATA URLs/snippets — otherwise null (never fabricate)
@@ -318,7 +336,7 @@ TRIP_OUTPUT_LANGUAGE: Hebrew (Modern Israeli Hebrew).
 BILINGUAL OUTPUT RULES (mandatory):
 1) ENGLISH ONLY — official venue names: every Activity and DiningSpot "name", every basecamp hotel "name", and neighborhood strings that are proper English map labels (e.g. "Le Marais", "Neubau"). Never Hebrew-transliterate business names.
 
-2) HEBREW — all explanatory prose: strategicOverview; budgetSummary (dailyAverage, totalEstimate, includes); each day "theme" and human-readable "date" line; activity "description", "whyThis", "bestTimeToVisit", "transitFromPrevious", "duration", "estimatedCost" when prose; all DiningSpot text fields except the venue "name" and except "cuisine" (keep cuisine as short English token if needed, or Hebrew — prefer clear Hebrew for diners); webInsights[].text; packingTips[]; bestLocalTips[]; transportTip; basecamp neighborhoodInsight / whyItFits / availabilitySummary / estimatedPriceRangeTripDates (keep currency symbols and numbers readable).
+2) HEBREW — all explanatory prose: strategicOverview; budgetSummary (dailyAverage, totalEstimate, includes); each day "theme" and human-readable "date" line; activity "description", "whyThis", "bestTimeToVisit", "transitFromPrevious", "duration", "estimatedCost" when prose; all DiningSpot text fields except the venue "name" and except "cuisine" (keep cuisine as short English token if needed, or Hebrew — prefer clear Hebrew for diners); webInsights[].text; packingTips[]; bestLocalTips[]; transportTip; basecamp neighborhoodInsight / whyItFits / availabilitySummary / estimatedPriceRangeTripDates (keep currency symbols and numbers readable). For basecamp.booked.aroundHotel when HOTEL_BOOKED: Hebrew for areaHeadline, walkableHighlights[], signatureMove; keep vibes[] as short English tags; keep transitNearHotel[].modeLabel and lineOrRoute in English.
 
 3) JSON keys unchanged. "destination" value stays the English city name (e.g. "Vienna"). time_slot stays 24h HH:MM format.
 
