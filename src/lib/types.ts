@@ -165,7 +165,7 @@ export interface Itinerary {
     hiddenGems?: number;
     trapsFiltered?: number;
     contradictionsFound?: number;
-    provider?: string;      // e.g. 'claude' — written by generate route
+    provider?: string;      // 'gemini' | 'claude' — written by generate route
     jitVerified?: number;   // activities checked by JIT Shield
     jitFlagged?: number;    // activities with closure/renovation signals
   };

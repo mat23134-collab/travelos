@@ -57,7 +57,7 @@ async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
       lastErr = err;
       if (!isRetryable(err) || attempt === maxAttempts) throw err;
       const delay = attempt * 2000;
-      console.warn(`[generate] Claude transient error — retrying in ${delay}ms (attempt ${attempt}/${maxAttempts})`);
+      console.warn(`[generate] LLM transient error — retrying in ${delay}ms (attempt ${attempt}/${maxAttempts})`);
       await new Promise((r) => setTimeout(r, delay));
     }
   }
@@ -86,14 +86,78 @@ function dropMissingColumnFromRow(row: Record<string, unknown>, errorMessage: st
   return true;
 }
 
-// ── Claude call ───────────────────────────────────────────────────────────────
+// ── Gemini call (primary) ─────────────────────────────────────────────────────
 
-async function callClaude(
-  profile: TravelerProfile,
-  classifiedResults: ClassifiedResult[],
-  hotelContext: string | undefined,
-  internalPlaces: string | undefined,
-): Promise<string> {
+type GeminiGenerateBody = {
+  candidates?: Array<{
+    content?: { parts?: Array<{ text?: string }> };
+    finishReason?: string;
+  }>;
+  promptFeedback?: { blockReason?: string };
+};
+
+async function callGemini(userPrompt: string): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY is not set');
+  }
+
+  const modelName = process.env.GEMINI_MODEL ?? 'gemini-3-flash-preview';
+  const url =
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelName)}` +
+    `:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+  const systemText = JSON_PREAMBLE + SYSTEM_PROMPT;
+  console.log(`[generate] Gemini ${modelName} — key prefix: ${apiKey.slice(0, 8)}`);
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: systemText }] },
+      contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+      generationConfig: {
+        temperature: 0.35,
+        maxOutputTokens: (() => {
+          const n = Number(process.env.GEMINI_MAX_OUTPUT_TOKENS);
+          return Number.isFinite(n) && n > 0 ? n : 16384;
+        })(),
+        responseMimeType: 'application/json',
+      },
+    }),
+  });
+
+  const errBody = !res.ok ? await res.text() : '';
+  if (!res.ok) {
+    throw new Error(`Gemini API ${res.status}: ${errBody.slice(0, 600)}`);
+  }
+
+  const data = (await res.json()) as GeminiGenerateBody;
+
+  if (data.promptFeedback?.blockReason) {
+    throw new Error(`Gemini blocked: ${data.promptFeedback.blockReason}`);
+  }
+
+  const cand = data.candidates?.[0];
+  if (!cand) throw new Error('Gemini returned no candidates');
+
+  if (cand.finishReason === 'SAFETY' || cand.finishReason === 'RECITATION') {
+    throw new Error(`Gemini finish: ${cand.finishReason}`);
+  }
+
+  const parts = cand.content?.parts ?? [];
+  const raw = parts.map((p) => p.text ?? '').join('').trim();
+  if (!raw) throw new Error('Gemini returned empty text');
+
+  console.log(
+    `[generate] Gemini response: ${raw.length} chars | finishReason: ${cand.finishReason ?? 'UNKNOWN'}`,
+  );
+  return raw;
+}
+
+// ── Claude call (fallback) ───────────────────────────────────────────────────
+
+async function callClaude(userPrompt: string): Promise<string> {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error('ANTHROPIC_API_KEY is not set — add it to Railway Variables');
   }
@@ -106,9 +170,7 @@ async function callClaude(
     model: modelName,
     max_tokens: 16000,
     system: JSON_PREAMBLE + SYSTEM_PROMPT,
-    messages: [
-      { role: 'user', content: buildUserPrompt(profile, classifiedResults, hotelContext, internalPlaces) },
-    ],
+    messages: [{ role: 'user', content: userPrompt }],
   });
 
   const block = message.content[0];
@@ -163,10 +225,47 @@ export async function POST(req: NextRequest) {
       } catch { /* non-critical */ }
     }
 
-    // ── Generate itinerary ──────────────────────────────────────────────────────
-    const raw = await withRetry(() => callClaude(profile, classifiedResults, hotelContext, internalPlaces));
+    // ── Generate itinerary: Gemini first, Claude fallback ───────────────────────
+    const userPrompt = buildUserPrompt(profile, classifiedResults, hotelContext, internalPlaces);
+
+    let raw: string;
+    let provider: 'gemini' | 'claude';
+
+    if (process.env.GEMINI_API_KEY?.trim()) {
+      try {
+        raw = await withRetry(() => callGemini(userPrompt));
+        provider = 'gemini';
+      } catch (geminiErr) {
+        console.warn(
+          '[generate] Gemini failed — falling back to Claude:',
+          geminiErr instanceof Error ? geminiErr.message : geminiErr,
+        );
+        raw = await withRetry(() => callClaude(userPrompt));
+        provider = 'claude';
+      }
+    } else {
+      console.log('[generate] GEMINI_API_KEY not set — using Claude only');
+      raw = await withRetry(() => callClaude(userPrompt));
+      provider = 'claude';
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const itinerary: any = parseAIJson(raw);
+    let itinerary: any;
+    try {
+      itinerary = parseAIJson(raw);
+    } catch (parseErr) {
+      if (provider === 'gemini') {
+        console.warn(
+          '[generate] Gemini JSON parse failed — falling back to Claude:',
+          parseErr instanceof Error ? parseErr.message : parseErr,
+        );
+        raw = await withRetry(() => callClaude(userPrompt));
+        provider = 'claude';
+        itinerary = parseAIJson(raw);
+      } else {
+        throw parseErr;
+      }
+    }
 
     normalizeBasecampHotels(itinerary.basecamp);
 
@@ -247,7 +346,7 @@ export async function POST(req: NextRequest) {
       hiddenGems: classifiedResults.filter((r) => r.vibeScore === 'hidden-gem').length,
       trapsFiltered: classifiedResults.filter((r) => r.vibeScore === 'tourist-trap').length,
       contradictionsFound: classifiedResults.filter((r) => r.contradictionNote).length,
-      provider: 'claude',
+      provider,
       jitVerified: jitChecked,
       jitFlagged,
     };
