@@ -1,16 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Itinerary, Activity, DayPlan } from '@/lib/types';
 import type { SwapResult } from '@/app/api/swap/route';
+import { draftSlotUi, type ItineraryUiStrings } from '@/lib/tripUiCopy';
 
-const SLOT_CONFIG = {
-  morning:   { icon: '🌅', label: 'Morning',   timeHint: '~09:00' },
-  afternoon: { icon: '☀️',  label: 'Afternoon', timeHint: '~14:00' },
-  evening:   { icon: '🌙', label: 'Evening',   timeHint: '~20:00' },
+const SLOT_ICONS = {
+  morning: '🌅',
+  afternoon: '☀️',
+  evening: '🌙',
 } as const;
 
-type Slot = keyof typeof SLOT_CONFIG;
+type Slot = keyof typeof SLOT_ICONS;
 
 // ─── Single slot row ──────────────────────────────────────────────────────────
 
@@ -20,10 +21,13 @@ interface SlotRowProps {
   onRefresh: (prompt?: string) => void;
   swapping: boolean;
   justSwapped: boolean;
+  slotUi: ReturnType<typeof draftSlotUi>;
+  ui: ItineraryUiStrings;
 }
 
-function SlotRow({ slot, activity, onRefresh, swapping, justSwapped }: SlotRowProps) {
-  const { icon, label } = SLOT_CONFIG[slot];
+function SlotRow({ slot, activity, onRefresh, swapping, justSwapped, slotUi, ui }: SlotRowProps) {
+  const icon = SLOT_ICONS[slot];
+  const label = slotUi[slot].label;
   const [promptOpen, setPromptOpen] = useState(false);
   const [promptText, setPromptText] = useState('');
 
@@ -41,7 +45,7 @@ function SlotRow({ slot, activity, onRefresh, swapping, justSwapped }: SlotRowPr
         style={{ borderColor: 'rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.03)' }}
       >
         <span className="text-base flex-shrink-0 opacity-30">{icon}</span>
-        <span className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>{label} — not planned</span>
+        <span className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>{label} {slotUi[slot].notPlanned}</span>
       </div>
     );
   }
@@ -73,7 +77,7 @@ function SlotRow({ slot, activity, onRefresh, swapping, justSwapped }: SlotRowPr
             {justSwapped && (
               <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
                 style={{ background: 'rgba(16,185,129,0.15)', color: '#34d399' }}>
-                ✓ Swapped
+                {slotUi[slot].swapped}
               </span>
             )}
           </div>
@@ -104,7 +108,7 @@ function SlotRow({ slot, activity, onRefresh, swapping, justSwapped }: SlotRowPr
               ? <span className="w-3 h-3 rounded-full border border-t-[#9e363a] border-[#9e363a]/30 animate-spin" />
               : '↻'
             }
-            {swapping ? 'Swapping…' : 'Swap'}
+            {swapping ? ui.draftSwapping : ui.draftSwap}
           </button>
         </div>
       </div>
@@ -118,7 +122,7 @@ function SlotRow({ slot, activity, onRefresh, swapping, justSwapped }: SlotRowPr
             value={promptText}
             onChange={(e) => setPromptText(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleQuickSwap()}
-            placeholder={`e.g. "something outdoors" or just leave blank`}
+            placeholder={ui.draftSwapPlaceholder}
             autoFocus
             className="flex-1 text-xs px-3 py-2 rounded-lg border focus:outline-none text-white"
             style={{
@@ -135,7 +139,7 @@ function SlotRow({ slot, activity, onRefresh, swapping, justSwapped }: SlotRowPr
             onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = '#7a2a2d')}
             onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = '#9e363a')}
           >
-            Go
+            {ui.draftGo}
           </button>
           <button
             onClick={() => setPromptOpen(false)}
@@ -160,9 +164,11 @@ interface DayColumnProps {
   swappingKey: string | null;
   swappedKeys: Set<string>;
   onSwap: (dayIndex: number, slot: Slot, request?: string) => void;
+  slotUi: ReturnType<typeof draftSlotUi>;
+  ui: ItineraryUiStrings;
 }
 
-function DayColumn({ day, dayIndex, swappingKey, swappedKeys, onSwap }: DayColumnProps) {
+function DayColumn({ day, dayIndex, swappingKey, swappedKeys, onSwap, slotUi, ui }: DayColumnProps) {
   if (!day) return null;
 
   return (
@@ -190,6 +196,8 @@ function DayColumn({ day, dayIndex, swappingKey, swappedKeys, onSwap }: DayColum
             swapping={swappingKey === key}
             justSwapped={swappedKeys.has(key)}
             onRefresh={(request) => onSwap(dayIndex, slot, request)}
+            slotUi={slotUi}
+            ui={ui}
           />
         );
       })}
@@ -203,9 +211,10 @@ interface Props {
   itinerary: Itinerary;
   onUpdate: (updated: Itinerary) => void;
   onFinalize: () => void;
+  ui: ItineraryUiStrings;
 }
 
-export function DraftOverview({ itinerary, onUpdate, onFinalize }: Props) {
+export function DraftOverview({ itinerary, onUpdate, onFinalize, ui }: Props) {
   const [swappingKey, setSwappingKey] = useState<string | null>(null);
   const [swappedKeys, setSwappedKeys] = useState<Set<string>>(new Set());
   const [error, setError] = useState('');
@@ -245,9 +254,10 @@ export function DraftOverview({ itinerary, onUpdate, onFinalize }: Props) {
   };
 
   const totalSwaps = swappedKeys.size;
+  const slotUi = useMemo(() => draftSlotUi(ui.lang), [ui.lang]);
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#091f36' }}>
+    <div className="min-h-screen" style={{ backgroundColor: '#091f36' }} dir={ui.dir} lang={ui.htmlLang}>
       {/* Draft header */}
       <div
         className="sticky top-0 z-40 border-b backdrop-blur-sm"
@@ -257,14 +267,13 @@ export function DraftOverview({ itinerary, onUpdate, onFinalize }: Props) {
           <div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-              <span className="text-sm font-bold text-white">Review Draft</span>
+              <span className="text-sm font-bold text-white">{ui.draftReviewTitle}</span>
               <span className="text-xs" style={{ color: 'rgba(255,255,255,0.38)' }}>
                 — {itinerary.destination ?? '—'}, {itinerary.totalDays ?? '?'} days
               </span>
             </div>
             <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.38)' }}>
-              Tap ↻ Swap on any activity you don't like, then finalize when ready.
-              {totalSwaps > 0 && ` · ${totalSwaps} swap${totalSwaps > 1 ? 's' : ''} made`}
+              {ui.draftInstructions(totalSwaps)}
             </p>
           </div>
           <button
@@ -278,7 +287,7 @@ export function DraftOverview({ itinerary, onUpdate, onFinalize }: Props) {
             onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = '#7a2a2d')}
             onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = '#9e363a')}
           >
-            Looks Good ✓
+            {ui.looksGood}
           </button>
         </div>
       </div>
@@ -290,7 +299,7 @@ export function DraftOverview({ itinerary, onUpdate, onFinalize }: Props) {
           style={{ background: 'rgba(15,40,98,0.35)', border: '1px solid rgba(255,255,255,0.08)' }}
         >
           <div className="text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#9e363a' }}>
-            AI Strategy
+            {ui.aiStrategy}
           </div>
           <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.70)' }}>
             {itinerary.strategicOverview ?? 'Generating your plan…'}
@@ -320,6 +329,8 @@ export function DraftOverview({ itinerary, onUpdate, onFinalize }: Props) {
               swappingKey={swappingKey}
               swappedKeys={swappedKeys}
               onSwap={handleSwap}
+              slotUi={slotUi}
+              ui={ui}
             />
           ))}
         </div>
@@ -336,10 +347,10 @@ export function DraftOverview({ itinerary, onUpdate, onFinalize }: Props) {
             onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = '#7a2a2d')}
             onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = '#9e363a')}
           >
-            Finalize Itinerary →
+            {ui.finalizeItinerary}
           </button>
           <p className="text-xs mt-3" style={{ color: 'rgba(255,255,255,0.35)' }}>
-            You can still edit activities after finalizing using Quick Edit
+            {ui.finalizeHint}
           </p>
         </div>
       </div>

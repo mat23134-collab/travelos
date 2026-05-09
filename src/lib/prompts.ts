@@ -308,6 +308,24 @@ ${lines}
 When multiple tags apply, favour places that satisfy 2+ tags simultaneously (e.g., a food market also satisfies "shopping" + "local").\n`;
 }
 
+function tripOutputLanguageBlock(profile: TravelerProfile): string {
+  if (profile.tripLanguage !== 'he') return '';
+
+  return `
+TRIP_OUTPUT_LANGUAGE: Hebrew (Modern Israeli Hebrew).
+
+BILINGUAL OUTPUT RULES (mandatory):
+1) ENGLISH ONLY — official venue names: every Activity and DiningSpot "name", every basecamp hotel "name", and neighborhood strings that are proper English map labels (e.g. "Le Marais", "Neubau"). Never Hebrew-transliterate business names.
+
+2) HEBREW — all explanatory prose: strategicOverview; budgetSummary (dailyAverage, totalEstimate, includes); each day "theme" and human-readable "date" line; activity "description", "whyThis", "bestTimeToVisit", "transitFromPrevious", "duration", "estimatedCost" when prose; all DiningSpot text fields except the venue "name" and except "cuisine" (keep cuisine as short English token if needed, or Hebrew — prefer clear Hebrew for diners); webInsights[].text; packingTips[]; bestLocalTips[]; transportTip; basecamp neighborhoodInsight / whyItFits / availabilitySummary / estimatedPriceRangeTripDates (keep currency symbols and numbers readable).
+
+3) JSON keys unchanged. "destination" value stays the English city name (e.g. "Vienna"). time_slot stays 24h HH:MM format.
+
+4) tags: three short English tokens per activity (unchanged machine-facing convention).
+
+`;
+}
+
 export function buildUserPrompt(profile: TravelerProfile, searchResults?: ClassifiedResult[], hotelContext?: string, internalPlaces?: string): string {
   const days = profile.duration || calculateDays(profile.startDate, profile.endDate);
   const interestsList = profile.interests.length ? profile.interests.join(', ') : 'general sightseeing';
@@ -356,6 +374,8 @@ export function buildUserPrompt(profile: TravelerProfile, searchResults?: Classi
     ? `\nTIME CONSTRAINTS (mandatory — schedule must respect these exactly):\n${timeLines.join('\n')}\n`
     : '';
 
+  const langBlock = tripOutputLanguageBlock(profile);
+
   return `Generate a ${days}-day itinerary for this traveler:
 
 DESTINATION: ${profile.destination}
@@ -367,7 +387,7 @@ INTERESTS: ${interestsList}
 ACCOMMODATION: ${profile.accommodation}
 DIETARY: ${profile.dietaryRestrictions || 'none'}
 MUST-HAVES: ${profile.mustHave || 'none specified'}
-${hotelBlock}${timeBlock}
+${hotelBlock}${timeBlock}${langBlock}
 
 VIBE TARGETING:
 ${vibeDirective}

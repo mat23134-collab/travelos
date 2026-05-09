@@ -12,7 +12,7 @@ import { SharePanel } from '@/components/SharePanel';
 import { LogisticsDashboard } from '@/components/LogisticsDashboard';
 import { DraftOverview } from '@/components/DraftOverview';
 import { TrendingTicker } from '@/components/TrendingTicker';
-import { audienceTarget, audienceTitle } from '@/lib/audienceCopy';
+import { itineraryUi, type ItineraryUiStrings } from '@/lib/tripUiCopy';
 import type { SwapResult } from '@/app/api/swap/route';
 
 const ItineraryMap = dynamic(
@@ -56,11 +56,13 @@ function HotelDetailCube({
   destination,
   profile,
   onClose,
+  ui,
 }: {
   hotel: HotelRecommendation;
   destination: string;
   profile: TravelerProfile | null;
   onClose: () => void;
+  ui: ItineraryUiStrings;
 }) {
   const checkIn = profile?.startDate?.slice(0, 10);
   const checkOut = profile?.endDate?.slice(0, 10);
@@ -107,7 +109,7 @@ function HotelDetailCube({
             className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-white text-[10px] font-bold uppercase tracking-wide z-10"
             style={{ background: 'rgba(15,17,23,0.75)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.12)' }}
           >
-            🏨 Basecamp pick
+            {ui.hotelModalBadge}
           </div>
         </div>
 
@@ -137,7 +139,7 @@ function HotelDetailCube({
 
           {(checkIn || checkOut) && (
             <div className="mb-3 text-[11px] text-white/40">
-              Your dates:{' '}
+              {ui.hotelYourDates}{' '}
               <span className="text-white/70 font-mono">
                 {checkIn ?? '—'} → {checkOut ?? '—'}
               </span>
@@ -149,7 +151,7 @@ function HotelDetailCube({
               className="mb-3 rounded-xl px-3 py-2.5 border border-amber-500/20"
               style={{ background: 'rgba(245,158,11,0.07)' }}
             >
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-200/80 mb-1">Price band (your dates)</p>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-200/80 mb-1">{ui.hotelPriceBand}</p>
               <p className="text-xs text-amber-100/85 leading-relaxed">{hotel.estimatedPriceRangeTripDates}</p>
             </div>
           )}
@@ -159,7 +161,7 @@ function HotelDetailCube({
               className="mb-3 rounded-xl px-3 py-2.5 border border-sky-500/20"
               style={{ background: 'rgba(56,189,248,0.06)' }}
             >
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-sky-200/80 mb-1">Availability</p>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-sky-200/80 mb-1">{ui.hotelAvailability}</p>
               <p className="text-xs text-sky-100/80 leading-relaxed">{hotel.availabilitySummary}</p>
             </div>
           )}
@@ -170,7 +172,7 @@ function HotelDetailCube({
             className="rounded-xl px-3 py-2 mb-4"
             style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
           >
-            <p className="text-[10px] text-white/40 uppercase tracking-widest mb-0.5">Neighborhood Edge</p>
+            <p className="text-[10px] text-white/40 uppercase tracking-widest mb-0.5">{ui.hotelNeighborhoodEdge}</p>
             <p className="text-[11px] text-white/60 leading-relaxed">{hotel.neighborhoodInsight}</p>
           </div>
 
@@ -183,7 +185,7 @@ function HotelDetailCube({
                 className="w-full py-3 rounded-xl text-sm font-bold text-center text-white transition-opacity hover:opacity-95"
                 style={{ background: '#9e363a', boxShadow: '0 4px 18px rgba(158,54,58,0.28)' }}
               >
-                Official hotel site →
+                {ui.hotelOfficialSite}
               </a>
             )}
             <a
@@ -192,7 +194,7 @@ function HotelDetailCube({
               rel="noopener noreferrer"
               className="w-full py-3 rounded-xl text-sm font-semibold text-center border border-white/15 text-white/85 hover:bg-white/8 transition-colors"
             >
-              Compare rates & live availability →
+              {ui.hotelCompare}
             </a>
             <a
               href={reviewsHref}
@@ -200,12 +202,12 @@ function HotelDetailCube({
               rel="noopener noreferrer"
               className="w-full py-2.5 rounded-xl text-xs font-semibold text-center text-white/45 hover:text-white/70 border border-white/10"
             >
-              Read reviews (Google) ↗
+              {ui.hotelReviews}
             </a>
           </div>
 
           <p className="text-[10px] text-white/25 mt-4 leading-relaxed text-center">
-            Price hints are indicative unless sourced from a live booking integration. Opening booking links shows real-time availability from the provider.
+            {ui.hotelDisclaimer}
           </p>
         </div>
       </motion.div>
@@ -213,7 +215,7 @@ function HotelDetailCube({
   );
 }
 
-function HotelCard({ hotel, onOpen }: { hotel: HotelRecommendation; onOpen: () => void }) {
+function HotelCard({ hotel, onOpen, ui }: { hotel: HotelRecommendation; onOpen: () => void; ui: ItineraryUiStrings }) {
   const stars = starRow(hotel.ratingStars);
   return (
     <motion.button
@@ -244,10 +246,10 @@ function HotelCard({ hotel, onOpen }: { hotel: HotelRecommendation; onOpen: () =
           className="mt-auto rounded-xl px-3 py-2"
           style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
         >
-          <p className="text-[10px] text-white/40 uppercase tracking-widest mb-0.5">Neighborhood Edge</p>
+          <p className="text-[10px] text-white/40 uppercase tracking-widest mb-0.5">{ui.hotelNeighborhoodEdge}</p>
           <p className="text-[11px] text-white/60 leading-relaxed">{hotel.neighborhoodInsight}</p>
         </div>
-        <p className="text-[10px] text-white/30 text-center pt-1">Tap for rates, links & reviews</p>
+        <p className="text-[10px] text-white/30 text-center pt-1">{ui.hotelCardHint}</p>
       </div>
     </motion.button>
   );
@@ -259,12 +261,14 @@ function RecommendationsBasecampInner({
   target,
   destination,
   profile,
+  ui,
 }: {
   recommendations: HotelRecommendation[];
   title: string;
   target: string;
   destination: string;
   profile: TravelerProfile | null;
+  ui: ItineraryUiStrings;
 }) {
   const [selected, setSelected] = useState<HotelRecommendation | null>(null);
 
@@ -281,17 +285,17 @@ function RecommendationsBasecampInner({
         <div className="absolute bottom-0 left-0 w-60 h-60 bg-[#8b5cf6]/08 rounded-full blur-[80px] pointer-events-none" />
         <div className="relative z-10 p-5 sm:p-6">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[#9e363a]">🏠 Basecamp</span>
-            <span className="text-[10px] text-white/30">{title}-Approved Picks</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#9e363a]">{ui.basecampBadge}</span>
+            <span className="text-[10px] text-white/30">{ui.basecampApprovedPicks(title)}</span>
           </div>
-          <h3 className="text-base font-bold text-white mb-4">Where should {target} stay?</h3>
+          <h3 className="text-base font-bold text-white mb-4">{ui.basecampWhereStay(target)}</h3>
           <div className="grid gap-3 sm:grid-cols-3">
             {recommendations.map((hotel, i) => (
-              <HotelCard key={`${hotel.name}-${hotel.neighborhood}-${i}`} hotel={hotel} onOpen={() => setSelected(hotel)} />
+              <HotelCard key={`${hotel.name}-${hotel.neighborhood}-${i}`} hotel={hotel} onOpen={() => setSelected(hotel)} ui={ui} />
             ))}
           </div>
           <p className="text-[10px] text-white/25 mt-4 text-center">
-            Based on your interests, budget, and optimal neighborhood positioning
+            {ui.basecampFooter}
           </p>
         </div>
       </motion.div>
@@ -303,6 +307,7 @@ function RecommendationsBasecampInner({
             hotel={selected}
             destination={destination}
             profile={profile}
+            ui={ui}
             onClose={() => setSelected(null)}
           />
         )}
@@ -316,14 +321,16 @@ function BasecampSection({
   groupType,
   destination,
   profile,
+  ui,
 }: {
   basecamp: Basecamp;
   groupType?: TravelerProfile['groupType'] | null;
   destination: string;
   profile: TravelerProfile | null;
+  ui: ItineraryUiStrings;
 }) {
-  const title = audienceTitle(groupType);
-  const target = audienceTarget(groupType);
+  const title = ui.audienceTitle(groupType);
+  const target = ui.audienceTarget(groupType);
   if (basecamp.type === 'booked' && basecamp.booked) {
     const { name, neighborhood, neighborhoodInsight } = basecamp.booked;
     return (
@@ -338,8 +345,8 @@ function BasecampSection({
         <div className="absolute bottom-0 left-1/4 w-40 h-40 bg-[#8b5cf6]/10 rounded-full blur-[60px] pointer-events-none" />
         <div className="relative z-10 p-5 sm:p-6">
           <div className="flex items-center gap-2 mb-4">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[#9e363a]">🏠 Your Basecamp</span>
-            <span className="text-[10px] text-white/30 bg-white/8 px-2 py-0.5 rounded-full border border-white/10">Pre-booked</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#9e363a]">{ui.basecampYour}</span>
+            <span className="text-[10px] text-white/30 bg-white/8 px-2 py-0.5 rounded-full border border-white/10">{ui.basecampPreBooked}</span>
           </div>
           <h3 className="text-xl font-bold text-white tracking-tight">{name}</h3>
           <p className="text-sm text-white/45 mt-0.5">📍 {neighborhood}</p>
@@ -347,7 +354,7 @@ function BasecampSection({
             className="mt-4 rounded-xl px-4 py-3"
             style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.10)' }}
           >
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-[#ff8c8f] mb-1">Neighborhood Strategy</p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-[#ff8c8f] mb-1">{ui.basecampNeighborhoodStrategy}</p>
             <p className="text-sm text-white/75 leading-relaxed">{neighborhoodInsight}</p>
           </div>
         </div>
@@ -363,6 +370,7 @@ function BasecampSection({
         target={target}
         destination={destination}
         profile={profile}
+        ui={ui}
       />
     );
   }
@@ -372,16 +380,16 @@ function BasecampSection({
 
 // ─── Trip Intelligence modal ──────────────────────────────────────────────────
 
-function TripIntelligenceButton({ meta }: { meta: NonNullable<Itinerary['_meta']> }) {
+function TripIntelligenceButton({ meta, ui }: { meta: NonNullable<Itinerary['_meta']>; ui: ItineraryUiStrings }) {
   const [open, setOpen] = useState(false);
 
   if (!meta.searchEnabled) return null;
 
   const stats = [
-    { icon: '🔍', label: 'Sources scanned', value: meta.sourcesFound, color: 'text-white' },
-    { icon: '💎', label: 'Hidden gems found', value: meta.hiddenGems ?? 0, color: 'text-purple-400' },
-    { icon: '⚠️', label: 'Tourist traps filtered', value: meta.trapsFiltered ?? 0, color: 'text-amber-400' },
-    { icon: '🔴', label: 'Contradictions flagged', value: meta.contradictionsFound ?? 0, color: 'text-red-400' },
+    { icon: '🔍', label: ui.intelSources, value: meta.sourcesFound, color: 'text-white' },
+    { icon: '💎', label: ui.intelGems, value: meta.hiddenGems ?? 0, color: 'text-purple-400' },
+    { icon: '⚠️', label: ui.intelTraps, value: meta.trapsFiltered ?? 0, color: 'text-amber-400' },
+    { icon: '🔴', label: ui.intelContradictions, value: meta.contradictionsFound ?? 0, color: 'text-red-400' },
   ];
 
   return (
@@ -393,7 +401,7 @@ function TripIntelligenceButton({ meta }: { meta: NonNullable<Itinerary['_meta']
         className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-xs text-white/70 hover:bg-white/15 transition-colors"
       >
         <span className="w-1.5 h-1.5 rounded-full bg-[#9e363a] animate-pulse" />
-        Trip Intelligence
+        {ui.tripIntel}
         <span className="text-white/40 ml-0.5">↗</span>
       </motion.button>
 
@@ -417,8 +425,8 @@ function TripIntelligenceButton({ meta }: { meta: NonNullable<Itinerary['_meta']
               <div className="relative z-10">
                 <div className="flex items-start justify-between mb-5">
                   <div>
-                    <h3 className="text-white font-bold text-base tracking-tight">Trip Intelligence</h3>
-                    <p className="text-white/40 text-xs mt-0.5">How your itinerary was built</p>
+                    <h3 className="text-white font-bold text-base tracking-tight">{ui.tripIntel}</h3>
+                    <p className="text-white/40 text-xs mt-0.5">{ui.tripIntelSub}</p>
                   </div>
                   <motion.button
                     onClick={() => setOpen(false)}
@@ -440,7 +448,7 @@ function TripIntelligenceButton({ meta }: { meta: NonNullable<Itinerary['_meta']
                   ))}
                 </div>
                 <p className="text-white/25 text-[10px] mt-4 leading-relaxed text-center">
-                  AI cross-referenced {meta.sourcesFound} live web sources to surface the best spots, filter traps, and flag conflicting info.
+                  {ui.tripIntelFooter(meta.sourcesFound)}
                 </p>
               </div>
             </motion.div>
@@ -449,6 +457,38 @@ function TripIntelligenceButton({ meta }: { meta: NonNullable<Itinerary['_meta']
       </AnimatePresence>
     </>
   );
+}
+
+/** Pretty range for hero subtitle — expects ISO or YYYY-MM-DD */
+function formatTripDateRange(
+  start?: string | null,
+  end?: string | null,
+  locale = 'en-US',
+): string | null {
+  const s = start?.trim().slice(0, 10);
+  const e = end?.trim().slice(0, 10);
+  if (!s || !e || !/^\d{4}-\d{2}-\d{2}$/.test(s) || !/^\d{4}-\d{2}-\d{2}$/.test(e)) return null;
+  const ds = new Date(`${s}T12:00:00`);
+  const de = new Date(`${e}T12:00:00`);
+  if (Number.isNaN(+ds) || Number.isNaN(+de)) return null;
+
+  const y1 = ds.getFullYear();
+  const y2 = de.getFullYear();
+  const m1 = ds.getMonth();
+  const d2 = de.getDate();
+
+  const monthDay = (d: Date) =>
+    d.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
+  const full = (d: Date) =>
+    d.toLocaleDateString(locale, { month: 'short', day: 'numeric', year: 'numeric' });
+
+  if (y1 === y2 && m1 === de.getMonth()) {
+    return `${monthDay(ds)}–${d2}, ${y2}`;
+  }
+  if (y1 === y2) {
+    return `${monthDay(ds)} – ${full(de)}`;
+  }
+  return `${full(ds)} – ${full(de)}`;
 }
 
 // ─── Hero animation ───────────────────────────────────────────────────────────
@@ -461,13 +501,14 @@ const heroVariant = {
 // ─── Mobile map overlay ───────────────────────────────────────────────────────
 
 function MobileMapOverlay({
-  days, destination, focusedNeighborhood, basecampMarker, onClose,
+  days, destination, focusedNeighborhood, basecampMarker, onClose, mapTitle,
 }: {
   days: Itinerary['days'];
   destination: string;
   focusedNeighborhood?: string;
   basecampMarker?: { lat: number; lng: number; label?: string } | null;
   onClose: () => void;
+  mapTitle: string;
 }) {
   return (
     <AnimatePresence>
@@ -487,7 +528,7 @@ function MobileMapOverlay({
           transition={{ type: 'spring', stiffness: 300, damping: 32 }}
         >
           <div className="flex items-center justify-between px-5 py-3.5 border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
-            <h3 className="font-bold text-white text-sm tracking-tight">Route Map</h3>
+            <h3 className="font-bold text-white text-sm tracking-tight">{mapTitle}</h3>
             <motion.button
               onClick={onClose}
               whileTap={{ scale: 0.88, transition: { type: 'spring', stiffness: 600, damping: 18 } }}
@@ -543,6 +584,21 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
     }
     return null;
   }, [profile]);
+
+  const ui = useMemo(
+    () => itineraryUi(profile?.tripLanguage === 'he' ? 'he' : 'en'),
+    [profile?.tripLanguage],
+  );
+
+  const tripDatesLabel = useMemo(
+    () =>
+      formatTripDateRange(
+        profile?.startDate,
+        profile?.endDate,
+        ui.lang === 'he' ? 'he-IL' : 'en-US',
+      ),
+    [profile?.startDate, profile?.endDate, ui.lang],
+  );
 
   // Admin check — reads the client-readable cookie set by middleware on ?key= login.
   // Used purely for UI visibility; actual data filtering happens server-side.
@@ -620,13 +676,14 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
         itinerary={itinerary}
         onUpdate={handleDraftUpdate}
         onFinalize={() => setViewMode('final')}
+        ui={ui}
       />
     );
   }
 
   // ── FINAL MODE ──────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#091f36' }}>
+    <div className="min-h-screen" style={{ backgroundColor: '#091f36' }} dir={ui.dir} lang={ui.htmlLang}>
       {/* Edit banner */}
       <AnimatePresence>
         {editBanner && (
@@ -661,7 +718,7 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)'; (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.80)'; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.50)'; }}
               >
-                ← Draft
+                {ui.draft}
               </motion.button>
             )}
             <SharePanel itinerary={itinerary} profile={profile} />
@@ -671,7 +728,7 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
                 className="text-sm font-medium px-4 py-2 rounded-lg border transition-colors"
                 style={{ borderColor: 'rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.60)' }}
               >
-                Scout Picks 💎
+                {ui.scoutPicks}
               </Link>
             )}
             <Link
@@ -679,7 +736,7 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
               className="text-sm font-medium px-4 py-2 rounded-lg border transition-colors"
               style={{ borderColor: 'rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.60)' }}
             >
-              ← New Trip
+              {ui.newTrip}
             </Link>
           </div>
         </div>
@@ -714,9 +771,9 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
             <div className="flex items-center gap-3 mb-6 flex-wrap">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-xs text-white/70 backdrop-blur-sm">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#9e363a] animate-pulse" />
-                AI-Crafted · {new Date().getFullYear()} Live Intel
+                {ui.heroAiBadge}
               </div>
-              {itinerary._meta && <TripIntelligenceButton meta={itinerary._meta} />}
+              {itinerary._meta && <TripIntelligenceButton meta={itinerary._meta} ui={ui} />}
             </div>
             <h1
               className="text-6xl sm:text-8xl font-black mb-3 tracking-tighter leading-none"
@@ -725,7 +782,8 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
               {itinerary.destination ?? 'Your Trip'}
             </h1>
             <p className="text-white/65 text-sm mb-6">
-              {itinerary.totalDays ?? '?'}-day itinerary
+              {ui.dayItineraryMeta(itinerary.totalDays ?? '?')}
+              {tripDatesLabel && ` · ${tripDatesLabel}`}
               {profile && ` · ${profile.groupType} · ${profile.budget} budget · ${profile.pace} pace`}
             </p>
             {itinerary.strategicOverview && (
@@ -737,7 +795,7 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
                   border: '1px solid rgba(255,255,255,0.15)',
                 }}
               >
-                <div className="text-xs font-semibold uppercase tracking-widest text-[#ff8c8f] mb-2">Your {audienceTitle(profile?.groupType)} Master Plan</div>
+                <div className="text-xs font-semibold uppercase tracking-widest text-[#ff8c8f] mb-2">{ui.masterPlanLabel(ui.audienceTitle(profile?.groupType))}</div>
                 <p className="text-white/85 text-sm leading-relaxed">{itinerary.strategicOverview}</p>
               </div>
             )}
@@ -751,6 +809,7 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
             groupType={profile?.groupType}
             destination={itinerary.destination ?? ''}
             profile={profile}
+            ui={ui}
           />
         )}
 
@@ -764,15 +823,15 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
             style={{ background: 'rgba(15,40,98,0.28)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 4px 24px -4px rgba(0,0,0,0.30)' }}
           >
             <div className="text-center p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <div className="text-xs uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.38)' }}>Daily Average</div>
+              <div className="text-xs uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.38)' }}>{ui.budgetDaily}</div>
               <div className="text-xl font-bold text-white tracking-tight">{itinerary.budgetSummary.dailyAverage ?? '—'}</div>
             </div>
             <div className="text-center p-4 rounded-xl" style={{ background: 'rgba(158,54,58,0.12)', border: '1px solid rgba(158,54,58,0.22)' }}>
-              <div className="text-xs uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.38)' }}>Total Estimate</div>
+              <div className="text-xs uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.38)' }}>{ui.budgetTotal}</div>
               <div className="text-xl font-bold tracking-tight" style={{ color: '#c05060' }}>{itinerary.budgetSummary.totalEstimate ?? '—'}</div>
             </div>
             <div className="text-center p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <div className="text-xs uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.38)' }}>Includes</div>
+              <div className="text-xs uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.38)' }}>{ui.budgetIncludes}</div>
               <div className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.55)' }}>{itinerary.budgetSummary.includes ?? '—'}</div>
             </div>
           </motion.div>
@@ -781,7 +840,7 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
         {/* Map — desktop only */}
         <section className="mb-8 print:hidden hidden sm:block">
           <div className="flex items-center gap-3 mb-4">
-            <h2 className="text-xl font-bold text-white tracking-tight">{audienceTitle(profile?.groupType)} Route</h2>
+            <h2 className="text-xl font-bold text-white tracking-tight">{ui.routeSection(ui.audienceTitle(profile?.groupType))}</h2>
             <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
             <span className="text-xs" style={{ color: 'rgba(255,255,255,0.38)' }}>Pinned by neighborhood</span>
           </div>
@@ -818,6 +877,7 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
                 index={i}
                 destination={itinerary.destination}
                 groupType={profile?.groupType}
+                ui={ui}
                 onSwapSlot={(slot, req) => handleSlotSwap(i, slot, req)}
                 onNeighborhoodClick={handleNeighborhoodClick}
               />
@@ -836,7 +896,7 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
               className="rounded-2xl p-6"
               style={{ background: 'rgba(15,40,98,0.28)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 4px 24px -4px rgba(0,0,0,0.25)' }}
             >
-              <h3 className="font-bold text-white mb-4 flex items-center gap-2 tracking-tight"><span>🎒</span> {audienceTitle(profile?.groupType)} Packing List</h3>
+              <h3 className="font-bold text-white mb-4 flex items-center gap-2 tracking-tight"><span>🎒</span> {ui.packingTitle(ui.audienceTitle(profile?.groupType))}</h3>
               <ul className="flex flex-col gap-2">
                 {(itinerary.packingTips ?? []).map((tip, i) => (
                   <li key={i} className="flex gap-2 text-sm" style={{ color: 'rgba(255,255,255,0.65)' }}>
@@ -855,7 +915,7 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
               className="rounded-2xl p-6"
               style={{ background: 'rgba(15,40,98,0.28)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 4px 24px -4px rgba(0,0,0,0.25)' }}
             >
-              <h3 className="font-bold text-white mb-4 flex items-center gap-2 tracking-tight"><span>🗝️</span> Insider Intel</h3>
+              <h3 className="font-bold text-white mb-4 flex items-center gap-2 tracking-tight"><span>🗝️</span> {ui.insiderIntel}</h3>
               <ul className="flex flex-col gap-2">
                 {(itinerary.bestLocalTips ?? []).map((tip, i) => (
                   <li key={i} className="flex gap-2 text-sm" style={{ color: 'rgba(255,255,255,0.65)' }}>
@@ -871,13 +931,7 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
 
         <div className="text-center py-8 print:hidden" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
           <p className="text-sm mb-4" style={{ color: 'rgba(255,255,255,0.40)' }}>
-            {profile?.groupType === 'solo'
-              ? 'New destination? New solo trip?'
-              : profile?.groupType === 'couple'
-                ? 'New destination? New couple trip?'
-                : profile?.groupType === 'family'
-                  ? 'New destination? New family trip?'
-                  : 'New destination? New squad trip?'}
+            {ui.footerPrompt(profile?.groupType)}
           </p>
           <motion.div
             whileHover={{ y: -3 }}
@@ -891,7 +945,7 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
               onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = '#7a2a2d')}
               onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = '#9e363a')}
             >
-              Plan a New Trip ✈️
+              {ui.planNewTripButton}
             </Link>
           </motion.div>
         </div>
@@ -908,7 +962,7 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
         className="sm:hidden fixed bottom-20 right-4 z-30 flex items-center gap-2 px-4 py-3 rounded-full text-white text-sm font-semibold shadow-xl print:hidden"
         style={{ background: 'rgba(15,40,98,0.90)', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 8px 32px -8px rgba(0,0,0,0.60)' }}
       >
-        <span>🗺</span> Map
+        <span>🗺</span> {ui.mapFab}
       </motion.button>
 
       {mobileMapOpen && (
@@ -917,6 +971,7 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
           destination={itinerary.destination}
           focusedNeighborhood={focusedNeighborhood}
           basecampMarker={basecampMarker}
+          mapTitle={ui.mapOpenMobile}
           onClose={() => { setMobileMapOpen(false); setFocusedNeighborhood(undefined); }}
         />
       )}

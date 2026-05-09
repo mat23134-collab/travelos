@@ -1,5 +1,8 @@
 export type GroupType = 'solo' | 'couple' | 'family' | 'group';
 
+/** UI + narrative language for generated itinerary (place names stay English for maps). */
+export type TripLanguage = 'en' | 'he';
+
 export interface HotelRecommendation {
   name: string;
   neighborhood: string;
@@ -40,6 +43,8 @@ export type VibeScore = 'hidden-gem' | 'local-favorite' | 'viral-trend' | 'touri
 
 export interface TravelerProfile {
   destination: string;
+  /** Preferred language for explanations on the itinerary page (beta: Hebrew). Venue names stay English. */
+  tripLanguage?: TripLanguage;
   startDate: string;
   endDate: string;
   duration: number;

@@ -12,7 +12,7 @@ import { DayTimeline } from './DayTimeline';
 import { GenreCube } from './GenreCube';
 import type { PlaceCardData } from '@/components/PlaceCard';
 import type { MapPlace } from '@/components/InteractiveMap';
-import { audienceTitle } from '@/lib/audienceCopy';
+import { dayCardUi, type ItineraryUiStrings } from '@/lib/tripUiCopy';
 
 // ── Interactive map — SSR disabled (mapbox-gl touches window) ─────────────────
 const InteractiveMap = dynamic(
@@ -53,13 +53,13 @@ const SLOT_GRADIENT: Record<string, string> = {
   evening:   'linear-gradient(135deg, #8b5cf6 0%, #4f46e5 100%)',
 };
 
-const SLOT_META = {
+const SLOT_META_EN = {
   morning:   { icon: '🌅', label: 'Morning' },
   afternoon: { icon: '☀️',  label: 'Afternoon' },
   evening:   { icon: '🌙', label: 'Evening' },
 } as const;
 
-type Slot = keyof typeof SLOT_META;
+type Slot = keyof typeof SLOT_META_EN;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -335,13 +335,7 @@ function ParticleBurst({ active }: { active: boolean }) {
 
 // ─── Reaction bar ─────────────────────────────────────────────────────────────
 
-const REACTIONS = [
-  { id: 'fire', emoji: '🔥', label: 'On fire' },
-  { id: 'pin',  emoji: '📍', label: 'Pinned'  },
-  { id: 'love', emoji: '💖', label: 'Love it' },
-];
-
-function ReactionBar() {
+function ReactionBar({ dc }: { dc: ReturnType<typeof dayCardUi> }) {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [burst, setBurst] = useState<string | null>(null);
 
@@ -353,7 +347,7 @@ function ReactionBar() {
 
   return (
     <div className="flex gap-2 pt-3 mt-3 border-t border-white/10">
-      {REACTIONS.map((r) => (
+      {dc.reactions.map((r) => (
         <div key={r.id} className="relative overflow-visible">
           <motion.button
             onClick={() => handleReact(r.id)}
@@ -389,9 +383,13 @@ function ReactionBar() {
 function ReviewsCarousel({
   reviews,
   groupType,
+  ui,
+  dc,
 }: {
   reviews: string[];
   groupType?: DayCardProps['groupType'];
+  ui: ItineraryUiStrings;
+  dc: ReturnType<typeof dayCardUi>;
 }) {
   const [idx, setIdx] = useState(0);
 
@@ -406,7 +404,7 @@ function ReviewsCarousel({
   return (
     <div className="my-3">
       <div className="text-[10px] font-semibold uppercase tracking-widest text-white/30 mb-2">
-        💬 What the {audienceTitle(groupType)} Says
+        {dc.reviewsHeading(ui.audienceTitle(groupType))}
       </div>
       <div className="relative min-h-[56px]">
         <AnimatePresence mode="wait">
@@ -454,9 +452,11 @@ interface ModalProps {
   /** Called with the user's request text when they hit Scout It */
   onSwap?: (request: string) => void;
   swapping?: boolean;
+  ui: ItineraryUiStrings;
+  dc: ReturnType<typeof dayCardUi>;
 }
 
-function ActivityModal({ activity, slot, destination, groupType, onClose, onSwap, swapping }: ModalProps) {
+function ActivityModal({ activity, slot, destination, groupType, onClose, onSwap, swapping, ui, dc }: ModalProps) {
   const [swapExpanded, setSwapExpanded] = useState(false);
   const [swapText, setSwapText]         = useState('');
   const { body, citation } = parseCitation(activity?.whyThis ?? '');
@@ -466,7 +466,7 @@ function ActivityModal({ activity, slot, destination, groupType, onClose, onSwap
   const vibeIcon  = getVibeIcon(activity?.tags ?? [], activity?.name ?? '');
   const vibeCfg   = activity?.vibeLabel ? VIBE_CONFIG[activity.vibeLabel] : null;
   const liveBuzz  = hasLiveBuzz(activity?.tags ?? [], activity?.name ?? '', activity?.description);
-  const slotMeta  = SLOT_META[slot as Slot];
+  const slotMeta  = dc.slotMeta[slot as Slot];
 
   return (
     <motion.div
@@ -530,18 +530,19 @@ function ActivityModal({ activity, slot, destination, groupType, onClose, onSwap
             <div className="flex flex-wrap gap-1.5 mb-4">
               {vibeCfg && (
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${vibeCfg.cls}`}>
-                  {vibeCfg.icon} {vibeCfg.label}
+                  {vibeCfg.icon}{' '}
+                  {activity.vibeLabel ? (dc.vibeLabel[activity.vibeLabel] ?? vibeCfg.label) : vibeCfg.label}
                 </span>
               )}
               {isSquadFriendly(activity.tags ?? []) && (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#00cc6a]/15 text-[#4ade80] border border-[#00cc6a]/25">
-                  ⚡ {audienceTitle(groupType)} Pick
+                  ⚡ {dc.squadPick(ui.audienceTitle(groupType))}
                 </span>
               )}
               {liveBuzz && (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#9e363a]/15 text-[#c05060] border border-[#9e363a]/25 inline-flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#9e363a] animate-pulse inline-block" />
-                  Live Buzz
+                  {dc.liveBuzz}
                 </span>
               )}
             </div>
@@ -585,7 +586,7 @@ function ActivityModal({ activity, slot, destination, groupType, onClose, onSwap
             {body && (
               <div className="rounded-2xl px-4 py-3 border-l-2 mb-4"
                 style={{ background: 'rgba(255,255,255,0.04)', borderLeftColor: 'rgba(158,54,58,0.50)' }}>
-                <span className="text-[10px] font-semibold uppercase tracking-wide block mb-1" style={{ color: '#9e363a' }}>Why this?</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wide block mb-1" style={{ color: '#9e363a' }}>{dc.whyThis}</span>
                 <p className="text-xs text-white/55 leading-relaxed">{body}</p>
                 {citation && (
                   <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-[#9e363a]/10 border border-[#9e363a]/15 px-2 py-0.5 rounded-full mt-1.5" style={{ color: '#c05060' }}>
@@ -597,9 +598,11 @@ function ActivityModal({ activity, slot, destination, groupType, onClose, onSwap
 
             <VideoPreview videoUrl={activity?.videoUrl} activityName={activity?.name ?? ''} />
 
-            {(activity?.reviews?.length ?? 0) > 0 && <ReviewsCarousel reviews={activity!.reviews!} groupType={groupType} />}
+            {(activity?.reviews?.length ?? 0) > 0 && (
+              <ReviewsCarousel reviews={activity!.reviews!} groupType={groupType} ui={ui} dc={dc} />
+            )}
 
-            <ReactionBar />
+            <ReactionBar dc={dc} />
 
             {onSwap && (
               <div className="mt-5">
@@ -621,7 +624,7 @@ function ActivityModal({ activity, slot, destination, groupType, onClose, onSwap
                       >
                         ↻
                       </motion.span>
-                      {swapping ? 'Finding something better…' : 'Swap this activity'}
+                      {swapping ? dc.swapFinding : dc.swapThis}
                     </motion.button>
                   ) : (
                     <motion.div
@@ -633,12 +636,12 @@ function ActivityModal({ activity, slot, destination, groupType, onClose, onSwap
                       className="flex flex-col gap-2"
                     >
                       <label className="text-[10px] font-bold uppercase tracking-widest text-white/35">
-                        What would you like instead?
+                        {dc.swapWhatInstead}
                       </label>
                       <input
                         type="text"
                         autoFocus
-                        placeholder={`e.g. "something with live music", "a rooftop bar", "a hidden art gallery"…`}
+                        placeholder={dc.swapPlaceholder}
                         value={swapText}
                         onChange={(e) => setSwapText(e.target.value)}
                         onKeyDown={(e) => {
@@ -673,7 +676,7 @@ function ActivityModal({ activity, slot, destination, groupType, onClose, onSwap
                           >
                             ↻
                           </motion.span>
-                          {swapping ? 'Scouting…' : 'Scout It →'}
+                          {swapping ? dc.swapScouting : dc.scoutItButton}
                         </motion.button>
                         <motion.button
                           onClick={() => { setSwapExpanded(false); setSwapText(''); }}
@@ -681,7 +684,7 @@ function ActivityModal({ activity, slot, destination, groupType, onClose, onSwap
                           whileTap={{ scale: 0.95 }}
                           className="px-4 py-2.5 rounded-xl text-sm text-white/40 border border-white/10 bg-white/5 hover:bg-white/10 hover:text-white/60 transition-all disabled:opacity-40"
                         >
-                          Cancel
+                          {dc.swapCancel}
                         </motion.button>
                       </div>
                     </motion.div>
@@ -706,9 +709,11 @@ interface BentoTileProps {
   groupType?: DayCardProps['groupType'];
   onRefresh?: (request?: string) => void;
   refreshing?: boolean;
+  ui: ItineraryUiStrings;
+  dc: ReturnType<typeof dayCardUi>;
 }
 
-function BentoTile({ slot, activity, height, destination, groupType, onRefresh, refreshing }: BentoTileProps) {
+function BentoTile({ slot, activity, height, destination, groupType, onRefresh, refreshing, ui, dc }: BentoTileProps) {
   const [modalOpen, setModalOpen] = useState(false);
 
   const photoQuery  = destination
@@ -719,7 +724,7 @@ function BentoTile({ slot, activity, height, destination, groupType, onRefresh, 
   const squad       = isSquadFriendly(activity?.tags ?? []);
   const vibeCfg     = activity?.vibeLabel ? VIBE_CONFIG[activity.vibeLabel] : null;
   const liveBuzz    = hasLiveBuzz(activity?.tags ?? [], activity?.name ?? '', activity?.description);
-  const meta        = SLOT_META[slot];
+  const meta        = dc.slotMeta[slot];
 
   return (
     <>
@@ -769,7 +774,7 @@ function BentoTile({ slot, activity, height, destination, groupType, onRefresh, 
             className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white"
             style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.14)' }}
           >
-            {vibeMatch}% Match
+            {dc.matchPercent(vibeMatch)}
           </span>
         </div>
 
@@ -782,18 +787,19 @@ function BentoTile({ slot, activity, height, destination, groupType, onRefresh, 
           </span>
           {vibeCfg && (
             <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${vibeCfg.cls}`}>
-              {vibeCfg.icon} {vibeCfg.label}
+              {vibeCfg.icon}{' '}
+              {activity.vibeLabel ? (dc.vibeLabel[activity.vibeLabel] ?? vibeCfg.label) : vibeCfg.label}
             </span>
           )}
           {squad && (
             <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-[#00cc6a]/18 text-[#4ade80] border border-[#00cc6a]/30">
-              ⚡ {audienceTitle(groupType)}
+              ⚡ {ui.audienceTitle(groupType)}
             </span>
           )}
           {liveBuzz && (
             <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-[#9e363a]/20 text-[#c05060] border border-[#9e363a]/30 inline-flex items-center gap-1">
               <span className="w-1 h-1 rounded-full bg-[#9e363a] animate-pulse inline-block" />
-              Live
+              {dc.live}
             </span>
           )}
         </div>
@@ -846,6 +852,8 @@ function BentoTile({ slot, activity, height, destination, groupType, onRefresh, 
             onClose={() => setModalOpen(false)}
             onSwap={onRefresh ? (req) => { onRefresh(req); setModalOpen(false); } : undefined}
             swapping={refreshing}
+            ui={ui}
+            dc={dc}
           />
         )}
       </AnimatePresence>
@@ -860,9 +868,11 @@ interface BentoGridProps {
   destination?: string;
   groupType?: DayCardProps['groupType'];
   onSwapSlot?: (slot: Slot, request?: string) => Promise<void>;
+  ui: ItineraryUiStrings;
+  dc: ReturnType<typeof dayCardUi>;
 }
 
-function BentoGrid({ day, destination, groupType, onSwapSlot }: BentoGridProps) {
+function BentoGrid({ day, destination, groupType, onSwapSlot, ui, dc }: BentoGridProps) {
   const [swapping, setSwapping] = useState<Slot | null>(null);
 
   const handleSwap = async (slot: Slot, request?: string) => {
@@ -880,7 +890,9 @@ function BentoGrid({ day, destination, groupType, onSwapSlot }: BentoGridProps) 
             <BentoTile slot="morning" activity={day.morning} height={240} destination={destination}
               groupType={groupType}
               onRefresh={onSwapSlot ? (req) => handleSwap('morning', req) : undefined}
-              refreshing={swapping === 'morning'} />
+              refreshing={swapping === 'morning'}
+              ui={ui}
+              dc={dc} />
           </div>
         )}
         {day.afternoon && (
@@ -888,7 +900,9 @@ function BentoGrid({ day, destination, groupType, onSwapSlot }: BentoGridProps) 
             <BentoTile slot="afternoon" activity={day.afternoon} height={240} destination={destination}
               groupType={groupType}
               onRefresh={onSwapSlot ? (req) => handleSwap('afternoon', req) : undefined}
-              refreshing={swapping === 'afternoon'} />
+              refreshing={swapping === 'afternoon'}
+              ui={ui}
+              dc={dc} />
           </div>
         )}
         {day.evening && (
@@ -896,7 +910,9 @@ function BentoGrid({ day, destination, groupType, onSwapSlot }: BentoGridProps) 
             <BentoTile slot="evening" activity={day.evening} height={200} destination={destination}
               groupType={groupType}
               onRefresh={onSwapSlot ? (req) => handleSwap('evening', req) : undefined}
-              refreshing={swapping === 'evening'} />
+              refreshing={swapping === 'evening'}
+              ui={ui}
+              dc={dc} />
           </div>
         )}
       </div>
@@ -912,7 +928,7 @@ const insightItem = {
   show:   { opacity: 1, y: 0, transition: { type: 'spring' as const, stiffness: 380, damping: 28 } },
 };
 
-function InsiderReveal({ insights }: { insights: WebInsight[] }) {
+function InsiderReveal({ insights, dc }: { insights: WebInsight[]; dc: ReturnType<typeof dayCardUi> }) {
   const [open, setOpen] = useState(false);
   const tipInsights = insights?.filter((i) => i.type !== 'warning') ?? [];
   if (tipInsights.length === 0) return null;
@@ -931,7 +947,7 @@ function InsiderReveal({ insights }: { insights: WebInsight[] }) {
       >
         <span className="flex items-center gap-2">
           <span>🤫</span>
-          {open ? 'Hide intel' : `Pro Move · ${tipInsights.length} insider secret${tipInsights.length > 1 ? 's' : ''}`}
+          {open ? dc.insiderOpen : dc.insiderClosed(tipInsights.length)}
         </span>
         <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ type: 'spring', stiffness: 400, damping: 28 }}>
           ▾
@@ -969,13 +985,15 @@ interface DayCardProps {
   groupType?: 'solo' | 'couple' | 'family' | 'group';
   onSwapSlot?: (slot: 'morning' | 'afternoon' | 'evening', request?: string) => Promise<void>;
   onNeighborhoodClick?: (neighborhood: string) => void;
+  ui: ItineraryUiStrings;
 }
 
-export function DayCard({ day, index, destination, groupType, onSwapSlot }: DayCardProps) {
+export function DayCard({ day, index, destination, groupType, onSwapSlot, ui }: DayCardProps) {
   const [open, setOpen]     = useState(false);
   const [copied, setCopied] = useState(false);
   const warnings    = day.webInsights?.filter((i) => i.type === 'warning') ?? [];
   const tipInsights = (day.webInsights ?? []).filter((i) => i.type !== 'warning');
+  const dc = useMemo(() => dayCardUi(ui.lang), [ui.lang]);
 
   // ── Genre buckets ─────────────────────────────────────────────────────────
   const byGenre: Record<GenreKey, PlaceCardData[]> = {
@@ -1055,8 +1073,8 @@ export function DayCard({ day, index, destination, groupType, onSwapSlot }: DayC
       const lng = Number(act.longitude);
       if (!Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0)) continue;
       const genre    = classifyActivity(act);
-      const slotMeta = SLOT_META[slot];
-      const catLabel = GENRE_CONFIG[genre]?.label ?? genre;
+      const slotMeta = dc.slotMeta[slot];
+      const catLabel = dc.genreLabel[genre as GenreKey] ?? GENRE_CONFIG[genre as GenreKey]?.label ?? genre;
       pins.push({
         id:        `day${index}-${slot}-${(act.name ?? 'act').replace(/\s+/g, '-').toLowerCase()}`,
         name:      act.name ?? slot,
@@ -1074,9 +1092,9 @@ export function DayCard({ day, index, destination, groupType, onSwapSlot }: DayC
 
     // ── Dining spots (lunch / dinner) ─────────────────────────────────────
     const MEAL_META: { spot: DiningSpot | undefined; meal: 'breakfast' | 'lunch' | 'dinner'; icon: string; label: string }[] = [
-      { spot: day.breakfast, meal: 'breakfast', icon: '☕', label: 'Breakfast' },
-      { spot: day.lunch,     meal: 'lunch',     icon: '🍽️', label: 'Lunch'     },
-      { spot: day.dinner,    meal: 'dinner',    icon: '🌙', label: 'Dinner'    },
+      { spot: day.breakfast, meal: 'breakfast', icon: '☕', label: dc.mealBreakfast },
+      { spot: day.lunch,     meal: 'lunch',     icon: '🍽️', label: dc.mealLunch },
+      { spot: day.dinner,    meal: 'dinner',    icon: '🌙', label: dc.mealDinner },
     ];
     const MEAL_EMOJI: Record<'breakfast' | 'lunch' | 'dinner', string> = {
       breakfast: '☕', lunch: '🍽️', dinner: '🌙',
@@ -1098,7 +1116,7 @@ export function DayCard({ day, index, destination, groupType, onSwapSlot }: DayC
         lng,
         vibeLabel: 'local-favorite',
         category:  'food',
-        slotLabel: `${icon} ${label} · Food & Dining`,
+        slotLabel: `${icon} ${label} · ${dc.genreLabel.food}`,
         city: destination,
         country: inferCountry(destination),
         neighborhood: spot.neighborhood,
@@ -1107,7 +1125,7 @@ export function DayCard({ day, index, destination, groupType, onSwapSlot }: DayC
 
     return pins;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [day.morning, day.afternoon, day.evening, day.lunch, day.dinner, day.breakfast, index]);
+  }, [day.morning, day.afternoon, day.evening, day.lunch, day.dinner, day.breakfast, index, dc, destination]);
 
   // ── Multi-stop day route URL ───────────────────────────────────────────────
   const routeInfo = useMemo(
@@ -1231,7 +1249,7 @@ export function DayCard({ day, index, destination, groupType, onSwapSlot }: DayC
             <div className="flex items-center gap-2.5 flex-shrink-0">
               {day.estimatedDailyCost && (
                 <div className="text-right hidden sm:block">
-                  <div className="text-[10px] text-white/25 uppercase tracking-wide leading-none mb-0.5">Est. spend</div>
+                  <div className="text-[10px] text-white/25 uppercase tracking-wide leading-none mb-0.5">{dc.estSpend}</div>
                   <div className="text-sm font-bold text-white/75 tracking-tight">{day.estimatedDailyCost}</div>
                 </div>
               )}
@@ -1273,7 +1291,7 @@ export function DayCard({ day, index, destination, groupType, onSwapSlot }: DayC
             }}
           >
             <Map size={12} />
-            <span>Start Day Route</span>
+            <span>{dc.startDayRoute}</span>
             <span
               className="ml-0.5 tabular-nums rounded-full px-1.5 py-0.5 text-[9px] font-bold"
               style={{ background: 'rgba(158,54,58,0.20)', color: '#ffaaac' }}
@@ -1303,7 +1321,7 @@ export function DayCard({ day, index, destination, groupType, onSwapSlot }: DayC
             }}
           >
             {copied ? <Check size={12} /> : <Link2 size={12} />}
-            <span>{copied ? 'Copied!' : 'Copy Link'}</span>
+            <span>{copied ? dc.copied : dc.copyLink}</span>
           </button>
         </div>
       )}
@@ -1335,7 +1353,7 @@ export function DayCard({ day, index, destination, groupType, onSwapSlot }: DayC
                 >
                   <div className="flex items-center gap-1.5 mb-2.5">
                     <span className="text-sm leading-none">📋</span>
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-white/35">Day Brief</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-white/35">{dc.dayBrief}</span>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {day.estimatedDailyCost && (
@@ -1371,7 +1389,7 @@ export function DayCard({ day, index, destination, groupType, onSwapSlot }: DayC
                   <div key={key} className="px-4 pt-3">
                     <GenreCube
                       icon={cfg.icon}
-                      label={cfg.label}
+                      label={dc.genreLabel[key]}
                       accent={cfg.accent}
                       places={places}
                       columns={cols}
@@ -1394,7 +1412,7 @@ export function DayCard({ day, index, destination, groupType, onSwapSlot }: DayC
               >
                 <div className="flex items-center gap-1.5 mb-3">
                   <span className="text-sm leading-none">📅</span>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-rose-400/80">Day Timeline</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-rose-400/80">{dc.dayTimeline}</span>
                 </div>
                 <DayTimeline day={day} />
               </div>
@@ -1419,11 +1437,11 @@ export function DayCard({ day, index, destination, groupType, onSwapSlot }: DayC
                 <div className="px-4 pt-3 pb-2 flex items-center justify-between gap-1.5">
                   <div className="flex items-center gap-1.5">
                     <span className="text-sm leading-none">📍</span>
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-400/80">Day Route</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-400/80">{dc.dayRoute}</span>
                   </div>
                   {mapPlaces.length > 0 && (
                     <span className="text-[9px] text-indigo-400/45 font-medium">
-                      {mapPlaces.length} location{mapPlaces.length !== 1 ? 's' : ''}
+                      {dc.mapLocationCount(mapPlaces.length)}
                     </span>
                   )}
                 </div>
@@ -1450,9 +1468,9 @@ export function DayCard({ day, index, destination, groupType, onSwapSlot }: DayC
                 >
                   <div className="px-4 pt-3 pb-0 flex items-center gap-1.5">
                     <span className="text-sm leading-none">🤫</span>
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-violet-400/80">Insider Intel</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-violet-400/80">{dc.insiderIntelHeader}</span>
                   </div>
-                  <InsiderReveal insights={day.webInsights ?? []} />
+                  <InsiderReveal insights={day.webInsights ?? []} dc={dc} />
                 </div>
               </div>
             )}

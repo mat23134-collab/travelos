@@ -927,6 +927,7 @@ function PlanPage() {
   const [direction, setDirection] = useState(1);
   const [form, setForm] = useState<FormData>({
     groupSize: 2,
+    tripLanguage: 'en',
     interests: [],
     dietaryRestrictions: [],
     mustHaveItems: [],
@@ -960,6 +961,7 @@ function PlanPage() {
 
     setForm({
       groupSize: 2,
+      tripLanguage: 'en',
       interests: [],
       dietaryRestrictions: [],
       mustHaveItems: [],
@@ -1087,6 +1089,7 @@ function PlanPage() {
 
     const profile: TravelerProfile = {
       destination: (form.destination as string) || '',
+      tripLanguage: (form.tripLanguage as TravelerProfile['tripLanguage']) || 'en',
       startDate: start || '',
       endDate: end || '',
       duration,
