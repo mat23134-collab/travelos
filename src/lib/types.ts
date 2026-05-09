@@ -1,5 +1,9 @@
 export type GroupType = 'solo' | 'couple' | 'family' | 'group';
 
+/** Counts of children per age band (only used when groupType is family). */
+export type FamilyChildAgeBand = '0-3' | '3-6' | '6-9' | '9-12' | '12-16' | '16+';
+export type FamilyKidsByAge = Partial<Record<FamilyChildAgeBand, number>>;
+
 /** UI + narrative language for generated itinerary (place names stay English for maps). */
 export type TripLanguage = 'en' | 'he';
 
@@ -49,6 +53,8 @@ export interface TravelerProfile {
   endDate: string;
   duration: number;
   groupType: GroupType;
+  /** When groupType is family: number of kids in each age range (years). */
+  familyKidsByAge?: FamilyKidsByAge | null;
   groupSize: number;
   budget: BudgetLevel;
   pace: PaceLevel;

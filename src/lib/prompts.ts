@@ -1,4 +1,5 @@
 import { TravelerProfile, ClassifiedResult, Itinerary, Activity } from './types';
+import { formatFamilyKidsForPrompt } from './familyKids';
 
 // ─── Friendly domain → blog name map ─────────────────────────────────────────
 
@@ -380,7 +381,14 @@ export function buildUserPrompt(profile: TravelerProfile, searchResults?: Classi
 
 DESTINATION: ${profile.destination}
 DATES: ${profile.startDate || 'flexible'} → ${profile.endDate || 'flexible'} (${days} days)
-GROUP: ${profile.groupType}, ${profile.groupSize} person(s)
+GROUP: ${profile.groupType}, ${profile.groupSize} person(s)${
+    profile.groupType === 'family'
+      ? (() => {
+          const line = formatFamilyKidsForPrompt(profile.familyKidsByAge ?? null);
+          return line ? `\nFAMILY_CHILDREN (counts by age band): ${line}` : '';
+        })()
+      : ''
+  }
 BUDGET: ${profile.budget}
 PACE: ${profile.pace}
 INTERESTS: ${interestsList}
@@ -420,8 +428,12 @@ function buildVibeDirective(profile: TravelerProfile): string {
 - Focus on neighbourhood walks, local markets, intimate dining`;
   }
   if (groupType === 'family') {
+    const kids = formatFamilyKidsForPrompt(profile.familyKidsByAge ?? null);
+    const agesHint = kids
+      ? `\n- CHILD AGE MIX (strict): ${kids} — tailor walking distances, stroller/lift access, nap-friendly gaps, and venue suitability to these ages.`
+      : '';
     return `- PRIORITIZE: local-favorite and classic spots — accessible, kid-friendly, safe
-- INCLUDE: at least one classic / must-see landmark (families want that too)
+- INCLUDE: at least one classic / must-see landmark (families want that too)${agesHint}
 - DEPRIORITIZE: viral-trend spots that are too crowded or hipster-only`;
   }
   return `- Balance hidden-gem discoveries with reliable classic picks

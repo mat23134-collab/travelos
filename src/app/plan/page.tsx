@@ -1,12 +1,14 @@
 // UI Version: 2.1.0 - 2026-05-06T00:00:00Z (dark palette)
 'use client';
 
-import { useState, useCallback, useEffect, Suspense } from 'react';
+import { useState, useCallback, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { questions } from '@/lib/questionnaire';
-import { TravelerProfile, type TripLanguage } from '@/lib/types';
+import { TravelerProfile, type TripLanguage, type GroupType, type FamilyKidsByAge } from '@/lib/types';
+import { sanitizeFamilyKids, totalFamilyKids } from '@/lib/familyKids';
+import { FamilyKidsModal } from '@/components/FamilyKidsModal';
 import { useAuth } from '@/lib/auth-context';
 import { getStepBackground } from '@/lib/stepBackgrounds';
 import { readTripLanguagePref, persistTripLanguagePref } from '@/lib/tripLanguagePref';
@@ -927,6 +929,7 @@ function PlanPage() {
   const [direction, setDirection] = useState(1);
   const [form, setForm] = useState<FormData>({
     groupSize: 2,
+    familyKidsByAge: {} as FamilyKidsByAge,
     tripLanguage: 'en',
     interests: [],
     dietaryRestrictions: [],
@@ -940,6 +943,8 @@ function PlanPage() {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showTripLangGate, setShowTripLangGate] = useState(false);
+  const [showFamilyKidsModal, setShowFamilyKidsModal] = useState(false);
+  const groupTypeBeforeFamilyRef = useRef<GroupType>('couple');
 
   const searchParams = useSearchParams();
 
@@ -978,6 +983,7 @@ function PlanPage() {
 
     setForm({
       groupSize: 2,
+      familyKidsByAge: {} as FamilyKidsByAge,
       tripLanguage: initialTripLang,
       interests: [],
       dietaryRestrictions: [],
@@ -1027,6 +1033,21 @@ function PlanPage() {
     setShowTripLangGate(false);
   }, []);
 
+  const handleFamilyKidsSave = useCallback((counts: FamilyKidsByAge) => {
+    const cleaned = sanitizeFamilyKids(counts);
+    setForm((prev) => ({ ...prev, familyKidsByAge: cleaned ?? {} }));
+    setShowFamilyKidsModal(false);
+  }, []);
+
+  const handleFamilyKidsCancel = useCallback(() => {
+    setForm((prev) => ({
+      ...prev,
+      groupType: groupTypeBeforeFamilyRef.current,
+      familyKidsByAge: {} as FamilyKidsByAge,
+    }));
+    setShowFamilyKidsModal(false);
+  }, []);
+
   const toggleInterest = useCallback((val: string) => {
     setForm((prev) => {
       const current = (prev.interests as string[]) || [];
@@ -1073,16 +1094,24 @@ function PlanPage() {
     if (question.type === 'date-range') {
       return !!(form['startDate'] as string) && !!(form['endDate'] as string);
     }
+    if (question.key === 'groupType' && form.groupType === 'family') {
+      return totalFamilyKids(form.familyKidsByAge as FamilyKidsByAge) >= 1;
+    }
     return !!val;
   };
 
   const handleNext = () => {
     if (!question) return;
     if (!validate()) {
+      if (question.key === 'groupType' && form.groupType === 'family') {
+        setShowFamilyKidsModal(true);
+      }
       setError(
         question.key === 'destination'
           ? 'Please select a destination to continue.'
-          : 'Please complete this field before continuing.',
+          : question.key === 'groupType' && form.groupType === 'family'
+            ? 'Tell us how many children are in each age band (tap Family again to edit), or choose another group type.'
+            : 'Please complete this field before continuing.',
       );
       return;
     }
@@ -1120,6 +1149,10 @@ function PlanPage() {
       endDate: end || '',
       duration,
       groupType: (form.groupType as TravelerProfile['groupType']) || 'solo',
+      familyKidsByAge:
+        form.groupType === 'family'
+          ? sanitizeFamilyKids(form.familyKidsByAge as FamilyKidsByAge) ?? undefined
+          : undefined,
       groupSize: (form.groupSize as number) || 1,
       budget: (form.budget as TravelerProfile['budget']) || 'mid-range',
       pace: (form.pace as TravelerProfile['pace']) || 'moderate',
@@ -1203,6 +1236,13 @@ function PlanPage() {
         open={showTripLangGate}
         onSelect={handleTripLangGateSelect}
         onCancel={() => router.push('/')}
+      />
+
+      <FamilyKidsModal
+        open={showFamilyKidsModal}
+        initial={(form.familyKidsByAge as FamilyKidsByAge) || {}}
+        onSave={handleFamilyKidsSave}
+        onCancel={handleFamilyKidsCancel}
       />
 
       {/* Background orbs */}
@@ -1373,7 +1413,27 @@ function PlanPage() {
                         <motion.button
                           key={opt.value}
                           variants={optionVariant}
-                          onClick={() => setValue(question.key, opt.value)}
+                          onClick={() => {
+                            if (question.key !== 'groupType') {
+                              setValue(question.key, opt.value);
+                              return;
+                            }
+                            if (opt.value === 'family') {
+                              if (form.groupType !== 'family') {
+                                groupTypeBeforeFamilyRef.current =
+                                  (form.groupType as GroupType) || 'couple';
+                              }
+                              setValue('groupType', 'family');
+                              setShowFamilyKidsModal(true);
+                              return;
+                            }
+                            setForm((prev) => ({
+                              ...prev,
+                              groupType: opt.value,
+                              familyKidsByAge: {} as FamilyKidsByAge,
+                            }));
+                            setError('');
+                          }}
                           whileHover={{ scale: 1.03, y: -2 }}
                           whileTap={{ scale: 0.97 }}
                           animate={
