@@ -29,7 +29,7 @@ export interface AuthContextValue {
   signUp:  (
     email: string,
     password: string,
-    profile?: { phone: string; gender: 'male' | 'female'; age: number },
+    profile?: { phone: string; gender: 'male' | 'female'; age: number; username: string },
   ) => Promise<{ error: string | null }>;
   signIn:  (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -92,7 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = async (
     email: string,
     password: string,
-    profile?: { phone: string; gender: 'male' | 'female'; age: number },
+    profile?: { phone: string; gender: 'male' | 'female'; age: number; username: string },
   ) => {
     try {
       const { error } = await supabaseAuth.auth.signUp({

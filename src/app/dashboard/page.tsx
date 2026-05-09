@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/auth-context';
-import { supabase } from '@/lib/supabase';
+import { supabaseAuth } from '@/lib/supabase';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -15,6 +15,7 @@ interface TripRow {
   start_date:  string | null;
   hotel_info:  string | { name?: string; address?: string } | null;
   created_at:  string;
+  shared?:     boolean;
 }
 
 function hotelInfoText(v: TripRow['hotel_info']): string {
@@ -71,6 +72,7 @@ function useTripPhoto(destination: string) {
 // ── Trip Card ─────────────────────────────────────────────────────────────────
 
 function TripCard({ trip, index }: { trip: TripRow; index: number }) {
+  const shared = trip.shared === true;
   const { photoUrl, loading } = useTripPhoto(trip.destination);
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError,  setImgError]  = useState(false);
@@ -128,6 +130,14 @@ function TripCard({ trip, index }: { trip: TripRow; index: number }) {
         )}
         {/* Destination overlay */}
         <div className="absolute inset-x-0 bottom-0 px-4 pb-3 z-10">
+          {shared && (
+            <span
+              className="inline-block text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full mb-1.5"
+              style={{ background: 'rgba(74,123,222,0.35)', border: '1px solid rgba(74,123,222,0.5)', color: '#c8d9ff' }}
+            >
+              Shared with you
+            </span>
+          )}
           <h3 className="font-black text-lg text-white tracking-tight drop-shadow-lg leading-tight">
             {trip.destination}
           </h3>
@@ -188,19 +198,48 @@ export default function DashboardPage() {
     setFetching(true);
     setFetchError('');
     try {
-      const { data, error } = await supabase
+      const { data: owned, error: e1 } = await supabaseAuth
         .from('itineraries')
         .select('id, destination, start_date, hotel_info, created_at')
         .eq('user_id', uid)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('[dashboard] itineraries query error:', error.message);
-        // Don't surface raw DB errors — show a friendly retry prompt instead
+      if (e1) {
+        console.error('[dashboard] itineraries query error:', e1.message);
         setFetchError('Could not load trips right now. Tap Retry to try again.');
-      } else {
-        setTrips((data ?? []) as TripRow[]);
+        setTrips([]);
+        return;
       }
+
+      const { data: shareRows, error: e2 } = await supabaseAuth
+        .from('itinerary_shares')
+        .select('itinerary_id')
+        .eq('shared_with_user_id', uid);
+
+      if (e2) {
+        console.warn('[dashboard] itinerary_shares query:', e2.message);
+      }
+
+      const sharedIds = [...new Set((shareRows ?? []).map((r) => r.itinerary_id as string))].filter(Boolean);
+      let borrowed: TripRow[] = [];
+      if (sharedIds.length > 0) {
+        const { data: b, error: e3 } = await supabaseAuth
+          .from('itineraries')
+          .select('id, destination, start_date, hotel_info, created_at')
+          .in('id', sharedIds);
+        if (!e3 && b) {
+          borrowed = (b as TripRow[]).map((t) => ({ ...t, shared: true }));
+        }
+      }
+
+      const ownedRows: TripRow[] = (owned ?? []).map((t) => ({ ...(t as TripRow), shared: false }));
+      const ownedIds = new Set(ownedRows.map((t) => t.id));
+      const merged = [
+        ...ownedRows,
+        ...borrowed.filter((t) => !ownedIds.has(t.id)),
+      ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      setTrips(merged);
     } catch (err) {
       console.error('[dashboard] unexpected fetch error:', err instanceof Error ? err.message : err);
       setFetchError('Could not load trips right now. Tap Retry to try again.');

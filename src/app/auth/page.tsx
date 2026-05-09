@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/auth-context';
+import { supabaseAuth } from '@/lib/supabase';
+import { normalizeUsername, validateUsernameShape } from '@/lib/username';
 
 type Mode = 'login' | 'signup';
 type Gender = 'male' | 'female';
@@ -22,9 +24,29 @@ export default function AuthPage() {
   const [phone,    setPhone]    = useState('');
   const [gender,   setGender]   = useState<Gender>('male');
   const [age,      setAge]      = useState('');
+  const [username, setUsername] = useState('');
+  const [usernameHint, setUsernameHint] = useState('');
   const [error,    setError]    = useState('');
   const [busy,     setBusy]     = useState(false);
   const [success,  setSuccess]  = useState('');
+
+  const syncProfileFromSession = useCallback(async () => {
+    const { data: { session } } = await supabaseAuth.auth.getSession();
+    if (!session?.user) return;
+    const meta = session.user.user_metadata as { username?: string } | undefined;
+    const u = meta?.username ? normalizeUsername(meta.username) : '';
+    if (u.length < 3) return;
+    const { data: existing } = await supabaseAuth
+      .from('profiles')
+      .select('username')
+      .eq('id', session.user.id)
+      .maybeSingle();
+    if (existing?.username) return;
+    const { error: insErr } = await supabaseAuth.from('profiles').insert({ id: session.user.id, username: u });
+    if (insErr && insErr.code !== '23505') {
+      console.warn('[auth] profile insert:', insErr.message);
+    }
+  }, []);
 
   const resetAuthForm = () => {
     setMode('login');
@@ -33,6 +55,8 @@ export default function AuthPage() {
     setPhone('');
     setGender('male');
     setAge('');
+    setUsername('');
+    setUsernameHint('');
     setError('');
     setSuccess('');
     setBusy(false);
@@ -48,6 +72,42 @@ export default function AuthPage() {
     resetAuthForm();
   }, []);
 
+  useEffect(() => {
+    if (mode !== 'signup') {
+      setUsernameHint('');
+      return;
+    }
+    const n = normalizeUsername(username);
+    if (n.length < 3) {
+      setUsernameHint('');
+      return;
+    }
+    const shapeErr = validateUsernameShape(username);
+    if (shapeErr) {
+      setUsernameHint(shapeErr);
+      return;
+    }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/username-available?u=${encodeURIComponent(n)}`);
+        const j = (await r.json()) as { available?: boolean; error?: string };
+        if (cancelled) return;
+        if (!r.ok) {
+          setUsernameHint(j.error ?? 'Could not verify.');
+          return;
+        }
+        setUsernameHint(j.available ? '✓ Available' : '✗ Already taken');
+      } catch {
+        if (!cancelled) setUsernameHint('');
+      }
+    }, 450);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [username, mode]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !password.trim()) {
@@ -55,6 +115,23 @@ export default function AuthPage() {
       return;
     }
     if (mode === 'signup') {
+      const uErr = validateUsernameShape(username);
+      if (uErr) {
+        setError(uErr);
+        return;
+      }
+      const un = normalizeUsername(username);
+      try {
+        const r = await fetch(`/api/username-available?u=${encodeURIComponent(un)}`);
+        const j = (await r.json()) as { available?: boolean; error?: string };
+        if (!r.ok || !j.available) {
+          setError(j.error ?? 'Username is not available.');
+          return;
+        }
+      } catch {
+        setError('Could not verify username. Try again.');
+        return;
+      }
       const ageNum = Number(age);
       const onlyDigitsPhone = phone.replace(/\D/g, '');
       if (!onlyDigitsPhone || onlyDigitsPhone.length < 8) {
@@ -78,6 +155,7 @@ export default function AuthPage() {
         phone: phone.trim(),
         gender,
         age: Number(age),
+        username: normalizeUsername(username),
       });
       authError = result.error;
     }
@@ -86,6 +164,7 @@ export default function AuthPage() {
       setError(authError);
       setBusy(false);
     } else if (mode === 'signup') {
+      await syncProfileFromSession();
       // Supabase sends a confirmation email by default;
       // show a friendly message instead of auto-redirect.
       setSuccess('Account created! Check your email to confirm, then log in.');
@@ -96,7 +175,11 @@ export default function AuthPage() {
       setPhone('');
       setGender('male');
       setAge('');
+      setUsername('');
+      setUsernameHint('');
     } else {
+      await syncProfileFromSession();
+      setBusy(false);
       // Successful login → go to dashboard
       router.push('/dashboard');
     }
@@ -106,6 +189,7 @@ export default function AuthPage() {
     setMode(m);
     setError('');
     setSuccess('');
+    setUsernameHint('');
   };
 
   if (loading) return null; // wait for auth check before rendering
@@ -245,6 +329,43 @@ export default function AuthPage() {
 
               {mode === 'signup' && (
                 <>
+                  {/* Username */}
+                  <div>
+                    <label className="block text-xs font-semibold text-white/40 uppercase tracking-widest mb-2">
+                      Username
+                    </label>
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="e.g. maya_travels"
+                      autoComplete="username"
+                      required={mode === 'signup'}
+                      className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-white/20 outline-none transition-all"
+                      style={{
+                        background: 'rgba(255,255,255,0.05)',
+                        border: '1px solid rgba(255,255,255,0.10)',
+                      }}
+                      onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(158,54,58,0.55)'; e.currentTarget.style.background = 'rgba(158,54,58,0.07)'; }}
+                      onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                    />
+                    {usernameHint && (
+                      <p
+                        className="text-[11px] mt-1.5"
+                        style={{
+                          color: usernameHint.startsWith('✓')
+                            ? 'rgba(52,211,153,0.9)'
+                            : usernameHint.startsWith('✗') || usernameHint.includes('must')
+                              ? 'rgba(255,140,143,0.95)'
+                              : 'rgba(255,255,255,0.35)',
+                        }}
+                      >
+                        {usernameHint}
+                      </p>
+                    )}
+                    <p className="text-[10px] text-white/25 mt-1">3–24 chars · letters, numbers, underscore · lowercased when saved</p>
+                  </div>
+
                   {/* Phone */}
                   <div>
                     <label className="block text-xs font-semibold text-white/40 uppercase tracking-widest mb-2">

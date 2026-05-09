@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Itinerary, TravelerProfile } from '@/lib/types';
 import { audienceNounPlural, audienceTitle } from '@/lib/audienceCopy';
+import { normalizeUsername, validateUsernameShape } from '@/lib/username';
 
 function buildWhatsAppText(itinerary: Itinerary, profile: TravelerProfile | null): string {
   const header = `✈️ *${itinerary.destination}* — ${itinerary.totalDays}-day ${audienceTitle(profile?.groupType).toLowerCase()} plan`;
@@ -34,11 +35,19 @@ function buildWhatsAppText(itinerary: Itinerary, profile: TravelerProfile | null
 interface Props {
   itinerary: Itinerary;
   profile: TravelerProfile | null;
+  /** Saved trip id in Supabase — required to share with another TravelOS user */
+  itineraryDbId?: string | null;
+  accessToken?: string | null;
 }
 
-export function SharePanel({ itinerary, profile }: Props) {
+export function SharePanel({ itinerary, profile, itineraryDbId, accessToken }: Props) {
   const [open, setOpen]     = useState(false);
   const [copied, setCopied] = useState(false);
+  const [shareUsername, setShareUsername] = useState('');
+  const [shareBusy, setShareBusy] = useState(false);
+  const [shareMsg, setShareMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+
+  const canShareInApp = !!itineraryDbId && !!accessToken;
 
   const handlePrint = () => {
     setOpen(false);
@@ -56,6 +65,44 @@ export function SharePanel({ itinerary, profile }: Props) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch { /* clipboard not available */ }
+  };
+
+  const handleShareWithUser = async () => {
+    setShareMsg(null);
+    if (!canShareInApp) return;
+    const err = validateUsernameShape(shareUsername);
+    if (err) {
+      setShareMsg({ type: 'err', text: err });
+      return;
+    }
+    const u = normalizeUsername(shareUsername);
+    setShareBusy(true);
+    try {
+      const res = await fetch('/api/trips/share', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ itineraryId: itineraryDbId, username: u }),
+      });
+      const data = (await res.json()) as { error?: string; message?: string; ok?: boolean; alreadyShared?: boolean };
+      if (!res.ok) {
+        setShareMsg({ type: 'err', text: data.error ?? 'Could not share.' });
+        return;
+      }
+      setShareMsg({
+        type: 'ok',
+        text: data.alreadyShared
+          ? (data.message ?? 'Already shared with this user.')
+          : `Trip added to @${u}'s dashboard.`,
+      });
+      setShareUsername('');
+    } catch {
+      setShareMsg({ type: 'err', text: 'Network error. Try again.' });
+    } finally {
+      setShareBusy(false);
+    }
   };
 
   const OPTIONS = [
@@ -180,6 +227,55 @@ export function SharePanel({ itinerary, profile }: Props) {
                       </span>
                     </motion.button>
                   ))}
+                </div>
+
+                <div className="mt-5 pt-5 border-t border-white/10">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[#9e363a] mb-2">TravelOS users</p>
+                  <p className="text-white/40 text-xs mb-3 leading-relaxed">
+                    Send this saved trip to someone&apos;s dashboard by username. They&apos;ll see it under &quot;Shared with you&quot;. Or use Copy link for anyone.
+                  </p>
+                  {canShareInApp ? (
+                    <>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={shareUsername}
+                          onChange={(e) => setShareUsername(e.target.value)}
+                          placeholder="friend_username"
+                          className="flex-1 min-w-0 px-3 py-2.5 rounded-xl text-sm text-white placeholder-white/25 outline-none"
+                          style={{
+                            background: 'rgba(255,255,255,0.06)',
+                            border: '1px solid rgba(255,255,255,0.10)',
+                          }}
+                        />
+                        <motion.button
+                          type="button"
+                          disabled={shareBusy}
+                          onClick={handleShareWithUser}
+                          whileTap={{ scale: 0.95 }}
+                          className="px-4 py-2.5 rounded-xl text-xs font-bold text-white shrink-0 disabled:opacity-50"
+                          style={{
+                            background: 'linear-gradient(135deg, #4a7bde 0%, #6b93ee 100%)',
+                            boxShadow: '0 4px 20px -4px rgba(74,123,222,0.45)',
+                          }}
+                        >
+                          {shareBusy ? '…' : 'Send'}
+                        </motion.button>
+                      </div>
+                      {shareMsg && (
+                        <p
+                          className="text-xs mt-2 leading-relaxed"
+                          style={{ color: shareMsg.type === 'ok' ? 'rgba(52,211,153,0.95)' : 'rgba(255,140,143,0.95)' }}
+                        >
+                          {shareMsg.text}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-white/25 text-[11px] leading-relaxed">
+                      Save the trip to your account first (finish generating), then open Share again to send by username.
+                    </p>
+                  )}
                 </div>
               </div>
             </motion.div>

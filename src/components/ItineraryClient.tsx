@@ -14,6 +14,7 @@ import { DraftOverview } from '@/components/DraftOverview';
 import { TrendingTicker } from '@/components/TrendingTicker';
 import { itineraryUi, type ItineraryUiStrings } from '@/lib/tripUiCopy';
 import type { SwapResult } from '@/app/api/swap/route';
+import { useAuth } from '@/lib/auth-context';
 
 const ItineraryMap = dynamic(
   () => import('@/components/ItineraryMap').then((m) => m.ItineraryMap),
@@ -691,6 +692,7 @@ interface Props {
 }
 
 export function ItineraryClient({ initialItinerary, initialProfile, initialViewMode = 'draft' }: Props) {
+  const { session } = useAuth();
   const [itinerary, setItinerary] = useState<Itinerary>(initialItinerary);
   const [profile] = useState<TravelerProfile | null>(initialProfile);
   const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
@@ -849,7 +851,12 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
                 {ui.draft}
               </motion.button>
             )}
-            <SharePanel itinerary={itinerary} profile={profile} />
+            <SharePanel
+              itinerary={itinerary}
+              profile={profile}
+              itineraryDbId={itinerary._id ?? null}
+              accessToken={session?.access_token ?? null}
+            />
             {isAdmin && (
               <Link
                 href={`/explore/${encodeURIComponent(itinerary.destination)}`}
