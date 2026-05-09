@@ -6,18 +6,17 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { questions } from '@/lib/questionnaire';
-import { TravelerProfile } from '@/lib/types';
+import { TravelerProfile, type TripLanguage } from '@/lib/types';
 import { useAuth } from '@/lib/auth-context';
 import { getStepBackground } from '@/lib/stepBackgrounds';
-import { readTripLanguagePref } from '@/lib/tripLanguagePref';
-
+import { readTripLanguagePref, persistTripLanguagePref } from '@/lib/tripLanguagePref';
+import { TripLanguageGateModal } from '@/components/TripLanguageGateModal';
 type FormData = Record<string, unknown>;
 
 const STORAGE_KEY = 'travelos_plan_draft';
 const PRE_ONBOARDING_KEYS = new Set(['destination', 'dates', 'tripTimes']);
+/** tripLanguage is chosen on the home gate or /plan gate, not in this wizard */
 const PLAN_QUESTIONS = questions.filter((q) => !PRE_ONBOARDING_KEYS.has(q.key));
-const TOTAL = PLAN_QUESTIONS.length;
-const ONBOARDING_STEP_COUNT = 4;
 
 // ─── Animation variants ───────────────────────────────────────────────────────
 
@@ -940,6 +939,7 @@ function PlanPage() {
   });
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showTripLangGate, setShowTripLangGate] = useState(false);
 
   const searchParams = useSearchParams();
 
@@ -968,6 +968,13 @@ function PlanPage() {
         : prefLang === 'he' || prefLang === 'en'
           ? prefLang
           : 'en';
+
+    const hasExplicitTripLang =
+      tripLangParam === 'he' ||
+      tripLangParam === 'en' ||
+      prefLang === 'he' ||
+      prefLang === 'en';
+    setShowTripLangGate(!hasExplicitTripLang);
 
     setForm({
       groupSize: 2,
@@ -998,19 +1005,26 @@ function PlanPage() {
     (q) => !(hasHotelAnchor && q.key === 'accommodation'),
   );
   const question = activeQuestions[step];
-  const totalFlowSteps = ONBOARDING_STEP_COUNT + activeQuestions.length;
-  const currentFlowStep = ONBOARDING_STEP_COUNT + step + 1;
-  const progress = totalFlowSteps > 0 ? (currentFlowStep / totalFlowSteps) * 100 : 100;
-  const bg = getStepBackground(currentFlowStep, 5);
+  const planStepTotal = Math.max(1, activeQuestions.length);
+  const planStepNumber = Math.min(step + 1, planStepTotal);
+  const progress = (planStepNumber / planStepTotal) * 100;
+  const bg = getStepBackground(planStepNumber, 5);
 
   const destinationChosen = FEATURED_DESTINATIONS.some(
     (d) => d.name === (form.destination as string),
   );
-  const continueDisabled = question.key === 'destination' && !destinationChosen;
+  const continueDisabled =
+    !!question && question.key === 'destination' && !destinationChosen;
 
   const setValue = useCallback((key: string, value: unknown) => {
     setForm((prev) => ({ ...prev, [key]: value }));
     setError('');
+  }, []);
+
+  const handleTripLangGateSelect = useCallback((lang: TripLanguage) => {
+    persistTripLanguagePref(lang);
+    setForm((prev) => ({ ...prev, tripLanguage: lang }));
+    setShowTripLangGate(false);
   }, []);
 
   const toggleInterest = useCallback((val: string) => {
@@ -1051,6 +1065,7 @@ function PlanPage() {
   }, []);
 
   const validate = () => {
+    if (!question) return false;
     const val = form[question.key];
     if (!question.required) return true;
     if (question.key === 'destination') return destinationChosen;
@@ -1062,6 +1077,7 @@ function PlanPage() {
   };
 
   const handleNext = () => {
+    if (!question) return;
     if (!validate()) {
       setError(
         question.key === 'destination'
@@ -1183,6 +1199,11 @@ function PlanPage() {
         backgroundAttachment: 'fixed',
       }}
     >
+      <TripLanguageGateModal
+        open={showTripLangGate}
+        onSelect={handleTripLangGateSelect}
+        onCancel={() => router.push('/')}
+      />
 
       {/* Background orbs */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -1203,7 +1224,7 @@ function PlanPage() {
           Travel<span style={{ color: '#9e363a' }}>OS</span>
         </Link>
         <span className="text-sm font-mono tabular-nums" style={{ color: 'rgba(255,255,255,0.4)' }}>
-          {currentFlowStep}<span style={{ color: 'rgba(255,255,255,0.18)' }}> / {totalFlowSteps}</span>
+          {planStepNumber}<span style={{ color: 'rgba(255,255,255,0.18)' }}> / {planStepTotal}</span>
         </span>
       </div>
 
@@ -1255,7 +1276,7 @@ function PlanPage() {
                   className="text-xs font-semibold uppercase tracking-widest mb-2"
                   style={{ color: '#9e363a' }}
                 >
-                  Step {currentFlowStep}
+                  Step {planStepNumber}
                 </motion.div>
                 <h2 className="text-2xl sm:text-3xl font-bold text-white leading-tight mb-2">
                   {question.title}

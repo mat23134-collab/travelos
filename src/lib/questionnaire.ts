@@ -44,18 +44,6 @@ export const questions: Question[] = [
     required: false,
   },
   {
-    id: 4,
-    key: 'tripLanguage',
-    type: 'select',
-    title: 'Which language should we use on your trip page?',
-    subtitle: 'Place names stay in English for Google Maps and search. Narratives, tips, and labels follow your choice.',
-    required: true,
-    options: [
-      { value: 'en', label: 'English', icon: '🇬🇧', description: 'Itinerary text in English' },
-      { value: 'he', label: 'עברית', icon: '🇮🇱', description: 'Hebrew descriptions — venue names remain English' },
-    ],
-  },
-  {
     id: 5,
     key: 'groupType',
     type: 'select',
