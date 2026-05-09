@@ -2,7 +2,10 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
+import type { TripLanguage } from '@/lib/types';
+import { persistTripLanguagePref } from '@/lib/tripLanguagePref';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 // Background  : #091f36  (Purple Shadow)
@@ -100,13 +103,25 @@ const DIVIDER_LINE = (
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
+  const router = useRouter();
   const { user, loading } = useAuth();
   const [showAuthGate, setShowAuthGate] = useState(false);
+  const [showLangModal, setShowLangModal] = useState(false);
 
-  const handlePlanningClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (loading || user) return;
+  const openPlanningLanguageStep = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (loading) return;
     e.preventDefault();
-    setShowAuthGate(true);
+    setShowLangModal(true);
+  };
+
+  const confirmTripLanguage = (lang: TripLanguage) => {
+    persistTripLanguagePref(lang);
+    setShowLangModal(false);
+    if (!user) {
+      setShowAuthGate(true);
+      return;
+    }
+    router.push('/onboarding');
   };
 
   return (
@@ -253,7 +268,7 @@ export default function HomePage() {
                   (e.currentTarget as HTMLElement).style.boxShadow = `0 0 40px rgba(158,54,58,0.32), 0 4px 20px rgba(158,54,58,0.22)`;
                   (e.currentTarget as HTMLElement).style.transform = '';
                 }}
-                onClick={handlePlanningClick}
+                onClick={openPlanningLanguageStep}
               >
                 Start Planning
                 <span className="transition-transform group-hover:translate-x-0.5 inline-block">→</span>
@@ -543,7 +558,7 @@ export default function HomePage() {
               (e.currentTarget as HTMLElement).style.transform = '';
               (e.currentTarget as HTMLElement).style.boxShadow = `0 0 60px rgba(158,54,58,0.32)`;
             }}
-            onClick={handlePlanningClick}
+            onClick={openPlanningLanguageStep}
           >
             Plan My First Trip →
           </Link>
@@ -553,6 +568,65 @@ export default function HomePage() {
           </p>
         </div>
       </section>
+
+      {showLangModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center px-4"
+          style={{ background: 'rgba(7,22,41,0.82)', backdropFilter: 'blur(6px)' }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="trip-lang-title"
+        >
+          <div
+            className="w-full max-w-md rounded-2xl p-7"
+            style={{ background: '#0b1d35', border: '1px solid rgba(255,255,255,0.10)' }}
+          >
+            <h3
+              id="trip-lang-title"
+              className="text-xl font-black mb-2"
+              style={{ letterSpacing: '-0.02em' }}
+            >
+              Result language
+            </h3>
+            <p className="text-sm mb-1" style={{ color: MUTED }}>
+              Choose the language for your trip plan text and on-page tips. Venue and place names stay in English for maps and search.
+            </p>
+            <p className="text-sm mb-6" style={{ color: 'rgba(255,255,255,0.35)' }} dir="rtl">
+              בחרו שפה לטקסטים והסברים בטיול. שמות מקומות יישארו באנגלית למפות ולחיפוש.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+              <button
+                type="button"
+                className="px-4 py-4 rounded-xl text-sm font-bold transition-transform hover:scale-[1.02]"
+                style={{ background: PRIMARY, color: '#fff' }}
+                onClick={() => confirmTripLanguage('en')}
+              >
+                English
+              </button>
+              <button
+                type="button"
+                className="px-4 py-4 rounded-xl text-sm font-bold transition-transform hover:scale-[1.02]"
+                style={{
+                  background: 'rgba(15,40,98,0.55)',
+                  border: '1px solid rgba(255,255,255,0.14)',
+                  color: '#fff',
+                }}
+                onClick={() => confirmTripLanguage('he')}
+              >
+                עברית
+              </button>
+            </div>
+            <button
+              type="button"
+              className="w-full py-3 rounded-xl text-sm font-semibold"
+              style={{ border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.55)' }}
+              onClick={() => setShowLangModal(false)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {showAuthGate && (
         <div

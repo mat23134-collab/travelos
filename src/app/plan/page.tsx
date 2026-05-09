@@ -9,6 +9,7 @@ import { questions } from '@/lib/questionnaire';
 import { TravelerProfile } from '@/lib/types';
 import { useAuth } from '@/lib/auth-context';
 import { getStepBackground } from '@/lib/stepBackgrounds';
+import { readTripLanguagePref } from '@/lib/tripLanguagePref';
 
 type FormData = Record<string, unknown>;
 
@@ -959,9 +960,18 @@ function PlanPage() {
     const preHotelLat = preHotelLatRaw != null ? Number(preHotelLatRaw) : null;
     const preHotelLng = preHotelLngRaw != null ? Number(preHotelLngRaw) : null;
 
+    const tripLangParam = searchParams.get('tripLang');
+    const prefLang = readTripLanguagePref();
+    const initialTripLang: TravelerProfile['tripLanguage'] =
+      tripLangParam === 'he' || tripLangParam === 'en'
+        ? tripLangParam
+        : prefLang === 'he' || prefLang === 'en'
+          ? prefLang
+          : 'en';
+
     setForm({
       groupSize: 2,
-      tripLanguage: 'en',
+      tripLanguage: initialTripLang,
       interests: [],
       dietaryRestrictions: [],
       mustHaveItems: [],

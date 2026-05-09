@@ -21,6 +21,7 @@ import dynamic from 'next/dynamic';
 import { Suspense, useEffect } from 'react';
 import { useOnboardingStore } from '@/state/onboardingStore';
 import { getStepBackground } from '@/lib/stepBackgrounds';
+import { readTripLanguagePref } from '@/lib/tripLanguagePref';
 import { useAuth } from '@/lib/auth-context';
 
 // All step components use R3F (useFrame) + tunnel-rat → must be ssr:false
@@ -145,6 +146,10 @@ function OnboardingPageContent() {
     if (hotelLat != null && hotelLng != null) {
       params.set('hotelLat', String(hotelLat));
       params.set('hotelLng', String(hotelLng));
+    }
+    const tripLangPref = readTripLanguagePref();
+    if (tripLangPref === 'he' || tripLangPref === 'en') {
+      params.set('tripLang', tripLangPref);
     }
     router.push(`/plan?${params.toString()}`);
   };
