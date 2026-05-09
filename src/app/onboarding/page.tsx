@@ -21,6 +21,7 @@ import dynamic from 'next/dynamic';
 import { Suspense, useEffect } from 'react';
 import { useOnboardingStore } from '@/state/onboardingStore';
 import { getStepBackground } from '@/lib/stepBackgrounds';
+import { useAuth } from '@/lib/auth-context';
 
 // All step components use R3F (useFrame) + tunnel-rat → must be ssr:false
 function StepSkeleton() {
@@ -82,6 +83,7 @@ const TOTAL_STEPS = 4;
 function OnboardingPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user, loading } = useAuth();
   const {
     step,
     destination,
@@ -103,6 +105,12 @@ function OnboardingPageContent() {
   const dir = 1; // always forward
 
   useEffect(() => {
+    if (loading) return;
+    if (!user) router.replace('/auth');
+  }, [loading, user, router]);
+
+  useEffect(() => {
+    if (!user) return;
     const resume = searchParams.get('resume') === '1';
     if (resume) {
       // Resume flow from final onboarding step when returning from /plan "Back".
@@ -111,7 +119,18 @@ function OnboardingPageContent() {
     }
     // Normal entry starts onboarding from a clean slate.
     reset();
-  }, [goToStep, reset, searchParams]);
+  }, [goToStep, reset, searchParams, user]);
+
+  if (loading || !user) {
+    return (
+      <main
+        className="min-h-screen flex items-center justify-center px-8"
+        style={{ backgroundColor: '#091f36' }}
+      >
+        <StepSkeleton />
+      </main>
+    );
+  }
 
   const handleComplete = () => {
     const params = new URLSearchParams();

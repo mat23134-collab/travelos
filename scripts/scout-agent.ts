@@ -1,7 +1,8 @@
 /**
- * TravelOS Scout Agent — v3 (Exa-powered + Janitor mode)
+ * TravelOS Scout Agent — v4 (Gemini-powered extraction + Exa/Janitor mode)
  * ─────────────────────────────────────────────────────────────────────────────
  * Standalone CLI script — runs outside the Next.js app.
+ * Uses Google Gemini for AI extraction (no Claude tokens consumed).
  *
  * SCOUT MODE (default): discover & insert new places for a city
  *   npx tsx scripts/scout-agent.ts <city>            # auto-select best engine
@@ -15,14 +16,14 @@
  *   npx tsx scripts/scout-agent.ts --janitor --dry-run   # preview without writing
  *
  * Required env vars (in .env.local):
- *   ANTHROPIC_API_KEY           — Claude API key
+ *   GEMINI_API_KEY              — Google Gemini API key (replaces Claude for the agent)
  *   NEXT_PUBLIC_SUPABASE_URL    — Supabase project URL
  *   SUPABASE_SERVICE_ROLE_KEY   — Service-role key (bypasses Row-Level Security)
  *
  * Optional:
  *   EXA_API_KEY                 — Exa neural search (required for janitor mode)
  *   TAVILY_API_KEY              — Tavily web search (fallback engine)
- *   ANTHROPIC_MODEL             — override Claude model (default: claude-haiku-4-5-20251001)
+ *   GEMINI_MODEL                — override Gemini model (default: gemini-3-flash-preview)
  *
  * Supabase migration (run once before janitor mode):
  *   ALTER TABLE places ADD COLUMN IF NOT EXISTS last_verified_at timestamptz;
@@ -30,7 +31,6 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
@@ -67,6 +67,18 @@ interface Place {
   category_emoji: string;
   social_proof_url: string | null;
   vibe_label: string;
+  quality_score?: number;
+}
+
+const TARGET_PLACES_PER_RUN = 50;
+
+function toNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const n = Number(value.trim());
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
 }
 
 // ── Exa API types ─────────────────────────────────────────────────────────────
@@ -89,51 +101,36 @@ interface ExaSearchResponse {
   results: ExaResult[];
 }
 
-// ── Exa search — neural + social targeting ────────────────────────────────────
-// Uses three complementary query strategies:
-//   (a) social/blog sites for viral discovery via tweet/personal-site categories
-//   (b) travel blogs + Reddit for hidden-gem local knowledge
-//   (c) general underground/authentic angle with autoprompt refinement
+// ── Exa search — strategic wide batching ──────────────────────────────────────
+// Single Exa phase, parallel broad queries, no deprecated categories.
 
 async function searchExa(city: string): Promise<string> {
   const apiKey = process.env.EXA_API_KEY ?? '';
 
   const queries: Array<{
     query: string;
-    category?: string;
     type: 'neural' | 'keyword';
     use_autoprompt: boolean;
     num_results: number;
   }> = [
-    // 1 — Social signals: tweet/Instagram/TikTok viral content
     {
-      query: `${city} hidden gem local secret restaurant bar cafe going viral TikTok Instagram`,
-      category: 'tweet',
+      query: `${city} best fine dining luxury restaurant chef tasting menu Michelin hidden gems cocktail bar speakeasy rooftop`,
       type: 'neural',
       use_autoprompt: true,
-      num_results: 8,
+      num_results: 50,
     },
-    // 2 — Personal travel blogs: off-the-beaten-path local knowledge
     {
-      query: `${city} underground spots locals only authentic hidden neighborhood gems personal travel blog`,
-      category: 'personal site',
-      type: 'neural',
-      use_autoprompt: true,
-      num_results: 8,
-    },
-    // 3 — Reddit + forum intelligence: real locals vs tourist crowds
-    {
-      query: `${city} best local spots avoid tourists hidden gems site:reddit.com OR site:tripadvisor.com`,
+      query: `${city} local favorite hidden gem boutique hotel luxury cafe premium experience neighborhood guide 2026`,
       type: 'keyword',
       use_autoprompt: false,
-      num_results: 6,
+      num_results: 50,
     },
   ];
 
   console.log(`  → Exa neural search (${queries.length} targeted queries)…`);
 
   const settled = await Promise.allSettled(
-    queries.map(async ({ query, category, type, use_autoprompt, num_results }) => {
+    queries.map(async ({ query, type, use_autoprompt, num_results }) => {
       const body: Record<string, unknown> = {
         query,
         num_results,
@@ -152,7 +149,6 @@ async function searchExa(city: string): Promise<string> {
           summary: { query: `What makes this place special in ${city}?` },
         },
       };
-      if (category) body.category = category;
 
       const res = await fetch('https://api.exa.ai/search', {
         method: 'POST',
@@ -394,90 +390,340 @@ async function gatherRawContent(
   return { content: getMockContent(city), engine: 'mock' };
 }
 
-// ── Claude extraction ─────────────────────────────────────────────────────────
+// ── Gemini extraction (no Claude tokens consumed) ────────────────────────────
 
-async function extractPlacesWithClaude(
+interface GeminiResponse {
+  candidates?: Array<{
+    content?: {
+      parts?: Array<{ text?: string }>;
+    };
+  }>;
+  error?: { message: string; code: number };
+}
+
+function parseGeminiPlaces(raw: string): unknown[] {
+  const text = raw.trim();
+  const candidates: string[] = [];
+
+  // Preferred: strict array from first [ to last ]
+  const arrayStart = text.indexOf('[');
+  const arrayEnd = text.lastIndexOf(']');
+  if (arrayStart !== -1 && arrayEnd !== -1 && arrayEnd > arrayStart) {
+    candidates.push(text.slice(arrayStart, arrayEnd + 1));
+  }
+
+  // Fallback: full payload might already be plain JSON object or array
+  if (text.startsWith('{') || text.startsWith('[')) {
+    candidates.push(text);
+  }
+
+  let lastErr: unknown;
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate) as unknown;
+      if (Array.isArray(parsed)) return parsed;
+      if (parsed && typeof parsed === 'object') return [parsed];
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+
+  // Final fallback for truncated output: recover complete objects that already closed.
+  const recovered = recoverClosedObjectsFromTruncatedArray(text);
+  if (recovered.length > 0) {
+    console.warn(`  ⚠️  Gemini returned truncated JSON — recovered ${recovered.length} complete object(s)`);
+    return recovered;
+  }
+
+  throw new Error(
+    `Gemini did not return parseable JSON (${lastErr instanceof Error ? lastErr.message : 'unknown parse error'}). Preview:\n${text.slice(0, 400)}`,
+  );
+}
+
+function recoverClosedObjectsFromTruncatedArray(text: string): unknown[] {
+  const start = text.indexOf('[');
+  if (start === -1) return [];
+
+  const objects: unknown[] = [];
+  let inString = false;
+  let escaped = false;
+  let depthArray = 0;
+  let depthObject = 0;
+  let objectStart = -1;
+
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (ch === '\\') {
+        escaped = true;
+      } else if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (ch === '[') {
+      depthArray++;
+      continue;
+    }
+
+    if (ch === ']') {
+      depthArray = Math.max(0, depthArray - 1);
+      continue;
+    }
+
+    if (ch === '{') {
+      if (depthArray > 0 && depthObject === 0) {
+        objectStart = i;
+      }
+      depthObject++;
+      continue;
+    }
+
+    if (ch === '}') {
+      depthObject = Math.max(0, depthObject - 1);
+      if (depthArray > 0 && depthObject === 0 && objectStart !== -1) {
+        const candidate = text.slice(objectStart, i + 1);
+        try {
+          objects.push(JSON.parse(candidate) as unknown);
+        } catch {
+          // Ignore malformed fragment; keep scanning for later valid objects.
+        }
+        objectStart = -1;
+      }
+    }
+  }
+
+  return objects;
+}
+
+function normalizeParsedPlaces(parsed: unknown[], city: string): Place[] {
+  const flatParsed = parsed.flatMap((item) => (Array.isArray(item) ? item : [item]));
+  return flatParsed.flatMap((p): Place[] => {
+    if (typeof p !== 'object' || p === null) return [];
+    const place = p as Record<string, unknown>;
+    const name = typeof place.name === 'string' ? place.name.trim() : '';
+    const lat = toNumber(place.lat);
+    const lng = toNumber(place.lng);
+    const qualityScore = toNumber(place.quality_score);
+
+    if (!name || lat === null || lng === null || lat === 0 || lng === 0) return [];
+
+    return [{
+      city: typeof place.city === 'string' && place.city.trim() ? place.city.trim() : city,
+      name,
+      category: typeof place.category === 'string' ? place.category.trim() : 'attraction',
+      description: typeof place.description === 'string' ? place.description.trim() : '',
+      lat,
+      lng,
+      category_emoji: typeof place.category_emoji === 'string' ? place.category_emoji.trim() : '📍',
+      social_proof_url:
+        typeof place.social_proof_url === 'string' && place.social_proof_url.trim()
+          ? place.social_proof_url.trim()
+          : null,
+      vibe_label: typeof place.vibe_label === 'string' ? place.vibe_label.trim() : 'hidden-gem',
+      quality_score: qualityScore ?? undefined,
+    }];
+  });
+}
+
+function isQuotaError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return msg.includes('Gemini API 429') || msg.toLowerCase().includes('quota');
+}
+
+async function extractPlacesWithGemini(
   city: string,
   rawContent: string,
 ): Promise<Place[]> {
-  const model = process.env.ANTHROPIC_MODEL ?? 'claude-haiku-4-5-20251001';
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const model  = process.env.GEMINI_MODEL ?? 'gemini-3-flash-preview';
+  const apiKey = process.env.GEMINI_API_KEY ?? '';
 
-  console.log(`  → Claude model: ${model}`);
+  if (!apiKey || apiKey.includes('your_')) {
+    throw new Error('GEMINI_API_KEY is not set in .env.local');
+  }
 
-  const prompt = `You are a travel intelligence extraction agent for TravelOS.
+  // Strategic one-shot extraction: maximize context to keep Gemini at one call.
+  const maxInputChars = 120000;
+  const normalizedRawContent = rawContent.length > maxInputChars
+    ? rawContent.slice(0, maxInputChars)
+    : rawContent;
+
+  if (rawContent.length > maxInputChars) {
+    console.log(`  → Truncated research payload: ${rawContent.length.toLocaleString()} → ${maxInputChars.toLocaleString()} chars`);
+  }
+
+  console.log(`  → Gemini model: ${model}`);
+
+  const prompt = `You are a strategic travel data extraction agent for TravelOS.
 
 CITY: ${city}
 
 RAW RESEARCH CONTENT (web search results, blog posts, social media signals):
-${rawContent}
+${normalizedRawContent}
 
-Your task: extract every distinct, named place/venue mentioned above into structured JSON.
+Your task: return EXACTLY ${TARGET_PLACES_PER_RUN} high-quality places from the raw data, optimized for database ingestion.
 
-VIBE CLASSIFICATION GUIDE:
-- "viral-trend"    → explicitly TikTok/Instagram/social media famous, trending hashtags, going viral
-- "hidden-gem"     → described as locals-only, secret, off-beaten-path, not in guidebooks, underground
-- "local-favorite" → where locals actually eat/drink/hang, neighbourhood staple, not tourist-facing
-- "classic"        → iconic, historic, landmark status — still worth it
-- "luxury-pick"    → high-end, upscale, premium price point
-- "budget-pick"    → affordable, cheap eats, value for money
+QUALITY FILTER (strict):
+- prioritize Fine Dining, Luxury, and Hidden Gems
+- include a balanced mix across these three quality classes
+- reject generic chains, vague areas, and non-specific venues
+- prefer entries with strong evidence from sources
+
+VIBE LABEL GUIDE:
+- "luxury-pick"    → premium/high-end/luxury/fine dining
+- "hidden-gem"     → locals-only/secret/underground
+- "local-favorite" → neighborhood staple with authentic local traction
+- "classic"        → iconic and still relevant
+- "viral-trend"    → social buzz
+- "budget-pick"    → strong value spot
 
 For each place output an object with EXACTLY these fields:
 {
   "city": "${city}",
   "name": "Official venue name",
   "category": "restaurant | bar | cafe | attraction | market | nightlife | nature | hotel | shopping",
-  "description": "The Secret Sauce — why locals love it, what makes it special, any social media angle. Include specific details (what to order, best time, crowd vibe). Max 60 words.",
-  "lat": 0.0000,   // accurate GPS latitude, 4 decimal places. MUST be the specific venue, not city centre.
-  "lng": 0.0000,   // accurate GPS longitude, 4 decimal places. MUST be the specific venue, not city centre.
-  "category_emoji": "🍕",  // single emoji: 🍕 🍷 ☕ 🏛️ 🛒 🎶 🌿 🏨 🛍️ 🌆 🎭 🍺 🌅
-  "social_proof_url": "https://...",  // ONLY real URLs from the content (TikTok/Instagram/Twitter). null if none found.
-  "vibe_label": "hidden-gem | local-favorite | viral-trend | classic | luxury-pick | budget-pick"
+  "description": "Concise vibe summary (max 28 words). Mention why it qualifies under quality filter.",
+  "lat": 0.0000,
+  "lng": 0.0000,
+  "category_emoji": "🍕",
+  "social_proof_url": "https://... or null",
+  "vibe_label": "hidden-gem | local-favorite | viral-trend | classic | luxury-pick | budget-pick",
+  "quality_score": 0
 }
 
 STRICT RULES:
-- Only extract real, named, specific venues — no generic area descriptions
-- Coordinates MUST be accurate for the specific venue (not the city centre or neighbourhood centroid)
-- Do NOT invent or guess social_proof_url — only use URLs explicitly present in the content above
-- Aim for 8–14 places. Quality and specificity over quantity.
-- Every place must have a genuine vibe_label based on how it was described in the source
-- PRIORITIZE places with social media signals and "underground" / "locals-only" framing
+1) Return EXACTLY ${TARGET_PLACES_PER_RUN} objects.
+2) All names must be unique.
+3) Coordinates must be specific to venue, not city center.
+4) quality_score is integer 1-10.
+5) Minimum quality_score allowed: 7.
+6) Do NOT invent social_proof_url; if unavailable return null.
+7) Return ONLY valid minified JSON array in one line.
+8) No markdown, no comments, no prose.`;
 
-Return ONLY a valid JSON array. No markdown fences. No prose. Start with [ end with ].`;
+  const runGemini = async (requestPrompt: string, maxOutputTokens: number): Promise<string> => {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-  const message = await client.messages.create({
-    model,
-    max_tokens: 4096,
-    messages: [{ role: 'user', content: prompt }],
-  });
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: requestPrompt }] }],
+        generationConfig: {
+          temperature:      0.1,
+          maxOutputTokens,
+          responseMimeType: 'application/json',
+        },
+      }),
+    });
 
-  const raw =
-    message.content[0].type === 'text' ? message.content[0].text.trim() : '';
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Gemini API ${res.status}: ${errText.slice(0, 300)}`);
+    }
 
-  // Strict extraction: first [ to last ]
-  const start = raw.indexOf('[');
-  const end = raw.lastIndexOf(']');
-  if (start === -1 || end === -1 || end <= start) {
-    throw new Error(
-      'Claude did not return a JSON array. Preview:\n' + raw.slice(0, 400),
-    );
+    const data = (await res.json()) as GeminiResponse;
+    if (data.error) {
+      throw new Error(`Gemini error ${data.error.code}: ${data.error.message}`);
+    }
+
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
+    if (!raw) throw new Error('Gemini returned an empty response.');
+    return raw;
+  };
+
+  let normalizedPlaces: Place[] = [];
+  try {
+    const raw = await runGemini(prompt, 12288);
+    const parsed = parseGeminiPlaces(raw);
+    normalizedPlaces = normalizeParsedPlaces(parsed, city);
+  } catch (err) {
+    if (isQuotaError(err)) {
+      throw new Error('Gemini quota exceeded (429). Increase quota/billing and retry.');
+    }
+    console.warn(`  ⚠️  Primary 50-pack extraction failed: ${err instanceof Error ? err.message : String(err)}`);
+    console.warn('  → Continuing with strict top-up mode from Exa evidence only…');
   }
 
-  const parsed = JSON.parse(raw.slice(start, end + 1)) as unknown[];
+  const dedupe = (places: Place[]): Place[] => {
+    const seen = new Set<string>();
+    const unique: Place[] = [];
+    for (const p of places) {
+      const key = `${p.city.toLowerCase()}|${p.name.toLowerCase()}|${p.lat.toFixed(4)}|${p.lng.toFixed(4)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      unique.push(p);
+    }
+    return unique;
+  };
 
-  // Runtime validation — drop malformed entries
-  return parsed.filter((p): p is Place => {
-    if (typeof p !== 'object' || p === null) return false;
-    const place = p as Record<string, unknown>;
-    return (
-      typeof place.name === 'string' &&
-      place.name.trim().length > 0 &&
-      typeof place.lat === 'number' &&
-      typeof place.lng === 'number' &&
-      place.lat !== 0 &&
-      place.lng !== 0
-    );
-  });
+  normalizedPlaces = dedupe(normalizedPlaces);
+
+  if (normalizedPlaces.length < TARGET_PLACES_PER_RUN) {
+    console.log(`  → Top-up extraction: ${normalizedPlaces.length}/${TARGET_PLACES_PER_RUN} places`);
+    const chunkSize = 10000;
+    const maxBatches = 20;
+    const maxPerBatch = 5;
+
+    for (let batch = 0; batch < maxBatches; batch++) {
+      if (normalizedPlaces.length >= TARGET_PLACES_PER_RUN) break;
+      const offset = (batch * chunkSize) % Math.max(rawContent.length, 1);
+      const chunk = rawContent.slice(offset, offset + chunkSize);
+      if (!chunk) break;
+
+      const remaining = TARGET_PLACES_PER_RUN - normalizedPlaces.length;
+      const takeCount = Math.min(remaining, maxPerBatch);
+      const excludedNames = normalizedPlaces.map((p) => p.name).slice(0, 80).join(' | ');
+
+      const topUpPrompt = `You are filling missing records for a travel database.
+
+CITY: ${city}
+RAW EVIDENCE CHUNK:
+${chunk}
+
+Return EXACTLY ${takeCount} places from THIS CHUNK ONLY as minified JSON array in one line.
+Critical anti-hallucination rules:
+1) Include only venues explicitly named in RAW EVIDENCE CHUNK text.
+2) If you cannot find enough explicit venues, return fewer objects rather than inventing.
+3) Do not include any of these already selected names: ${excludedNames || 'NONE'}.
+4) Keep only high-quality results (fine dining, luxury, hidden gems, strong local favorites).
+5) social_proof_url must come from evidence; otherwise null.
+
+Schema per object:
+city,name,category,description,lat,lng,category_emoji,social_proof_url,vibe_label,quality_score
+
+No markdown. No prose. JSON only.`;
+
+      try {
+        const rawTopUp = await runGemini(topUpPrompt, 1800);
+        const parsedTopUp = parseGeminiPlaces(rawTopUp);
+        const normalizedTopUp = normalizeParsedPlaces(parsedTopUp, city);
+        if (normalizedTopUp.length === 0) continue;
+        normalizedPlaces = dedupe([...normalizedPlaces, ...normalizedTopUp]);
+      } catch (err) {
+        if (isQuotaError(err)) {
+          console.warn('  ⚠️  Gemini quota reached during top-up; stopping with current valid places.');
+          break;
+        }
+        // Continue best-effort with next chunk.
+      }
+    }
+  }
+
+  if (normalizedPlaces.length < TARGET_PLACES_PER_RUN) {
+    console.warn(`  ⚠️  Final result: ${normalizedPlaces.length}/${TARGET_PLACES_PER_RUN} places (best effort, no hallucination mode).`);
+  }
+
+  return normalizedPlaces.slice(0, TARGET_PLACES_PER_RUN);
 }
 
 // ── Supabase upsert (service-role key bypasses RLS) ───────────────────────────
@@ -790,7 +1036,7 @@ async function main(): Promise<void> {
   const missing: string[] = [];
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL)  missing.push('NEXT_PUBLIC_SUPABASE_URL');
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) missing.push('SUPABASE_SERVICE_ROLE_KEY');
-  if (!isJanitor && !process.env.ANTHROPIC_API_KEY) missing.push('ANTHROPIC_API_KEY');
+  if (!isJanitor && !process.env.GEMINI_API_KEY) missing.push('GEMINI_API_KEY');
   if (missing.length) {
     console.error(`✗ Missing required env vars: ${missing.join(', ')}`);
     console.error('  Add them to .env.local then retry.');
@@ -820,10 +1066,10 @@ async function main(): Promise<void> {
           ? 'TAVILY (Exa key not set)'
           : 'MOCK (no API keys)';
 
-  console.log(`\n🔍 TravelOS Scout Agent v3 — Scout Mode`);
+  console.log(`\n🔍 TravelOS Scout Agent v4 — Scout Mode`);
   console.log(`   City   : ${city!}`);
   console.log(`   Engine : ${engineLabel}`);
-  console.log(`   Model  : ${process.env.ANTHROPIC_MODEL ?? 'claude-haiku-4-5-20251001'}`);
+  console.log(`   Model  : Gemini ${process.env.GEMINI_MODEL ?? 'gemini-3-flash-preview'}`);
   console.log('');
 
   try {
@@ -838,10 +1084,14 @@ async function main(): Promise<void> {
       console.log('────────────────────────────────────────────────────────\n');
     }
 
-    // ── Phase 2: Claude extraction ───────────────────────────────────────────
-    console.log('🤖 Phase 2 — Claude extraction…');
-    const places = await extractPlacesWithClaude(city!, rawContent);
+    // ── Phase 2: Gemini extraction ───────────────────────────────────────────
+    console.log('🤖 Phase 2 — Gemini extraction…');
+    const places = await extractPlacesWithGemini(city!, rawContent);
     console.log(`   ${places.length} valid places extracted\n`);
+
+    if (places.length < TARGET_PLACES_PER_RUN) {
+      console.log(`⚠️  Extracted ${places.length}/${TARGET_PLACES_PER_RUN} places. Try running again or use a correctly spelled city name for better recall.`);
+    }
 
     if (places.length === 0) {
       console.log('⚠️  No places extracted. Try --verbose to inspect raw content, or --mock for a known-good run.');

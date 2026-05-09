@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 
@@ -100,6 +101,13 @@ const DIVIDER_LINE = (
 
 export default function HomePage() {
   const { user, loading } = useAuth();
+  const [showAuthGate, setShowAuthGate] = useState(false);
+
+  const handlePlanningClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (loading || user) return;
+    e.preventDefault();
+    setShowAuthGate(true);
+  };
 
   return (
     <main
@@ -245,12 +253,13 @@ export default function HomePage() {
                   (e.currentTarget as HTMLElement).style.boxShadow = `0 0 40px rgba(158,54,58,0.32), 0 4px 20px rgba(158,54,58,0.22)`;
                   (e.currentTarget as HTMLElement).style.transform = '';
                 }}
+                onClick={handlePlanningClick}
               >
                 Start Planning
                 <span className="transition-transform group-hover:translate-x-0.5 inline-block">→</span>
               </Link>
               <span className="text-xs" style={{ color: 'rgba(255,255,255,0.18)' }}>
-                Free · No account needed · ~60 seconds
+                {user ? 'Ready to plan · ~60 seconds' : 'Account required · ~60 seconds'}
               </span>
             </div>
 
@@ -534,15 +543,52 @@ export default function HomePage() {
               (e.currentTarget as HTMLElement).style.transform = '';
               (e.currentTarget as HTMLElement).style.boxShadow = `0 0 60px rgba(158,54,58,0.32)`;
             }}
+            onClick={handlePlanningClick}
           >
             Plan My First Trip →
           </Link>
 
           <p className="mt-5 text-xs" style={{ color: 'rgba(255,255,255,0.15)' }}>
-            Free forever · No account required
+            {user ? 'Signed in · continue to onboarding' : 'Sign in or create an account to continue'}
           </p>
         </div>
       </section>
+
+      {showAuthGate && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center px-4"
+          style={{ background: 'rgba(7,22,41,0.78)', backdropFilter: 'blur(4px)' }}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl p-6"
+            style={{ background: '#0b1d35', border: '1px solid rgba(255,255,255,0.10)' }}
+          >
+            <h3 className="text-xl font-black mb-2" style={{ letterSpacing: '-0.02em' }}>
+              Sign in to create a trip
+            </h3>
+            <p className="text-sm mb-6" style={{ color: MUTED }}>
+              To generate personalized itineraries, please log in or create a free account.
+            </p>
+            <div className="flex gap-3">
+              <Link
+                href="/auth"
+                className="flex-1 text-center px-4 py-3 rounded-xl text-sm font-bold"
+                style={{ background: PRIMARY, color: '#fff' }}
+              >
+                Log In / Sign Up
+              </Link>
+              <button
+                type="button"
+                className="px-4 py-3 rounded-xl text-sm font-semibold"
+                style={{ border: '1px solid rgba(255,255,255,0.15)', color: '#fff' }}
+                onClick={() => setShowAuthGate(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Footer ───────────────────────────────────────────────────────────── */}
       <footer
