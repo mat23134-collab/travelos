@@ -88,7 +88,7 @@ function NotFound() {
       <h2 className="text-xl font-bold text-white mb-2 tracking-tight">Itinerary not found</h2>
       <p className="text-white/50 mb-6">This link may have expired or the trip no longer exists.</p>
       <Link
-        href="/plan"
+        href="/onboarding"
         className="px-6 py-3 rounded-xl text-white font-semibold text-sm transition-colors"
         style={{ background: '#9e363a' }}
       >

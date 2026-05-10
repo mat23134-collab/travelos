@@ -18,7 +18,7 @@ export default function ItineraryPage() {
       const raw = sessionStorage.getItem('travelos_itinerary');
       const rawProfile = sessionStorage.getItem('travelos_profile');
       if (!raw) {
-        router.replace('/plan');
+        router.replace('/onboarding');
         return;
       }
       setItinerary(JSON.parse(raw));
@@ -34,7 +34,7 @@ export default function ItineraryPage() {
         <div className="text-4xl mb-4">😕</div>
         <h2 className="text-xl font-bold text-white mb-2 tracking-tight">Something went wrong</h2>
         <p className="text-white/50 mb-6">{error}</p>
-        <Link href="/plan" className="px-6 py-3 rounded-xl text-white font-semibold text-sm transition-colors" style={{ background: '#9e363a' }}>
+        <Link href="/onboarding" className="px-6 py-3 rounded-xl text-white font-semibold text-sm transition-colors" style={{ background: '#9e363a' }}>
           Try again
         </Link>
       </div>

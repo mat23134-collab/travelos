@@ -80,7 +80,7 @@ export function ExploreClient({ city, sections, totalPlaces, isAdmin }: ExploreC
             )}
 
             <Link
-              href="/plan"
+              href={`/onboarding?destination=${encodeURIComponent(city)}`}
               className="text-xs font-semibold px-4 py-2 rounded-xl text-white transition-all"
               style={{ background: '#ff5a5f', boxShadow: '0 4px 16px rgba(255,90,95,0.30)' }}
             >
@@ -174,7 +174,7 @@ export function ExploreClient({ city, sections, totalPlaces, isAdmin }: ExploreC
                 a full itinerary right now.
               </p>
               <Link
-                href="/plan"
+                href={`/onboarding?destination=${encodeURIComponent(city)}`}
                 className="inline-flex items-center gap-2 mt-8 px-6 py-3 rounded-xl font-semibold text-sm text-white transition-all"
                 style={{ background: '#ff5a5f', boxShadow: '0 4px 20px rgba(255,90,95,0.28)' }}
               >
@@ -228,7 +228,7 @@ export function ExploreClient({ city, sections, totalPlaces, isAdmin }: ExploreC
               : `Curated picks for ${city} · TravelOS`}
           </p>
           <Link
-            href="/plan"
+            href={`/onboarding?destination=${encodeURIComponent(city)}`}
             className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm text-white transition-all"
             style={{ background: '#ff5a5f', boxShadow: '0 4px 20px rgba(255,90,95,0.28)' }}
           >

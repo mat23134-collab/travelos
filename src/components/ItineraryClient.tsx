@@ -915,7 +915,7 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
               </Link>
             )}
             <Link
-              href="/plan"
+              href="/onboarding"
               className="text-sm font-medium px-4 py-2 rounded-lg border transition-colors"
               style={{ borderColor: 'rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.60)' }}
             >
@@ -1137,7 +1137,7 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
             className="inline-block"
           >
             <Link
-              href="/plan"
+              href="/onboarding"
               className="inline-flex items-center gap-2 px-8 py-3 rounded-xl text-white font-semibold text-sm transition-colors"
               style={{ background: '#9e363a', boxShadow: '0 6px 24px -4px rgba(158,54,58,0.38)' }}
               onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = '#7a2a2d')}

@@ -101,6 +101,7 @@ function OnboardingPageContent() {
     prevStep,
     goToStep,
     reset,
+    setDestination,
   } = useOnboardingStore();
 
   const dir = 1; // always forward
@@ -120,7 +121,11 @@ function OnboardingPageContent() {
     }
     // Normal entry starts onboarding from a clean slate.
     reset();
-  }, [goToStep, reset, searchParams, user]);
+    const seedDest = searchParams.get('destination')?.trim();
+    if (seedDest) {
+      setDestination(seedDest);
+    }
+  }, [goToStep, reset, searchParams, user, setDestination]);
 
   if (loading || !user) {
     return (
@@ -239,18 +244,23 @@ function OnboardingPageContent() {
           </AnimatePresence>
         </div>
 
-        {/* Skip link */}
-        <div className="absolute bottom-8 left-0 right-0 flex justify-center">
-          <button
-            onClick={handleComplete}
-            className="text-xs transition-colors"
-            style={{ color: 'rgba(79,95,118,0.7)' }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.45)')}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = 'rgba(79,95,118,0.7)')}
-          >
-            Skip setup — go straight to planning
-          </button>
-        </div>
+        {/* Skip link — only after destination + dates (required by /plan gate); skips logistics/hotel */}
+        {destination.trim().length >= 2 &&
+          /^\d{4}-\d{2}-\d{2}$/.test(startDate) &&
+          /^\d{4}-\d{2}-\d{2}$/.test(endDate) && (
+          <div className="absolute bottom-8 left-0 right-0 flex justify-center">
+            <button
+              type="button"
+              onClick={handleComplete}
+              className="text-xs transition-colors"
+              style={{ color: 'rgba(79,95,118,0.7)' }}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.45)')}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = 'rgba(79,95,118,0.7)')}
+            >
+              Skip remaining setup — open planner
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="hidden md:block flex-1" aria-hidden="true" />

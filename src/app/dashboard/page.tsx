@@ -291,7 +291,7 @@ export default function DashboardPage() {
             {user.email}
           </span>
           <Link
-            href="/plan"
+            href="/onboarding"
             className="px-4 py-2 rounded-xl text-xs font-bold text-white transition-all"
             style={{
               background: 'linear-gradient(135deg, #9e363a, #b5404a)',
@@ -380,7 +380,7 @@ export default function DashboardPage() {
               Generate your first AI-crafted itinerary and it will appear here automatically.
             </p>
             <Link
-              href="/plan"
+              href="/onboarding"
               className="px-8 py-3.5 rounded-2xl text-sm font-bold text-white"
               style={{
                 background: 'linear-gradient(135deg, #9e363a, #b5404a)',

@@ -10,7 +10,7 @@
  * Palette: Redline (#9e363a) accents on Purple Shadow (#091f36) bg.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useOnboardingStore } from '@/state/onboardingStore';
 
@@ -39,6 +39,10 @@ const CONTAINER_VARIANTS = {
 export function DestinationStep({ onNext }: { onNext: () => void }) {
   const { destination, setDestination, setDestinationGeo } = useOnboardingStore();
   const [inputVal, setInputVal] = useState(destination);
+
+  useEffect(() => {
+    setInputVal(destination);
+  }, [destination]);
 
   const handleSelect = (name: string, lat: number, lng: number) => {
     setInputVal(name);

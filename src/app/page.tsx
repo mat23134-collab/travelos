@@ -155,7 +155,7 @@ export default function HomePage() {
 
         <div className="flex items-center gap-6">
           <Link
-            href="/plan"
+            href="/onboarding"
             className="hidden sm:inline text-[11px] font-semibold transition-colors"
             style={{ color: MUTED, letterSpacing: '0.14em', textTransform: 'uppercase' }}
             onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = '#ffffff')}

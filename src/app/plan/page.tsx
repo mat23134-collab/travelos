@@ -149,6 +149,37 @@ const LOADING_STEPS = [
   { icon: '💎', label: 'Filtering tourist traps. You deserve better.' },
 ];
 
+/** Soft ETA for the generate API — remaining timer counts down to 0, then shows overtime copy. */
+const GENERATION_ESTIMATE_SEC = 72;
+
+const GENERATION_TIMER_COPY = {
+  en: {
+    elapsed: 'Elapsed',
+    remaining: 'Est. remaining',
+    pastEstimate: 'Past estimate',
+    footer: 'Typical build: 30s–2 min · AI-powered',
+    building: (dest: string) =>
+      `Building your ${dest.trim() || 'trip'} itinerary`,
+  },
+  he: {
+    elapsed: 'עבר',
+    remaining: 'משוער נותר',
+    pastEstimate: 'מעבר לזמן המשוער',
+    footer: 'זמן טיפוסי: 30 שנ׳ עד 2 דק׳ · בינה מלאכותית',
+    building: (dest: string) =>
+      dest.trim()
+        ? `בונים את המסלול ל${dest}`
+        : 'בונים את המסלול שלך',
+  },
+} as const;
+
+function formatDurationMmSs(totalSec: number): string {
+  const s = Math.max(0, Math.floor(totalSec));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${r.toString().padStart(2, '0')}`;
+}
+
 // ─── Step 3 — Time-Aware inputs ───────────────────────────────────────────────
 
 const DAILY_START_OPTIONS = [
@@ -809,8 +840,21 @@ function MustHaveCubes({
 
 // ─── Loading screen ───────────────────────────────────────────────────────────
 
-function LoadingScreen({ destination }: { destination: string }) {
+function LoadingScreen({
+  destination,
+  lang,
+}: {
+  destination: string;
+  lang: TripLanguage;
+}) {
   const [activeStep, setActiveStep] = useState(0);
+  const [tick, setTick] = useState(0);
+  const startedAtRef = useRef<number | null>(null);
+  const tc = GENERATION_TIMER_COPY[lang === 'he' ? 'he' : 'en'];
+
+  useEffect(() => {
+    startedAtRef.current = Date.now();
+  }, []);
 
   useEffect(() => {
     const id = setInterval(
@@ -819,6 +863,21 @@ function LoadingScreen({ destination }: { destination: string }) {
     );
     return () => clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const elapsedSec =
+    startedAtRef.current != null
+      ? Math.max(0, Math.floor((Date.now() - startedAtRef.current) / 1000))
+      : 0;
+
+  void tick;
+
+  const remainingSec = Math.max(0, GENERATION_ESTIMATE_SEC - elapsedSec);
+  const overtime = elapsedSec > GENERATION_ESTIMATE_SEC;
 
   const pct = Math.round(((activeStep + 1) / LOADING_STEPS.length) * 100);
 
@@ -835,20 +894,58 @@ function LoadingScreen({ destination }: { destination: string }) {
         initial={{ opacity: 0, scale: 0.7, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 300, damping: 22 }}
-        className="mb-8"
+        className="mb-6"
       >
-        <div className="w-20 h-20 rounded-[1.5rem] flex items-center justify-center text-4xl shadow-xl"
+        <motion.div
+          className="w-20 h-20 rounded-[1.5rem] flex items-center justify-center text-4xl shadow-xl relative overflow-hidden"
           style={{
             background: 'rgba(158,54,58,0.15)',
             border: '1px solid rgba(158,54,58,0.25)',
             boxShadow: '0 12px 40px -8px rgba(158,54,58,0.22)',
-          }}>
-          ✈️
-        </div>
+          }}
+          animate={{ rotate: [0, -8, 8, -6, 6, 0] }}
+          transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
+        >
+          ⏳
+          <motion.div
+            className="absolute inset-x-2 bottom-2 h-1 rounded-full opacity-40"
+            style={{ background: 'linear-gradient(90deg, transparent, #f5e6dc, transparent)' }}
+            animate={{ x: ['-30%', '30%', '-30%'] }}
+            transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+          />
+        </motion.div>
       </motion.div>
 
       <div className="text-[10px] font-semibold uppercase tracking-widest mb-3" style={{ color: '#9e363a' }}>
-        Building your {destination} itinerary
+        {tc.building(destination)}
+      </div>
+
+      <div
+        className="mb-7 px-5 py-4 rounded-2xl w-full max-w-sm border tabular-nums"
+        style={{
+          background: 'rgba(255,255,255,0.04)',
+          borderColor: 'rgba(255,255,255,0.10)',
+        }}
+      >
+        <div className="flex items-center justify-between gap-4 text-sm">
+          <div className="text-left flex-1 min-w-0">
+            <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.38)' }}>
+              {tc.elapsed}
+            </div>
+            <div className="font-bold text-white text-lg tracking-tight">{formatDurationMmSs(elapsedSec)}</div>
+          </div>
+          <div className="w-px h-10 shrink-0" style={{ background: 'rgba(255,255,255,0.08)' }} />
+          <div className="text-left flex-1 min-w-0">
+            <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.38)' }}>
+              {overtime ? tc.pastEstimate : tc.remaining}
+            </div>
+            <div className="font-bold text-lg tracking-tight" style={{ color: overtime ? '#fbbf24' : 'rgba(255,255,255,0.92)' }}>
+              {overtime
+                ? `+${formatDurationMmSs(elapsedSec - GENERATION_ESTIMATE_SEC)}`
+                : formatDurationMmSs(remainingSec)}
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="h-16 flex items-center justify-center mb-8 w-full max-w-sm">
@@ -906,7 +1003,7 @@ function LoadingScreen({ destination }: { destination: string }) {
           style={{ background: 'linear-gradient(90deg, #9e363a, #4a7bde)' }}
         />
       </div>
-      <p className="text-white/20 text-[10px] tabular-nums">{pct}% · ~30 seconds · AI-powered</p>
+      <p className="text-white/20 text-[10px] tabular-nums leading-relaxed">{pct}% · {tc.footer}</p>
     </div>
   );
 }
@@ -948,13 +1045,29 @@ function PlanPage() {
 
   const searchParams = useSearchParams();
 
+  /** Plan wizard expects onboarding-completed query params; otherwise send users to /onboarding first. */
+  const [planGateReady, setPlanGateReady] = useState(false);
+
   useEffect(() => {
+    setPlanGateReady(false);
+
+    const preDestination = searchParams.get('destination')?.trim() ?? '';
+    const preStartDate = searchParams.get('startDate')?.trim() ?? '';
+    const preEndDate   = searchParams.get('endDate')?.trim() ?? '';
+    const isoDate = /^\d{4}-\d{2}-\d{2}$/;
+    const hasTripBasics =
+      preDestination.length >= 2 &&
+      isoDate.test(preStartDate) &&
+      isoDate.test(preEndDate);
+
+    if (!hasTripBasics) {
+      router.replace('/onboarding');
+      return;
+    }
+
     localStorage.removeItem(STORAGE_KEY);
     setStep(0);
 
-    const preDestination = searchParams.get('destination') ?? '';
-    const preStartDate = searchParams.get('startDate') ?? '';
-    const preEndDate   = searchParams.get('endDate')   ?? '';
     const preArrival    = searchParams.get('arrivalTime')    ?? '';
     const preDeparture  = searchParams.get('departureTime')  ?? '';
     const preDailyStart = searchParams.get('dailyStartTime') ?? '08:30';
@@ -1001,8 +1114,8 @@ function PlanPage() {
       hotelLat:       Number.isFinite(preHotelLat) ? preHotelLat : null,
       hotelLng:       Number.isFinite(preHotelLng) ? preHotelLng : null,
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    setPlanGateReady(true);
+  }, [router, searchParams]);
 
   const hasHotelAnchor =
     !!(form.hotelBooked as string)?.trim() ||
@@ -1217,7 +1330,25 @@ function PlanPage() {
     }
   };
 
-  if (isSubmitting) return <LoadingScreen destination={(form.destination as string) || ''} />;
+  if (isSubmitting) {
+    return (
+      <LoadingScreen
+        destination={(form.destination as string) || ''}
+        lang={(form.tripLanguage as TripLanguage) || 'en'}
+      />
+    );
+  }
+
+  if (!planGateReady) {
+    return (
+      <div
+        className="min-h-screen w-full"
+        style={{ backgroundColor: '#091f36' }}
+        aria-busy="true"
+        aria-label="Loading trip planner"
+      />
+    );
+  }
 
   const isLast = step === activeQuestions.length - 1;
 
