@@ -1,12 +1,14 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { NextRequest, NextResponse } from 'next/server';
-import { TravelerProfile, ClassifiedResult } from '@/lib/types';
+import { createClient } from '@supabase/supabase-js';
+import { TravelerProfile, ClassifiedResult, type Activity, type DiningSpot } from '@/lib/types';
 import { SYSTEM_PROMPT, buildUserPrompt } from '@/lib/prompts';
 import { runChainOfThoughtSearch, searchWeb } from '@/lib/rag';
 import { supabase } from '@/lib/supabase';
 import { queryPlacesForCity, formatPlacesForPrompt } from '@/lib/places';
 import { batchVerifyPlaces } from '@/lib/verification';
 import { normalizeBasecampHotels } from '@/lib/hotelNormalize';
+import { classifyActivity } from '@/lib/activityGenre';
 
 // ── JSON instruction prepended to every system prompt ────────────────────────
 
@@ -84,6 +86,162 @@ function dropMissingColumnFromRow(row: Record<string, unknown>, errorMessage: st
   if (!missingCol || !(missingCol in row)) return false;
   delete row[missingCol];
   return true;
+}
+
+type PlaceSeed = {
+  city: string;
+  name: string;
+  category: string;
+  description: string;
+  lat: number;
+  lng: number;
+  category_emoji: string;
+  social_proof_url: string | null;
+  vibe_label: string;
+};
+
+function activityToPlaceSeed(
+  city: string,
+  activity: Activity,
+  slot: 'morning' | 'afternoon' | 'evening',
+): PlaceSeed | null {
+  const name = typeof activity.name === 'string' ? activity.name.trim() : '';
+  const lat = Number(activity.latitude);
+  const lng = Number(activity.longitude);
+  if (!name || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+  const genre = classifyActivity(activity);
+  const category =
+    genre === 'food'
+      ? 'restaurant'
+      : genre === 'shopping'
+        ? 'market'
+        : genre === 'nightlife'
+          ? 'bar'
+          : 'attraction';
+
+  const descriptionRaw =
+    (typeof activity.description === 'string' && activity.description) ||
+    (typeof activity.whyThis === 'string' && activity.whyThis) ||
+    `Suggested ${slot} ${category} in ${city}`;
+
+  return {
+    city,
+    name,
+    category,
+    description: descriptionRaw.slice(0, 500),
+    lat,
+    lng,
+    category_emoji: typeof activity.category_emoji === 'string' ? activity.category_emoji : '📍',
+    social_proof_url: null,
+    vibe_label: typeof activity.vibeLabel === 'string' ? activity.vibeLabel : 'local-favorite',
+  };
+}
+
+function diningToPlaceSeed(
+  city: string,
+  spot: DiningSpot,
+  meal: 'breakfast' | 'lunch' | 'dinner',
+): PlaceSeed | null {
+  const name = typeof spot.name === 'string' ? spot.name.trim() : '';
+  const lat = Number(spot.latitude);
+  const lng = Number(spot.longitude);
+  if (!name || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+  const cuisine = typeof spot.cuisine === 'string' ? spot.cuisine.trim() : '';
+  const mustTry = typeof spot.mustTry === 'string' ? spot.mustTry.trim() : '';
+  const description = [mustTry && `Must try: ${mustTry}`, cuisine && `Cuisine: ${cuisine}`]
+    .filter(Boolean)
+    .join(' · ') || `Recommended ${meal} spot in ${city}`;
+
+  return {
+    city,
+    name,
+    category: meal === 'breakfast' ? 'cafe' : 'restaurant',
+    description: description.slice(0, 500),
+    lat,
+    lng,
+    category_emoji: meal === 'breakfast' ? '☕' : meal === 'lunch' ? '🍽️' : '🌙',
+    social_proof_url: null,
+    vibe_label: 'local-favorite',
+  };
+}
+
+function collectPlaceSeeds(itineraryObj: Record<string, unknown>, city: string): PlaceSeed[] {
+  const days = Array.isArray(itineraryObj.days) ? itineraryObj.days : [];
+  const seeds: PlaceSeed[] = [];
+
+  for (const d of days) {
+    const day = (d ?? {}) as Record<string, unknown>;
+    for (const slot of ['morning', 'afternoon', 'evening'] as const) {
+      const act = day[slot];
+      if (act && typeof act === 'object') {
+        const seed = activityToPlaceSeed(city, act as Activity, slot);
+        if (seed) seeds.push(seed);
+      }
+    }
+    for (const meal of ['breakfast', 'lunch', 'dinner'] as const) {
+      const spot = day[meal];
+      if (spot && typeof spot === 'object') {
+        const seed = diningToPlaceSeed(city, spot as DiningSpot, meal);
+        if (seed) seeds.push(seed);
+      }
+    }
+  }
+
+  const seen = new Set<string>();
+  return seeds.filter((s) => {
+    const key = `${s.city.toLowerCase()}__${s.name.toLowerCase()}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+async function persistNewPlacesFromItinerary(itineraryObj: Record<string, unknown>, cityRaw: string): Promise<void> {
+  const city = cityRaw.trim();
+  if (!city) return;
+  const placeSeeds = collectPlaceSeeds(itineraryObj, city);
+  if (placeSeeds.length === 0) return;
+
+  const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').replace(/\/+$/, '');
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
+  const writeClient = supabaseUrl && serviceKey
+    ? createClient(supabaseUrl, serviceKey, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      })
+    : supabase;
+  if (!serviceKey) {
+    console.warn('[generate] places sync using anon client (no SUPABASE_SERVICE_ROLE_KEY)');
+  }
+
+  let inserted = 0;
+  let skipped = 0;
+  for (const seed of placeSeeds) {
+    const { data: existing, error: selErr } = await writeClient
+      .from('places')
+      .select('id')
+      .ilike('name', seed.name)
+      .ilike('city', seed.city)
+      .maybeSingle();
+
+    if (selErr) {
+      console.warn(`[generate] places select skipped for "${seed.name}": ${selErr.message}`);
+      continue;
+    }
+    if (existing) {
+      skipped++;
+      continue;
+    }
+
+    const { error: insErr } = await writeClient.from('places').insert(seed);
+    if (insErr) {
+      console.warn(`[generate] places insert skipped for "${seed.name}": ${insErr.message}`);
+      continue;
+    }
+    inserted++;
+  }
+  console.log(`[generate] places sync: inserted ${inserted}, skipped ${skipped}`);
 }
 
 // ── Gemini call (primary) ─────────────────────────────────────────────────────
@@ -689,6 +847,9 @@ export async function POST(req: NextRequest) {
       .from('itineraries')
       .update({ itinerary_json: { ...itinerary, _profile: profile, hotel_info: hotelInfo } })
       .eq('id', itineraryDbId);
+
+    // Persist generated map-ready places into the global places table if missing.
+    await persistNewPlacesFromItinerary(itinerary as Record<string, unknown>, profile.destination ?? '');
 
     return NextResponse.json({ id: itineraryDbId, itinerary });
 
