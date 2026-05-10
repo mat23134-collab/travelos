@@ -32,19 +32,14 @@ export default function AuthPage() {
 
   const syncProfileFromSession = useCallback(async () => {
     const { data: { session } } = await supabaseAuth.auth.getSession();
-    if (!session?.user) return;
-    const meta = session.user.user_metadata as { username?: string } | undefined;
-    const u = meta?.username ? normalizeUsername(meta.username) : '';
-    if (u.length < 3) return;
-    const { data: existing } = await supabaseAuth
-      .from('profiles')
-      .select('username')
-      .eq('id', session.user.id)
-      .maybeSingle();
-    if (existing?.username) return;
-    const { error: insErr } = await supabaseAuth.from('profiles').insert({ id: session.user.id, username: u });
-    if (insErr && insErr.code !== '23505') {
-      console.warn('[auth] profile insert:', insErr.message);
+    if (!session?.access_token) return;
+    const res = await fetch('/api/auth/ensure-profile', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (!res.ok) {
+      const j = (await res.json().catch(() => ({}))) as { error?: string };
+      console.warn('[auth] ensure-profile:', j.error ?? res.status);
     }
   }, []);
 

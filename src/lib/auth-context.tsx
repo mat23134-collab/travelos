@@ -7,8 +7,7 @@
  *   1. Only `supabaseAuth` is imported — the data client (`supabase`) is
  *      NEVER touched in this file.  A failing DB query must NEVER affect
  *      the auth state.
- *   2. No .from() calls anywhere in this file — auth is purely
- *      supabaseAuth.auth.* operations.
+ *   2. No .from() calls here — profiles bootstrap via POST /api/auth/ensure-profile.
  *   3. Loading state is driven by `getSession()` only — `onAuthStateChange`
  *      does NOT toggle loading to prevent flicker on token refresh.
  *
@@ -19,6 +18,14 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
 import { supabaseAuth } from './supabase';
+
+function pingEnsureProfile(accessToken: string | null | undefined) {
+  if (!accessToken) return;
+  fetch('/api/auth/ensure-profile', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}` },
+  }).catch(() => {});
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -57,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(s);
       setUser(s?.user ?? null);
       setLoading(false);
+      pingEnsureProfile(s?.access_token);
     });
 
     // ── Step 2: keep state in sync with auth events ───────────────────────────
@@ -68,6 +76,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log('[auth] event:', event);
         setSession(s);
         setUser(s?.user ?? null);
+        if (event === 'SIGNED_IN' && s?.access_token) {
+          pingEnsureProfile(s.access_token);
+        }
         // If a token refresh fails, Supabase emits SIGNED_OUT with null session
         // which correctly clears the user state above.
       },

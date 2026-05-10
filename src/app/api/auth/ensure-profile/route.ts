@@ -1,0 +1,101 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import { normalizeUsername } from '@/lib/username';
+
+/**
+ * Idempotent: creates public.profiles for the JWT user if missing.
+ * Uses anon key + caller's access token so RLS policy profiles_insert_own applies.
+ */
+
+function slugFromUserId(userId: string): string {
+  return `u${userId.replace(/-/g, '').slice(0, 23)}`;
+}
+
+export async function POST(req: NextRequest) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '') ?? '';
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
+  if (!url || !anon) {
+    return NextResponse.json({ error: 'Server missing Supabase configuration.' }, { status: 503 });
+  }
+
+  const raw = req.headers.get('authorization');
+  const token = raw?.replace(/^Bearer\s+/i, '').trim();
+  if (!token) {
+    return NextResponse.json({ error: 'Missing bearer token.' }, { status: 401 });
+  }
+
+  const sb = createClient(url, anon, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: {
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  });
+
+  const {
+    data: { user },
+    error: userErr,
+  } = await sb.auth.getUser(token);
+
+  if (userErr || !user) {
+    return NextResponse.json({ error: 'Invalid or expired session.' }, { status: 401 });
+  }
+
+  const { data: existing, error: selErr } = await sb
+    .from('profiles')
+    .select('id')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (selErr) {
+    console.warn('[ensure-profile] select:', selErr.message);
+    return NextResponse.json({ error: selErr.message }, { status: 500 });
+  }
+  if (existing) {
+    return NextResponse.json({ ok: true });
+  }
+
+  const meta = user.user_metadata as { username?: string } | undefined;
+  let username =
+    meta?.username && typeof meta.username === 'string'
+      ? normalizeUsername(meta.username)
+      : '';
+  if (username.length < 3) {
+    username = slugFromUserId(user.id);
+  }
+
+  let { error: insErr } = await sb.from('profiles').insert({ id: user.id, username });
+
+  if (!insErr) {
+    return NextResponse.json({ ok: true });
+  }
+
+  if (insErr.code === '23505') {
+    const { data: raced } = await sb.from('profiles').select('id').eq('id', user.id).maybeSingle();
+    if (raced) {
+      return NextResponse.json({ ok: true });
+    }
+
+    const slug = slugFromUserId(user.id);
+    const secondary =
+      slug !== username
+        ? slug
+        : `u${user.id.replace(/-/g, '').slice(-23)}`;
+
+    const { error: e2 } = await sb.from('profiles').insert({ id: user.id, username: secondary });
+
+    if (!e2) {
+      return NextResponse.json({ ok: true });
+    }
+
+    const { data: raced2 } = await sb.from('profiles').select('id').eq('id', user.id).maybeSingle();
+    if (raced2) {
+      return NextResponse.json({ ok: true });
+    }
+
+    console.warn('[ensure-profile] insert after conflict:', e2.message);
+    return NextResponse.json({ error: e2.message }, { status: 500 });
+  }
+
+  console.warn('[ensure-profile] insert:', insErr.message);
+  return NextResponse.json({ error: insErr.message }, { status: 500 });
+}
