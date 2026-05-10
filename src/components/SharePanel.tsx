@@ -243,7 +243,7 @@ export function SharePanel({ itinerary, profile, itineraryDbId, accessToken }: P
                     </div>
 
                     <div className="mt-5 pt-5 border-t border-white/10">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-[#9e363a] mb-2">TravelOS users</p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-[#e1b382] mb-2">TravelOS users</p>
                       <p className="text-white/40 text-xs mb-3 leading-relaxed">
                         Send this saved trip to someone&apos;s dashboard by username. They&apos;ll see it under &quot;Shared with you&quot;. Or use Copy link for anyone.
                       </p>

@@ -145,7 +145,7 @@ export function SmartSwapSheet({
       >
         <div className="sticky top-0 z-20 flex items-start justify-between gap-3 px-5 py-4 border-b border-white/8 bg-[#0f1117]/95 backdrop-blur-md">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-[#9e363a] mb-1">{dc.smartSwapTitle}</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[#e1b382] mb-1">{dc.smartSwapTitle}</p>
             <p className="text-xs text-white/45">{dc.smartSwapSubtitle(genreLabel)}</p>
             <p className="text-sm font-semibold text-white mt-1 line-clamp-2">{activity.name}</p>
           </div>
@@ -203,7 +203,7 @@ export function SmartSwapSheet({
                     <p className="text-xs text-white/65 leading-relaxed">{row.placeIntro}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-[#9e363a]/90 mb-1">{dc.smartSwapWhyYou}</p>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-[#e1b382]/90 mb-1">{dc.smartSwapWhyYou}</p>
                     <p className="text-xs text-white/75 leading-relaxed">{row.whyItFitsYou}</p>
                   </div>
                   <motion.button
@@ -213,8 +213,8 @@ export function SmartSwapSheet({
                     onClick={() => pick(idx)}
                     className="w-full py-3 rounded-xl text-sm font-bold text-white disabled:opacity-45 transition-opacity"
                     style={{
-                      background: 'linear-gradient(135deg, #9e363a 0%, #7a2a2d 100%)',
-                      boxShadow: '0 4px 18px rgba(158,54,58,0.28)',
+                      background: 'linear-gradient(135deg, #c89666 0%, #b88455 100%)',
+                      boxShadow: '0 4px 18px rgba(200,150,102,0.28)',
                     }}
                   >
                     {applying === idx ? dc.smartSwapApplying : dc.smartSwapReplace}

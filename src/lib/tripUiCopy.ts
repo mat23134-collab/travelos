@@ -127,6 +127,18 @@ export function itineraryUi(lang: TripUiLang) {
     intelGems: he ? 'פנינות נסתרות' : 'Hidden gems found',
     intelTraps: he ? 'מלכודות תיירים סוננו' : 'Tourist traps filtered',
     intelContradictions: he ? 'סתירות שסומנו' : 'Contradictions flagged',
+
+    tripStoryButton: he ? '📖 סיפור טיול' : '📖 Trip story',
+    tripStoryTitle: he ? 'סיפור הטיול' : 'Your trip story',
+    tripStorySubtitle(dest: string) {
+      const d = dest.trim() || (he ? 'היעד שלכם' : 'your trip');
+      return he ? `${d} — יום־יום, בקצרה ובלי עומס` : `${d} — day by day, short & sweet`;
+    },
+    tripStoryClose: he ? 'סגירה' : 'Close',
+    tripStoryFooter: he
+      ? 'שמות המקומות נשארים באנגלית — נוח למפות ולהזמנות.'
+      : 'Place names stay in English — easier for maps & bookings.',
+    tripStoryDayLabel: (n: number) => (he ? `יום ${n}` : `Day ${n}`),
   };
 }
 

@@ -88,6 +88,18 @@ function dropMissingColumnFromRow(row: Record<string, unknown>, errorMessage: st
   return true;
 }
 
+/** Prefer service-role client so POST /api/generate is not blocked by RLS (anon has no JWT). */
+function createDbWriteClient() {
+  const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').replace(/\/+$/, '');
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
+  if (supabaseUrl && serviceKey) {
+    return createClient(supabaseUrl, serviceKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+  }
+  return supabase;
+}
+
 type PlaceSeed = {
   city: string;
   name: string;
@@ -525,6 +537,13 @@ export async function POST(req: NextRequest) {
       jitFlagged,
     };
 
+    const dbWrite = createDbWriteClient();
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) {
+      console.warn(
+        '[generate] SUPABASE_SERVICE_ROLE_KEY unset — DB writes use anon key; strict RLS may block INSERT/UPDATE. Add service role key (server-only) to env.',
+      );
+    }
+
     // ── Save to Supabase ────────────────────────────────────────────────────────
     const hotelInfo = profile.hotelAddress?.trim()
       ? {
@@ -569,7 +588,7 @@ export async function POST(req: NextRequest) {
     let data: { id: string } | null = null;
     let dbErr: { message: string } | null = null;
     for (let i = 0; i < 8; i++) {
-      const attempt = await supabase
+      const attempt = await dbWrite
         .from('itineraries')
         .insert([insertRow])
         .select('id')
@@ -625,7 +644,7 @@ export async function POST(req: NextRequest) {
     }
     for (const row of hotelAnchorRows) {
       for (let i = 0; i < 6; i++) {
-        const { error: anchorErr } = await supabase.from('hotel_anchors').insert(row);
+        const { error: anchorErr } = await dbWrite.from('hotel_anchors').insert(row);
         if (!anchorErr) break;
         const dropped = dropMissingColumnFromRow(row, anchorErr.message ?? '');
         if (dropped) {
@@ -666,7 +685,7 @@ export async function POST(req: NextRequest) {
       dietary_restrictions: profile.dietaryRestrictions ?? '',
       must_have: profile.mustHave ?? '',
     };
-    const { error: tripChoicesErr } = await supabase
+    const { error: tripChoicesErr } = await dbWrite
       .from('user_trip_choices')
       .upsert(tripChoiceRow, { onConflict: 'itinerary_id' });
     if (tripChoicesErr) {
@@ -680,7 +699,7 @@ export async function POST(req: NextRequest) {
       ? profile.interests
       : [];
     if (interestTags.length > 0) {
-      supabase
+      dbWrite
         .from('itineraries')
         .update({ tags: interestTags })
         .eq('id', itineraryDbId)
@@ -751,7 +770,7 @@ export async function POST(req: NextRequest) {
         for (const originalRow of itemRows) {
           const row = { ...originalRow };
           for (let i = 0; i < 8; i++) {
-            const attempt = await supabase
+            const attempt = await dbWrite
               .from('itinerary_items')
               .insert(row)
               .select('id, day_number, item_order')
@@ -805,7 +824,7 @@ export async function POST(req: NextRequest) {
             for (const eventRow of events) {
               const row = { ...eventRow };
               for (let i = 0; i < 8; i++) {
-                const { error: eventsErr } = await supabase.from('user_place_events').insert(row);
+                const { error: eventsErr } = await dbWrite.from('user_place_events').insert(row);
                 if (!eventsErr) break;
                 const dropped = dropMissingColumnFromRow(row, eventsErr.message ?? '');
                 if (dropped) {
@@ -843,10 +862,13 @@ export async function POST(req: NextRequest) {
     itinerary._id = itineraryDbId;
 
     // Persist the updated blob (with embedded item_ids and _id)
-    await supabase
+    const { error: finalBlobErr } = await dbWrite
       .from('itineraries')
       .update({ itinerary_json: { ...itinerary, _profile: profile, hotel_info: hotelInfo } })
       .eq('id', itineraryDbId);
+    if (finalBlobErr) {
+      console.warn('[generate] itinerary_json final update failed (non-critical):', finalBlobErr.message);
+    }
 
     // Persist generated map-ready places into the global places table if missing.
     await persistNewPlacesFromItinerary(itinerary as Record<string, unknown>, profile.destination ?? '');

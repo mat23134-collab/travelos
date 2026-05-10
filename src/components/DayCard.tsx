@@ -50,9 +50,9 @@ const VIBE_CONFIG: Record<VibeLabel, { label: string; icon: string; cls: string 
 };
 
 const SLOT_GRADIENT: Record<string, string> = {
-  morning:   'linear-gradient(135deg, #ff8c5a 0%, #f59e0b 100%)',
-  afternoon: 'linear-gradient(135deg, #9e363a 0%, #c05060 100%)',
-  evening:   'linear-gradient(135deg, #8b5cf6 0%, #4f46e5 100%)',
+  morning:   'linear-gradient(135deg, #e1b382 0%, #c89666 100%)',
+  afternoon: 'linear-gradient(135deg, #c89666 0%, #e1b382 100%)',
+  evening:   'linear-gradient(135deg, #2d545e 0%, #12343b 100%)',
 };
 
 const SLOT_META_EN = {
@@ -284,7 +284,7 @@ function diningToCard(
 
 // ─── Particle burst ───────────────────────────────────────────────────────────
 
-const BURST_COLORS = ['#9e363a', '#4a7bde', '#8b5cf6', '#f59e0b', '#10b981', '#b5404a'];
+const BURST_COLORS = ['#c89666', '#2d545e', '#e1b382', '#f59e0b', '#10b981', '#a87346'];
 
 function ParticleBurst({ active }: { active: boolean }) {
   return (
@@ -343,7 +343,7 @@ function ReactionBar({ dc }: { dc: ReturnType<typeof dayCardUi> }) {
             transition={{ type: 'spring', stiffness: 500, damping: 28 }}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border transition-all ${
               (counts[r.id] ?? 0) > 0
-                ? 'border-[#9e363a]/40 bg-[#9e363a]/15 text-[#c05060]'
+                ? 'border-[#c89666]/40 bg-[#c89666]/15 text-[#e1b382]'
                 : 'border-white/10 bg-white/5 text-white/50 hover:border-white/20 hover:bg-white/10'
             }`}
           >
@@ -416,7 +416,7 @@ function ReviewsCarousel({
               onClick={() => setIdx(i)}
               animate={{
                 width: i === idx ? 16 : 6,
-                backgroundColor: i === idx ? '#9e363a' : 'rgba(255,255,255,0.15)',
+                backgroundColor: i === idx ? '#c89666' : 'rgba(255,255,255,0.15)',
               }}
               transition={{ type: 'spring', stiffness: 400, damping: 28 }}
               className="h-1.5 rounded-full"
@@ -542,8 +542,8 @@ function ActivityModal({
                 </span>
               )}
               {liveBuzz && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#9e363a]/15 text-[#c05060] border border-[#9e363a]/25 inline-flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#9e363a] animate-pulse inline-block" />
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#c89666]/15 text-[#e1b382] border border-[#c89666]/25 inline-flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#c89666] animate-pulse inline-block" />
                   {dc.liveBuzz}
                 </span>
               )}
@@ -551,7 +551,7 @@ function ActivityModal({
 
             <div className="flex flex-wrap gap-2 mb-4">
               {activity?.startTime && activity?.endTime && (
-                <span className="text-[10px] font-mono font-semibold bg-[#9e363a]/10 px-2.5 py-1 rounded-lg border border-[#9e363a]/15" style={{ color: '#c05060' }}>
+                <span className="text-[10px] font-mono font-semibold bg-[#c89666]/10 px-2.5 py-1 rounded-lg border border-[#c89666]/15" style={{ color: '#e1b382' }}>
                   {activity.startTime} – {activity.endTime}
                 </span>
               )}
@@ -587,11 +587,11 @@ function ActivityModal({
 
             {body && (
               <div className="rounded-2xl px-4 py-3 border-l-2 mb-4"
-                style={{ background: 'rgba(255,255,255,0.04)', borderLeftColor: 'rgba(158,54,58,0.50)' }}>
-                <span className="text-[10px] font-semibold uppercase tracking-wide block mb-1" style={{ color: '#9e363a' }}>{dc.whyThis}</span>
+                style={{ background: 'rgba(255,255,255,0.04)', borderLeftColor: 'rgba(200,150,102,0.50)' }}>
+                <span className="text-[10px] font-semibold uppercase tracking-wide block mb-1" style={{ color: '#c89666' }}>{dc.whyThis}</span>
                 <p className="text-xs text-white/55 leading-relaxed">{body}</p>
                 {citation && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-[#9e363a]/10 border border-[#9e363a]/15 px-2 py-0.5 rounded-full mt-1.5" style={{ color: '#c05060' }}>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-[#c89666]/10 border border-[#c89666]/15 px-2 py-0.5 rounded-full mt-1.5" style={{ color: '#e1b382' }}>
                     <span className="opacity-60">📖</span>{citation}
                   </span>
                 )}
@@ -616,8 +616,8 @@ function ActivityModal({
                 whileTap={{ scale: 0.97 }}
                 className="mt-5 w-full py-3 rounded-2xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-40 shadow-lg"
                 style={{
-                  background: 'linear-gradient(135deg, #9e363a 0%, #c05060 55%, #8b2f33 100%)',
-                  boxShadow: '0 6px 22px rgba(158,54,58,0.35)',
+                  background: 'linear-gradient(135deg, #c89666 0%, #e1b382 55%, #a87346 100%)',
+                  boxShadow: '0 6px 22px rgba(200,150,102,0.35)',
                 }}
               >
                 ✨ {dc.smartSwapTitle}
@@ -691,7 +691,7 @@ function ActivityModal({
                           background: 'rgba(255,255,255,0.06)',
                           border: '1px solid rgba(255,255,255,0.14)',
                         }}
-                        onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(158,54,58,0.55)'; }}
+                        onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(200,150,102,0.55)'; }}
                         onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.14)'; }}
                       />
                       <div className="flex gap-2">
@@ -701,8 +701,8 @@ function ActivityModal({
                           whileTap={{ scale: 0.95 }}
                           className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-40 transition-all"
                           style={{
-                            background: 'linear-gradient(135deg, #9e363a 0%, #7a2a2d 100%)',
-                            boxShadow: '0 4px 18px rgba(158,54,58,0.28)',
+                            background: 'linear-gradient(135deg, #c89666 0%, #b88455 100%)',
+                            boxShadow: '0 4px 18px rgba(200,150,102,0.28)',
                           }}
                         >
                           <motion.span
@@ -852,8 +852,8 @@ function BentoTile({
             </span>
           )}
           {liveBuzz && (
-            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-[#9e363a]/20 text-[#c05060] border border-[#9e363a]/30 inline-flex items-center gap-1">
-              <span className="w-1 h-1 rounded-full bg-[#9e363a] animate-pulse inline-block" />
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-[#c89666]/20 text-[#e1b382] border border-[#c89666]/30 inline-flex items-center gap-1">
+              <span className="w-1 h-1 rounded-full bg-[#c89666] animate-pulse inline-block" />
               {dc.live}
             </span>
           )}
@@ -888,7 +888,7 @@ function BentoTile({
                   }}
                   whileTap={{ scale: 0.92 }}
                   className="text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg text-white border border-white/20"
-                  style={{ background: 'rgba(158,54,58,0.55)', backdropFilter: 'blur(8px)' }}
+                  style={{ background: 'rgba(200,150,102,0.55)', backdropFilter: 'blur(8px)' }}
                 >
                   {dc.smartSwapButton}
                 </motion.button>
@@ -1329,8 +1329,8 @@ export function DayCard({
             <div
               className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
               style={{
-                background: 'linear-gradient(135deg, #9e363a, #4a7bde)',
-                boxShadow: '0 0 20px rgba(158,54,58,0.35)',
+                background: 'linear-gradient(135deg, #c89666, #2d545e)',
+                boxShadow: '0 0 20px rgba(200,150,102,0.35)',
               }}
             >
               {index + 1}
@@ -1378,8 +1378,8 @@ export function DayCard({
                 transition={{ type: 'spring', stiffness: 380, damping: 28 }}
                 className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
                 style={{
-                  background: open ? 'rgba(158,54,58,0.15)' : 'rgba(255,255,255,0.08)',
-                  border: open ? '1px solid rgba(158,54,58,0.3)' : '1px solid rgba(255,255,255,0.12)',
+                  background: open ? 'rgba(200,150,102,0.15)' : 'rgba(255,255,255,0.08)',
+                  border: open ? '1px solid rgba(200,150,102,0.3)' : '1px solid rgba(255,255,255,0.12)',
                 }}
               >
                 <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
@@ -1405,16 +1405,16 @@ export function DayCard({
             rel="noopener noreferrer"
             className="flex items-center justify-center gap-1.5 flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all hover:brightness-125 active:scale-95"
             style={{
-              background: 'linear-gradient(135deg, rgba(158,54,58,0.12), rgba(15,40,98,0.18))',
-              border: '1px solid rgba(158,54,58,0.30)',
-              color: '#c05060',
+              background: 'linear-gradient(135deg, rgba(200,150,102,0.12), rgba(45,84,94,0.18))',
+              border: '1px solid rgba(200,150,102,0.30)',
+              color: '#e1b382',
             }}
           >
             <Map size={12} />
             <span>{dc.startDayRoute}</span>
             <span
               className="ml-0.5 tabular-nums rounded-full px-1.5 py-0.5 text-[9px] font-bold"
-              style={{ background: 'rgba(158,54,58,0.20)', color: '#ffaaac' }}
+              style={{ background: 'rgba(200,150,102,0.20)', color: '#f5e6d6' }}
             >
               {routeInfo.stopCount}
             </span>
@@ -1479,7 +1479,7 @@ export function DayCard({
                     {day.estimatedDailyCost && (
                       <span
                         className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg"
-                        style={{ background: 'rgba(255,90,95,0.10)', border: '1px solid rgba(255,90,95,0.22)', color: '#ff8c8f' }}
+                        style={{ background: 'rgba(200,150,102,0.12)', border: '1px solid rgba(225,179,130,0.28)', color: '#e1b382' }}
                       >
                         💳 {day.estimatedDailyCost}
                       </span>

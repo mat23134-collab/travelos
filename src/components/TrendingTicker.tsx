@@ -42,10 +42,10 @@ export function TrendingTicker({
   const track = [...items, ...items];
 
   return (
-    <div className="relative overflow-hidden bg-[#0a0c12] border-b border-white/5 py-2 print:hidden">
+    <div className="relative overflow-hidden bg-[#12343b] border-b border-[rgba(225,179,130,0.12)] py-2 print:hidden">
       {/* fade edges */}
-      <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-16 z-10 bg-gradient-to-r from-[#0a0c12] to-transparent" />
-      <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-16 z-10 bg-gradient-to-l from-[#0a0c12] to-transparent" />
+      <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-16 z-10 bg-gradient-to-r from-[#12343b] to-transparent" />
+      <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-16 z-10 bg-gradient-to-l from-[#12343b] to-transparent" />
 
       <motion.div
         className="flex gap-10 whitespace-nowrap"

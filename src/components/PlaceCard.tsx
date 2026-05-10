@@ -175,6 +175,8 @@ function PlacePhotoHeader({ data, height }: PhotoHeaderProps) {
     mealSlot: data.mealSlot,
     cubePhotoGenre: data.cubePhotoGenre,
     category: data.category,
+    description: data.description,
+    highlights: data.highlights,
   });
 
   const [photo, setPhoto] = useState<CubePhotoPayload | null>(null);
@@ -405,7 +407,7 @@ function PlaceTile({ data, onClick, isSelected, smartSwapLabel, onSmartSwap }: T
                 whileTap={{ scale: 0.92 }}
                 className="text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg text-white shrink-0"
                 style={{
-                  background: 'rgba(158,54,58,0.55)',
+                  background: 'rgba(200,150,102,0.55)',
                   border: '1px solid rgba(255,255,255,0.18)',
                   boxShadow: `0 0 12px ${vibe.glow}`,
                 }}
@@ -638,9 +640,9 @@ function PlaceModal({ data, onClose, swapUi, smartSwap, onTriggerSmartSwap }: Mo
                   onClick={onTriggerSmartSwap}
                   className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-bold text-white"
                   style={{
-                    background: `linear-gradient(135deg, #9e363a 0%, #c05060 50%, #8b2f33 100%)`,
+                    background: `linear-gradient(135deg, #c89666 0%, #e1b382 50%, #a87346 100%)`,
                     border: `1px solid ${vibe.border}55`,
-                    boxShadow: `0 6px 22px rgba(158,54,58,0.35)`,
+                    boxShadow: `0 6px 22px rgba(200,150,102,0.35)`,
                   }}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.97 }}

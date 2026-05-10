@@ -4,6 +4,8 @@ import { useState, useMemo } from 'react';
 import { Itinerary, Activity, DayPlan } from '@/lib/types';
 import type { SwapResult } from '@/app/api/swap/route';
 import { draftSlotUi, type ItineraryUiStrings } from '@/lib/tripUiCopy';
+import { TripStoryCube } from '@/components/TripStoryCube';
+import { ITIN_RESULTS_PAGE_BG } from '@/lib/itineraryResultsPalette';
 
 const SLOT_ICONS = {
   morning: '🌅',
@@ -56,7 +58,7 @@ function SlotRow({ slot, activity, onRefresh, swapping, justSwapped, slotUi, ui 
       style={
         justSwapped
           ? { borderColor: 'rgba(16,185,129,0.40)', background: 'rgba(16,185,129,0.08)' }
-          : { borderColor: 'rgba(255,255,255,0.10)', background: 'rgba(15,40,98,0.22)' }
+          : { borderColor: 'rgba(255,255,255,0.10)', background: 'rgba(45,84,94,0.28)' }
       }
     >
       <div className="flex items-start gap-3 p-3.5">
@@ -69,7 +71,7 @@ function SlotRow({ slot, activity, onRefresh, swapping, justSwapped, slotUi, ui 
             {activity?.startTime && (
               <span
                 className="text-[10px] font-mono px-1.5 py-0.5 rounded"
-                style={{ color: '#c05060', background: 'rgba(158,54,58,0.12)' }}
+                style={{ color: '#c05060', background: 'rgba(200,150,102,0.12)' }}
               >
                 {activity.startTime}
               </span>
@@ -94,9 +96,9 @@ function SlotRow({ slot, activity, onRefresh, swapping, justSwapped, slotUi, ui 
             className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-all disabled:opacity-40"
             style={{ borderColor: 'rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.45)' }}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.borderColor = '#9e363a';
+              (e.currentTarget as HTMLElement).style.borderColor = '#c89666';
               (e.currentTarget as HTMLElement).style.color = '#c05060';
-              (e.currentTarget as HTMLElement).style.background = 'rgba(158,54,58,0.10)';
+              (e.currentTarget as HTMLElement).style.background = 'rgba(200,150,102,0.10)';
             }}
             onMouseLeave={(e) => {
               (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.10)';
@@ -105,7 +107,7 @@ function SlotRow({ slot, activity, onRefresh, swapping, justSwapped, slotUi, ui 
             }}
           >
             {swapping
-              ? <span className="w-3 h-3 rounded-full border border-t-[#9e363a] border-[#9e363a]/30 animate-spin" />
+              ? <span className="w-3 h-3 rounded-full border border-t-[#c89666] border-[#c89666]/30 animate-spin" />
               : '↻'
             }
             {swapping ? ui.draftSwapping : ui.draftSwap}
@@ -129,15 +131,15 @@ function SlotRow({ slot, activity, onRefresh, swapping, justSwapped, slotUi, ui 
               borderColor: 'rgba(255,255,255,0.10)',
               background: 'rgba(255,255,255,0.06)',
             }}
-            onFocus={(e) => { e.currentTarget.style.borderColor = '#9e363a'; }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = '#c89666'; }}
             onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'; }}
           />
           <button
             onClick={handleQuickSwap}
             className="text-xs px-3 py-2 rounded-lg text-white font-semibold transition-colors"
-            style={{ background: '#9e363a' }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = '#7a2a2d')}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = '#9e363a')}
+            style={{ background: '#c89666' }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = '#b88455')}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = '#c89666')}
           >
             {ui.draftGo}
           </button>
@@ -176,7 +178,7 @@ function DayColumn({ day, dayIndex, swappingKey, swappedKeys, onSwap, slotUi, ui
       <div className="flex items-center gap-2 mb-1">
         <div
           className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
-          style={{ background: '#9e363a' }}
+          style={{ background: '#c89666' }}
         >
           {dayIndex + 1}
         </div>
@@ -218,6 +220,7 @@ export function DraftOverview({ itinerary, onUpdate, onFinalize, ui }: Props) {
   const [swappingKey, setSwappingKey] = useState<string | null>(null);
   const [swappedKeys, setSwappedKeys] = useState<Set<string>>(new Set());
   const [error, setError] = useState('');
+  const [tripStoryOpen, setTripStoryOpen] = useState(false);
 
   const handleSwap = async (dayIndex: number, slot: Slot, request?: string) => {
     const key = `${dayIndex}-${slot}`;
@@ -257,11 +260,11 @@ export function DraftOverview({ itinerary, onUpdate, onFinalize, ui }: Props) {
   const slotUi = useMemo(() => draftSlotUi(ui.lang), [ui.lang]);
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#091f36' }} dir={ui.dir} lang={ui.htmlLang}>
+    <div className="min-h-screen" style={{ background: ITIN_RESULTS_PAGE_BG }} dir={ui.dir} lang={ui.htmlLang}>
       {/* Draft header */}
       <div
         className="sticky top-0 z-40 border-b backdrop-blur-sm"
-        style={{ background: 'rgba(9,31,54,0.90)', borderColor: 'rgba(255,255,255,0.08)' }}
+        style={{ background: 'rgba(18,52,59,0.92)', borderColor: 'rgba(255,255,255,0.08)' }}
       >
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
           <div>
@@ -276,19 +279,39 @@ export function DraftOverview({ itinerary, onUpdate, onFinalize, ui }: Props) {
               {ui.draftInstructions(totalSwaps)}
             </p>
           </div>
-          <button
-            onClick={onFinalize}
-            disabled={!!swappingKey}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl disabled:opacity-40 text-white font-semibold text-sm transition-all duration-150 hover:-translate-y-0.5 whitespace-nowrap"
-            style={{
-              background: '#9e363a',
-              boxShadow: '0 4px 16px -4px rgba(158,54,58,0.35)',
-            }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = '#7a2a2d')}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = '#9e363a')}
-          >
-            {ui.looksGood}
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setTripStoryOpen(true)}
+              disabled={!!swappingKey}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl disabled:opacity-40 text-white font-semibold text-xs sm:text-sm transition-all border whitespace-nowrap"
+              style={{
+                borderColor: 'rgba(255,255,255,0.14)',
+                background: 'rgba(255,255,255,0.06)',
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.10)';
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)';
+              }}
+            >
+              {ui.tripStoryButton}
+            </button>
+            <button
+              onClick={onFinalize}
+              disabled={!!swappingKey}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl disabled:opacity-40 text-white font-semibold text-sm transition-all duration-150 hover:-translate-y-0.5 whitespace-nowrap"
+              style={{
+                background: '#c89666',
+                boxShadow: '0 4px 16px -4px rgba(200,150,102,0.35)',
+              }}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = '#b88455')}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = '#c89666')}
+            >
+              {ui.looksGood}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -296,9 +319,9 @@ export function DraftOverview({ itinerary, onUpdate, onFinalize, ui }: Props) {
         {/* Strategic overview */}
         <div
           className="rounded-2xl px-5 py-4 mb-6"
-          style={{ background: 'rgba(15,40,98,0.35)', border: '1px solid rgba(255,255,255,0.08)' }}
+          style={{ background: 'rgba(45,84,94,0.38)', border: '1px solid rgba(255,255,255,0.08)' }}
         >
-          <div className="text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#9e363a' }}>
+          <div className="text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#c89666' }}>
             {ui.aiStrategy}
           </div>
           <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.70)' }}>
@@ -310,8 +333,8 @@ export function DraftOverview({ itinerary, onUpdate, onFinalize, ui }: Props) {
           <div
             className="mb-4 px-4 py-3 rounded-xl text-sm"
             style={{
-              background: 'rgba(158,54,58,0.12)',
-              border: '1px solid rgba(158,54,58,0.28)',
+              background: 'rgba(200,150,102,0.12)',
+              border: '1px solid rgba(200,150,102,0.28)',
               color: '#ff8c8f',
             }}
           >
@@ -341,11 +364,11 @@ export function DraftOverview({ itinerary, onUpdate, onFinalize, ui }: Props) {
             disabled={!!swappingKey}
             className="inline-flex items-center gap-2 px-8 py-3 rounded-xl disabled:opacity-40 text-white font-semibold transition-all duration-150 hover:-translate-y-0.5"
             style={{
-              background: '#9e363a',
-              boxShadow: '0 8px 28px -4px rgba(158,54,58,0.35)',
+              background: '#c89666',
+              boxShadow: '0 8px 28px -4px rgba(200,150,102,0.35)',
             }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = '#7a2a2d')}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = '#9e363a')}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = '#b88455')}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = '#c89666')}
           >
             {ui.finalizeItinerary}
           </button>
@@ -354,6 +377,13 @@ export function DraftOverview({ itinerary, onUpdate, onFinalize, ui }: Props) {
           </p>
         </div>
       </div>
+
+      <TripStoryCube
+        open={tripStoryOpen}
+        onClose={() => setTripStoryOpen(false)}
+        itinerary={itinerary}
+        ui={ui}
+      />
     </div>
   );
 }
