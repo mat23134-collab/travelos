@@ -244,6 +244,7 @@ function activityToCard(
     mealSlot,
     verificationStatus: activity.verificationStatus,
     verifiedAt:  activity.verifiedAt,
+    cubePhotoGenre: classifyActivity(activity),
     smartSwap:
       swapEligible ? { slot, dayIndex: dayIdx, activity } : undefined,
   };
@@ -277,6 +278,7 @@ function diningToCard(
     lat:         spot.latitude  != null ? Number(spot.latitude)  : undefined,
     lng:         spot.longitude != null ? Number(spot.longitude) : undefined,
     mapsUrl:     buildMapsUrl(spot.name, spot.neighborhood, city, spot.latitude, spot.longitude),
+    cubePhotoGenre: 'food',
   };
 }
 

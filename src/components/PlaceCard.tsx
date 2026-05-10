@@ -21,7 +21,9 @@ import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { MapPin, ExternalLink, Navigation, X, Globe } from 'lucide-react';
 import { VerificationBadge } from '@/components/VerificationBadge';
 import type { Activity, Itinerary, TravelerProfile } from '@/lib/types';
-import { classifyActivity } from '@/lib/activityGenre';
+import { classifyActivity, type ActivityGenre } from '@/lib/activityGenre';
+import { buildCubeUnsplashSearchQuery } from '@/lib/cubeUnsplashQuery';
+import Image from 'next/image';
 import { SmartSwapSheet } from '@/components/SmartSwapSheet';
 import { dayCardUi, type ItineraryUiStrings } from '@/lib/tripUiCopy';
 
@@ -42,8 +44,10 @@ export interface PlaceCardData {
   mapsUrl?: string;
   socialProofUrl?: string | null;
   neighborhood?: string;
-  /** City name — used as context for Google Places photo lookup. */
+  /** City name — context for Unsplash cube imagery + Places website lookup. */
   city?: string;
+  /** Genre for cube hero search (itinerary cubes set this from activity classification). */
+  cubePhotoGenre?: ActivityGenre;
   category?: string;
   estimatedCost?: string;
   mealSlot?: 'breakfast' | 'lunch' | 'dinner';  // 3-Meal Rule — controls ordering + badge in Food cube
@@ -151,23 +155,60 @@ function usePlaceDetails(name: string, city?: string) {
 // ── Photo header — shared by tile (compact) and modal (tall) ─────────────────
 
 interface PhotoHeaderProps {
-  name: string;
-  city?: string;
-  emoji: string;
-  vibe: VibeColor;
+  data: PlaceCardData;
   height: number;
 }
 
-function PlacePhotoHeader({ name, city, emoji, vibe, height }: PhotoHeaderProps) {
-  const { photoUrl: url, loading } = usePlaceDetails(name, city);
-  const [imgLoaded, setImgLoaded] = useState(false);
-  const [imgError, setImgError]   = useState(false);
+interface CubePhotoPayload {
+  url: string;
+  thumb: string;
+  credit: string | null;
+  creditUrl: string | null;
+  source: 'unsplash' | 'picsum';
+}
 
-  const hasPhoto = !!url && !imgError;
+function PlacePhotoHeader({ data, height }: PhotoHeaderProps) {
+  const vibe = getVibe(data.vibeLabel);
+  const searchQuery = buildCubeUnsplashSearchQuery({
+    city: data.city,
+    name: data.name,
+    mealSlot: data.mealSlot,
+    cubePhotoGenre: data.cubePhotoGenre,
+    category: data.category,
+  });
+
+  const [photo, setPhoto] = useState<CubePhotoPayload | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setPhoto(null);
+    setLoading(true);
+    setImgLoaded(false);
+    setImgError(false);
+
+    fetch(`/api/photos?q=${encodeURIComponent(searchQuery)}`)
+      .then((r) => r.json())
+      .then((d: CubePhotoPayload) => {
+        if (!cancelled) setPhoto(d);
+      })
+      .catch(() => {
+        if (!cancelled) setPhoto(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [searchQuery]);
+
+  const src = photo?.thumb || photo?.url;
+  const hasPhoto = !!src && !imgError;
 
   return (
     <div className="relative w-full overflow-hidden flex-shrink-0" style={{ height }}>
-      {/* Shimmer skeleton while loading */}
       {loading && (
         <div
           className="absolute inset-0 animate-shimmer"
@@ -179,22 +220,26 @@ function PlacePhotoHeader({ name, city, emoji, vibe, height }: PhotoHeaderProps)
         />
       )}
 
-      {/* Real Google Places photo with fade-in */}
       {hasPhoto && (
-        <motion.img
-          src={url!}
-          alt={name}
-          className="absolute inset-0 w-full h-full"
-          style={{ objectFit: 'cover' }}
+        <motion.div
+          className="absolute inset-0"
           initial={{ opacity: 0 }}
           animate={{ opacity: imgLoaded ? 1 : 0 }}
           transition={{ duration: 0.5, ease: 'easeOut' }}
-          onLoad={() => setImgLoaded(true)}
-          onError={() => setImgError(true)}
-        />
+        >
+          <Image
+            src={src!}
+            alt={data.name}
+            fill
+            sizes="(max-width: 768px) 50vw, 400px"
+            className="object-cover"
+            onLoad={() => setImgLoaded(true)}
+            onError={() => setImgError(true)}
+            unoptimized={photo?.source === 'picsum'}
+          />
+        </motion.div>
       )}
 
-      {/* Emoji fallback when no photo is available */}
       {!loading && !hasPhoto && (
         <div
           className="absolute inset-0 flex items-center justify-center"
@@ -206,17 +251,27 @@ function PlacePhotoHeader({ name, city, emoji, vibe, height }: PhotoHeaderProps)
             className="text-5xl select-none"
             style={{ filter: 'drop-shadow(0 4px 18px rgba(0,0,0,0.55))' }}
           >
-            {emoji}
+            {data.emoji}
           </span>
         </div>
       )}
 
-      {/* Bottom gradient for text legibility */}
       {hasPhoto && imgLoaded && (
         <div className="absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-black/75 via-black/20 to-transparent pointer-events-none" />
       )}
 
-      {/* Vibe-coloured neon rule on top */}
+      {photo?.source === 'unsplash' && photo.credit && imgLoaded && (
+        <a
+          href={photo.creditUrl ?? '#'}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="absolute bottom-1 right-2 z-[12] text-[8px] text-white/45 hover:text-white/75 transition-colors max-w-[55%] truncate"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {photo.credit} / Unsplash
+        </a>
+      )}
+
       <div
         className="absolute top-0 inset-x-0 h-px z-10"
         style={{
@@ -262,14 +317,8 @@ function PlaceTile({ data, onClick, isSelected, smartSwapLabel, onSmartSwap }: T
       whileTap={{ scale: 0.98 }}
       transition={{ type: 'spring', stiffness: 420, damping: 30 }}
     >
-      {/* Google Places photo header (130px) — includes neon rule */}
-      <PlacePhotoHeader
-        name={data.name}
-        city={data.city}
-        emoji={data.emoji}
-        vibe={vibe}
-        height={130}
-      />
+      {/* Unsplash mood / landmark hero (compact) */}
+      <PlacePhotoHeader data={data} height={130} />
 
       <div className="p-4">
         {/* Row 1 — emoji + vibe badge */}
@@ -457,14 +506,8 @@ function PlaceModal({ data, onClose, swapUi, smartSwap, onTriggerSmartSwap }: Mo
             maxHeight: '88dvh',
           }}
         >
-          {/* Google Places photo header (185px) — includes neon rule */}
-          <PlacePhotoHeader
-            name={data.name}
-            city={data.city}
-            emoji={data.emoji}
-            vibe={vibe}
-            height={185}
-          />
+          {/* Unsplash hero — modal */}
+          <PlacePhotoHeader data={data} height={185} />
 
           {/* Ambient orb */}
           <div
