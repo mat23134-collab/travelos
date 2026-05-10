@@ -4,12 +4,14 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Map, Link2, Check } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
-import { DayPlan, Activity, DiningSpot, VibeLabel, WebInsight } from '@/lib/types';
+import { DayPlan, Activity, DiningSpot, VibeLabel, WebInsight, Itinerary, TravelerProfile } from '@/lib/types';
+import { classifyActivity, type ActivityGenre } from '@/lib/activityGenre';
 import { DayPhoto } from './DayPhoto';
 import { VideoPreview } from './VideoPreview';
 import { WebInsightBadge } from './WebInsightBadge';
 import { DayTimeline } from './DayTimeline';
 import { GenreCube } from './GenreCube';
+import { SmartSwapSheet } from '@/components/SmartSwapSheet';
 import type { PlaceCardData } from '@/components/PlaceCard';
 import type { MapPlace } from '@/components/InteractiveMap';
 import { dayCardUi, type ItineraryUiStrings } from '@/lib/tripUiCopy';
@@ -101,32 +103,12 @@ function parseCitation(text: string): { body: string; citation: string | null } 
   return { body: text.slice(0, match.index).trim(), citation: match[1].trim() };
 }
 
-// ─── Genre classification ─────────────────────────────────────────────────────
-
-type GenreKey = 'sightseeing' | 'food' | 'shopping' | 'nightlife';
-
-const GENRE_CONFIG: Record<GenreKey, { icon: string; label: string; accent: string }> = {
+const GENRE_CONFIG: Record<ActivityGenre, { icon: string; label: string; accent: string }> = {
   sightseeing: { icon: '🏛️', label: 'Sightseeing & Vibes',  accent: '#3b82f6' },
   food:        { icon: '🍽️', label: 'Food & Dining',         accent: '#f97316' },
   shopping:    { icon: '🛍️', label: 'Shopping & Style',      accent: '#ec4899' },
   nightlife:   { icon: '🎶', label: 'Nightlife & Culture',   accent: '#8b5cf6' },
 };
-
-function classifyActivity(activity: Activity): GenreKey {
-  const t = [
-    ...(activity.tags ?? []),
-    activity.name ?? '',
-    activity.description ?? '',
-  ].join(' ').toLowerCase();
-
-  if (/shop|vintage|market|fashion|style|boutique|mall|brand|cloth|accessor/.test(t))
-    return 'shopping';
-  if (/bar|cocktail|beer|sake|nightlife|club|disco|live\s*music|jazz|concert|karaoke|speakeasy|alley|yokocho/.test(t))
-    return 'nightlife';
-  if (/ramen|sushi|food|restaurant|cafe|coffee|bakery|izakaya|dining|eat/.test(t))
-    return 'food';
-  return 'sightseeing';
-}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -243,6 +225,7 @@ function activityToCard(
   dayIdx: number,
   city?: string,
   mealSlot?: 'breakfast' | 'lunch' | 'dinner',
+  swapEligible?: boolean,
 ): PlaceCardData {
   return {
     id:          `day${dayIdx}-${slot}-${(activity.name ?? 'act').replace(/\s+/g, '-').toLowerCase()}`,
@@ -261,6 +244,8 @@ function activityToCard(
     mealSlot,
     verificationStatus: activity.verificationStatus,
     verifiedAt:  activity.verifiedAt,
+    smartSwap:
+      swapEligible ? { slot, dayIndex: dayIdx, activity } : undefined,
   };
 }
 
@@ -441,6 +426,7 @@ function ReviewsCarousel({
   );
 }
 
+
 // ─── Activity Modal ───────────────────────────────────────────────────────────
 
 interface ModalProps {
@@ -452,11 +438,25 @@ interface ModalProps {
   /** Called with the user's request text when they hit Scout It */
   onSwap?: (request: string) => void;
   swapping?: boolean;
+  smartSwapEnabled?: boolean;
+  onRequestSmartSwap?: () => void;
   ui: ItineraryUiStrings;
   dc: ReturnType<typeof dayCardUi>;
 }
 
-function ActivityModal({ activity, slot, destination, groupType, onClose, onSwap, swapping, ui, dc }: ModalProps) {
+function ActivityModal({
+  activity,
+  slot,
+  destination,
+  groupType,
+  onClose,
+  onSwap,
+  swapping,
+  smartSwapEnabled,
+  onRequestSmartSwap,
+  ui,
+  dc,
+}: ModalProps) {
   const [swapExpanded, setSwapExpanded] = useState(false);
   const [swapText, setSwapText]         = useState('');
   const { body, citation } = parseCitation(activity?.whyThis ?? '');
@@ -604,10 +604,42 @@ function ActivityModal({ activity, slot, destination, groupType, onClose, onSwap
 
             <ReactionBar dc={dc} />
 
+            {smartSwapEnabled && onRequestSmartSwap && (
+              <motion.button
+                type="button"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                onClick={onRequestSmartSwap}
+                disabled={swapping}
+                whileTap={{ scale: 0.97 }}
+                className="mt-5 w-full py-3 rounded-2xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-40 shadow-lg"
+                style={{
+                  background: 'linear-gradient(135deg, #9e363a 0%, #c05060 55%, #8b2f33 100%)',
+                  boxShadow: '0 6px 22px rgba(158,54,58,0.35)',
+                }}
+              >
+                ✨ {dc.smartSwapTitle}
+              </motion.button>
+            )}
+
             {onSwap && (
-              <div className="mt-5">
+              <div className={smartSwapEnabled ? 'mt-3' : 'mt-5'}>
                 <AnimatePresence mode="wait">
                   {!swapExpanded ? (
+                    smartSwapEnabled ? (
+                      <motion.button
+                        key="swap-custom-trigger"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setSwapExpanded(true)}
+                        disabled={swapping}
+                        whileTap={{ scale: 0.95 }}
+                        className="w-full py-3 rounded-2xl text-sm font-semibold border border-white/10 bg-white/5 text-white/45 hover:bg-white/10 hover:text-white/70 transition-all flex items-center justify-center gap-2 disabled:opacity-40"
+                      >
+                        {dc.smartSwapCustom}
+                      </motion.button>
+                    ) : (
                     <motion.button
                       key="swap-trigger"
                       initial={{ opacity: 0 }}
@@ -626,6 +658,7 @@ function ActivityModal({ activity, slot, destination, groupType, onClose, onSwap
                       </motion.span>
                       {swapping ? dc.swapFinding : dc.swapThis}
                     </motion.button>
+                    )
                   ) : (
                     <motion.div
                       key="swap-form"
@@ -701,6 +734,13 @@ function ActivityModal({ activity, slot, destination, groupType, onClose, onSwap
 
 // ─── Bento Tile ───────────────────────────────────────────────────────────────
 
+interface SmartSwapContext {
+  itinerary: Itinerary;
+  dayIndex: number;
+  profile: TravelerProfile | null;
+  onCommitSlot: (slot: Slot, activity: Activity, summary: string) => Promise<void>;
+}
+
 interface BentoTileProps {
   slot: Slot;
   activity: Activity;
@@ -709,12 +749,25 @@ interface BentoTileProps {
   groupType?: DayCardProps['groupType'];
   onRefresh?: (request?: string) => void;
   refreshing?: boolean;
+  smartSwap?: SmartSwapContext;
   ui: ItineraryUiStrings;
   dc: ReturnType<typeof dayCardUi>;
 }
 
-function BentoTile({ slot, activity, height, destination, groupType, onRefresh, refreshing, ui, dc }: BentoTileProps) {
+function BentoTile({
+  slot,
+  activity,
+  height,
+  destination,
+  groupType,
+  onRefresh,
+  refreshing,
+  smartSwap,
+  ui,
+  dc,
+}: BentoTileProps) {
   const [modalOpen, setModalOpen] = useState(false);
+  const [smartOpen, setSmartOpen] = useState(false);
 
   const photoQuery  = destination
     ? `${activity?.neighborhood ?? ''} ${destination}`.trim()
@@ -819,27 +872,48 @@ function BentoTile({ slot, activity, height, destination, groupType, onRefresh, 
           <h4 className="font-bold text-white text-sm tracking-tight leading-tight line-clamp-1 drop-shadow">
             {activity?.name ?? 'Activity'}
           </h4>
-          <div className="flex items-center justify-between mt-0.5">
-            <p className="text-white/55 text-[11px] leading-tight">📍 {activity?.neighborhood ?? '—'}</p>
-            <span className="text-white/25 text-[10px] group-hover:text-white/55 transition-colors">tap →</span>
+          <div className="flex items-center justify-between mt-1 gap-2">
+            <p className="text-white/55 text-[11px] leading-tight truncate min-w-0">
+              📍 {activity?.neighborhood ?? '—'}
+            </p>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {smartSwap && (
+                <motion.button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSmartOpen(true);
+                  }}
+                  whileTap={{ scale: 0.92 }}
+                  className="text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg text-white border border-white/20"
+                  style={{ background: 'rgba(158,54,58,0.55)', backdropFilter: 'blur(8px)' }}
+                >
+                  {dc.smartSwapButton}
+                </motion.button>
+              )}
+              {!smartSwap && onRefresh && (
+                <motion.button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRefresh();
+                  }}
+                  disabled={refreshing}
+                  whileTap={{ scale: 0.82 }}
+                  animate={refreshing ? { rotate: 360 } : { rotate: 0 }}
+                  transition={refreshing ? { duration: 0.7, repeat: Infinity, ease: 'linear' } : {}}
+                  className="w-7 h-7 flex items-center justify-center rounded-xl text-xs text-white disabled:opacity-40 opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.15)' }}
+                >
+                  ↻
+                </motion.button>
+              )}
+              <span className="text-white/25 text-[10px] hidden sm:inline group-hover:text-white/55 transition-colors">
+                tap →
+              </span>
+            </div>
           </div>
         </div>
-
-        {onRefresh && (
-          <div className="absolute bottom-3 right-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
-            <motion.button
-              onClick={(e) => { e.stopPropagation(); onRefresh(); }}
-              disabled={refreshing}
-              whileTap={{ scale: 0.82 }}
-              animate={refreshing ? { rotate: 360 } : { rotate: 0 }}
-              transition={refreshing ? { duration: 0.7, repeat: Infinity, ease: 'linear' } : {}}
-              className="w-7 h-7 flex items-center justify-center rounded-xl text-xs text-white disabled:opacity-40"
-              style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.15)' }}
-            >
-              ↻
-            </motion.button>
-          </div>
-        )}
       </motion.button>
 
       <AnimatePresence>
@@ -852,11 +926,39 @@ function BentoTile({ slot, activity, height, destination, groupType, onRefresh, 
             onClose={() => setModalOpen(false)}
             onSwap={onRefresh ? (req) => { onRefresh(req); setModalOpen(false); } : undefined}
             swapping={refreshing}
+            smartSwapEnabled={!!smartSwap}
+            onRequestSmartSwap={
+              smartSwap
+                ? () => {
+                    setModalOpen(false);
+                    setSmartOpen(true);
+                  }
+                : undefined
+            }
             ui={ui}
             dc={dc}
           />
         )}
       </AnimatePresence>
+
+      {smartOpen && smartSwap && (() => {
+        const g = classifyActivity(activity);
+        return (
+          <SmartSwapSheet
+            open={smartOpen}
+            onClose={() => setSmartOpen(false)}
+            itinerary={smartSwap.itinerary}
+            dayIndex={smartSwap.dayIndex}
+            slot={slot}
+            activity={activity}
+            profile={smartSwap.profile}
+            genreLabel={dc.genreLabel[g] ?? GENRE_CONFIG[g].label}
+            onCommit={(next, summary) => smartSwap.onCommitSlot(slot, next, summary)}
+            ui={ui}
+            dc={dc}
+          />
+        );
+      })()}
     </>
   );
 }
@@ -984,19 +1086,34 @@ interface DayCardProps {
   destination?: string;
   groupType?: 'solo' | 'couple' | 'family' | 'group';
   onSwapSlot?: (slot: 'morning' | 'afternoon' | 'evening', request?: string) => Promise<void>;
+  /** Final itinerary — enables smart swap (two proposals) on place cards when set with onCommitActivitySwap */
+  itinerary?: Itinerary | null;
+  profile?: TravelerProfile | null;
+  onCommitActivitySwap?: (slot: Slot, activity: Activity, summary: string) => Promise<void>;
   onNeighborhoodClick?: (neighborhood: string) => void;
   ui: ItineraryUiStrings;
 }
 
-export function DayCard({ day, index, destination, groupType, onSwapSlot, ui }: DayCardProps) {
+export function DayCard({
+  day,
+  index,
+  destination,
+  groupType,
+  onSwapSlot,
+  itinerary,
+  profile,
+  onCommitActivitySwap,
+  ui,
+}: DayCardProps) {
   const [open, setOpen]     = useState(false);
   const [copied, setCopied] = useState(false);
   const warnings    = day.webInsights?.filter((i) => i.type === 'warning') ?? [];
   const tipInsights = (day.webInsights ?? []).filter((i) => i.type !== 'warning');
   const dc = useMemo(() => dayCardUi(ui.lang), [ui.lang]);
+  const swapEligible = !!(itinerary && onCommitActivitySwap);
 
   // ── Genre buckets ─────────────────────────────────────────────────────────
-  const byGenre: Record<GenreKey, PlaceCardData[]> = {
+  const byGenre: Record<ActivityGenre, PlaceCardData[]> = {
     sightseeing: [], food: [], shopping: [], nightlife: [],
   };
 
@@ -1009,7 +1126,8 @@ export function DayCard({ day, index, destination, groupType, onSwapSlot, ui }: 
   // Non-food activities → their genre bucket (food handled separately below)
   dayActivities.forEach(({ activity, slot }) => {
     const genre = classifyActivity(activity);
-    if (genre !== 'food') byGenre[genre].push(activityToCard(activity, slot, index, destination));
+    if (genre !== 'food')
+      byGenre[genre].push(activityToCard(activity, slot, index, destination, undefined, swapEligible));
   });
 
   // ── Meal cards (real spots only — no placeholders) ───────────────────────
@@ -1028,21 +1146,21 @@ export function DayCard({ day, index, destination, groupType, onSwapSlot, ui }: 
       day.breakfast
         ? diningToCard(day.breakfast, 'breakfast', index, destination)
         : morningIsFood && day.morning
-          ? activityToCard(day.morning,   'morning',   index, destination, 'breakfast')
+          ? activityToCard(day.morning,   'morning',   index, destination, 'breakfast', swapEligible)
           : null,
 
     lunch:
       day.lunch
         ? diningToCard(day.lunch, 'lunch', index, destination)
         : afternoonIsFood && day.afternoon
-          ? activityToCard(day.afternoon, 'afternoon', index, destination, 'lunch')
+          ? activityToCard(day.afternoon, 'afternoon', index, destination, 'lunch', swapEligible)
           : null,
 
     dinner:
       day.dinner
         ? diningToCard(day.dinner, 'dinner', index, destination)
         : eveningIsFood && day.evening
-          ? activityToCard(day.evening,   'evening',   index, destination, 'dinner')
+          ? activityToCard(day.evening,   'evening',   index, destination, 'dinner', swapEligible)
           : null,
   };
 
@@ -1074,7 +1192,7 @@ export function DayCard({ day, index, destination, groupType, onSwapSlot, ui }: 
       if (!Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0)) continue;
       const genre    = classifyActivity(act);
       const slotMeta = dc.slotMeta[slot];
-      const catLabel = dc.genreLabel[genre as GenreKey] ?? GENRE_CONFIG[genre as GenreKey]?.label ?? genre;
+      const catLabel = dc.genreLabel[genre] ?? GENRE_CONFIG[genre]?.label ?? genre;
       pins.push({
         id:        `day${index}-${slot}-${(act.name ?? 'act').replace(/\s+/g, '-').toLowerCase()}`,
         name:      act.name ?? slot,
@@ -1378,7 +1496,7 @@ export function DayCard({ day, index, destination, groupType, onSwapSlot, ui }: 
             )}
 
             {/* ── Genre Cubes ─────────────────────────────────────────── */}
-            {(Object.entries(byGenre) as [GenreKey, PlaceCardData[]][])
+            {(Object.entries(byGenre) as [ActivityGenre, PlaceCardData[]][])
               .filter(([, places]) => places.length > 0)
               .map(([key, places]) => {
                 const cfg = GENRE_CONFIG[key];
@@ -1395,6 +1513,16 @@ export function DayCard({ day, index, destination, groupType, onSwapSlot, ui }: 
                       columns={cols}
                       onOpen={handleGenreOpen}
                       onSelect={handlePlaceSelect}
+                      smartSwap={
+                        swapEligible && itinerary && onCommitActivitySwap
+                          ? {
+                              itinerary,
+                              profile: profile ?? null,
+                              onCommitSlot: onCommitActivitySwap,
+                            }
+                          : undefined
+                      }
+                      swapUi={swapEligible ? { ui, dc } : undefined}
                     />
                   </div>
                 );

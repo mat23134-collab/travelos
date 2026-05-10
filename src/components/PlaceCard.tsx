@@ -20,6 +20,10 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { MapPin, ExternalLink, Navigation, X, Globe } from 'lucide-react';
 import { VerificationBadge } from '@/components/VerificationBadge';
+import type { Activity, Itinerary, TravelerProfile } from '@/lib/types';
+import { classifyActivity } from '@/lib/activityGenre';
+import { SmartSwapSheet } from '@/components/SmartSwapSheet';
+import { dayCardUi, type ItineraryUiStrings } from '@/lib/tripUiCopy';
 
 // ── Unified data interface ─────────────────────────────────────────────────────
 // Maps from either Place (Scout Agent / Supabase) or Activity (itinerary).
@@ -48,7 +52,19 @@ export interface PlaceCardData {
   /** Official website URL — shown as "Visit Official Website" button in the modal.
    *  Auto-fetched from Google Places if not supplied; supply to skip the fetch. */
   website?: string;
+  /** When set, this card can open smart swap (same-genre alternatives). */
+  smartSwap?: {
+    slot: 'morning' | 'afternoon' | 'evening';
+    dayIndex: number;
+    activity: Activity;
+  };
 }
+
+export type PlacesGridSmartSwap = {
+  itinerary: Itinerary;
+  profile: TravelerProfile | null;
+  onCommitSlot: (slot: 'morning' | 'afternoon' | 'evening', activity: Activity, summary: string) => Promise<void>;
+};
 
 // ── Neon vibe color system ────────────────────────────────────────────────────
 
@@ -217,9 +233,11 @@ interface TileProps {
   data: PlaceCardData;
   onClick: () => void;
   isSelected: boolean;
+  smartSwapLabel?: string;
+  onSmartSwap?: () => void;
 }
 
-function PlaceTile({ data, onClick, isSelected }: TileProps) {
+function PlaceTile({ data, onClick, isSelected, smartSwapLabel, onSmartSwap }: TileProps) {
   const vibe = getVibe(data.vibeLabel);
 
   return (
@@ -327,7 +345,25 @@ function PlaceTile({ data, onClick, isSelected }: TileProps) {
           ) : (
             <span />
           )}
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
+            {data.smartSwap && onSmartSwap && smartSwapLabel && (
+              <motion.button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSmartSwap();
+                }}
+                whileTap={{ scale: 0.92 }}
+                className="text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg text-white shrink-0"
+                style={{
+                  background: 'rgba(158,54,58,0.55)',
+                  border: '1px solid rgba(255,255,255,0.18)',
+                  boxShadow: `0 0 12px ${vibe.glow}`,
+                }}
+              >
+                {smartSwapLabel}
+              </motion.button>
+            )}
             {/* Maps shortcut — only rendered when a URL is available */}
             {(data.mapsUrl ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([data.name, data.city].filter(Boolean).join(' '))}`) && (
               <a
@@ -369,9 +405,12 @@ function PlaceTile({ data, onClick, isSelected }: TileProps) {
 interface ModalProps {
   data: PlaceCardData;
   onClose: () => void;
+  swapUi?: { ui: ItineraryUiStrings; dc: ReturnType<typeof dayCardUi> };
+  smartSwap?: PlacesGridSmartSwap;
+  onTriggerSmartSwap?: () => void;
 }
 
-function PlaceModal({ data, onClose }: ModalProps) {
+function PlaceModal({ data, onClose, swapUi, smartSwap, onTriggerSmartSwap }: ModalProps) {
   const vibe     = getVibe(data.vibeLabel);
   const bullets  = buildHighlights(data.description, data.highlights);
   // Use explicit mapsUrl when set; fall back to coordinate-based URL; null = no button
@@ -550,6 +589,23 @@ function PlaceModal({ data, onClose }: ModalProps) {
 
             {/* Action buttons */}
             <div className="flex flex-col gap-2.5">
+              {data.smartSwap && smartSwap && swapUi && onTriggerSmartSwap && (
+                <motion.button
+                  type="button"
+                  onClick={onTriggerSmartSwap}
+                  className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-bold text-white"
+                  style={{
+                    background: `linear-gradient(135deg, #9e363a 0%, #c05060 50%, #8b2f33 100%)`,
+                    border: `1px solid ${vibe.border}55`,
+                    boxShadow: `0 6px 22px rgba(158,54,58,0.35)`,
+                  }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.97 }}
+                >
+                  ✨ {swapUi.dc.smartSwapTitle}
+                </motion.button>
+              )}
+
               {mapUrl && (
                 <motion.a
                   href={mapUrl}
@@ -633,10 +689,20 @@ interface PlacesGridProps {
   className?: string;
   /** Called when a tile is clicked — useful for wiring fly-to on the day map. */
   onSelect?: (placeId: string) => void;
+  smartSwap?: PlacesGridSmartSwap;
+  swapUi?: { ui: ItineraryUiStrings; dc: ReturnType<typeof dayCardUi> };
 }
 
-export function PlacesGrid({ places, columns = 2, className = '', onSelect }: PlacesGridProps) {
+export function PlacesGrid({
+  places,
+  columns = 2,
+  className = '',
+  onSelect,
+  smartSwap,
+  swapUi,
+}: PlacesGridProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [smartSwapPlaceId, setSmartSwapPlaceId] = useState<string | null>(null);
   const selected = places.find((p) => p.id === selectedId) ?? null;
 
   const colClass =
@@ -656,6 +722,12 @@ export function PlacesGrid({ places, columns = 2, className = '', onSelect }: Pl
               onSelect?.(place.id);
             }}
             isSelected={selectedId === place.id}
+            smartSwapLabel={swapUi?.dc.smartSwapButton}
+            onSmartSwap={
+              smartSwap && swapUi && place.smartSwap
+                ? () => setSmartSwapPlaceId(place.id)
+                : undefined
+            }
           />
         ))}
       </div>
@@ -665,9 +737,47 @@ export function PlacesGrid({ places, columns = 2, className = '', onSelect }: Pl
           <PlaceModal
             data={selected}
             onClose={() => setSelectedId(null)}
+            swapUi={swapUi}
+            smartSwap={smartSwap}
+            onTriggerSmartSwap={
+              smartSwap && swapUi && selected.smartSwap
+                ? () => {
+                    const id = selected.id;
+                    setSelectedId(null);
+                    setSmartSwapPlaceId(id);
+                  }
+                : undefined
+            }
           />
         )}
       </AnimatePresence>
+
+      {smartSwap &&
+        swapUi &&
+        smartSwapPlaceId &&
+        (() => {
+          const card = places.find((p) => p.id === smartSwapPlaceId);
+          const meta = card?.smartSwap;
+          if (!card || !meta) return null;
+          const g = classifyActivity(meta.activity);
+          return (
+            <SmartSwapSheet
+              open
+              onClose={() => setSmartSwapPlaceId(null)}
+              itinerary={smartSwap.itinerary}
+              dayIndex={meta.dayIndex}
+              slot={meta.slot}
+              activity={meta.activity}
+              profile={smartSwap.profile}
+              genreLabel={swapUi.dc.genreLabel[g] ?? g}
+              onCommit={async (act, summary) => {
+                await smartSwap.onCommitSlot(meta.slot, act, summary);
+              }}
+              ui={swapUi.ui}
+              dc={swapUi.dc}
+            />
+          );
+        })()}
     </LayoutGroup>
   );
 }

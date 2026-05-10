@@ -15,7 +15,8 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PlacesGrid, PlaceCardData } from '@/components/PlaceCard';
+import { dayCardUi, type ItineraryUiStrings } from '@/lib/tripUiCopy';
+import { PlacesGrid, PlaceCardData, type PlacesGridSmartSwap } from '@/components/PlaceCard';
 
 export interface GenreCubeProps {
   icon: string;
@@ -30,6 +31,8 @@ export interface GenreCubeProps {
   /** Bubbled up from PlacesGrid tile clicks — lets the day map fly to a
    *  specific place when its card is tapped. */
   onSelect?: (placeId: string) => void;
+  smartSwap?: PlacesGridSmartSwap;
+  swapUi?: { ui: ItineraryUiStrings; dc: ReturnType<typeof dayCardUi> };
 }
 
 // Spring for the height accordion
@@ -44,6 +47,8 @@ export function GenreCube({
   defaultOpen = false,
   onOpen,
   onSelect,
+  smartSwap,
+  swapUi,
 }: GenreCubeProps) {
   const [open, setOpen] = useState(defaultOpen);
 
@@ -142,7 +147,13 @@ export function GenreCube({
               style={{ background: `${accent}20` }}
             />
             <div className="p-4">
-              <PlacesGrid places={places} columns={columns} onSelect={onSelect} />
+              <PlacesGrid
+                places={places}
+                columns={columns}
+                onSelect={onSelect}
+                smartSwap={smartSwap}
+                swapUi={swapUi}
+              />
             </div>
           </motion.div>
         )}

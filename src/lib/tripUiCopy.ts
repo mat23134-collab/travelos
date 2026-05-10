@@ -210,6 +210,18 @@ export function dayCardUi(lang: TripUiLang) {
     swapScout: 'Scout it',
     swapScouting: 'Scouting…',
     scoutItButton: 'Scout It →',
+    smartSwapButton: 'Swap',
+    smartSwapTitle: 'Smart alternatives',
+    smartSwapSubtitle: (genre: string) => `Same vibe · ${genre}`,
+    smartSwapLoading: 'Finding two matches in the same genre…',
+    smartSwapError: 'Could not load alternatives — try again.',
+    smartSwapRetry: 'Retry',
+    smartSwapIntro: 'About the spot',
+    smartSwapWhyYou: 'Why it fits you',
+    smartSwapReplace: 'Replace',
+    smartSwapApplying: 'Applying…',
+    smartSwapClose: 'Close',
+    smartSwapCustom: 'Custom request instead',
     };
   }
   return {
@@ -271,5 +283,17 @@ export function dayCardUi(lang: TripUiLang) {
     swapScout: 'לשגר',
     swapScouting: 'סורקים…',
     scoutItButton: 'סריקה →',
+    smartSwapButton: 'החלפה',
+    smartSwapTitle: 'החלפה חכמה',
+    smartSwapSubtitle: (genre: string) => `אותו סגנון · ${genre}`,
+    smartSwapLoading: 'מחפשים שתי אופציות באותו ז׳אנר…',
+    smartSwapError: 'לא הצלחנו לטעון חלופות — נסו שוב.',
+    smartSwapRetry: 'נסו שוב',
+    smartSwapIntro: 'על המקום',
+    smartSwapWhyYou: 'למה זה בשבילכם',
+    smartSwapReplace: 'החלף',
+    smartSwapApplying: 'מחילים…',
+    smartSwapClose: 'סגירה',
+    smartSwapCustom: 'בקשה מותאמת אישית',
   };
 }

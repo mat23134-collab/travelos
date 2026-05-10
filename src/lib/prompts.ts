@@ -1,5 +1,6 @@
 import { TravelerProfile, ClassifiedResult, Itinerary, Activity } from './types';
 import { formatFamilyKidsForPrompt } from './familyKids';
+import { classifyActivity, ACTIVITY_GENRE_LABEL_EN } from './activityGenre';
 
 // ─── Friendly domain → blog name map ─────────────────────────────────────────
 
@@ -543,6 +544,107 @@ Return ONLY a JSON object — no markdown, no prose:
     "category_emoji": "🏛️"
   },
   "summary": "One sentence: what changed and why it fits better"
+}`;
+}
+
+/** Two curated alternatives in the SAME genre bucket as the current activity (smart swap UI). */
+export function buildSwapProposalsPrompt(params: {
+  itinerary: Itinerary;
+  dayIndex: number;
+  slot: 'morning' | 'afternoon' | 'evening';
+  profile?: TravelerProfile | null;
+}): string {
+  const { itinerary, dayIndex, slot, profile } = params;
+  const day = itinerary.days[dayIndex];
+  const current = day[slot] as Activity;
+  const genre = classifyActivity(current);
+  const genreGuide = ACTIVITY_GENRE_LABEL_EN[genre];
+
+  const otherSlots = (['morning', 'afternoon', 'evening'] as const)
+    .filter((s) => s !== slot)
+    .map((s) => {
+      const act = day[s] as Activity;
+      return act?.name ? `  • ${s}: ${act.name} (${act.neighborhood ?? 'TBD'})` : null;
+    })
+    .filter(Boolean)
+    .join('\n');
+
+  const allTags = (['morning', 'afternoon', 'evening'] as const)
+    .flatMap((s) => (day[s] as Activity)?.tags ?? []);
+  const vibeContext = [...new Set(allTags)].slice(0, 8).join(', ') || day.theme;
+
+  const traveler =
+    profile
+      ? `Traveler: ${profile.groupType}, ${profile.groupSize} people, budget ${profile.budget}, pace ${profile.pace}, interests: ${profile.interests?.join(', ') || 'general'}. Dietary: ${profile.dietaryRestrictions || 'none'}.`
+      : 'Traveler details omitted — infer fit from itinerary vibe only.';
+
+  const lang =
+    profile?.tripLanguage === 'he'
+      ? `OUTPUT LANGUAGE: placeIntro and whyItFitsYou MUST be in Hebrew (Modern). Keep activity.name and neighborhood in English map labels. whyThis English OK inside JSON.`
+      : `OUTPUT LANGUAGE: placeIntro and whyItFitsYou in fluent English.`;
+
+  return `You suggest SMART SWAP alternatives for a travel itinerary activity.
+
+TASK:
+- Current slot: ${slot.toUpperCase()} on Day ${day.day} (${day.date}) — theme: ${day.theme}
+- Destination: ${itinerary.destination}
+- CURRENT ACTIVITY (replace conceptually, do NOT repeat same venue): ${current?.name ?? 'unknown'} in ${current?.neighborhood ?? 'unknown'}
+- DETECTED GENRE for this slot: "${genre}" — meaning: ${genreGuide}
+- You MUST propose exactly TWO different real venues/activities that stay IN THIS SAME GENRE (${genre}). Do not cross into a different genre (e.g. no bar swap for a museum slot unless genre is nightlife).
+
+CONTEXT TODAY:
+Other activities:
+${otherSlots || '  (none)'}
+
+Shared vibe tags: ${vibeContext}
+Budget tier hint: ${itinerary.budgetSummary?.dailyAverage ?? 'mid-range'}
+
+${traveler}
+
+${lang}
+
+RULES:
+1. Both picks MUST be real named places Google Maps would resolve — NEVER placeholders.
+2. Same neighborhood cluster as today's other stops OR within ~15 min walk/transit of that cluster.
+3. Respect time window for ${slot}: morning 08:30–12:00, afternoon 13:30–17:30, evening 19:00–22:00 — set startTime/endTime and time_slot accordingly.
+4. latitude/longitude: accurate floats (4 dp) for each venue.
+5. tags: exactly 3 short tokens; vibeLabel valid enum; category_emoji matches activity type.
+6. placeIntro: max 35 words — what makes this spot distinct.
+7. whyItFitsYou: ONE punchy sentence tying to traveler persona + today's theme (not generic).
+
+Return ONLY JSON — no markdown:
+{
+  "alternatives": [
+    {
+      "placeIntro": "string",
+      "whyItFitsYou": "string",
+      "activity": {
+        "name": "string",
+        "description": "string — max 2 sentences",
+        "neighborhood": "string",
+        "startTime": "HH:MM",
+        "endTime": "HH:MM",
+        "time_slot": "HH:MM – HH:MM",
+        "bestTimeToVisit": "string",
+        "transitFromPrevious": ${slot === 'morning' ? 'null' : '"string"'},
+        "duration": "string",
+        "whyThis": "string (Source: TravelOS expertise)",
+        "estimatedCost": "string",
+        "tags": ["a","b","c"],
+        "isHiddenGem": false,
+        "vibeLabel": "hidden-gem | local-favorite | viral-trend | classic | luxury-pick | budget-pick",
+        "latitude": 0,
+        "longitude": 0,
+        "category_emoji": "🏛️",
+        "website_url": null
+      }
+    },
+    {
+      "placeIntro": "string",
+      "whyItFitsYou": "string",
+      "activity": { "...same shape..." }
+    }
+  ]
 }`;
 }
 

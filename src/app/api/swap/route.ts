@@ -11,6 +11,10 @@ export interface SwapPayload {
   dayIndex: number;
   slot: 'morning' | 'afternoon' | 'evening';
   request?: string;
+  /** When set, skips LLM and persists this activity (smart-swap picker). */
+  replacementActivity?: Activity;
+  /** Short human line shown after picking a proposal (optional). */
+  proposalSummary?: string;
 }
 
 export interface SwapResult {
@@ -27,6 +31,87 @@ const SLOT_ORDER: Record<'morning' | 'afternoon' | 'evening', number> = {
   evening: 5,
 };
 
+async function persistSwap(
+  itinerary: Itinerary,
+  itinerary_id: string | undefined,
+  dayIndex: number,
+  slot: 'morning' | 'afternoon' | 'evening',
+  rawActivity: Activity,
+  requestMeta: string,
+): Promise<Activity> {
+  const existingItemId: string | undefined = itinerary.days[dayIndex]?.[slot]?.item_id;
+  const newActivity: Activity = {
+    ...rawActivity,
+    item_id: existingItemId,
+  };
+
+  if (itinerary_id) {
+    try {
+      const dayNumber = dayIndex + 1;
+      const { data: ownerRow } = await supabase
+        .from('itineraries')
+        .select('user_id')
+        .eq('id', itinerary_id)
+        .maybeSingle();
+
+      const { data: updatedRows } = await supabase
+        .from('itinerary_items')
+        .update({
+          name:           newActivity.name           ?? null,
+          category:       slot,
+          description:    newActivity.description    ?? null,
+          lat:            newActivity.latitude       != null ? Number(newActivity.latitude)  : null,
+          lng:            newActivity.longitude      != null ? Number(newActivity.longitude) : null,
+          website_url:    newActivity.website_url    ?? null,
+          item_tags:      Array.isArray(newActivity.tags) && newActivity.tags.length > 0
+            ? newActivity.tags
+            : [],
+        })
+        .eq('itinerary_id', itinerary_id)
+        .eq('day_number', dayNumber)
+        .eq('item_order', SLOT_ORDER[slot])
+        .select('id')
+        .limit(1);
+
+      const updatedDays = itinerary.days.map((day, i) =>
+        i !== dayIndex ? day : { ...day, [slot]: newActivity }
+      );
+      const updatedBlob: Itinerary = { ...itinerary, days: updatedDays };
+      await supabase
+        .from('itineraries')
+        .update({ itinerary_json: updatedBlob })
+        .eq('id', itinerary_id);
+
+      if (ownerRow?.user_id && updatedRows?.[0]?.id) {
+        await supabase
+          .from('user_place_events')
+          .insert({
+            user_id: ownerRow.user_id,
+            itinerary_id: itinerary_id,
+            itinerary_item_id: updatedRows[0].id,
+            event_type: 'swapped',
+            place_name: newActivity.name ?? 'Unknown place',
+            place_category: slot,
+            lat: newActivity.latitude != null ? Number(newActivity.latitude) : null,
+            lng: newActivity.longitude != null ? Number(newActivity.longitude) : null,
+            metadata: {
+              source: 'api/swap',
+              day_number: dayNumber,
+              slot,
+              request: requestMeta,
+            },
+          });
+      }
+
+      console.log(`[swap] DB synced — itinerary ${itinerary_id} day${dayNumber} ${slot}`);
+    } catch (dbErr) {
+      console.warn('[swap] DB update failed (non-critical):', dbErr instanceof Error ? dbErr.message : dbErr);
+    }
+  }
+
+  return newActivity;
+}
+
 export async function POST(req: NextRequest) {
   if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY.includes('your_')) {
     return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 });
@@ -39,7 +124,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
 
-  const { itinerary, itinerary_id, dayIndex, slot, request = 'Suggest something better' } = payload;
+  const {
+    itinerary,
+    itinerary_id,
+    dayIndex,
+    slot,
+    request = 'Suggest something better',
+    replacementActivity,
+    proposalSummary,
+  } = payload;
 
   if (!itinerary || dayIndex === undefined || !slot) {
     return NextResponse.json({ error: 'itinerary, dayIndex, and slot are required' }, { status: 400 });
@@ -48,108 +141,49 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'dayIndex out of range' }, { status: 400 });
   }
 
-  const prompt = buildSwapPrompt({ itinerary, dayIndex, slot, request });
-
   try {
-    const response = await client.messages.create({
-      model: 'claude-opus-4-7',
-      max_tokens: 1024,
-      messages: [{ role: 'user', content: prompt }],
-    });
+    let rawActivity: Activity;
+    let summary: string;
+    let requestMeta: string;
 
-    const raw = (response.content[0] as { type: string; text: string }).text.trim()
-      .replace(/^```json\n?/, '').replace(/\n?```$/, '');
+    if (replacementActivity && typeof replacementActivity === 'object' && replacementActivity.name?.trim()) {
+      rawActivity = replacementActivity;
+      summary =
+        proposalSummary?.trim()
+        || `Swapped to ${rawActivity.name}`;
+      requestMeta = 'smart-swap';
+    } else {
+      const prompt = buildSwapPrompt({ itinerary, dayIndex, slot, request });
+      const response = await client.messages.create({
+        model: 'claude-opus-4-7',
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: prompt }],
+      });
 
-    let parsed: { activity: Activity; summary: string };
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      const match = raw.match(/\{[\s\S]*\}/);
-      if (!match) return NextResponse.json({ error: 'Could not parse swap result' }, { status: 500 });
-      parsed = JSON.parse(match[0]);
-    }
+      const rawText = (response.content[0] as { type: string; text: string }).text.trim()
+        .replace(/^```json\n?/, '').replace(/\n?```$/, '');
 
-    // ── Relational DB update: targeted row-level swap ────────────────────────
-    // Preserve the existing item_id so the row identity is stable across swaps.
-    const existingItemId: string | undefined = itinerary.days[dayIndex]?.[slot]?.item_id;
-    const newActivity: Activity = {
-      ...parsed.activity,
-      item_id: existingItemId, // carry forward so UI doesn't lose the row reference
-    };
-
-    if (itinerary_id) {
+      let parsed: { activity: Activity; summary: string };
       try {
-        const dayNumber = dayIndex + 1;
-        const { data: ownerRow } = await supabase
-          .from('itineraries')
-          .select('user_id')
-          .eq('id', itinerary_id)
-          .maybeSingle();
-
-        // 1. Update the specific itinerary_items row
-        const { data: updatedRows } = await supabase
-          .from('itinerary_items')
-          .update({
-            name:           newActivity.name           ?? null,
-            category:       slot,
-            description:    newActivity.description    ?? null,
-            lat:            newActivity.latitude       != null ? Number(newActivity.latitude)  : null,
-            lng:            newActivity.longitude      != null ? Number(newActivity.longitude) : null,
-            website_url:    newActivity.website_url    ?? null,
-            item_tags:      Array.isArray(newActivity.tags) && newActivity.tags.length > 0
-                              ? newActivity.tags
-                              : [],
-          })
-          .eq('itinerary_id', itinerary_id)
-          .eq('day_number', dayNumber)
-          .eq('item_order', SLOT_ORDER[slot])
-          .select('id')
-          .limit(1);
-
-        // 2. Sync the JSON blob so the [id] page always reads current data
-        const updatedDays = itinerary.days.map((day, i) =>
-          i !== dayIndex ? day : { ...day, [slot]: newActivity }
-        );
-        const updatedBlob: Itinerary = { ...itinerary, days: updatedDays };
-        await supabase
-          .from('itineraries')
-          .update({ itinerary_json: updatedBlob })
-          .eq('id', itinerary_id);
-
-        // 3. Audit trail: track who swapped which place.
-        if (ownerRow?.user_id && updatedRows?.[0]?.id) {
-          await supabase
-            .from('user_place_events')
-            .insert({
-              user_id: ownerRow.user_id,
-              itinerary_id: itinerary_id,
-              itinerary_item_id: updatedRows[0].id,
-              event_type: 'swapped',
-              place_name: newActivity.name ?? 'Unknown place',
-              place_category: slot,
-              lat: newActivity.latitude != null ? Number(newActivity.latitude) : null,
-              lng: newActivity.longitude != null ? Number(newActivity.longitude) : null,
-              metadata: {
-                source: 'api/swap',
-                day_number: dayNumber,
-                slot,
-                request,
-              },
-            });
-        }
-
-        console.log(`[swap] DB synced — itinerary ${itinerary_id} day${dayNumber} ${slot}`);
-      } catch (dbErr) {
-        // Non-critical: in-memory swap still succeeds even if DB write fails
-        console.warn('[swap] DB update failed (non-critical):', dbErr instanceof Error ? dbErr.message : dbErr);
+        parsed = JSON.parse(rawText);
+      } catch {
+        const match = rawText.match(/\{[\s\S]*\}/);
+        if (!match) return NextResponse.json({ error: 'Could not parse swap result' }, { status: 500 });
+        parsed = JSON.parse(match[0]);
       }
+
+      rawActivity = parsed.activity;
+      summary = parsed.summary;
+      requestMeta = request;
     }
+
+    const merged = await persistSwap(itinerary, itinerary_id, dayIndex, slot, rawActivity, requestMeta);
 
     const result: SwapResult = {
-      activity: newActivity,
+      activity: merged,
       dayIndex,
       slot,
-      summary: parsed.summary,
+      summary,
     };
 
     return NextResponse.json(result);

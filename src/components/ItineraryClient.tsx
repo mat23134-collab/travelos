@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Itinerary, TravelerProfile, Basecamp, HotelRecommendation, type BookedHotelAround } from '@/lib/types';
+import { Itinerary, TravelerProfile, Basecamp, HotelRecommendation, type BookedHotelAround, type Activity } from '@/lib/types';
 import { DayCard } from '@/components/DayCard';
 import { DayPhoto } from '@/components/DayPhoto';
 import { QuickEdit } from '@/components/QuickEdit';
@@ -812,6 +812,36 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
     setTimeout(() => setEditBanner(''), 5000);
   }, [itinerary, persistAndSet]);
 
+  /** Smart swap: persist a chosen proposal without re-running the swap LLM. */
+  const handleCommitActivitySwap = useCallback(async (
+    dayIndex: number,
+    slot: 'morning' | 'afternoon' | 'evening',
+    replacementActivity: Activity,
+    proposalSummary: string,
+  ) => {
+    const res = await fetch('/api/swap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        itinerary,
+        itinerary_id: itinerary._id ?? undefined,
+        dayIndex,
+        slot,
+        replacementActivity,
+        proposalSummary: proposalSummary.trim() || undefined,
+      }),
+    });
+    const data: SwapResult & { error?: string } = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || 'Swap failed');
+
+    const updatedDays = itinerary.days.map((day, i) =>
+      i !== dayIndex ? day : { ...day, [slot]: data.activity }
+    );
+    persistAndSet({ ...itinerary, days: updatedDays });
+    setEditBanner(data.summary);
+    setTimeout(() => setEditBanner(''), 5000);
+  }, [itinerary, persistAndSet]);
+
   const handleNeighborhoodClick = useCallback((neighborhood: string) => {
     setFocusedNeighborhood(neighborhood);
     setMobileMapOpen(true);
@@ -1041,7 +1071,12 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
                 destination={itinerary.destination}
                 groupType={profile?.groupType}
                 ui={ui}
+                itinerary={itinerary}
+                profile={profile ?? null}
                 onSwapSlot={(slot, req) => handleSlotSwap(i, slot, req)}
+                onCommitActivitySwap={(slot, act, summary) =>
+                  handleCommitActivitySwap(i, slot, act, summary)
+                }
                 onNeighborhoodClick={handleNeighborhoodClick}
               />
             </motion.div>
