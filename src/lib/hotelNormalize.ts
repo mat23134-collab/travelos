@@ -1,4 +1,9 @@
-import type { BookedHotelAround, HotelRecommendation, TransitNearHotelLine } from '@/lib/types';
+import type {
+  BookedHotelAround,
+  HotelRecommendation,
+  OtaPriceCompareRow,
+  TransitNearHotelLine,
+} from '@/lib/types';
 
 function sanitizeHttpsUrl(raw?: string): string | null {
   if (!raw?.trim()) return null;
@@ -19,6 +24,17 @@ function pickStr(obj: Record<string, unknown>, ...keys: string[]): string | unde
     if (typeof v === 'string' && v.trim()) return v.trim();
   }
   return undefined;
+}
+
+function normalizeOtaPriceRow(raw: unknown): OtaPriceCompareRow | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  const source = pickStr(o, 'source', 'ota', 'name');
+  if (!source) return null;
+  const indicativeNightly =
+    pickStr(o, 'indicativeNightly', 'indicative_nightly', 'price', 'nightly') ?? null;
+  const note = pickStr(o, 'note', 'hint') ?? null;
+  return { source, indicativeNightly, note };
 }
 
 function pickNum(obj: Record<string, unknown>, ...keys: string[]): number | undefined {
@@ -54,6 +70,15 @@ export function normalizeHotelRecommendation(raw: unknown): HotelRecommendation 
     pickStr(r, 'estimatedPriceRangeTripDates', 'estimated_price_range_trip_dates') ?? null;
   const availabilitySummary =
     pickStr(r, 'availabilitySummary', 'availability_summary') ?? null;
+  const fitSummary = pickStr(r, 'fitSummary', 'fit_summary') ?? null;
+
+  let otaPriceCompare: OtaPriceCompareRow[] | null = null;
+  const otaRaw = r.otaPriceCompare ?? r.ota_price_compare;
+  if (Array.isArray(otaRaw)) {
+    const rows = otaRaw.map(normalizeOtaPriceRow).filter((x): x is OtaPriceCompareRow => x !== null);
+    if (rows.length > 0) otaPriceCompare = rows;
+  }
+
   const ratingSource = pickStr(r, 'ratingSource', 'rating_source') ?? null;
   const reviewCountHint = pickStr(r, 'reviewCountHint', 'review_count_hint') ?? null;
 
@@ -71,6 +96,8 @@ export function normalizeHotelRecommendation(raw: unknown): HotelRecommendation 
     websiteUrl: sanitizeHttpsUrl(websiteUrl ?? undefined),
     estimatedPriceRangeTripDates,
     availabilitySummary,
+    fitSummary,
+    otaPriceCompare,
     ratingStars: ratingStars ?? null,
     ratingSource,
     reviewCountHint,

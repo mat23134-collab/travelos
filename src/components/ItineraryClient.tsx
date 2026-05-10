@@ -13,6 +13,7 @@ import { LogisticsDashboard } from '@/components/LogisticsDashboard';
 import { DraftOverview } from '@/components/DraftOverview';
 import { TrendingTicker } from '@/components/TrendingTicker';
 import { itineraryUi, type ItineraryUiStrings } from '@/lib/tripUiCopy';
+import { hotelOtaSearchUrl, mergeHotelOtaRows } from '@/lib/hotelOtaLinks';
 import type { SwapResult } from '@/app/api/swap/route';
 import { useAuth } from '@/lib/auth-context';
 
@@ -26,22 +27,6 @@ type ViewMode = 'draft' | 'final';
 // ─── Basecamp section ─────────────────────────────────────────────────────────
 
 const HOTEL_DETAIL_SPRING = { type: 'spring' as const, stiffness: 380, damping: 30 };
-
-function bookingCompareUrl(
-  hotelName: string,
-  destination: string,
-  opts?: { checkIn?: string; checkOut?: string; adults?: number },
-): string {
-  const params = new URLSearchParams();
-  params.set('ss', `${hotelName}, ${destination}`);
-  const ci = opts?.checkIn?.slice(0, 10);
-  const co = opts?.checkOut?.slice(0, 10);
-  if (ci && /^\d{4}-\d{2}-\d{2}$/.test(ci)) params.set('checkin', ci);
-  if (co && /^\d{4}-\d{2}-\d{2}$/.test(co)) params.set('checkout', co);
-  const adults = opts?.adults && opts.adults > 0 ? opts.adults : 2;
-  params.set('group_adults', String(adults));
-  return `https://www.booking.com/searchresults.html?${params.toString()}`;
-}
 
 function starRow(score?: number | null): string | null {
   if (score == null || !Number.isFinite(score)) return null;
@@ -68,7 +53,8 @@ function HotelDetailCube({
   const checkIn = profile?.startDate?.slice(0, 10);
   const checkOut = profile?.endDate?.slice(0, 10);
   const adults = profile?.groupSize && profile.groupSize > 0 ? profile.groupSize : 2;
-  const bookingHref = bookingCompareUrl(hotel.name, destination, { checkIn, checkOut, adults });
+  const otaOpts = { checkIn, checkOut, adults };
+  const otaRows = mergeHotelOtaRows(hotel.otaPriceCompare);
   const reviewsHref = `https://www.google.com/search?q=${encodeURIComponent(`${hotel.name} hotel ${destination} reviews`)}`;
   const stars = starRow(hotel.ratingStars);
   const photoQuery = `${hotel.name} ${destination}`.trim();
@@ -167,7 +153,45 @@ function HotelDetailCube({
             </div>
           )}
 
-          <p className="text-xs text-white/65 leading-relaxed mb-4">{hotel.whyItFits}</p>
+          <div className="mb-4 rounded-xl px-3 py-2.5 border border-white/10 bg-white/[0.03]">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/45 mb-1.5">{ui.hotelFitSummary}</p>
+            <p className="text-xs text-white/75 leading-relaxed">
+              {hotel.fitSummary?.trim() || hotel.whyItFits}
+            </p>
+          </div>
+
+          {hotel.fitSummary?.trim() && (
+            <p className="text-[11px] text-white/45 leading-relaxed mb-4">{hotel.whyItFits}</p>
+          )}
+
+          <div className="mb-4 rounded-xl overflow-hidden border border-amber-500/25" style={{ background: 'rgba(245,158,11,0.06)' }}>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-amber-200/90 px-3 pt-2.5 pb-2 border-b border-amber-500/15">
+              {ui.hotelOtaCompareTitle}
+            </p>
+            <ul className="divide-y divide-white/8">
+              {otaRows.map((row) => (
+                <li key={row.id} className="px-3 py-2.5 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold text-white/90">{row.label}</p>
+                    <p className="text-[11px] text-amber-100/85 font-mono mt-0.5">
+                      {row.indicativeNightly ? `${row.indicativeNightly} · ${ui.hotelOtaPerNight}` : ui.hotelOtaNoPrice}
+                    </p>
+                    {row.note && (
+                      <p className="text-[10px] text-white/40 leading-snug mt-1">{row.note}</p>
+                    )}
+                  </div>
+                  <a
+                    href={hotelOtaSearchUrl(row.id, hotel.name, destination, otaOpts)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="shrink-0 inline-flex items-center justify-center px-3 py-2 rounded-lg text-[11px] font-bold text-white border border-white/15 hover:bg-white/10 transition-colors"
+                  >
+                    {ui.hotelOtaOpen}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
 
           <div
             className="rounded-xl px-3 py-2 mb-4"
@@ -189,14 +213,6 @@ function HotelDetailCube({
                 {ui.hotelOfficialSite}
               </a>
             )}
-            <a
-              href={bookingHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full py-3 rounded-xl text-sm font-semibold text-center border border-white/15 text-white/85 hover:bg-white/8 transition-colors"
-            >
-              {ui.hotelCompare}
-            </a>
             <a
               href={reviewsHref}
               target="_blank"
@@ -242,7 +258,9 @@ function HotelCard({ hotel, onOpen, ui }: { hotel: HotelRecommendation; onOpen: 
           <p className="text-sm font-bold text-white leading-tight">{hotel.name}</p>
           <p className="text-[11px] text-white/45 mt-0.5">📍 {hotel.neighborhood}</p>
         </div>
-        <p className="text-xs text-white/65 leading-relaxed">{hotel.whyItFits}</p>
+        <p className="text-xs text-white/65 leading-relaxed line-clamp-3">
+          {hotel.fitSummary?.trim() || hotel.whyItFits}
+        </p>
         <div
           className="mt-auto rounded-xl px-3 py-2"
           style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}

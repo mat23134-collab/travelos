@@ -250,7 +250,13 @@ CRITICAL: Return ONLY a valid JSON object — no markdown fences, no prose. Stru
         "neighborhoodInsight": "max 15 words strategic advantage",
         "websiteUrl": "https://official-hotel-site.example OR null — NEVER invent",
         "estimatedPriceRangeTripDates": "Indicative nightly band for TRIP_HOTEL_DATES e.g. €260–€420/night (indicative — verify)",
-        "availabilitySummary": "qualitative booking pressure / typical availability note",
+        "availabilitySummary": "For TRIP_HOTEL_DATES: realistic likelihood (NOT live inventory) — e.g. usually bookable / peak demand — book early / major event weekend — scarce",
+        "fitSummary": "Exactly 2 sentences: (1) what this hotel/property is in plain language (2) why it matches THIS group's budget, pace, interests, and neighborhood strategy",
+        "otaPriceCompare": [
+          { "source": "Booking.com", "indicativeNightly": "€265–€310/night OR null if unknown", "note": "Ground ONLY if HOTEL_SEARCH_DATA cites it; else null + verify live" },
+          { "source": "Expedia", "indicativeNightly": null, "note": "Same honesty rule as Booking" },
+          { "source": "Airbnb", "indicativeNightly": null, "note": "Often apartments near hotel zone — compare listing types; honesty rule" }
+        ],
         "ratingStars": 4.6,
         "ratingSource": "Google Maps aggregate OR named roundup cited from HOTEL_SEARCH_DATA — NEVER invent platform IDs",
         "reviewCountHint": "~800 reviews OR null when unknown",
@@ -269,10 +275,13 @@ BASECAMP RULES (critical):
   • transitNearHotel: 2–4 objects naming REAL modes/lines/stations plausible for this city & district; modeLabel + lineOrRoute stay English map-style; walkMinutes optional; never invent exact timetables
   • signatureMove: ONE sentence — a memorable insider "move" from the hotel (cheap breakfast cluster, post-dinner liqueur walk, shortcut to a view, best bakery run) max 22 words
 - If no hotel: set basecamp.type="recommendations", omit booked{}, provide exactly 3 hotel recommendations in recommendations[] based on HOTEL_SEARCH_DATA (if available) or expertise. Each must include ALL keys shown in the sample recommendations[] object:
+  • DATE-FIRST FILTER: When TRIP_HOTEL_DATES is present, ONLY recommend properties that are typically bookable on those nights for this destination class (avoid recommending sold-out-only fiction). Say honestly in availabilitySummary if peak season / events usually tighten inventory — NEVER claim you verified live rooms.
   • Core fields (mandatory): name, neighborhood, neighborhoodVibe (2–3 words), whyItFits (max 12 words), priceRange (e.g. "$$"), neighborhoodInsight (max 15 words strategic advantage)
+  • fitSummary: mandatory — exactly 2 sentences (see sample)
+  • otaPriceCompare: mandatory — exactly 3 rows in this fixed order: Booking.com, Expedia, Airbnb. indicativeNightly MUST be null unless HOTEL_SEARCH_DATA (or clearly cited snippet figures) supports a numeric band; NEVER invent platform-specific prices. note may say "verify live on site" when unsure.
   • websiteUrl: ONLY when an obvious official hotel domain appears in HOTEL_SEARCH_DATA URLs/snippets — otherwise null (never fabricate)
   • estimatedPriceRangeTripDates: MUST reference TRIP_HOTEL_DATES from the user prompt when present; phrase explicitly as indicative guidance (not a live fare quote)
-  • availabilitySummary: qualitative realistic booking note — avoid pretending live inventory checks
+  • availabilitySummary: MUST explicitly reference the user's trip nights when TRIP_HOTEL_DATES exists — typical booking pressure / seasonality for THOSE dates (not generic year-round fluff)
   • ratingStars / ratingSource / reviewCountHint: include ONLY when grounded by HOTEL_SEARCH_DATA or other cited roundup tone — omit/null instead of guessing
   • latitude / longitude: best-effort accurate GPS for the property when confident — otherwise null
 
@@ -336,7 +345,7 @@ TRIP_OUTPUT_LANGUAGE: Hebrew (Modern Israeli Hebrew).
 BILINGUAL OUTPUT RULES (mandatory):
 1) ENGLISH ONLY — official venue names: every Activity and DiningSpot "name", every basecamp hotel "name", and neighborhood strings that are proper English map labels (e.g. "Le Marais", "Neubau"). Never Hebrew-transliterate business names.
 
-2) HEBREW — all explanatory prose: strategicOverview; budgetSummary (dailyAverage, totalEstimate, includes); each day "theme" and human-readable "date" line; activity "description", "whyThis", "bestTimeToVisit", "transitFromPrevious", "duration", "estimatedCost" when prose; all DiningSpot text fields except the venue "name" and except "cuisine" (keep cuisine as short English token if needed, or Hebrew — prefer clear Hebrew for diners); webInsights[].text; packingTips[]; bestLocalTips[]; transportTip; basecamp neighborhoodInsight / whyItFits / availabilitySummary / estimatedPriceRangeTripDates (keep currency symbols and numbers readable). For basecamp.booked.aroundHotel when HOTEL_BOOKED: Hebrew for areaHeadline, walkableHighlights[], signatureMove; keep vibes[] as short English tags; keep transitNearHotel[].modeLabel and lineOrRoute in English.
+2) HEBREW — all explanatory prose: strategicOverview; budgetSummary (dailyAverage, totalEstimate, includes); each day "theme" and human-readable "date" line; activity "description", "whyThis", "bestTimeToVisit", "transitFromPrevious", "duration", "estimatedCost" when prose; all DiningSpot text fields except the venue "name" and except "cuisine" (keep cuisine as short English token if needed, or Hebrew — prefer clear Hebrew for diners); webInsights[].text; packingTips[]; bestLocalTips[]; transportTip; basecamp neighborhoodInsight / whyItFits / fitSummary / availabilitySummary / estimatedPriceRangeTripDates / otaPriceCompare[].note (keep currency symbols and numbers readable; keep OTA brand names in Latin: Booking.com, Expedia, Airbnb). For basecamp.booked.aroundHotel when HOTEL_BOOKED: Hebrew for areaHeadline, walkableHighlights[], signatureMove; keep vibes[] as short English tags; keep transitNearHotel[].modeLabel and lineOrRoute in English.
 
 3) JSON keys unchanged. "destination" value stays the English city name (e.g. "Vienna"). time_slot stays 24h HH:MM format.
 
@@ -360,6 +369,7 @@ export function buildUserPrompt(profile: TravelerProfile, searchResults?: Classi
     !profile.hotelBooked?.trim() && profile.startDate && profile.endDate
       ? `\nTRIP_HOTEL_DATES: ${profile.startDate.slice(0, 10)} → ${profile.endDate.slice(0, 10)}`
       + `\nestimatedPriceRangeTripDates MUST cite these exact dates and explicitly note pricing is indicative (TravelOS does not query live OTA inventory automatically)`
+      + `\nPick hotels realistic for those nights; fill otaPriceCompare honestly from HOTEL_SEARCH_DATA snippets when figures appear — otherwise null nightly rates with short verify-live notes`
       : '';
 
   const hotelBlock = profile.hotelBooked?.trim()
@@ -427,7 +437,8 @@ FINAL INSTRUCTIONS:
 - website_url: include the official website URL for activities and restaurants if you know it with certainty (e.g. "https://www.teamlab.art"); otherwise set to null — NEVER fabricate a URL
 - Cluster all activities within walking distance of each other per day
 - webInsights: exactly 1 per day — single most important insight only
-- MUST include the "basecamp" field in the JSON output (follow BASECAMP RULES above)`;
+- MUST include the "basecamp" field in the JSON output (follow BASECAMP RULES above)
+- When basecamp.type="recommendations": exactly 3 hotels each with fitSummary + otaPriceCompare (3 OTAs) + availabilitySummary tied to TRIP_HOTEL_DATES when provided`;
 }
 
 // ─── Vibe directive builder ───────────────────────────────────────────────────

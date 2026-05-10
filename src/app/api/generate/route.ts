@@ -214,12 +214,28 @@ export async function POST(req: NextRequest) {
     if (!profile.hotelBooked?.trim()) {
       try {
         const accommodation = profile.accommodation?.replace(/-/g, ' ') ?? 'boutique hotel';
-        const query = 'best ' + accommodation + ' ' + profile.destination + ' ' + profile.budget + ' neighborhood review 2025 2026';
+        const dest = profile.destination.trim();
+        const dates =
+          profile.startDate?.slice(0, 10) && profile.endDate?.slice(0, 10)
+            ? `${profile.startDate.slice(0, 10)} to ${profile.endDate.slice(0, 10)}`
+            : '';
+        const query = [
+          accommodation,
+          'hotel',
+          dest,
+          profile.budget,
+          dates,
+          'Booking.com Expedia price per night availability',
+          dates ? 'rooms available' : '',
+          '2026',
+        ]
+          .filter(Boolean)
+          .join(' ');
         const results = await searchWeb(query);
         if (results.length > 0) {
           hotelContext = results
-            .slice(0, 4)
-            .map((r) => '- ' + r.title + ': ' + r.snippet.slice(0, 220))
+            .slice(0, 5)
+            .map((r) => '- ' + r.title + ': ' + r.snippet.slice(0, 280))
             .join('\n');
         }
       } catch { /* non-critical */ }

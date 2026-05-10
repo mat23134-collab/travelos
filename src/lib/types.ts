@@ -7,6 +7,13 @@ export type FamilyKidsByAge = Partial<Record<FamilyChildAgeBand, number>>;
 /** UI + narrative language for generated itinerary (place names stay English for maps). */
 export type TripLanguage = 'en' | 'he';
 
+/** Indicative OTA row — grounded on HOTEL_SEARCH_DATA when possible; live inventory via link. */
+export interface OtaPriceCompareRow {
+  source: string;
+  indicativeNightly?: string | null;
+  note?: string | null;
+}
+
 export interface HotelRecommendation {
   name: string;
   neighborhood: string;
@@ -20,6 +27,10 @@ export interface HotelRecommendation {
   estimatedPriceRangeTripDates?: string | null;
   /** Qualitative availability / booking pressure note */
   availabilitySummary?: string | null;
+  /** 2 sentences: what the property is + why it suits this traveler/trip (broader than whyItFits) */
+  fitSummary?: string | null;
+  /** Booking.com / Expedia / Airbnb-style comparison (exactly 3 rows when present; UI merges defaults) */
+  otaPriceCompare?: OtaPriceCompareRow[] | null;
   /** Aggregate rating when grounded (typically 1–5 scale); omit when unknown */
   ratingStars?: number | null;
   ratingSource?: string | null;

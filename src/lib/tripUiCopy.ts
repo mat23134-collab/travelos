@@ -112,8 +112,13 @@ export function itineraryUi(lang: TripUiLang) {
     hotelCompare: he ? 'השוואת מחירים וזמינות חיה ←' : 'Compare rates & live availability →',
     hotelReviews: he ? 'ביקורות (גוגל) ↗' : 'Read reviews (Google) ↗',
     hotelPriceBand: he ? 'טווח מחיר (לפי התאריכים שלכם)' : 'Price band (your dates)',
-    hotelAvailability: he ? 'זמינות' : 'Availability',
+    hotelAvailability: he ? 'זמינות לתאריכי הטיול' : 'Availability for your dates',
     hotelYourDates: he ? 'התאריכים שלכם:' : 'Your dates:',
+    hotelFitSummary: he ? 'למה המלון הזה בשבילכם' : 'Why this stay fits you',
+    hotelOtaCompareTitle: he ? 'השוואת מחירים (אינדיקטיבי)' : 'Compare prices (indicative)',
+    hotelOtaOpen: he ? 'פתיחה ↗' : 'Open ↗',
+    hotelOtaPerNight: he ? 'לילה (הערכה)' : '/night (est.)',
+    hotelOtaNoPrice: he ? 'בדקו חי באתר' : 'Check live on site',
     hotelDisclaimer: he
       ? 'הערכות המחיר אינדיקטיביות אלא אם יש אינטגרציה חיה להזמנות. קישורי הזמנה מציגים זמינות בזמן אמת אצל הספק.'
       : 'Price hints are indicative unless sourced from a live booking integration. Opening booking links shows real-time availability from the provider.',
