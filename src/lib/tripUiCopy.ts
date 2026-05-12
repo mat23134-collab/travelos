@@ -1,4 +1,4 @@
-import type { GroupType } from '@/lib/types';
+import type { GroupType, TravelerProfile } from '@/lib/types';
 
 export type TripUiLang = 'en' | 'he';
 
@@ -34,7 +34,7 @@ export function itineraryUi(lang: TripUiLang) {
       return he ? (AUDIENCE_TARGET_HE[g] ?? 'החבורה שלכם') : ({ solo: 'you', couple: 'your couple', family: 'your family', group: 'your squad' }[g]);
     },
 
-    newTrip: he ? '← טיול חדש' : '← New Trip',
+    newTrip: he ? 'טיול חדש' : 'New trip',
     draft: he ? '← טיוטה' : '← Draft',
     scoutPicks: he ? 'בחירות סקאוט 💎' : 'Scout Picks 💎',
     heroAiBadge: he ? 'נבנה ב-AI · מודיעין חי' : `AI-Crafted · ${new Date().getFullYear()} Live Intel`,
@@ -45,11 +45,30 @@ export function itineraryUi(lang: TripUiLang) {
         ? `ה-AI חצה ${n} מקורות אינטרנט כדי לסנן מלכודות תיירים ולסמן מידע סותר.`
         : `AI cross-referenced ${n} live web sources to surface the best spots, filter traps, and flag conflicting info.`;
     },
-    masterPlanLabel: (audience: string) => (he ? `תוכנית האב של ${audience}` : `Your ${audience} Master Plan`),
+    masterPlanLabel: (audience: string) =>
+      he ? `איך זה נשמע בשבילכם — ${audience}` : `How we shaped this for ${audience}`,
     dayItineraryMeta: (days: string | number) => (he ? `מסלול ${days} ימים` : `${days}-day itinerary`),
     budgetDaily: he ? 'ממוצע יומי' : 'Daily Average',
     budgetTotal: he ? 'הערכת סה״כ' : 'Total Estimate',
     budgetIncludes: he ? 'כולל' : 'Includes',
+    budgetDailyLine: (v: string) =>
+      he ? `בערך ${v} ליום — כיסוי לרוב השיאים` : `Think about ${v} a day for most of the highlights`,
+    budgetTotalLine: (v: string) =>
+      he ? `סביבות ${v} על כל הטיול — תלוי בערבים ובקניות` : `Around ${v} all in — swings with nights out and shopping`,
+    budgetIncludesLine: (text: string) =>
+      he ? `בשורה הזו: ${text}` : `Usually covers: ${text}`,
+    heroPersonalEyebrow: he ? 'הטיול שלכם' : 'Your trip',
+    heroPersonalTagline: he
+      ? 'תאריכים, קצב ושכונות — לפי מה שסיפקתם, לא לפי טבלת אקסל.'
+      : 'Dates, pace, and neighborhoods — tuned to what you told us, not a spreadsheet.',
+    tripMetaTeaser(p: Pick<TravelerProfile, 'groupType' | 'budget' | 'pace'>) {
+      const label = he
+        ? (AUDIENCE_TITLE_HE[p.groupType] ?? 'חבורה')
+        : ({ solo: 'Solo', couple: 'Couple', family: 'Family', group: 'Squad' }[p.groupType]);
+      return he
+        ? `${label} · סביב ${p.budget} · קצב ${p.pace}`
+        : `${label} · ${p.pace} pace · ~${p.budget} budget`;
+    },
     routeSection: (audience: string) => (he ? `מסלול ${audience}` : `${audience} Route`),
     mapOpenMobile: he ? 'מפת מסלול' : 'Route Map',
 
@@ -83,8 +102,8 @@ export function itineraryUi(lang: TripUiLang) {
       return 'New destination? New squad trip?';
     },
 
-    basecampBadge: he ? '🏠 בסיס המחנה' : '🏠 Basecamp',
-    basecampYour: he ? '🏠 בסיס המחנה שלכם' : '🏠 Your Basecamp',
+    basecampBadge: he ? '🛏 נקודת הלינה' : '🛏 Stay hub',
+    basecampYour: he ? '🛏 הלינה שלכם' : '🛏 Where you’re staying',
     basecampPreBooked: he ? 'מוזמן מראש' : 'Pre-booked',
     basecampNeighborhoodStrategy: he ? 'אסטרטגיית שכונה' : 'Neighborhood Strategy',
     basecampApprovedPicks: (title: string) => (he ? `מומלצים לאישור ${title}` : `${title}-Approved Picks`),
@@ -107,7 +126,7 @@ export function itineraryUi(lang: TripUiLang) {
 
     hotelCardHint: he ? 'לחצו למחירים, קישורים וביקורות' : 'Tap for rates, links & reviews',
     hotelNeighborhoodEdge: he ? 'יתרון השכונה' : 'Neighborhood Edge',
-    hotelModalBadge: he ? '🏨 בחירת בסיס' : '🏨 Basecamp pick',
+    hotelModalBadge: he ? '🏨 בחירת לינה' : '🏨 Stay pick',
     hotelOfficialSite: he ? 'לאתר המלון הרשמי ←' : 'Official hotel site →',
     hotelCompare: he ? 'השוואת מחירים וזמינות חיה ←' : 'Compare rates & live availability →',
     hotelReviews: he ? 'ביקורות (גוגל) ↗' : 'Read reviews (Google) ↗',
@@ -127,6 +146,41 @@ export function itineraryUi(lang: TripUiLang) {
     intelGems: he ? 'פנינות נסתרות' : 'Hidden gems found',
     intelTraps: he ? 'מלכודות תיירים סוננו' : 'Tourist traps filtered',
     intelContradictions: he ? 'סתירות שסומנו' : 'Contradictions flagged',
+
+    shareOpenButton: he ? 'שיתוף' : 'Share',
+    sharePanelTitle(audience: string) {
+      return he ? `לשתף את המסלול · ${audience}` : `Share this trip · ${audience}`;
+    },
+    shareWhatsApp: he ? 'וואטסאפ' : 'Send on WhatsApp',
+    shareWhatsAppSub(g?: GroupType | null) {
+      void g;
+      return he ? 'הודעה מוכנה עם התאריכים והנקודות' : 'Pre-filled message with dates & stops';
+    },
+    shareCopyLinkCta(g?: GroupType | null) {
+      if (he) {
+        if (g === 'couple') return 'שתפו עם בן/בת הזוג';
+        if (g === 'family') return 'לשלוח למשפחה (קישור)';
+        if (g === 'solo') return 'לשמור אצלכם / לשלוח לחבר/ה';
+        return 'לשתף עם החבורה';
+      }
+      if (g === 'couple') return 'Share with your partner';
+      if (g === 'family') return 'Send the link to family';
+      if (g === 'solo') return 'DM yourself the link';
+      return 'Share with your crew';
+    },
+    shareCopyLinkSub: he
+      ? 'מעתיקים את הקישור — הדביקו בוואטסאפ, הערות, או מייל'
+      : 'Copies the link — paste into WhatsApp, notes, or email',
+    shareLinkCopied: he ? 'הקישור הועתק!' : 'Link copied!',
+    sharePdf: he ? 'גרסת PDF' : 'Download PDF',
+    sharePdfSub: he ? 'נוח למטוס או בלי רשת' : 'Offline-friendly layout',
+    shareTravelOsTitle: he ? 'משתמשי TravelOS' : 'TravelOS users',
+    shareTravelOsBody: he
+      ? 'אפשר לשגר את השמירה לדשבורד של מישהו לפי שם משתמש — או להשתמש בקישור לכולם.'
+      : 'Send this saved trip to someone’s dashboard by username — or use the link for anyone.',
+    shareTravelOsHint: he
+      ? 'שמרו קודם את הטיול לחשבון, ואז חזרו לשיתוף כדי לשלוח לפי שם משתמש.'
+      : 'Save the trip to your account first, then reopen Share to send by username.',
 
     tripStoryButton: he ? '📖 סיפור טיול' : '📖 Trip story',
     tripStoryTitle: he ? 'סיפור הטיול' : 'Your trip story',
@@ -170,12 +224,12 @@ export function dayCardUi(lang: TripUiLang) {
         evening: { icon: '🌙', label: 'Evening' },
       } as const,
       vibeLabel: {
-        'hidden-gem': 'Hidden Gem',
-        'local-favorite': 'Local Fave',
-        'viral-trend': 'Trending',
+        'hidden-gem': 'Hidden gem',
+        'local-favorite': 'Local favorite',
+        'viral-trend': 'Trending spot',
         classic: 'Classic',
-        'luxury-pick': 'Luxury Pick',
-        'budget-pick': 'Budget Pick',
+        'luxury-pick': 'Luxury pick',
+        'budget-pick': 'Budget-friendly',
       },
       genreLabel: {
         sightseeing: 'Sightseeing & Vibes',
@@ -203,8 +257,8 @@ export function dayCardUi(lang: TripUiLang) {
     mapLocationCount: (n: number) => `${n} location${n !== 1 ? 's' : ''}`,
     insiderIntelHeader: 'Insider Intel',
     startDayRoute: 'Start Day Route',
-    estSpend: 'Est. spend',
-    copyLink: 'Copy Link',
+    estSpendLine: (amt: string) => `Roughly ${amt} for this day`,
+    copyRouteLink: 'Copy map link',
     copied: 'Copied!',
     insiderClosed: (n: number) => `Pro Move · ${n} insider secret${n > 1 ? 's' : ''}`,
     insiderOpen: 'Hide intel',
@@ -276,8 +330,8 @@ export function dayCardUi(lang: TripUiLang) {
     mapLocationCount: (n: number) => `${n} מיקומים`,
     insiderIntelHeader: 'מודיעין פנים',
     startDayRoute: 'התחלת מסלול היום',
-    estSpend: 'הערכת הוצאה',
-    copyLink: 'העתקת קישור',
+    estSpendLine: (amt: string) => `היום בערך ${amt}`,
+    copyRouteLink: 'העתקת קישור למפה',
     copied: 'הועתק!',
     insiderClosed: (n: number) => (n > 1 ? `טיפ מקצועי · ${n} סודות פנים` : `טיפ מקצועי · סוד פנים אחד`),
     insiderOpen: 'הסתרת מודיעין',

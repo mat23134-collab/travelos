@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth-context';
 import type { TripLanguage } from '@/lib/types';
 import { persistTripLanguagePref } from '@/lib/tripLanguagePref';
 import { TripLanguageGateModal } from '@/components/TripLanguageGateModal';
+import { BrandWordmark } from '@/components/BrandWordmark';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 // Background  : #091f36  (Purple Shadow)
@@ -149,9 +150,9 @@ export default function HomePage() {
           WebkitBackdropFilter: 'blur(18px)',
         }}
       >
-        <span className="text-base font-black" style={{ letterSpacing: '-0.025em' }}>
-          Travel<span style={{ color: PRIMARY }}>OS</span>
-        </span>
+        <Link href="/" className="text-base text-white tracking-tight inline-block" style={{ letterSpacing: '-0.025em' }}>
+          <BrandWordmark accent={PRIMARY} className="text-base" />
+        </Link>
 
         <div className="flex items-center gap-6">
           <Link
@@ -621,8 +622,8 @@ export default function HomePage() {
           color: MUTED,
         }}
       >
-        <span className="font-bold" style={{ letterSpacing: '-0.015em' }}>
-          Travel<span style={{ color: PRIMARY }}>OS</span>
+        <span className="font-semibold" style={{ letterSpacing: '-0.015em' }}>
+          <BrandWordmark accent={PRIMARY} className="text-xs sm:text-sm" />
         </span>
         <span>AI-powered travel intelligence · 2026</span>
       </footer>

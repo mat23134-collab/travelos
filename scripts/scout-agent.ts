@@ -9,6 +9,9 @@
  *   npx tsx scripts/scout-agent.ts <city> --mock     # force mock (offline)
  *   npx tsx scripts/scout-agent.ts <city> --tavily   # force Tavily even if Exa set
  *   npx tsx scripts/scout-agent.ts <city> --verbose  # print raw content
+ *   npx tsx scripts/scout-agent.ts <city> --live-only # never use mock fallback (real web only)
+ *   npx tsx scripts/scout-agent.ts <city> --categories bars
+ *   npx tsx scripts/scout-agent.ts <city> --categories tourism_sites,restaurants
  *
  * JANITOR MODE: re-verify stale places (last_verified_at > 30 days or NULL)
  *   npx tsx scripts/scout-agent.ts --janitor             # all stale places
@@ -24,6 +27,13 @@
  *   EXA_API_KEY                 — Exa neural search (required for janitor mode)
  *   TAVILY_API_KEY              — Tavily web search (fallback engine)
  *   GEMINI_MODEL                — override Gemini model (default: gemini-3-flash-preview)
+ *   YOUTUBE_API_KEY             — YouTube Data API v3 (optional youtube_video_id when a matching short clip exists)
+ *
+ * Scout CLI:
+ *   --skip-youtube             — Do not call YouTube (faster; column left null on insert)
+ *   --categories <list>        — Comma-separated scout buckets (default: all four). Tokens:
+ *                                tourism_sites (aliases: tourism, heritage), restaurants (food, dining),
+ *                                attractions (attraction), bars (bar)
  *
  * Supabase migration (run once before janitor mode):
  *   ALTER TABLE places ADD COLUMN IF NOT EXISTS last_verified_at timestamptz;
@@ -109,42 +119,97 @@ interface ExaContentsResponse {
   }>;
 }
 
+/** Scout search buckets — Gemini query-plan keys must match these names. */
+const SCOUT_QUERY_CATEGORY_KEYS = [
+  'tourism_sites',
+  'restaurants',
+  'attractions',
+  'bars',
+] as const;
+
+type ScoutQueryCategoryKey = (typeof SCOUT_QUERY_CATEGORY_KEYS)[number];
+
 interface QueryPlanResponse {
-  categories?: {
-    dining?: string[];
-    atmosphere?: string[];
-    culture?: string[];
-  };
+  categories?: Partial<Record<ScoutQueryCategoryKey, string[]>>;
 }
+
+const QUERIES_PER_SCOUT_CATEGORY = 2;
 
 function uniqueStrings(values: string[]): string[] {
   return [...new Set(values.map((v) => v.trim()).filter(Boolean))];
 }
 
-async function generateStrategicExaQueries(city: string): Promise<string[]> {
+/** DB `places.category` value for each scout query bucket. */
+function scoutQueryKeyToPlaceCategory(key: ScoutQueryCategoryKey): string {
+  const map: Record<ScoutQueryCategoryKey, string> = {
+    tourism_sites: 'tourism_site',
+    restaurants: 'restaurant',
+    attractions: 'attraction',
+    bars: 'bar',
+  };
+  return map[key];
+}
+
+function fallbackCategoryQueries(city: string, keys: ScoutQueryCategoryKey[]): string[] {
+  const c = city.trim();
+  const byKey: Record<ScoutQueryCategoryKey, string[]> = {
+    tourism_sites: [
+      `Must-see heritage monuments and UNESCO-caliber historic sites in ${c} with authoritative visitor guidance`,
+      `Best archaeology parks and landmark civic museums in ${c} worth a dedicated half-day`,
+    ],
+    restaurants: [
+      `Standout chef-led restaurants and tasting menus in ${c} praised by critics and locals`,
+      `Neighborhood restaurants in ${c} known for distinctive cuisine and consistent quality`,
+    ],
+    attractions: [
+      `Major ticketed attractions and memorable experiences in ${c}: viewpoints, tours, and iconic activities`,
+      `Family-friendly and standout experiential attractions in ${c} beyond basic sightseeing`,
+    ],
+    bars: [
+      `Award-caliber cocktail bars and mixed drinks culture in ${c}`,
+      `Wine bars late-night bars and convivial drinking spots in ${c} that locals return to`,
+    ],
+  };
+  return keys.flatMap((k) => byKey[k]);
+}
+
+/** Gemini-planned search strings for Exa/Tavily — two queries per selected scout category. */
+async function generateScoutCategoryQueries(
+  city: string,
+  categoryKeys: ScoutQueryCategoryKey[],
+): Promise<string[]> {
   const model = process.env.GEMINI_MODEL ?? 'gemini-3-flash-preview';
   const apiKey = process.env.GEMINI_API_KEY ?? '';
   if (!apiKey || apiKey.includes('your_')) {
     throw new Error('GEMINI_API_KEY is not set for query generation');
   }
 
-  const prompt = `You are generating premium web-research queries for city intelligence.
+  const keys = categoryKeys.length ? categoryKeys : [...SCOUT_QUERY_CATEGORY_KEYS];
+  const totalQueries = keys.length * QUERIES_PER_SCOUT_CATEGORY;
+  const keysJson = keys.map((k) => `"${k}":["q1","q2"]`).join(',');
+
+  const categoryLegend = `Categories (meanings):
+- tourism_sites: heritage monuments, archaeology, UNESCO-caliber historic sites, landmark civic museums, iconic squares/churches users visit as sights.
+- restaurants: dining rooms, chef-led spots, neighborhood institutions (include serious cafes only if food-led).
+- attractions: ticketed venues, tours, viewpoints, cable cars, boats, observatories, parks/experiences marketed as attractions (not pure heritage monuments — use tourism_sites for those).
+- bars: cocktail bars, wine bars, standing-room bodegas, nightlife drinking venues.`;
+
+  const prompt = `You are generating premium web-research queries for city scouting (TravelOS).
 
 CITY: ${city}
 
+ACTIVE CATEGORIES FOR THIS RUN (generate queries ONLY for these — omit any others): ${keys.join(', ')}
+
 Rules:
-1) Avoid tourism buzzwords: do NOT use "hidden gem", "secret", "locals only", or similar cliches.
-2) Output 2 queries per category (6 total), high-signal, natural-language, recommendation-style.
-3) Queries should sound like an opening sentence from a trusted insider recommendation.
-4) Focus only on quality venues/events with concrete evidence.
+1) Avoid hollow buzzwords: do NOT use "hidden gem", "secret", "locals only", or similar cliches.
+2) Output exactly ${QUERIES_PER_SCOUT_CATEGORY} queries per ACTIVE category (${totalQueries} total). Natural-language, high-signal, written like a discerning editor commissioning research.
+3) Each query must be clearly about ONE category only (no blending).
+4) Prefer specific venue types, critics, official sites, and concrete angles.
 
-Categories:
-- dining: restaurant quality with ingredient sourcing / farm-to-table focus
-- atmosphere: outstanding interior design OR unique acoustics
-- culture: pop-up events OR private galleries
+${categoryLegend}
 
-Return ONLY minified JSON with this exact shape:
-{"categories":{"dining":["q1","q2"],"atmosphere":["q3","q4"],"culture":["q5","q6"]}}`;
+Return ONLY minified JSON with this exact shape (include ONLY the active category keys, each with two string queries):
+{"categories":{${keysJson}}}`;
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   const res = await fetch(url, {
@@ -154,7 +219,7 @@ Return ONLY minified JSON with this exact shape:
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
         temperature: 0.2,
-        maxOutputTokens: 1600,
+        maxOutputTokens: 2200,
         responseMimeType: 'application/json',
       },
     }),
@@ -174,23 +239,29 @@ Return ONLY minified JSON with this exact shape:
     // keep null; fallback below
   }
 
-  const planned = uniqueStrings([
-    ...(parsed?.categories?.dining ?? []),
-    ...(parsed?.categories?.atmosphere ?? []),
-    ...(parsed?.categories?.culture ?? []),
-  ]);
+  const planned = uniqueStrings(keys.flatMap((key) => parsed?.categories?.[key] ?? []));
 
-  if (planned.length >= 6) return planned.slice(0, 6);
+  if (planned.length >= totalQueries) return planned.slice(0, totalQueries);
 
-  // Safe fallback if model formatting fails
-  return [
-    `The absolute best farm-to-table restaurants in ${city} with chef-led sourcing and seasonal menus`,
-    `Most respected ingredient-driven dining rooms in ${city} recommended by food critics and chefs`,
-    `The most design-forward bars and cafes in ${city} with exceptional interior architecture`,
-    `Top venues in ${city} known for unique acoustics, listening-room quality, or immersive sound design`,
-    `Upcoming private gallery openings and curator-led pop-up exhibitions in ${city}`,
-    `Independent culture calendar in ${city}: temporary installations, invite-only showcases, and experimental art pop-ups`,
-  ];
+  const fb = fallbackCategoryQueries(city, keys);
+  const merged = uniqueStrings([...planned, ...fb]);
+  return merged.slice(0, totalQueries);
+}
+
+function exaHighlightsQueryForCategories(city: string, keys: ScoutQueryCategoryKey[]): string {
+  const parts = [city];
+  if (keys.includes('tourism_sites')) {
+    parts.push('monuments museums heritage archaeology historic sites UNESCO');
+  }
+  if (keys.includes('restaurants')) parts.push('restaurants dining cuisine chefs');
+  if (keys.includes('attractions')) parts.push('attractions tours viewpoints experiences tickets');
+  if (keys.includes('bars')) parts.push('bars cocktails wine nightlife');
+  return parts.join(' ');
+}
+
+function categorySearchLabel(keys: ScoutQueryCategoryKey[]): string {
+  if (keys.length === SCOUT_QUERY_CATEGORY_KEYS.length) return 'tourism · restaurants · attractions · bars';
+  return keys.join(' · ');
 }
 
 async function fetchExaFullContentsByIds(apiKey: string, ids: string[]): Promise<Map<string, string>> {
@@ -225,10 +296,12 @@ async function fetchExaFullContentsByIds(apiKey: string, ids: string[]): Promise
 
 // ── Exa search — strategic category batching + full article fetch ─────────────
 
-async function searchExa(city: string): Promise<string> {
+async function searchExa(city: string, categoryKeys: ScoutQueryCategoryKey[]): Promise<string> {
   const apiKey = process.env.EXA_API_KEY ?? '';
 
-  const queryStrings = await generateStrategicExaQueries(city);
+  const keys =
+    categoryKeys.length > 0 ? categoryKeys : [...SCOUT_QUERY_CATEGORY_KEYS];
+  const queryStrings = await generateScoutCategoryQueries(city, keys);
   const queries = queryStrings.map((query) => ({
     query,
     type: 'neural' as const,
@@ -236,7 +309,10 @@ async function searchExa(city: string): Promise<string> {
     num_results: 25,
   }));
 
-  console.log(`  → Exa strategic search (${queries.length} category queries)…`);
+  const hl = exaHighlightsQueryForCategories(city, keys);
+  console.log(
+    `  → Exa category search (${queries.length} queries: ${categorySearchLabel(keys)})…`,
+  );
 
   const settled = await Promise.allSettled(
     queries.map(async ({ query, type, use_autoprompt, num_results }) => {
@@ -248,7 +324,7 @@ async function searchExa(city: string): Promise<string> {
         contents: {
           text: { maxCharacters: 1200 },
           highlights: {
-            query: `fine dining design acoustics gallery pop-up ${city}`,
+            query: hl,
             numSentences: 3,
             highlightsPerUrl: 2,
           },
@@ -362,14 +438,14 @@ async function searchTavily(query: string): Promise<string> {
     .join('\n\n');
 }
 
-async function gatherViaTavily(city: string): Promise<string> {
-  const queries = [
-    `${city} TikTok viral trending hidden spots Instagram 2025 2026`,
-    `${city} best hidden gems locals only secret restaurants bars cafes`,
-    `${city} top authentic local experiences not tourist traps 2026`,
-  ];
+async function gatherViaTavily(city: string, categoryKeys: ScoutQueryCategoryKey[]): Promise<string> {
+  const keys =
+    categoryKeys.length > 0 ? categoryKeys : [...SCOUT_QUERY_CATEGORY_KEYS];
+  const queries = await generateScoutCategoryQueries(city, keys);
 
-  console.log(`  → Tavily web search (${queries.length} queries)…`);
+  console.log(
+    `  → Tavily category search (${queries.length} queries: ${categorySearchLabel(keys)})…`,
+  );
   const settled = await Promise.allSettled(queries.map(searchTavily));
 
   const chunks = settled.flatMap((r) =>
@@ -474,6 +550,8 @@ async function gatherRawContent(
   city: string,
   forceMock: boolean,
   forceTavily: boolean,
+  liveOnly: boolean,
+  categoryKeys: ScoutQueryCategoryKey[],
 ): Promise<{ content: string; engine: Engine }> {
   if (forceMock) {
     console.log('  → Mode: MOCK (forced)');
@@ -483,13 +561,24 @@ async function gatherRawContent(
   const hasExa    = !!process.env.EXA_API_KEY    && !process.env.EXA_API_KEY.includes('your_');
   const hasTavily = !!process.env.TAVILY_API_KEY && !process.env.TAVILY_API_KEY.includes('your_');
 
+  if (liveOnly && !hasExa && !hasTavily) {
+    throw new Error(
+      'Live-only mode requires EXA_API_KEY or TAVILY_API_KEY (mock fallback disabled).',
+    );
+  }
+
   // Exa — primary, unless --tavily flag
   if (hasExa && !forceTavily) {
     try {
-      const content = await searchExa(city);
+      const content = await searchExa(city, categoryKeys);
       return { content, engine: 'exa' };
     } catch (err) {
       console.warn(`  ⚠️  Exa failed: ${err instanceof Error ? err.message : err}`);
+      if (liveOnly && !hasTavily) {
+        throw new Error(
+          'Exa failed and no Tavily key for fallback (live-only mode; refusing mock data).',
+        );
+      }
       console.log('  → Falling back to Tavily…');
     }
   }
@@ -497,12 +586,25 @@ async function gatherRawContent(
   // Tavily — fallback
   if (hasTavily) {
     try {
-      const content = await gatherViaTavily(city);
+      const content = await gatherViaTavily(city, categoryKeys);
       return { content, engine: 'tavily' };
     } catch (err) {
       console.warn(`  ⚠️  Tavily failed: ${err instanceof Error ? err.message : err}`);
+      if (liveOnly) {
+        throw new Error(
+          'All live search engines failed (live-only mode; refusing mock data).',
+        );
+      }
       console.log('  → Falling back to mock data…');
     }
+  }
+
+  if (liveOnly) {
+    const msg =
+      forceTavily && !hasTavily
+        ? '--tavily requires TAVILY_API_KEY when using --live-only.'
+        : 'No live search content available (live-only mode; refusing mock).';
+    throw new Error(msg);
   }
 
   // Mock — final fallback
@@ -629,6 +731,15 @@ function recoverClosedObjectsFromTruncatedArray(text: string): unknown[] {
   return objects;
 }
 
+function filterPlacesByScoutKeys(
+  places: Place[],
+  keys: ScoutQueryCategoryKey[],
+): Place[] {
+  if (keys.length === 0) return places;
+  const allowed = new Set(keys.map(scoutQueryKeyToPlaceCategory));
+  return places.filter((p) => allowed.has(p.category));
+}
+
 function normalizeParsedPlaces(parsed: unknown[], city: string): Place[] {
   const flatParsed = parsed.flatMap((item) => (Array.isArray(item) ? item : [item]));
   return flatParsed.flatMap((p): Place[] => {
@@ -667,6 +778,7 @@ function isQuotaError(err: unknown): boolean {
 async function extractPlacesWithGemini(
   city: string,
   rawContent: string,
+  scoutCategoryKeys: ScoutQueryCategoryKey[],
 ): Promise<Place[]> {
   const model  = process.env.GEMINI_MODEL ?? 'gemini-3-flash-preview';
   const apiKey = process.env.GEMINI_API_KEY ?? '';
@@ -687,6 +799,26 @@ async function extractPlacesWithGemini(
 
   console.log(`  → Gemini model: ${model}`);
 
+  const keysEffective =
+    scoutCategoryKeys.length > 0 ? scoutCategoryKeys : [...SCOUT_QUERY_CATEGORY_KEYS];
+  const allFour =
+    keysEffective.length === SCOUT_QUERY_CATEGORY_KEYS.length &&
+    SCOUT_QUERY_CATEGORY_KEYS.every((k) => keysEffective.includes(k));
+  const dbCatsAllowlist = uniqueStrings(
+    keysEffective.map(scoutQueryKeyToPlaceCategory),
+  ).join(' | ');
+
+  const scoutScopeBlock = allFour
+    ? `SCOUT BALANCE (strict — raw research was gathered in four buckets):
+- Roughly equal counts across: tourism sites (heritage/monuments/museums-as-sights), attractions (experiences/tours/viewpoints/ticketed venues), restaurants, bars.
+- Assign category (below) to match the venue type; do not label a bar as a restaurant or a monument as an attraction if it is purely a heritage sight.`
+    : `FOCUS (strict): Research was scoped ONLY to: ${keysEffective.join(', ')}.
+- Extract ONLY venues that belong to these types.
+- Every object's "category" MUST be one of: ${dbCatsAllowlist}
+- Ignore mentions of other venue types; do not pad with unrelated venues to reach the target count.`;
+
+  const exampleCategoryLiteral = scoutQueryKeyToPlaceCategory(keysEffective[0]);
+
   const prompt = `You are a strategic travel data extraction agent for TravelOS.
 
 CITY: ${city}
@@ -696,11 +828,12 @@ ${normalizedRawContent}
 
 Your task: return EXACTLY ${TARGET_PLACES_PER_RUN} high-quality places from the raw data, optimized for database ingestion.
 
+${scoutScopeBlock}
+
 QUALITY FILTER (strict):
-- prioritize Fine Dining, Luxury, and Hidden Gems
-- include a balanced mix across these three quality classes
-- reject generic chains, vague areas, and non-specific venues
-- prefer entries with strong evidence from sources
+- Prefer iconic, critically praised, or standout venues with evidence in the raw text
+- Reject generic chains, vague neighborhoods, and non-specific venues
+- Prefer entries with strong evidence from sources
 
 VIBE LABEL GUIDE:
 - "luxury-pick"    → premium/high-end/luxury/fine dining
@@ -714,7 +847,7 @@ For each place output an object with EXACTLY these fields:
 {
   "city": "${city}",
   "name": "Official venue name",
-  "category": "restaurant | bar | cafe | attraction | market | nightlife | nature | hotel | shopping",
+  "category": "${exampleCategoryLiteral}",
   "description": "Concise vibe summary (max 28 words). Mention why it qualifies under quality filter.",
   "lat": 0.0000,
   "lng": 0.0000,
@@ -731,8 +864,9 @@ STRICT RULES:
 4) quality_score is integer 1-10.
 5) Minimum quality_score allowed: 7.
 6) Do NOT invent social_proof_url; if unavailable return null.
-7) Return ONLY valid minified JSON array in one line.
-8) No markdown, no comments, no prose.`;
+7) Each "category" must be exactly one of: ${dbCatsAllowlist}.
+8) Return ONLY valid minified JSON array in one line.
+9) No markdown, no comments, no prose.`;
 
   const runGemini = async (requestPrompt: string, maxOutputTokens: number): Promise<string> => {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -769,7 +903,10 @@ STRICT RULES:
   try {
     const raw = await runGemini(prompt, 12288);
     const parsed = parseGeminiPlaces(raw);
-    normalizedPlaces = normalizeParsedPlaces(parsed, city);
+    normalizedPlaces = filterPlacesByScoutKeys(
+      normalizeParsedPlaces(parsed, city),
+      keysEffective,
+    );
   } catch (err) {
     if (isQuotaError(err)) {
       throw new Error('Gemini quota exceeded (429). Increase quota/billing and retry.');
@@ -819,18 +956,21 @@ Critical anti-hallucination rules:
 1) Include only venues explicitly named in RAW EVIDENCE CHUNK text.
 2) If you cannot find enough explicit venues, return fewer objects rather than inventing.
 3) Do not include any of these already selected names: ${excludedNames || 'NONE'}.
-4) Keep only high-quality results (fine dining, luxury, hidden gems, strong local favorites).
+4) Keep high-quality venues; category must be one of: ${dbCatsAllowlist}.
 5) social_proof_url must come from evidence; otherwise null.
 
 Schema per object:
-city,name,category,description,lat,lng,category_emoji,social_proof_url,vibe_label,quality_score
+city,name,category (${dbCatsAllowlist}),description,lat,lng,category_emoji,social_proof_url,vibe_label,quality_score
 
 No markdown. No prose. JSON only.`;
 
       try {
         const rawTopUp = await runGemini(topUpPrompt, 1800);
         const parsedTopUp = parseGeminiPlaces(rawTopUp);
-        const normalizedTopUp = normalizeParsedPlaces(parsedTopUp, city);
+        const normalizedTopUp = filterPlacesByScoutKeys(
+          normalizeParsedPlaces(parsedTopUp, city),
+          keysEffective,
+        );
         if (normalizedTopUp.length === 0) continue;
         normalizedPlaces = dedupe([...normalizedPlaces, ...normalizedTopUp]);
       } catch (err) {
@@ -847,14 +987,186 @@ No markdown. No prose. JSON only.`;
     console.warn(`  ⚠️  Final result: ${normalizedPlaces.length}/${TARGET_PLACES_PER_RUN} places (best effort, no hallucination mode).`);
   }
 
+  normalizedPlaces = filterPlacesByScoutKeys(normalizedPlaces, keysEffective);
   return normalizedPlaces.slice(0, TARGET_PLACES_PER_RUN);
+}
+
+// ── YouTube Data API v3 (short / vibe clip — only when clearly about this place) ─
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Parse ISO-8601 duration from videos.contentDetails (e.g. PT1M45S). */
+function iso8601DurationToSeconds(iso: string): number {
+  if (!iso || !iso.startsWith('PT')) return NaN;
+  let sec = 0;
+  const h = iso.match(/(\d+)H/);
+  const m = iso.match(/(\d+)M/);
+  const s = iso.match(/(\d+)S/);
+  if (h) sec += parseInt(h[1], 10) * 3600;
+  if (m) sec += parseInt(m[1], 10) * 60;
+  if (s) sec += parseInt(s[1], 10);
+  return sec;
+}
+
+/** Max length for Short-style / vibe clips (reject long vlogs even if "short" tier). */
+const YT_MAX_CLIP_SECONDS = 90;
+
+const YT_GENERIC_TOKENS = new Set([
+  'the', 'and', 'for', 'with', 'from', 'your', 'best', 'top', 'visit', 'travel', 'guide', 'tour', 'walking',
+  'city', 'food', 'restaurant', 'cafe', 'bar', 'hotel', 'day', 'night', 'vlog', 'video', 'official',
+  'short', 'shorts', 'cinematic', 'vibe', 'tiktok', 'reels', 'viral', 'must', 'see', 'beautiful',
+]);
+
+function normalizeMatchBlob(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9\u0590-\u05FF\s]/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Require city in title/description plus strong place-name signal — avoids unrelated uploads.
+ */
+function youtubeSnippetMatchesPlace(
+  title: string,
+  description: string,
+  placeName: string,
+  cityName: string,
+): boolean {
+  const blob = normalizeMatchBlob(`${title}\n${description}`);
+  const city = normalizeMatchBlob(cityName);
+  const place = normalizeMatchBlob(placeName);
+
+  if (!blob || city.length < 2 || place.length < 2) return false;
+  if (!blob.includes(city)) return false;
+
+  if (place.length >= 5 && blob.includes(place)) return true;
+
+  const tokens = place.split(/\s+/).filter((w) => w.length > 2 && !YT_GENERIC_TOKENS.has(w));
+  if (tokens.length === 0) {
+    return place.length >= 5 && blob.includes(place);
+  }
+  if (tokens.length === 1) {
+    return tokens[0].length >= 5 && blob.includes(tokens[0]);
+  }
+  const hits = tokens.filter((t) => blob.includes(t)).length;
+  return hits >= Math.min(2, tokens.length);
+}
+
+interface YtSearchResponse {
+  items?: Array<{
+    id?: { videoId?: string };
+    snippet?: { title?: string; description?: string };
+  }>;
+  error?: { message?: string };
+}
+
+interface YtSearchCandidate {
+  videoId: string;
+  title: string;
+  description: string;
+}
+
+interface YtVideosResponse {
+  items?: Array<{ id: string; contentDetails?: { duration?: string } }>;
+  error?: { message?: string };
+}
+
+async function youtubeSearchCandidates(placeName: string, cityName: string, apiKey: string): Promise<YtSearchCandidate[]> {
+  const q = `${placeName.trim()} ${cityName.trim()} travel cinematic short vibes`
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 200);
+  if (!q) return [];
+
+  const params = new URLSearchParams({
+    part: 'snippet',
+    type: 'video',
+    maxResults: '10',
+    q,
+    key: apiKey,
+    videoDuration: 'short',
+  });
+  const res = await fetch(`https://www.googleapis.com/youtube/v3/search?${params}`);
+  const data = (await res.json()) as YtSearchResponse;
+  if (!res.ok) {
+    console.warn(`   ⚠️  YouTube search HTTP ${res.status}: ${data.error?.message ?? res.statusText}`);
+    return [];
+  }
+  if (data.error?.message) {
+    console.warn(`   ⚠️  YouTube search: ${data.error.message}`);
+    return [];
+  }
+
+  const out: YtSearchCandidate[] = [];
+  for (const it of data.items ?? []) {
+    const vid = it.id?.videoId;
+    const sn = it.snippet;
+    if (!vid) continue;
+    out.push({
+      videoId: vid,
+      title: sn?.title ?? '',
+      description: sn?.description ?? '',
+    });
+  }
+  return out;
+}
+
+async function youtubeFetchDurations(videoIds: string[], apiKey: string): Promise<Map<string, number>> {
+  const map = new Map<string, number>();
+  const chunk = videoIds.slice(0, 50);
+  if (chunk.length === 0) return map;
+  const params = new URLSearchParams({
+    part: 'contentDetails',
+    id: chunk.join(','),
+    key: apiKey,
+  });
+  const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?${params}`);
+  const data = (await res.json()) as YtVideosResponse;
+  if (!res.ok || data.error?.message) return map;
+  for (const it of data.items ?? []) {
+    const raw = it.contentDetails?.duration;
+    if (raw) {
+      const sec = iso8601DurationToSeconds(raw);
+      if (Number.isFinite(sec)) map.set(it.id, sec);
+    }
+  }
+  return map;
+}
+
+/**
+ * Returns a videoId only when: duration known, clip short enough, and title/description match place+city.
+ * Otherwise null (leave Supabase column empty).
+ */
+async function resolveYoutubeVideoId(placeName: string, cityName: string, apiKey: string): Promise<string | null> {
+  const candidates = await youtubeSearchCandidates(placeName, cityName, apiKey);
+  if (candidates.length === 0) return null;
+
+  const durations = await youtubeFetchDurations(
+    candidates.map((c) => c.videoId),
+    apiKey,
+  );
+
+  for (const c of candidates) {
+    if (!youtubeSnippetMatchesPlace(c.title, c.description, placeName, cityName)) continue;
+
+    const sec = durations.get(c.videoId);
+    if (sec == null || !Number.isFinite(sec) || sec <= 0 || sec > YT_MAX_CLIP_SECONDS) continue;
+
+    return c.videoId;
+  }
+
+  return null;
 }
 
 // ── Supabase upsert (service-role key bypasses RLS) ───────────────────────────
 
 async function upsertPlaces(
   places: Place[],
-): Promise<{ inserted: number; skipped: number; errors: number }> {
+): Promise<{ inserted: number; skipped: number; errors: number; youtubeTagged: number }> {
   const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').replace(/\/+$/, '');
   const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 
@@ -869,6 +1181,14 @@ async function upsertPlaces(
   let inserted = 0;
   let skipped  = 0;
   let errors   = 0;
+  let youtubeTagged = 0;
+
+  const skipYoutube = process.argv.includes('--skip-youtube');
+  const ytKey       = (process.env.YOUTUBE_API_KEY ?? process.env.YOUTUBE_DATA_API_KEY ?? '').trim();
+
+  if (!skipYoutube && !ytKey) {
+    console.log('   ℹ️  YOUTUBE_API_KEY not set — youtube_video_id will be null on new rows');
+  }
 
   for (const place of places) {
     // Duplicate check: same name + city (case-insensitive)
@@ -891,30 +1211,45 @@ async function upsertPlaces(
       continue;
     }
 
+    let youtubeVideoId: string | null = null;
+    if (!skipYoutube && ytKey) {
+      try {
+        youtubeVideoId = await resolveYoutubeVideoId(place.name, place.city, ytKey);
+      } catch (err) {
+        console.warn(
+          `   ⚠️  YouTube lookup failed for "${place.name}": ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+      await sleep(80);
+    }
+
     const { error: insertErr } = await supabase.from('places').insert([{
-      city:             place.city,
-      name:             place.name,
-      category:         place.category,
-      description:      place.description,
-      lat:              place.lat,
-      lng:              place.lng,
-      category_emoji:   place.category_emoji,
-      social_proof_url: place.social_proof_url,
-      vibe_label:       place.vibe_label,
+      city:               place.city,
+      name:               place.name,
+      category:           place.category,
+      description:        place.description,
+      lat:                place.lat,
+      lng:                place.lng,
+      category_emoji:     place.category_emoji,
+      social_proof_url:   place.social_proof_url,
+      vibe_label:         place.vibe_label,
+      youtube_video_id: youtubeVideoId,
     }]);
 
     if (insertErr) {
       console.error(`  ✗ INSERT error for "${place.name}": ${insertErr.message}`);
       errors++;
     } else {
+      if (youtubeVideoId) youtubeTagged++;
+      const ytHint = youtubeVideoId ? ` 🎬 ${youtubeVideoId}` : '';
       console.log(
-        `  ✓ INSERTED ${place.category_emoji} ${place.name.padEnd(36)} [${place.vibe_label}]`,
+        `  ✓ INSERTED ${place.category_emoji} ${place.name.padEnd(36)} [${place.vibe_label}]${ytHint}`,
       );
       inserted++;
     }
   }
 
-  return { inserted, skipped, errors };
+  return { inserted, skipped, errors, youtubeTagged };
 }
 
 // ── Janitor: verify stale places ──────────────────────────────────────────────
@@ -1104,6 +1439,66 @@ async function verifyWithExa(
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
+const CATEGORY_ARG_ALIASES: Record<string, ScoutQueryCategoryKey> = {
+  tourism_sites: 'tourism_sites',
+  tourism: 'tourism_sites',
+  heritage: 'tourism_sites',
+  sites: 'tourism_sites',
+  monuments: 'tourism_sites',
+  restaurants: 'restaurants',
+  restaurant: 'restaurants',
+  food: 'restaurants',
+  dining: 'restaurants',
+  attractions: 'attractions',
+  attraction: 'attractions',
+  bars: 'bars',
+  bar: 'bars',
+};
+
+function resolveScoutCategoryToken(token: string): ScoutQueryCategoryKey | null {
+  const t = token.trim().toLowerCase();
+  if (!t) return null;
+  if (CATEGORY_ARG_ALIASES[t]) return CATEGORY_ARG_ALIASES[t];
+  if ((SCOUT_QUERY_CATEGORY_KEYS as readonly string[]).includes(t)) return t as ScoutQueryCategoryKey;
+  return null;
+}
+
+function parseCategoriesCliArg(raw: string): ScoutQueryCategoryKey[] {
+  const tokens = raw.split(',').map((s) => s.trim()).filter(Boolean);
+  if (tokens.length === 0) {
+    throw new Error('--categories requires a non-empty comma-separated list.');
+  }
+  const out: ScoutQueryCategoryKey[] = [];
+  const seen = new Set<ScoutQueryCategoryKey>();
+  for (const tok of tokens) {
+    const r = resolveScoutCategoryToken(tok);
+    if (!r) {
+      throw new Error(
+        `Unknown category "${tok}". Use: ${SCOUT_QUERY_CATEGORY_KEYS.join(', ')} (aliases: tourism, food, bar, …).`,
+      );
+    }
+    if (!seen.has(r)) {
+      seen.add(r);
+      out.push(r);
+    }
+  }
+  return out;
+}
+
+/** First argv token that is not a flag or a flag's value (--city / --categories consume next arg). */
+function firstPositionalScoutCity(args: string[]): string | undefined {
+  const pairFlags = new Set(['--city', '--categories']);
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a.startsWith('--')) {
+      if (pairFlags.has(a) && i + 1 < args.length) i++;
+      continue;
+    }
+    return a;
+  }
+  return undefined;
+}
+
 async function main(): Promise<void> {
   loadDotEnv();
 
@@ -1112,16 +1507,37 @@ async function main(): Promise<void> {
   const dryRun      = args.includes('--dry-run');
   const forceMock   = args.includes('--mock');
   const forceTavily = args.includes('--tavily');
+  const liveOnly    = args.includes('--live-only');
   const verbose     = args.includes('--verbose');
+
+  let scoutCategoryKeys: ScoutQueryCategoryKey[] = [...SCOUT_QUERY_CATEGORY_KEYS];
+  const categoriesIdx = args.indexOf('--categories');
+  if (categoriesIdx !== -1) {
+    const raw = args[categoriesIdx + 1];
+    if (!raw || raw.startsWith('--')) {
+      console.error('✗ --categories needs a value, e.g. --categories bars  or  --categories tourism_sites,restaurants');
+      process.exit(1);
+    }
+    try {
+      scoutCategoryKeys = parseCategoriesCliArg(raw);
+    } catch (e) {
+      console.error('✗', e instanceof Error ? e.message : String(e));
+      process.exit(1);
+    }
+  }
+
+  if (liveOnly && forceMock) {
+    console.error('✗ --live-only cannot be used with --mock (choose one).');
+    process.exit(1);
+  }
 
   // --city flag works in both modes
   const cityFlagIdx = args.indexOf('--city');
   const cityFlag    = cityFlagIdx !== -1 ? args[cityFlagIdx + 1] : undefined;
 
-  // In scout mode, city is the first non-flag argument
   const city = isJanitor
     ? (cityFlag ?? undefined)
-    : (args.find((a) => !a.startsWith('--')) ?? cityFlag);
+    : (cityFlag ?? firstPositionalScoutCity(args));
 
   if (!isJanitor && !city) {
     console.error(
@@ -1131,9 +1547,13 @@ async function main(): Promise<void> {
         '  npx tsx scripts/scout-agent.ts <city> [options]',
         '',
         '  Options:',
-        '    --mock        Force mock data (offline, no API keys needed)',
-        '    --tavily      Force Tavily even if EXA_API_KEY is set',
-        '    --verbose     Print raw search content before extraction',
+        '    --mock           Force mock data (offline, no API keys needed)',
+        '    --live-only      Never fall back to mock; exit if live search fails',
+        '    --tavily         Force Tavily even if EXA_API_KEY is set',
+        '    --verbose        Print raw search content before extraction',
+        '    --categories X   Comma-separated: tourism_sites | restaurants | attractions | bars',
+        '                     (aliases: tourism, food, bar, …). Default: all four.',
+        '    --skip-youtube   Skip YouTube Data API (no youtube_video_id on new rows)',
         '',
         'JANITOR MODE (re-verify stale places):',
         '  npx tsx scripts/scout-agent.ts --janitor [options]',
@@ -1146,6 +1566,7 @@ async function main(): Promise<void> {
         '',
         'Examples:',
         '  npx tsx scripts/scout-agent.ts Rome',
+        '  npx tsx scripts/scout-agent.ts Athens --categories tourism_sites',
         '  npx tsx scripts/scout-agent.ts Tokyo --verbose',
         '  npx tsx scripts/scout-agent.ts Paris --mock',
         '  npx tsx scripts/scout-agent.ts --janitor',
@@ -1182,24 +1603,33 @@ async function main(): Promise<void> {
   const hasTavily = !!process.env.TAVILY_API_KEY && !process.env.TAVILY_API_KEY.includes('your_');
   const engineLabel = forceMock
     ? 'MOCK'
-    : forceTavily && hasTavily
-      ? 'TAVILY (forced)'
-      : hasExa
-        ? 'EXA (neural + social)'
-        : hasTavily
-          ? 'TAVILY (Exa key not set)'
-          : 'MOCK (no API keys)';
+    : liveOnly
+      ? 'LIVE ONLY (no mock fallback)'
+      : forceTavily && hasTavily
+        ? 'TAVILY (forced)'
+        : hasExa
+          ? 'EXA (neural + social)'
+          : hasTavily
+            ? 'TAVILY (Exa key not set)'
+            : 'MOCK (no API keys)';
 
   console.log(`\n🔍 TravelOS Scout Agent v4 — Scout Mode`);
   console.log(`   City   : ${city!}`);
   console.log(`   Engine : ${engineLabel}`);
   console.log(`   Model  : Gemini ${process.env.GEMINI_MODEL ?? 'gemini-3-flash-preview'}`);
+  console.log(`   Scope  : ${categorySearchLabel(scoutCategoryKeys)}`);
   console.log('');
 
   try {
     // ── Phase 1: gather raw content ──────────────────────────────────────────
     console.log('📡 Phase 1 — Gathering research content…');
-    const { content: rawContent, engine } = await gatherRawContent(city!, forceMock, forceTavily);
+    const { content: rawContent, engine } = await gatherRawContent(
+      city!,
+      forceMock,
+      forceTavily,
+      liveOnly,
+      scoutCategoryKeys,
+    );
     console.log(`   ${rawContent.length.toLocaleString()} chars via ${engine.toUpperCase()}\n`);
 
     if (verbose) {
@@ -1210,7 +1640,7 @@ async function main(): Promise<void> {
 
     // ── Phase 2: Gemini extraction ───────────────────────────────────────────
     console.log('🤖 Phase 2 — Gemini extraction…');
-    const places = await extractPlacesWithGemini(city!, rawContent);
+    const places = await extractPlacesWithGemini(city!, rawContent, scoutCategoryKeys);
     console.log(`   ${places.length} valid places extracted\n`);
 
     if (places.length < TARGET_PLACES_PER_RUN) {
@@ -1234,13 +1664,14 @@ async function main(): Promise<void> {
 
     // ── Phase 3: upsert to Supabase ──────────────────────────────────────────
     console.log('💾 Phase 3 — Upserting to Supabase `places` table…');
-    const { inserted, skipped, errors } = await upsertPlaces(places);
+    const { inserted, skipped, errors, youtubeTagged } = await upsertPlaces(places);
 
     console.log('');
     console.log('✅ Scout complete!');
     console.log(`   Inserted : ${inserted}`);
     console.log(`   Skipped  : ${skipped}  (duplicates)`);
     console.log(`   Errors   : ${errors}`);
+    if (youtubeTagged > 0) console.log(`   YouTube  : ${youtubeTagged} new row(s) with youtube_video_id`);
     if (inserted > 0) {
       console.log(`\n   These ${inserted} places will now appear as VERIFIED INTERNAL DATA`);
       console.log(`   when any user requests an itinerary for ${city} 🗺️`);

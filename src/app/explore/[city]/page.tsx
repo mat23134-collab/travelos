@@ -17,7 +17,7 @@ const VIBE_SECTION: Record<string, { label: string; icon: string; accent: string
   'local-favorite': { label: 'Local Favorites', icon: '🏘️', accent: '#f97316', order: 2 },
   'viral-trend':    { label: 'Going Viral',     icon: '🔥', accent: '#a855f7', order: 3 },
   'classic':        { label: 'Timeless Picks',  icon: '🏛️', accent: '#3b82f6', order: 4 },
-  'luxury-pick':    { label: 'Luxury Picks',    icon: '✨', accent: '#eab308', order: 5 },
+  'luxury-pick':    { label: 'Luxury Picks',    icon: '✨', accent: '#C9A84C', order: 5 },
   'budget-pick':    { label: 'Budget Gems',     icon: '💰', accent: '#06b6d4', order: 6 },
 };
 

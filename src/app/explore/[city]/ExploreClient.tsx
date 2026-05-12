@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { PlacesGrid, PlaceCardData } from '@/components/PlaceCard';
+import { BrandWordmark } from '@/components/BrandWordmark';
 
 interface Section {
   key: string;
@@ -41,8 +42,8 @@ export function ExploreClient({ city, sections, totalPlaces, isAdmin }: ExploreC
         style={{ background: 'rgba(8,11,18,0.85)', backdropFilter: 'blur(20px)' }}
       >
         <div className="max-w-5xl mx-auto px-5 py-4 flex items-center justify-between gap-4">
-          <Link href="/" className="text-base font-bold tracking-tight text-white">
-            Travel<span style={{ color: '#ff5a5f' }}>OS</span>
+          <Link href="/" className="text-white tracking-tight">
+            <BrandWordmark accent="#ff5a5f" className="text-lg" />
           </Link>
 
           <div className="flex items-center gap-3">

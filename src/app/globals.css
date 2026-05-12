@@ -48,9 +48,16 @@ html { scroll-behavior: smooth; }
 body {
   background-color: #091f36;
   color: #ffffff;
-  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   line-height: 1.6;
+}
+
+/* Logotype — Cormorant Garamond (loaded in layout.tsx) */
+.font-brand {
+  font-family: var(--font-brand-serif), ui-serif, Georgia, 'Times New Roman', serif;
+  font-weight: 500;
+  letter-spacing: -0.03em;
 }
 
 /* ── Typography ─────────────────────────────────────────────────────────────── */

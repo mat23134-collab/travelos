@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/auth-context';
+import { BrandWordmark } from '@/components/BrandWordmark';
 import { supabaseAuth } from '@/lib/supabase';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -282,8 +283,8 @@ export default function DashboardPage() {
         className="sticky top-0 z-40 flex items-center justify-between px-6 py-4 border-b border-white/6"
         style={{ background: 'rgba(9,31,54,0.90)', backdropFilter: 'blur(16px)' }}
       >
-        <Link href="/" className="text-lg font-bold text-white tracking-tight">
-          Travel<span style={{ color: '#9e363a' }}>OS</span>
+        <Link href="/" className="text-lg text-white tracking-tight">
+          <BrandWordmark accent="#9e363a" className="text-lg" />
         </Link>
 
         <div className="flex items-center gap-3">

@@ -12,11 +12,11 @@
  *   hidden-gem     → Electric Green #22c55e
  *   local-favorite → Sunset Orange  #f97316
  *   classic        → Neon Blue      #3b82f6
- *   luxury-pick    → Gold           #eab308
+ *   luxury-pick    → Luxury gold   #C9A84C
  *   budget-pick    → Cyan           #06b6d4
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { MapPin, ExternalLink, Navigation, X, Globe } from 'lucide-react';
 import { VerificationBadge } from '@/components/VerificationBadge';
@@ -26,6 +26,8 @@ import { buildCubeUnsplashSearchQuery } from '@/lib/cubeUnsplashQuery';
 import Image from 'next/image';
 import { SmartSwapSheet } from '@/components/SmartSwapSheet';
 import { dayCardUi, type ItineraryUiStrings } from '@/lib/tripUiCopy';
+import { TripPill } from '@/components/TripPill';
+import { pickMoodUnsplashPair } from '@/lib/moodImageFallback';
 
 // ── Unified data interface ─────────────────────────────────────────────────────
 // Maps from either Place (Scout Agent / Supabase) or Activity (itinerary).
@@ -83,21 +85,42 @@ interface VibeColor {
 }
 
 const VIBE_COLORS: Record<string, VibeColor> = {
-  'viral-trend':    { border: '#a855f7', bg: 'rgba(168,85,247,0.08)',  text: '#c084fc', glow: 'rgba(168,85,247,0.28)', badgeBg: 'rgba(168,85,247,0.15)', label: 'Viral',       icon: '🔥' },
-  'hidden-gem':     { border: '#22c55e', bg: 'rgba(34,197,94,0.08)',   text: '#4ade80', glow: 'rgba(34,197,94,0.28)',  badgeBg: 'rgba(34,197,94,0.15)',  label: 'Hidden Gem',  icon: '💎' },
-  'local-favorite': { border: '#f97316', bg: 'rgba(249,115,22,0.08)',  text: '#fb923c', glow: 'rgba(249,115,22,0.28)', badgeBg: 'rgba(249,115,22,0.15)', label: 'Local Fave',  icon: '🏘️' },
-  'classic':        { border: '#3b82f6', bg: 'rgba(59,130,246,0.08)',  text: '#60a5fa', glow: 'rgba(59,130,246,0.28)', badgeBg: 'rgba(59,130,246,0.15)', label: 'Classic',     icon: '🏛️' },
-  'luxury-pick':    { border: '#eab308', bg: 'rgba(234,179,8,0.08)',   text: '#facc15', glow: 'rgba(234,179,8,0.28)',  badgeBg: 'rgba(234,179,8,0.15)',  label: 'Luxury',      icon: '✨' },
-  'budget-pick':    { border: '#06b6d4', bg: 'rgba(6,182,212,0.08)',   text: '#22d3ee', glow: 'rgba(6,182,212,0.28)',  badgeBg: 'rgba(6,182,212,0.15)',  label: 'Budget Pick', icon: '💰' },
+  'viral-trend':    { border: '#a855f7', bg: 'rgba(168,85,247,0.11)',  text: '#c084fc', glow: 'rgba(168,85,247,0.28)', badgeBg: 'rgba(168,85,247,0.18)', label: 'Viral',       icon: '🔥' },
+  'hidden-gem':     { border: '#22c55e', bg: 'rgba(34,197,94,0.11)',   text: '#4ade80', glow: 'rgba(34,197,94,0.28)',  badgeBg: 'rgba(34,197,94,0.18)',  label: 'Hidden Gem',  icon: '💎' },
+  'local-favorite': { border: '#f97316', bg: 'rgba(249,115,22,0.11)',  text: '#fb923c', glow: 'rgba(249,115,22,0.28)', badgeBg: 'rgba(249,115,22,0.18)', label: 'Local Fave',  icon: '🏘️' },
+  'classic':        { border: '#3b82f6', bg: 'rgba(59,130,246,0.11)',  text: '#60a5fa', glow: 'rgba(59,130,246,0.28)', badgeBg: 'rgba(59,130,246,0.18)', label: 'Classic',     icon: '🏛️' },
+  'luxury-pick':    { border: '#C9A84C', bg: 'rgba(201,168,76,0.11)',   text: '#d4c8a8', glow: 'rgba(201,168,76,0.30)', badgeBg: 'rgba(201,168,76,0.18)',  label: 'Luxury',      icon: '✨' },
+  'budget-pick':    { border: '#06b6d4', bg: 'rgba(6,182,212,0.11)',   text: '#22d3ee', glow: 'rgba(6,182,212,0.28)',  badgeBg: 'rgba(6,182,212,0.18)',  label: 'Budget Pick', icon: '💰' },
 };
 
 const DEFAULT_VIBE: VibeColor = {
-  border: 'rgba(255,255,255,0.3)', bg: 'rgba(255,255,255,0.05)', text: 'rgba(255,255,255,0.7)',
-  glow: 'rgba(255,255,255,0.1)', badgeBg: 'rgba(255,255,255,0.08)', label: 'Spot', icon: '📍',
+  border: 'rgba(255,255,255,0.3)', bg: 'rgba(255,255,255,0.08)', text: 'rgba(255,255,255,0.78)',
+  glow: 'rgba(255,255,255,0.1)', badgeBg: 'rgba(255,255,255,0.12)', label: 'Spot', icon: '📍',
 };
+
+/** Warm hairline on tiles — reads against teal itinerary surfaces */
+const PLACE_TILE_AMBER_EDGE = 'rgba(251, 191, 36, 0.22)';
 
 function getVibe(vibeLabel: string): VibeColor {
   return VIBE_COLORS[vibeLabel] ?? DEFAULT_VIBE;
+}
+
+/** Deterministic mood image when Unsplash API misses or the hero fails to load */
+function cubePhotoFallback(query: string, salt = ''): CubePhotoPayload {
+  const raw = `${query}${salt}`
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48);
+  const seed = raw || 'travel-mood';
+  const { thumb, url } = pickMoodUnsplashPair(seed);
+  return {
+    url,
+    thumb,
+    credit: 'Unsplash',
+    creditUrl: 'https://unsplash.com/?utm_source=travelos&utm_medium=referral',
+    source: 'unsplash',
+  };
 }
 
 // ── Highlight extractor — splits description into bullets when none provided ──
@@ -111,10 +134,64 @@ function buildHighlights(description: string, provided?: string[]): string[] {
     .slice(0, 3);
 }
 
+/** Split "nightlife / wine · hidden-gem" style lines into separate chips (slashes / pipes only — not commas). */
+function expandHighlightFragments(bullet: string): string[] {
+  const t = bullet.trim();
+  if (!t) return [];
+  if (t.length <= 120 && /[/|·]/.test(t)) {
+    return t.split(/\s*[/|·]\s*/).map((s) => s.trim()).filter(Boolean);
+  }
+  return [t];
+}
+
+const TAG_ICON_HINTS: readonly [string, string][] = [
+  ['hidden', '💎'],
+  ['gem', '💎'],
+  ['viral', '🔥'],
+  ['night', '🌙'],
+  ['wine', '🍷'],
+  ['bar', '🍸'],
+  ['food', '🍽️'],
+  ['dinner', '🍽️'],
+  ['lunch', '🥙'],
+  ['breakfast', '🥐'],
+  ['coffee', '☕'],
+  ['café', '☕'],
+  ['cafe', '☕'],
+  ['museum', '🏛️'],
+  ['gallery', '🎨'],
+  ['art', '🎨'],
+  ['walk', '🚶'],
+  ['hike', '🥾'],
+  ['view', '🌅'],
+  ['sunset', '🌅'],
+  ['rooftop', '🌆'],
+  ['music', '🎵'],
+  ['shop', '🛍️'],
+  ['market', '🛒'],
+  ['budget', '💰'],
+  ['luxury', '✨'],
+  ['family', '👨‍👩‍👧'],
+  ['beach', '🏖️'],
+  ['spa', '🧖'],
+];
+
+function iconForHighlightTag(fragment: string): string {
+  const n = fragment.toLowerCase().replace(/_/g, ' ');
+  for (const [word, icon] of TAG_ICON_HINTS) {
+    if (n.includes(word)) return icon;
+  }
+  return '✦';
+}
+
+function humanizeHighlightTag(fragment: string): string {
+  return fragment.replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 // ── Meal slot config (3-Meal Rule) ───────────────────────────────────────────
 
 const MEAL_SLOT_CFG: Record<'breakfast' | 'lunch' | 'dinner', { icon: string; label: string; color: string }> = {
-  breakfast: { icon: '🌅', label: 'Breakfast', color: '#f59e0b' },
+  breakfast: { icon: '🌅', label: 'Breakfast', color: '#b8a066' },
   lunch:     { icon: '☀️',  label: 'Lunch',     color: '#f97316' },
   dinner:    { icon: '🌙', label: 'Dinner',    color: '#8b5cf6' },
 };
@@ -183,6 +260,7 @@ function PlacePhotoHeader({ data, height }: PhotoHeaderProps) {
   const [loading, setLoading] = useState(true);
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
+  const imgFailCount = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -190,14 +268,17 @@ function PlacePhotoHeader({ data, height }: PhotoHeaderProps) {
     setLoading(true);
     setImgLoaded(false);
     setImgError(false);
+    imgFailCount.current = 0;
 
     fetch(`/api/photos?q=${encodeURIComponent(searchQuery)}`)
       .then((r) => r.json())
       .then((d: CubePhotoPayload) => {
-        if (!cancelled) setPhoto(d);
+        if (cancelled) return;
+        if (d?.thumb && d?.url) setPhoto(d);
+        else setPhoto(cubePhotoFallback(searchQuery));
       })
       .catch(() => {
-        if (!cancelled) setPhoto(null);
+        if (!cancelled) setPhoto(cubePhotoFallback(searchQuery));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -236,7 +317,16 @@ function PlacePhotoHeader({ data, height }: PhotoHeaderProps) {
             sizes="(max-width: 768px) 50vw, 400px"
             className="object-cover"
             onLoad={() => setImgLoaded(true)}
-            onError={() => setImgError(true)}
+            onError={() => {
+              imgFailCount.current += 1;
+              if (imgFailCount.current <= 3) {
+                setImgError(false);
+                setImgLoaded(false);
+                setPhoto(cubePhotoFallback(searchQuery, `-f${imgFailCount.current}`));
+              } else {
+                setImgError(true);
+              }
+            }}
             unoptimized={photo?.source === 'picsum'}
           />
         </motion.div>
@@ -292,10 +382,14 @@ interface TileProps {
   isSelected: boolean;
   smartSwapLabel?: string;
   onSmartSwap?: () => void;
+  dc?: ReturnType<typeof dayCardUi>;
 }
 
-function PlaceTile({ data, onClick, isSelected, smartSwapLabel, onSmartSwap }: TileProps) {
+function PlaceTile({ data, onClick, isSelected, smartSwapLabel, onSmartSwap, dc }: TileProps) {
   const vibe = getVibe(data.vibeLabel);
+  const vibeLbl = dc
+    ? ((dc.vibeLabel[data.vibeLabel as keyof typeof dc.vibeLabel] as string | undefined) ?? vibe.label)
+    : vibe.label;
 
   return (
     <motion.button
@@ -303,18 +397,18 @@ function PlaceTile({ data, onClick, isSelected, smartSwapLabel, onSmartSwap }: T
       onClick={onClick}
       className="relative w-full text-left rounded-2xl overflow-hidden focus:outline-none flex flex-col"
       style={{
-        background: `linear-gradient(160deg, ${vibe.bg} 0%, rgba(13,15,22,0.82) 100%)`,
+        background: `linear-gradient(162deg, ${vibe.bg} 0%, rgba(30,36,48,0.72) 48%, rgba(36,44,58,0.78) 100%)`,
         backdropFilter: 'blur(18px)',
         WebkitBackdropFilter: 'blur(18px)',
-        border: `1px solid ${vibe.border}45`,
-        boxShadow: `inset 0 1px 0 rgba(255,255,255,0.05), 0 4px 24px -6px ${vibe.glow}`,
+        border: `1px solid ${PLACE_TILE_AMBER_EDGE}`,
+        boxShadow: `inset 0 1px 0 rgba(255,255,255,0.07), 0 0 0 1px ${vibe.border}35, 0 4px 24px -6px ${vibe.glow}`,
         // fade out in-place while modal is animating from this position
         opacity: isSelected ? 0 : 1,
         pointerEvents: isSelected ? 'none' : undefined,
       }}
       whileHover={{
         scale: 1.02,
-        boxShadow: `inset 0 1px 0 rgba(255,255,255,0.07), 0 8px 32px -6px ${vibe.glow}, 0 0 0 1px ${vibe.border}60`,
+        boxShadow: `inset 0 1px 0 rgba(255,255,255,0.09), 0 8px 32px -6px ${vibe.glow}, 0 0 0 1px rgba(253,224,71,0.28)`,
       }}
       whileTap={{ scale: 0.98 }}
       transition={{ type: 'spring', stiffness: 420, damping: 30 }}
@@ -326,35 +420,21 @@ function PlaceTile({ data, onClick, isSelected, smartSwapLabel, onSmartSwap }: T
         {/* Row 1 — emoji + vibe badge */}
         <div className="flex items-start justify-between gap-2 mb-2">
           <span className="text-3xl leading-none select-none">{data.emoji}</span>
-          <span
-            className="text-[9px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-full whitespace-nowrap"
-            style={{
-              background: vibe.badgeBg,
-              border: `1px solid ${vibe.border}55`,
-              color: vibe.text,
-              boxShadow: `0 0 10px ${vibe.glow}`,
-            }}
-          >
-            {vibe.icon} {vibe.label}
-          </span>
+          <TripPill variant="vibe" vibeKey={data.vibeLabel} label={vibeLbl} size="sm" />
         </div>
 
         {/* Meal slot badge (Breakfast / Lunch / Dinner) — only shown inside Food cube */}
         {data.mealSlot && (() => {
           const ms = MEAL_SLOT_CFG[data.mealSlot];
+          const mealLabel =
+            data.mealSlot === 'breakfast'
+              ? (dc?.mealBreakfast ?? ms.label)
+              : data.mealSlot === 'lunch'
+                ? (dc?.mealLunch ?? ms.label)
+                : (dc?.mealDinner ?? ms.label);
           return (
             <div className="mb-2.5">
-              <span
-                className="inline-flex items-center gap-1 text-[9px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-full"
-                style={{
-                  background: `${ms.color}18`,
-                  border: `1px solid ${ms.color}42`,
-                  color: ms.color,
-                  boxShadow: `0 0 8px ${ms.color}30`,
-                }}
-              >
-                {ms.icon} {ms.label}
-              </span>
+              <TripPill variant="meal" icon={ms.icon} label={mealLabel} accentColor={ms.color} size="sm" />
             </div>
           );
         })()}
@@ -369,19 +449,19 @@ function PlaceTile({ data, onClick, isSelected, smartSwapLabel, onSmartSwap }: T
 
         {/* Neighborhood */}
         {data.neighborhood && (
-          <p className="text-[11px] text-white/38 mb-2 truncate flex items-center gap-1">
+          <p className="text-[11px] text-white/50 mb-2 truncate flex items-center gap-1">
             <MapPin size={9} className="flex-shrink-0 opacity-60" />
             {data.neighborhood}
           </p>
         )}
 
         {/* Description preview */}
-        <p className="text-[11px] text-white/48 leading-relaxed line-clamp-2 mb-3">
+        <p className="text-[11px] text-white/60 leading-relaxed line-clamp-2 mb-3">
           {data.description}
         </p>
 
         {/* Footer — social pulse · maps shortcut · expand cue */}
-        <div className="flex items-center justify-between pt-2 border-t border-white/6">
+        <div className="flex items-center justify-between pt-2 border-t border-white/10">
           {data.socialProofUrl ? (
             <span
               className="inline-flex items-center gap-1.5 text-[10px] font-semibold"
@@ -407,7 +487,7 @@ function PlaceTile({ data, onClick, isSelected, smartSwapLabel, onSmartSwap }: T
                 whileTap={{ scale: 0.92 }}
                 className="text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg text-white shrink-0"
                 style={{
-                  background: 'rgba(200,150,102,0.55)',
+                  background: 'rgba(201,168,76,0.5)',
                   border: '1px solid rgba(255,255,255,0.18)',
                   boxShadow: `0 0 12px ${vibe.glow}`,
                 }}
@@ -463,6 +543,10 @@ interface ModalProps {
 
 function PlaceModal({ data, onClose, swapUi, smartSwap, onTriggerSmartSwap }: ModalProps) {
   const vibe     = getVibe(data.vibeLabel);
+  const dcModal  = swapUi?.dc;
+  const vibeLbl = dcModal
+    ? ((dcModal.vibeLabel[data.vibeLabel as keyof typeof dcModal.vibeLabel] as string | undefined) ?? vibe.label)
+    : vibe.label;
   const bullets  = buildHighlights(data.description, data.highlights);
   // Use explicit mapsUrl when set; fall back to coordinate-based URL; null = no button
   const cityKey = (data.city ?? '').trim().toLowerCase();
@@ -500,11 +584,11 @@ function PlaceModal({ data, onClose, swapUi, smartSwap, onTriggerSmartSwap }: Mo
           layoutId={`pc-${data.id}`}
           className="relative w-full max-w-md rounded-2xl overflow-hidden flex flex-col pointer-events-auto"
           style={{
-            background: `linear-gradient(160deg, ${vibe.bg} 0%, rgba(10,12,19,0.98) 45%)`,
+            background: `linear-gradient(162deg, ${vibe.bg} 0%, rgba(22,26,36,0.88) 42%, rgba(14,16,24,0.96) 100%)`,
             backdropFilter: 'blur(28px)',
             WebkitBackdropFilter: 'blur(28px)',
-            border: `1px solid ${vibe.border}55`,
-            boxShadow: `0 0 0 1px ${vibe.border}20, 0 40px 100px -20px rgba(0,0,0,0.9), 0 0 80px ${vibe.glow}`,
+            border: `1px solid ${PLACE_TILE_AMBER_EDGE}`,
+            boxShadow: `0 0 0 1px ${vibe.border}28, 0 40px 100px -20px rgba(0,0,0,0.9), 0 0 80px ${vibe.glow}`,
             maxHeight: '88dvh',
           }}
         >
@@ -548,34 +632,19 @@ function PlaceModal({ data, onClose, swapUi, smartSwap, onTriggerSmartSwap }: Mo
 
             {/* Badge row */}
             <div className="flex flex-wrap gap-2 mb-4">
-              {/* Meal slot (shown first when present) */}
               {data.mealSlot && (() => {
                 const ms = MEAL_SLOT_CFG[data.mealSlot!];
+                const mealLabel =
+                  data.mealSlot === 'breakfast'
+                    ? (dcModal?.mealBreakfast ?? ms.label)
+                    : data.mealSlot === 'lunch'
+                      ? (dcModal?.mealLunch ?? ms.label)
+                      : (dcModal?.mealDinner ?? ms.label);
                 return (
-                  <span
-                    className="inline-flex items-center gap-1.5 text-[11px] font-extrabold px-3 py-1 rounded-full"
-                    style={{
-                      background: `${ms.color}18`,
-                      border: `1px solid ${ms.color}50`,
-                      color: ms.color,
-                      boxShadow: `0 0 14px ${ms.color}35`,
-                    }}
-                  >
-                    {ms.icon} {ms.label}
-                  </span>
+                  <TripPill variant="meal" icon={ms.icon} label={mealLabel} accentColor={ms.color} size="md" />
                 );
               })()}
-              <span
-                className="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1 rounded-full"
-                style={{
-                  background: vibe.badgeBg,
-                  border: `1px solid ${vibe.border}60`,
-                  color: vibe.text,
-                  boxShadow: `0 0 14px ${vibe.glow}`,
-                }}
-              >
-                {vibe.icon} {vibe.label}
-              </span>
+              <TripPill variant="vibe" vibeKey={data.vibeLabel} label={vibeLbl} size="md" />
               {data.category && (
                 <span className="text-[11px] px-2.5 py-1 rounded-full bg-white/6 border border-white/10 text-white/40 capitalize">
                   {data.category}
@@ -596,39 +665,53 @@ function PlaceModal({ data, onClose, swapUi, smartSwap, onTriggerSmartSwap }: Mo
             <div
               className="rounded-xl p-4 mb-4"
               style={{
-                background: 'rgba(255,255,255,0.04)',
-                border: `1px solid ${vibe.border}18`,
+                background: 'rgba(255,255,255,0.07)',
+                border: `1px solid rgba(251,191,36,0.12)`,
               }}
             >
-              <p className="text-sm text-white/72 leading-relaxed">{data.description}</p>
+              <p className="text-sm text-white/80 leading-relaxed">{data.description}</p>
             </div>
 
-            {/* Why you'll love it — bullet highlights */}
+            {/* Why you'll love it — pill tags (not JSON-style bullets) */}
             {bullets.length > 0 && (
               <div className="mb-5">
                 <p
                   className="text-[10px] font-extrabold uppercase tracking-widest mb-3"
                   style={{ color: vibe.text }}
                 >
-                  Why You'll Love It
+                  {"Why You'll Love It"}
                 </p>
-                <ul className="flex flex-col gap-2.5">
-                  {bullets.map((bullet, i) => (
-                    <motion.li
-                      key={i}
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.12 + i * 0.07, type: 'spring', stiffness: 380, damping: 28 }}
-                      className="flex items-start gap-2.5 text-[13px] text-white/60 leading-relaxed"
-                    >
-                      <span
-                        className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-[5px]"
-                        style={{ background: vibe.border, boxShadow: `0 0 6px ${vibe.glow}` }}
-                      />
-                      {bullet}
-                    </motion.li>
-                  ))}
-                </ul>
+                <div className="flex flex-wrap gap-2">
+                  {bullets
+                    .flatMap((b) => expandHighlightFragments(b))
+                    .slice(0, 12)
+                    .map((fragment, i) => {
+                      const icon = iconForHighlightTag(fragment);
+                      const label = humanizeHighlightTag(fragment);
+                      const isLong = label.length > 72;
+                      return (
+                        <motion.span
+                          key={`${fragment}-${i}`}
+                          initial={{ opacity: 0, scale: 0.92 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: 0.08 + i * 0.04, type: 'spring', stiffness: 400, damping: 28 }}
+                          className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold leading-snug max-w-full"
+                          style={{
+                            background: `linear-gradient(135deg, ${vibe.border}22 0%, rgba(255,255,255,0.06) 100%)`,
+                            borderColor: `${vibe.border}55`,
+                            color: 'rgba(255,255,255,0.88)',
+                            boxShadow: `0 0 14px ${vibe.glow}`,
+                          }}
+                          title={isLong ? label : undefined}
+                        >
+                          <span className="text-[12px] leading-none flex-shrink-0" aria-hidden>
+                            {icon}
+                          </span>
+                          <span className={isLong ? 'line-clamp-2' : ''}>{label}</span>
+                        </motion.span>
+                      );
+                    })}
+                </div>
               </div>
             )}
 
@@ -640,9 +723,9 @@ function PlaceModal({ data, onClose, swapUi, smartSwap, onTriggerSmartSwap }: Mo
                   onClick={onTriggerSmartSwap}
                   className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-bold text-white"
                   style={{
-                    background: `linear-gradient(135deg, #c89666 0%, #e1b382 50%, #a87346 100%)`,
+                    background: `linear-gradient(135deg, #a89254 0%, #C9A84C 50%, #8f7a42 100%)`,
                     border: `1px solid ${vibe.border}55`,
-                    boxShadow: `0 6px 22px rgba(200,150,102,0.35)`,
+                    boxShadow: `0 6px 22px rgba(201,168,76,0.35)`,
                   }}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.97 }}
@@ -768,6 +851,7 @@ export function PlacesGrid({
             }}
             isSelected={selectedId === place.id}
             smartSwapLabel={swapUi?.dc.smartSwapButton}
+            dc={swapUi?.dc}
             onSmartSwap={
               smartSwap && swapUi && place.smartSwap
                 ? () => setSmartSwapPlaceId(place.id)

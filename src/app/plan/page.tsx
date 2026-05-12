@@ -13,6 +13,7 @@ import { useAuth } from '@/lib/auth-context';
 import { getStepBackground } from '@/lib/stepBackgrounds';
 import { readTripLanguagePref, persistTripLanguagePref } from '@/lib/tripLanguagePref';
 import { TripLanguageGateModal } from '@/components/TripLanguageGateModal';
+import { BrandWordmark } from '@/components/BrandWordmark';
 type FormData = Record<string, unknown>;
 
 const STORAGE_KEY = 'travelos_plan_draft';
@@ -1391,8 +1392,8 @@ function PlanPage() {
         className="relative z-10 flex items-center justify-between px-6 py-5 border-b backdrop-blur-sm"
         style={{ background: 'rgba(9,31,54,0.88)', borderColor: 'rgba(255,255,255,0.08)' }}
       >
-        <Link href="/" className="text-lg font-semibold tracking-tight text-white">
-          Travel<span style={{ color: '#9e363a' }}>OS</span>
+        <Link href="/" className="text-lg text-white tracking-tight">
+          <BrandWordmark accent="#9e363a" className="text-lg" />
         </Link>
         <span className="text-sm font-mono tabular-nums" style={{ color: 'rgba(255,255,255,0.4)' }}>
           {planStepNumber}<span style={{ color: 'rgba(255,255,255,0.18)' }}> / {planStepTotal}</span>

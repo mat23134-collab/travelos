@@ -54,7 +54,7 @@ export function TripStoryCube({ open, onClose, itinerary, ui }: Props) {
                     'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.35) 50%, transparent 100%)',
                 }}
               />
-              <div className="absolute top-10 right-0 w-48 h-48 rounded-full bg-[#e1b382]/22 blur-[70px] pointer-events-none" />
+              <div className="absolute top-10 right-0 w-48 h-48 rounded-full bg-[#C9A84C]/22 blur-[70px] pointer-events-none" />
               <div className="absolute bottom-20 left-0 w-40 h-40 rounded-full bg-[#2d545e]/40 blur-[60px] pointer-events-none" />
 
               <div className="relative flex-shrink-0 px-5 pt-6 pb-3 border-b border-white/[0.07]">

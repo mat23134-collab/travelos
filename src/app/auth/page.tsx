@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/auth-context';
+import { BrandWordmark } from '@/components/BrandWordmark';
 import { supabaseAuth } from '@/lib/supabase';
 import { normalizeUsername, validateUsernameShape } from '@/lib/username';
 
@@ -211,7 +212,7 @@ export default function AuthPage() {
         href="/"
         className="absolute top-6 left-6 text-sm text-white/35 hover:text-white/70 transition-colors flex items-center gap-1.5 z-10"
       >
-        ← Travel<span style={{ color: '#9e363a' }}>OS</span>
+        ← <BrandWordmark accent="#9e363a" className="text-sm" />
       </Link>
 
       {/* Card */}
@@ -232,9 +233,7 @@ export default function AuthPage() {
         >
           {/* Brand mark */}
           <div className="text-center mb-8">
-            <span className="text-2xl font-bold text-white tracking-tight">
-              Travel<span style={{ color: '#9e363a' }}>OS</span>
-            </span>
+            <BrandWordmark accent="#9e363a" className="text-2xl" />
             <p className="text-white/35 text-sm mt-1">Your AI trip planner</p>
           </div>
 

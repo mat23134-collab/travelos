@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Itinerary, TravelerProfile } from '@/lib/types';
 import { ItineraryClient } from '@/components/ItineraryClient';
 import { ItinerarySkeleton } from '@/components/ItinerarySkeleton';
+import { BrandWordmark } from '@/components/BrandWordmark';
 
 export default function ItineraryPage() {
   const router = useRouter();
@@ -47,7 +48,7 @@ export default function ItineraryPage() {
         <div className="sticky top-0 z-40 backdrop-blur-sm border-b" style={{ background: 'rgba(9,31,54,0.90)', borderColor: 'rgba(255,255,255,0.08)' }}>
           <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
             <div className="text-lg font-semibold tracking-tight text-white">
-              Travel<span style={{ color: '#9e363a' }}>OS</span>
+              <BrandWordmark accent="#9e363a" className="text-lg" />
             </div>
             <div className="skeleton-bar w-28 h-7 rounded-lg" />
           </div>

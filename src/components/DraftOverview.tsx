@@ -5,7 +5,7 @@ import { Itinerary, Activity, DayPlan } from '@/lib/types';
 import type { SwapResult } from '@/app/api/swap/route';
 import { draftSlotUi, type ItineraryUiStrings } from '@/lib/tripUiCopy';
 import { TripStoryCube } from '@/components/TripStoryCube';
-import { ITIN_RESULTS_PAGE_BG } from '@/lib/itineraryResultsPalette';
+import { ITIN_RESULTS_PAGE_BG, ITIN_RESULTS_NOISE_DATA_URL } from '@/lib/itineraryResultsPalette';
 
 const SLOT_ICONS = {
   morning: '🌅',
@@ -71,7 +71,7 @@ function SlotRow({ slot, activity, onRefresh, swapping, justSwapped, slotUi, ui 
             {activity?.startTime && (
               <span
                 className="text-[10px] font-mono px-1.5 py-0.5 rounded"
-                style={{ color: '#c05060', background: 'rgba(200,150,102,0.12)' }}
+                style={{ color: '#c05060', background: 'rgba(201,168,76,0.12)' }}
               >
                 {activity.startTime}
               </span>
@@ -96,9 +96,9 @@ function SlotRow({ slot, activity, onRefresh, swapping, justSwapped, slotUi, ui 
             className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-all disabled:opacity-40"
             style={{ borderColor: 'rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.45)' }}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.borderColor = '#c89666';
+              (e.currentTarget as HTMLElement).style.borderColor = '#a89254';
               (e.currentTarget as HTMLElement).style.color = '#c05060';
-              (e.currentTarget as HTMLElement).style.background = 'rgba(200,150,102,0.10)';
+              (e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.10)';
             }}
             onMouseLeave={(e) => {
               (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.10)';
@@ -107,7 +107,7 @@ function SlotRow({ slot, activity, onRefresh, swapping, justSwapped, slotUi, ui 
             }}
           >
             {swapping
-              ? <span className="w-3 h-3 rounded-full border border-t-[#c89666] border-[#c89666]/30 animate-spin" />
+              ? <span className="w-3 h-3 rounded-full border border-t-[#a89254] border-[#a89254]/30 animate-spin" />
               : '↻'
             }
             {swapping ? ui.draftSwapping : ui.draftSwap}
@@ -131,15 +131,15 @@ function SlotRow({ slot, activity, onRefresh, swapping, justSwapped, slotUi, ui 
               borderColor: 'rgba(255,255,255,0.10)',
               background: 'rgba(255,255,255,0.06)',
             }}
-            onFocus={(e) => { e.currentTarget.style.borderColor = '#c89666'; }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = '#a89254'; }}
             onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'; }}
           />
           <button
             onClick={handleQuickSwap}
             className="text-xs px-3 py-2 rounded-lg text-white font-semibold transition-colors"
-            style={{ background: '#c89666' }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = '#b88455')}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = '#c89666')}
+            style={{ background: '#a89254' }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = '#b8a066')}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = '#a89254')}
           >
             {ui.draftGo}
           </button>
@@ -178,7 +178,7 @@ function DayColumn({ day, dayIndex, swappingKey, swappedKeys, onSwap, slotUi, ui
       <div className="flex items-center gap-2 mb-1">
         <div
           className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
-          style={{ background: '#c89666' }}
+          style={{ background: '#a89254' }}
         >
           {dayIndex + 1}
         </div>
@@ -260,8 +260,18 @@ export function DraftOverview({ itinerary, onUpdate, onFinalize, ui }: Props) {
   const slotUi = useMemo(() => draftSlotUi(ui.lang), [ui.lang]);
 
   return (
-    <div className="min-h-screen" style={{ background: ITIN_RESULTS_PAGE_BG }} dir={ui.dir} lang={ui.htmlLang}>
-      {/* Draft header */}
+    <div className="min-h-screen relative" style={{ background: ITIN_RESULTS_PAGE_BG }} dir={ui.dir} lang={ui.htmlLang}>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-0 opacity-[0.02]"
+        style={{
+          backgroundImage: `url(${ITIN_RESULTS_NOISE_DATA_URL})`,
+          backgroundSize: '180px 180px',
+          mixBlendMode: 'overlay',
+        }}
+      />
+      <div className="relative z-[1]">
+        {/* Draft header */}
       <div
         className="sticky top-0 z-40 border-b backdrop-blur-sm"
         style={{ background: 'rgba(18,52,59,0.92)', borderColor: 'rgba(255,255,255,0.08)' }}
@@ -303,11 +313,11 @@ export function DraftOverview({ itinerary, onUpdate, onFinalize, ui }: Props) {
               disabled={!!swappingKey}
               className="flex items-center gap-2 px-5 py-2.5 rounded-xl disabled:opacity-40 text-white font-semibold text-sm transition-all duration-150 hover:-translate-y-0.5 whitespace-nowrap"
               style={{
-                background: '#c89666',
-                boxShadow: '0 4px 16px -4px rgba(200,150,102,0.35)',
+                background: '#a89254',
+                boxShadow: '0 4px 16px -4px rgba(201,168,76,0.35)',
               }}
-              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = '#b88455')}
-              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = '#c89666')}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = '#b8a066')}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = '#a89254')}
             >
               {ui.looksGood}
             </button>
@@ -321,7 +331,7 @@ export function DraftOverview({ itinerary, onUpdate, onFinalize, ui }: Props) {
           className="rounded-2xl px-5 py-4 mb-6"
           style={{ background: 'rgba(45,84,94,0.38)', border: '1px solid rgba(255,255,255,0.08)' }}
         >
-          <div className="text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#c89666' }}>
+          <div className="text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#a89254' }}>
             {ui.aiStrategy}
           </div>
           <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.70)' }}>
@@ -333,8 +343,8 @@ export function DraftOverview({ itinerary, onUpdate, onFinalize, ui }: Props) {
           <div
             className="mb-4 px-4 py-3 rounded-xl text-sm"
             style={{
-              background: 'rgba(200,150,102,0.12)',
-              border: '1px solid rgba(200,150,102,0.28)',
+              background: 'rgba(201,168,76,0.12)',
+              border: '1px solid rgba(201,168,76,0.28)',
               color: '#ff8c8f',
             }}
           >
@@ -364,11 +374,11 @@ export function DraftOverview({ itinerary, onUpdate, onFinalize, ui }: Props) {
             disabled={!!swappingKey}
             className="inline-flex items-center gap-2 px-8 py-3 rounded-xl disabled:opacity-40 text-white font-semibold transition-all duration-150 hover:-translate-y-0.5"
             style={{
-              background: '#c89666',
-              boxShadow: '0 8px 28px -4px rgba(200,150,102,0.35)',
+              background: '#a89254',
+              boxShadow: '0 8px 28px -4px rgba(201,168,76,0.35)',
             }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = '#b88455')}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = '#c89666')}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = '#b8a066')}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = '#a89254')}
           >
             {ui.finalizeItinerary}
           </button>
@@ -384,6 +394,7 @@ export function DraftOverview({ itinerary, onUpdate, onFinalize, ui }: Props) {
         itinerary={itinerary}
         ui={ui}
       />
+      </div>
     </div>
   );
 }

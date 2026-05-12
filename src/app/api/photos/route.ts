@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { pickMoodUnsplashPair } from '@/lib/moodImageFallback';
 
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get('q') ?? 'travel landscape';
@@ -33,16 +34,16 @@ export async function GET(req: NextRequest) {
     } catch { /* fall through */ }
   }
 
-  // Picsum fallback — deterministic from query so same query = same image
-  const seed = q.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 32);
+  const seed = q.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 48) || 'travel';
+  const { thumb, url } = pickMoodUnsplashPair(seed);
   return NextResponse.json(
     {
-      url: `https://picsum.photos/seed/${seed}/1200/500`,
-      thumb: `https://picsum.photos/seed/${seed}/400/200`,
-      credit: null,
-      creditUrl: null,
-      source: 'picsum',
+      url,
+      thumb,
+      credit: 'Unsplash',
+      creditUrl: 'https://unsplash.com/?utm_source=travelos&utm_medium=referral',
+      source: 'unsplash',
     },
-    { headers: { 'Cache-Control': 'public, s-maxage=86400' } }
+    { headers: { 'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=604800' } }
   );
 }

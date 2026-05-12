@@ -71,7 +71,7 @@ function pinAccent(category?: string, vibeLabel?: string): string {
     'hidden-gem':     '#22c55e',
     'local-favorite': '#f97316',
     'classic':        '#3b82f6',
-    'luxury-pick':    '#eab308',
+    'luxury-pick':    '#C9A84C',
     'budget-pick':    '#06b6d4',
   };
   return VIBE_ACCENT[vibeLabel ?? ''] ?? 'rgba(255,255,255,0.6)';

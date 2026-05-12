@@ -19,6 +19,8 @@ export interface Place {
   lng: number;
   category_emoji: string;     // single emoji
   social_proof_url: string | null; // TikTok / Instagram URL if known
+  /** YouTube watch URL id — filled by scout-agent cinematic search when configured */
+  youtube_video_id?: string | null;
   vibe_label: string;         // hidden-gem | local-favorite | viral-trend | …
   // Reliability fields — written by Janitor (scripts/scout-agent.ts --janitor)
   status?: 'open' | 'closed' | 'renovating' | 'unverified'; // current venue status

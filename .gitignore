@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local media (large; keep out of git)
+/ENTRANCE VIDEO 2.mp4

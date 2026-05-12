@@ -11,6 +11,7 @@ import { VideoPreview } from './VideoPreview';
 import { WebInsightBadge } from './WebInsightBadge';
 import { DayTimeline } from './DayTimeline';
 import { GenreCube } from './GenreCube';
+import { TripPill } from './TripPill';
 import { SmartSwapSheet } from '@/components/SmartSwapSheet';
 import type { PlaceCardData } from '@/components/PlaceCard';
 import type { MapPlace } from '@/components/InteractiveMap';
@@ -38,20 +39,9 @@ const InteractiveMap = dynamic(
 
 const SPRING = { type: 'spring' as const, stiffness: 100, damping: 20 };
 
-// ─── Vibe config ──────────────────────────────────────────────────────────────
-
-const VIBE_CONFIG: Record<VibeLabel, { label: string; icon: string; cls: string }> = {
-  'hidden-gem':     { label: 'Hidden Gem',  icon: '💎', cls: 'bg-purple-500/20 text-purple-300 border border-purple-500/30' },
-  'local-favorite': { label: 'Local Fave',  icon: '🏘', cls: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' },
-  'viral-trend':    { label: 'Trending',    icon: '🔥', cls: 'bg-orange-500/20 text-orange-300 border border-orange-500/30' },
-  'classic':        { label: 'Classic',     icon: '🏛', cls: 'bg-blue-500/20 text-blue-300 border border-blue-500/30' },
-  'luxury-pick':    { label: 'Luxury Pick', icon: '✨', cls: 'bg-yellow-500/20 text-yellow-200 border border-yellow-500/30' },
-  'budget-pick':    { label: 'Budget Pick', icon: '💰', cls: 'bg-green-500/20 text-green-300 border border-green-500/30' },
-};
-
 const SLOT_GRADIENT: Record<string, string> = {
-  morning:   'linear-gradient(135deg, #e1b382 0%, #c89666 100%)',
-  afternoon: 'linear-gradient(135deg, #c89666 0%, #e1b382 100%)',
+  morning:   'linear-gradient(135deg, #C9A84C 0%, #a89254 100%)',
+  afternoon: 'linear-gradient(135deg, #a89254 0%, #C9A84C 100%)',
   evening:   'linear-gradient(135deg, #2d545e 0%, #12343b 100%)',
 };
 
@@ -284,7 +274,7 @@ function diningToCard(
 
 // ─── Particle burst ───────────────────────────────────────────────────────────
 
-const BURST_COLORS = ['#c89666', '#2d545e', '#e1b382', '#f59e0b', '#10b981', '#a87346'];
+const BURST_COLORS = ['#a89254', '#2d545e', '#C9A84C', '#f59e0b', '#10b981', '#8f7a42'];
 
 function ParticleBurst({ active }: { active: boolean }) {
   return (
@@ -343,7 +333,7 @@ function ReactionBar({ dc }: { dc: ReturnType<typeof dayCardUi> }) {
             transition={{ type: 'spring', stiffness: 500, damping: 28 }}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border transition-all ${
               (counts[r.id] ?? 0) > 0
-                ? 'border-[#c89666]/40 bg-[#c89666]/15 text-[#e1b382]'
+                ? 'border-[#a89254]/40 bg-[#a89254]/15 text-[#C9A84C]'
                 : 'border-white/10 bg-white/5 text-white/50 hover:border-white/20 hover:bg-white/10'
             }`}
           >
@@ -416,7 +406,7 @@ function ReviewsCarousel({
               onClick={() => setIdx(i)}
               animate={{
                 width: i === idx ? 16 : 6,
-                backgroundColor: i === idx ? '#c89666' : 'rgba(255,255,255,0.15)',
+                backgroundColor: i === idx ? '#a89254' : 'rgba(255,255,255,0.15)',
               }}
               transition={{ type: 'spring', stiffness: 400, damping: 28 }}
               className="h-1.5 rounded-full"
@@ -466,7 +456,8 @@ function ActivityModal({
     ? `${activity?.neighborhood ?? ''} ${destination}`.trim()
     : (activity?.neighborhood ?? 'travel');
   const vibeIcon  = getVibeIcon(activity?.tags ?? [], activity?.name ?? '');
-  const vibeCfg   = activity?.vibeLabel ? VIBE_CONFIG[activity.vibeLabel] : null;
+  const vibeKey   = activity?.vibeLabel ? String(activity.vibeLabel) : '';
+  const vibeChipLabel = activity?.vibeLabel ? (dc.vibeLabel[activity.vibeLabel as VibeLabel] ?? '') : '';
   const liveBuzz  = hasLiveBuzz(activity?.tags ?? [], activity?.name ?? '', activity?.description);
   const slotMeta  = dc.slotMeta[slot as Slot];
 
@@ -510,11 +501,8 @@ function ActivityModal({
           </motion.button>
 
           {slotMeta && (
-            <div
-              className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-white text-[10px] font-bold uppercase tracking-wide z-10"
-              style={{ background: 'rgba(15,17,23,0.75)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.12)' }}
-            >
-              {slotMeta.icon} {slotMeta.label}
+            <div className="absolute top-3 left-3 z-10">
+              <TripPill variant="slot" icon={slotMeta.icon} label={slotMeta.label} size="md" />
             </div>
           )}
         </div>
@@ -530,28 +518,26 @@ function ActivityModal({
             </div>
 
             <div className="flex flex-wrap gap-1.5 mb-4">
-              {vibeCfg && (
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${vibeCfg.cls}`}>
-                  {vibeCfg.icon}{' '}
-                  {activity.vibeLabel ? (dc.vibeLabel[activity.vibeLabel] ?? vibeCfg.label) : vibeCfg.label}
-                </span>
+              {vibeKey && vibeChipLabel && (
+                <TripPill variant="vibe" vibeKey={vibeKey} label={vibeChipLabel} size="md" />
               )}
               {isSquadFriendly(activity.tags ?? []) && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#00cc6a]/15 text-[#4ade80] border border-[#00cc6a]/25">
-                  ⚡ {dc.squadPick(ui.audienceTitle(groupType))}
-                </span>
+                <TripPill
+                  variant="accent"
+                  icon="⚡"
+                  label={dc.squadPick(ui.audienceTitle(groupType))}
+                  tint="emerald"
+                  size="md"
+                />
               )}
               {liveBuzz && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#c89666]/15 text-[#e1b382] border border-[#c89666]/25 inline-flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#c89666] animate-pulse inline-block" />
-                  {dc.liveBuzz}
-                </span>
+                <TripPill variant="accent" icon="📡" label={dc.liveBuzz} tint="gold" pulse size="md" />
               )}
             </div>
 
             <div className="flex flex-wrap gap-2 mb-4">
               {activity?.startTime && activity?.endTime && (
-                <span className="text-[10px] font-mono font-semibold bg-[#c89666]/10 px-2.5 py-1 rounded-lg border border-[#c89666]/15" style={{ color: '#e1b382' }}>
+                <span className="text-[10px] font-mono font-semibold bg-[#a89254]/10 px-2.5 py-1 rounded-lg border border-[#a89254]/15" style={{ color: '#C9A84C' }}>
                   {activity.startTime} – {activity.endTime}
                 </span>
               )}
@@ -587,11 +573,11 @@ function ActivityModal({
 
             {body && (
               <div className="rounded-2xl px-4 py-3 border-l-2 mb-4"
-                style={{ background: 'rgba(255,255,255,0.04)', borderLeftColor: 'rgba(200,150,102,0.50)' }}>
-                <span className="text-[10px] font-semibold uppercase tracking-wide block mb-1" style={{ color: '#c89666' }}>{dc.whyThis}</span>
+                style={{ background: 'rgba(255,255,255,0.04)', borderLeftColor: 'rgba(201,168,76,0.50)' }}>
+                <span className="text-[10px] font-semibold uppercase tracking-wide block mb-1" style={{ color: '#a89254' }}>{dc.whyThis}</span>
                 <p className="text-xs text-white/55 leading-relaxed">{body}</p>
                 {citation && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-[#c89666]/10 border border-[#c89666]/15 px-2 py-0.5 rounded-full mt-1.5" style={{ color: '#e1b382' }}>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-[#a89254]/10 border border-[#a89254]/15 px-2 py-0.5 rounded-full mt-1.5" style={{ color: '#C9A84C' }}>
                     <span className="opacity-60">📖</span>{citation}
                   </span>
                 )}
@@ -616,8 +602,8 @@ function ActivityModal({
                 whileTap={{ scale: 0.97 }}
                 className="mt-5 w-full py-3 rounded-2xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-40 shadow-lg"
                 style={{
-                  background: 'linear-gradient(135deg, #c89666 0%, #e1b382 55%, #a87346 100%)',
-                  boxShadow: '0 6px 22px rgba(200,150,102,0.35)',
+                  background: 'linear-gradient(135deg, #a89254 0%, #C9A84C 55%, #8f7a42 100%)',
+                  boxShadow: '0 6px 22px rgba(201,168,76,0.35)',
                 }}
               >
                 ✨ {dc.smartSwapTitle}
@@ -691,7 +677,7 @@ function ActivityModal({
                           background: 'rgba(255,255,255,0.06)',
                           border: '1px solid rgba(255,255,255,0.14)',
                         }}
-                        onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(200,150,102,0.55)'; }}
+                        onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(201,168,76,0.55)'; }}
                         onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.14)'; }}
                       />
                       <div className="flex gap-2">
@@ -701,8 +687,8 @@ function ActivityModal({
                           whileTap={{ scale: 0.95 }}
                           className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-40 transition-all"
                           style={{
-                            background: 'linear-gradient(135deg, #c89666 0%, #b88455 100%)',
-                            boxShadow: '0 4px 18px rgba(200,150,102,0.28)',
+                            background: 'linear-gradient(135deg, #a89254 0%, #b8a066 100%)',
+                            boxShadow: '0 4px 18px rgba(201,168,76,0.28)',
                           }}
                         >
                           <motion.span
@@ -777,7 +763,8 @@ function BentoTile({
   const vibeIcon    = getVibeIcon(activity?.tags ?? [], activity?.name ?? '');
   const vibeMatch   = getVibeMatch(activity?.vibeLabel, activity?.isHiddenGem);
   const squad       = isSquadFriendly(activity?.tags ?? []);
-  const vibeCfg     = activity?.vibeLabel ? VIBE_CONFIG[activity.vibeLabel] : null;
+  const vibeKey       = activity?.vibeLabel ? String(activity.vibeLabel) : '';
+  const vibeChipLabel = activity?.vibeLabel ? (dc.vibeLabel[activity.vibeLabel as VibeLabel] ?? '') : '';
   const liveBuzz    = hasLiveBuzz(activity?.tags ?? [], activity?.name ?? '', activity?.description);
   const meta        = dc.slotMeta[slot];
 
@@ -833,29 +820,22 @@ function BentoTile({
           </span>
         </div>
 
-        <div className="absolute top-2.5 left-2.5 z-10 flex gap-1 flex-wrap">
-          <span
-            className="text-[9px] font-bold px-2 py-0.5 rounded-full text-white"
-            style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.14)' }}
-          >
-            {meta.icon} {meta.label}
-          </span>
-          {vibeCfg && (
-            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${vibeCfg.cls}`}>
-              {vibeCfg.icon}{' '}
-              {activity.vibeLabel ? (dc.vibeLabel[activity.vibeLabel] ?? vibeCfg.label) : vibeCfg.label}
-            </span>
+        <div className="absolute top-2.5 left-2.5 z-10 flex gap-1 flex-wrap items-center">
+          <TripPill variant="slot" icon={meta.icon} label={meta.label} size="sm" />
+          {vibeKey && vibeChipLabel && (
+            <TripPill variant="vibe" vibeKey={vibeKey} label={vibeChipLabel} size="sm" />
           )}
           {squad && (
-            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-[#00cc6a]/18 text-[#4ade80] border border-[#00cc6a]/30">
-              ⚡ {ui.audienceTitle(groupType)}
-            </span>
+            <TripPill
+              variant="accent"
+              icon="⚡"
+              label={dc.squadPick(ui.audienceTitle(groupType))}
+              tint="emerald"
+              size="sm"
+            />
           )}
           {liveBuzz && (
-            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-[#c89666]/20 text-[#e1b382] border border-[#c89666]/30 inline-flex items-center gap-1">
-              <span className="w-1 h-1 rounded-full bg-[#c89666] animate-pulse inline-block" />
-              {dc.live}
-            </span>
+            <TripPill variant="accent" icon="📡" label={dc.live} tint="gold" pulse size="sm" />
           )}
         </div>
 
@@ -888,7 +868,7 @@ function BentoTile({
                   }}
                   whileTap={{ scale: 0.92 }}
                   className="text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg text-white border border-white/20"
-                  style={{ background: 'rgba(200,150,102,0.55)', backdropFilter: 'blur(8px)' }}
+                  style={{ background: 'rgba(201,168,76,0.55)', backdropFilter: 'blur(8px)' }}
                 >
                   {dc.smartSwapButton}
                 </motion.button>
@@ -1329,8 +1309,8 @@ export function DayCard({
             <div
               className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
               style={{
-                background: 'linear-gradient(135deg, #c89666, #2d545e)',
-                boxShadow: '0 0 20px rgba(200,150,102,0.35)',
+                background: 'linear-gradient(135deg, #a89254, #2d545e)',
+                boxShadow: '0 0 20px rgba(201,168,76,0.35)',
               }}
             >
               {index + 1}
@@ -1368,9 +1348,8 @@ export function DayCard({
 
             <div className="flex items-center gap-2.5 flex-shrink-0">
               {day.estimatedDailyCost && (
-                <div className="text-right hidden sm:block">
-                  <div className="text-[10px] text-white/25 uppercase tracking-wide leading-none mb-0.5">{dc.estSpend}</div>
-                  <div className="text-sm font-bold text-white/75 tracking-tight">{day.estimatedDailyCost}</div>
+                <div className="text-right hidden sm:block max-w-[200px]">
+                  <p className="text-[10px] text-white/45 leading-snug">{dc.estSpendLine(day.estimatedDailyCost)}</p>
                 </div>
               )}
               <motion.div
@@ -1378,8 +1357,8 @@ export function DayCard({
                 transition={{ type: 'spring', stiffness: 380, damping: 28 }}
                 className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
                 style={{
-                  background: open ? 'rgba(200,150,102,0.15)' : 'rgba(255,255,255,0.08)',
-                  border: open ? '1px solid rgba(200,150,102,0.3)' : '1px solid rgba(255,255,255,0.12)',
+                  background: open ? 'rgba(201,168,76,0.15)' : 'rgba(255,255,255,0.08)',
+                  border: open ? '1px solid rgba(201,168,76,0.3)' : '1px solid rgba(255,255,255,0.12)',
                 }}
               >
                 <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
@@ -1403,18 +1382,20 @@ export function DayCard({
             href={routeInfo.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-1.5 flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all hover:brightness-125 active:scale-95"
+            className="flex items-center justify-center gap-1.5 flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all hover:brightness-110 active:scale-[0.98]"
             style={{
-              background: 'linear-gradient(135deg, rgba(200,150,102,0.12), rgba(45,84,94,0.18))',
-              border: '1px solid rgba(200,150,102,0.30)',
-              color: '#e1b382',
+              background: 'linear-gradient(145deg, rgba(52,130,138,0.55) 0%, rgba(45,84,94,0.92) 42%, rgba(30,68,76,0.98) 100%)',
+              border: '2px solid rgba(110, 198, 208, 0.75)',
+              boxShadow:
+                '0 0 0 1px rgba(201,168,76,0.35), 0 6px 22px rgba(0,0,0,0.35), 0 0 28px rgba(72, 180, 190, 0.22)',
+              color: '#f8fafc',
             }}
           >
             <Map size={12} />
             <span>{dc.startDayRoute}</span>
             <span
               className="ml-0.5 tabular-nums rounded-full px-1.5 py-0.5 text-[9px] font-bold"
-              style={{ background: 'rgba(200,150,102,0.20)', color: '#f5e6d6' }}
+              style={{ background: 'rgba(255,255,255,0.18)', color: '#fff' }}
             >
               {routeInfo.stopCount}
             </span>
@@ -1441,7 +1422,7 @@ export function DayCard({
             }}
           >
             {copied ? <Check size={12} /> : <Link2 size={12} />}
-            <span>{copied ? dc.copied : dc.copyLink}</span>
+            <span>{copied ? dc.copied : dc.copyRouteLink}</span>
           </button>
         </div>
       )}
@@ -1479,7 +1460,7 @@ export function DayCard({
                     {day.estimatedDailyCost && (
                       <span
                         className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg"
-                        style={{ background: 'rgba(200,150,102,0.12)', border: '1px solid rgba(225,179,130,0.28)', color: '#e1b382' }}
+                        style={{ background: 'rgba(201,168,76,0.12)', border: '1px solid rgba(201,168,76,0.28)', color: '#C9A84C' }}
                       >
                         💳 {day.estimatedDailyCost}
                       </span>

@@ -23,6 +23,7 @@ import { useOnboardingStore } from '@/state/onboardingStore';
 import { getStepBackground } from '@/lib/stepBackgrounds';
 import { readTripLanguagePref } from '@/lib/tripLanguagePref';
 import { useAuth } from '@/lib/auth-context';
+import { BrandWordmark } from '@/components/BrandWordmark';
 
 // All step components use R3F (useFrame) + tunnel-rat → must be ssr:false
 function StepSkeleton() {
@@ -197,8 +198,8 @@ function OnboardingPageContent() {
 
         {/* Logo */}
         <div className="absolute top-8 left-8">
-          <span className="text-sm font-black text-white tracking-tight">
-            Travel<span style={{ color: '#9e363a' }}>OS</span>
+          <span className="text-sm text-white tracking-tight inline-block">
+            <BrandWordmark accent="#9e363a" className="text-sm" />
           </span>
         </div>
 

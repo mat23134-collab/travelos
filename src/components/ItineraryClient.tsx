@@ -8,7 +8,7 @@ import { Itinerary, TravelerProfile, Basecamp, HotelRecommendation, type BookedH
 import { DayCard } from '@/components/DayCard';
 import { DayPhoto } from '@/components/DayPhoto';
 import { QuickEdit } from '@/components/QuickEdit';
-import { SharePanel } from '@/components/SharePanel';
+import { SharePanel, type SharePanelCopy } from '@/components/SharePanel';
 import { LogisticsDashboard } from '@/components/LogisticsDashboard';
 import { DraftOverview } from '@/components/DraftOverview';
 import { TrendingTicker } from '@/components/TrendingTicker';
@@ -17,7 +17,8 @@ import { itineraryUi, type ItineraryUiStrings } from '@/lib/tripUiCopy';
 import { hotelOtaSearchUrl, mergeHotelOtaRows } from '@/lib/hotelOtaLinks';
 import type { SwapResult } from '@/app/api/swap/route';
 import { useAuth } from '@/lib/auth-context';
-import { ITIN_RESULTS_PAGE_BG, ITIN_PALETTE } from '@/lib/itineraryResultsPalette';
+import { ITIN_RESULTS_PAGE_BG, ITIN_RESULTS_NOISE_DATA_URL, ITIN_PALETTE } from '@/lib/itineraryResultsPalette';
+import { BrandWordmark } from '@/components/BrandWordmark';
 
 const ItineraryMap = dynamic(
   () => import('@/components/ItineraryMap').then((m) => m.ItineraryMap),
@@ -107,14 +108,21 @@ function HotelDetailCube({
           <p className="text-white/45 text-sm mt-1">📍 {hotel.neighborhood}</p>
 
           <div className="flex flex-wrap gap-2 mt-3 mb-4">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[#c89666] bg-[#c89666]/12 px-2 py-0.5 rounded-full">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#a89254] bg-[#a89254]/12 px-2 py-0.5 rounded-full">
               {hotel.neighborhoodVibe}
             </span>
             <span className="text-[10px] text-white/45 font-mono bg-white/5 px-2 py-0.5 rounded-full border border-white/10">
               {hotel.priceRange}
             </span>
             {stars && hotel.ratingStars != null && Number.isFinite(hotel.ratingStars) && (
-              <span className="text-[10px] text-amber-300/90 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+              <span
+                className="text-[10px] px-2 py-0.5 rounded-full border"
+                style={{
+                  color: 'rgba(212,200,168,0.95)',
+                  background: 'rgba(201,168,76,0.12)',
+                  borderColor: 'rgba(201,168,76,0.22)',
+                }}
+              >
                 {stars} {hotel.ratingStars.toFixed(1)}/5
                 {hotel.ratingSource ? ` · ${hotel.ratingSource}` : ''}
               </span>
@@ -137,11 +145,18 @@ function HotelDetailCube({
 
           {hotel.estimatedPriceRangeTripDates && (
             <div
-              className="mb-3 rounded-xl px-3 py-2.5 border border-amber-500/20"
-              style={{ background: 'rgba(245,158,11,0.07)' }}
+              className="mb-3 rounded-xl px-3 py-2.5 border"
+              style={{
+                background: 'rgba(201,168,76,0.08)',
+                borderColor: 'rgba(201,168,76,0.22)',
+              }}
             >
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-200/80 mb-1">{ui.hotelPriceBand}</p>
-              <p className="text-xs text-amber-100/85 leading-relaxed">{hotel.estimatedPriceRangeTripDates}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: 'rgba(201,168,76,0.92)' }}>
+                {ui.hotelPriceBand}
+              </p>
+              <p className="text-xs leading-relaxed" style={{ color: 'rgba(212,200,168,0.9)' }}>
+                {hotel.estimatedPriceRangeTripDates}
+              </p>
             </div>
           )}
 
@@ -166,8 +181,14 @@ function HotelDetailCube({
             <p className="text-[11px] text-white/45 leading-relaxed mb-4">{hotel.whyItFits}</p>
           )}
 
-          <div className="mb-4 rounded-xl overflow-hidden border border-amber-500/25" style={{ background: 'rgba(245,158,11,0.06)' }}>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-amber-200/90 px-3 pt-2.5 pb-2 border-b border-amber-500/15">
+          <div
+            className="mb-4 rounded-xl overflow-hidden border"
+            style={{ background: 'rgba(201,168,76,0.07)', borderColor: 'rgba(201,168,76,0.24)' }}
+          >
+            <p
+              className="text-[10px] font-bold uppercase tracking-widest px-3 pt-2.5 pb-2 border-b mb-0"
+              style={{ color: 'rgba(212,200,168,0.95)', borderColor: 'rgba(201,168,76,0.16)' }}
+            >
               {ui.hotelOtaCompareTitle}
             </p>
             <ul className="divide-y divide-white/8">
@@ -175,7 +196,7 @@ function HotelDetailCube({
                 <li key={row.id} className="px-3 py-2.5 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-semibold text-white/90">{row.label}</p>
-                    <p className="text-[11px] text-amber-100/85 font-mono mt-0.5">
+                    <p className="text-[11px] font-mono mt-0.5" style={{ color: 'rgba(212,200,168,0.88)' }}>
                       {row.indicativeNightly ? `${row.indicativeNightly} · ${ui.hotelOtaPerNight}` : ui.hotelOtaNoPrice}
                     </p>
                     {row.note && (
@@ -210,7 +231,7 @@ function HotelDetailCube({
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full py-3 rounded-xl text-sm font-bold text-center text-white transition-opacity hover:opacity-95"
-                style={{ background: '#c89666', boxShadow: '0 4px 18px rgba(200,150,102,0.28)' }}
+                style={{ background: '#a89254', boxShadow: '0 4px 18px rgba(201,168,76,0.28)' }}
               >
                 {ui.hotelOfficialSite}
               </a>
@@ -242,18 +263,18 @@ function HotelCard({ hotel, onOpen, ui }: { hotel: HotelRecommendation; onOpen: 
       onClick={onOpen}
       whileHover={{ y: -3 }}
       whileTap={{ scale: 0.98 }}
-      className="relative flex flex-col rounded-2xl border border-white/10 overflow-hidden transition-all duration-200 hover:border-[#c89666]/40 text-left w-full cursor-pointer"
+      className="relative flex flex-col rounded-2xl border border-white/10 overflow-hidden transition-all duration-200 hover:border-[#a89254]/40 text-left w-full cursor-pointer"
       style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(12px)' }}
     >
-      <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#c89666]/50 to-transparent" />
+      <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#a89254]/50 to-transparent" />
       <div className="p-4 flex flex-col gap-3 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-[#c89666] bg-[#c89666]/12 px-2 py-0.5 rounded-full">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-[#a89254] bg-[#a89254]/12 px-2 py-0.5 rounded-full">
             {hotel.neighborhoodVibe}
           </span>
           <span className="text-[10px] text-white/40 font-mono">{hotel.priceRange}</span>
           {stars && hotel.ratingStars != null && (
-            <span className="text-[10px] text-amber-300/80">{stars}</span>
+            <span className="text-[10px]" style={{ color: 'rgba(201,168,76,0.95)' }}>{stars}</span>
           )}
         </div>
         <div>
@@ -302,11 +323,11 @@ function RecommendationsBasecampInner({
         className="relative rounded-2xl overflow-hidden mb-8"
         style={{ background: '#12343b', border: '1px solid rgba(255,255,255,0.08)' }}
       >
-        <div className="absolute top-0 right-0 w-80 h-80 bg-[#c89666]/08 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute top-0 right-0 w-80 h-80 bg-[#a89254]/08 rounded-full blur-[100px] pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-60 h-60 bg-[#2d545e]/25 rounded-full blur-[80px] pointer-events-none" />
         <div className="relative z-10 p-5 sm:p-6">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[#c89666]">{ui.basecampBadge}</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#a89254]">{ui.basecampBadge}</span>
             <span className="text-[10px] text-white/30">{ui.basecampApprovedPicks(title)}</span>
           </div>
           <h3 className="text-base font-bold text-white mb-4">{ui.basecampWhereStay(target)}</h3>
@@ -362,11 +383,11 @@ function BasecampSection({
         className="relative rounded-2xl overflow-hidden mb-8"
         style={{ background: '#12343b', border: '1px solid rgba(255,255,255,0.08)' }}
       >
-        <div className="absolute top-0 right-0 w-64 h-64 bg-[#c89666]/10 rounded-full blur-[80px] pointer-events-none" />
-        <div className="absolute bottom-0 left-1/4 w-40 h-40 bg-[#e1b382]/12 rounded-full blur-[60px] pointer-events-none" />
+        <div className="absolute top-0 right-0 w-64 h-64 bg-[#a89254]/10 rounded-full blur-[80px] pointer-events-none" />
+        <div className="absolute bottom-0 left-1/4 w-40 h-40 bg-[#C9A84C]/12 rounded-full blur-[60px] pointer-events-none" />
         <div className="relative z-10 p-5 sm:p-6">
           <div className="flex items-center gap-2 mb-4">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[#c89666]">{ui.basecampYour}</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#a89254]">{ui.basecampYour}</span>
             <span className="text-[10px] text-white/30 bg-white/8 px-2 py-0.5 rounded-full border border-white/10">{ui.basecampPreBooked}</span>
           </div>
           <h3 className="text-xl font-bold text-white tracking-tight">{name}</h3>
@@ -375,7 +396,7 @@ function BasecampSection({
             className="mt-4 rounded-xl px-4 py-3"
             style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.10)' }}
           >
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-[#e1b382] mb-1">{ui.basecampNeighborhoodStrategy}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-[#C9A84C] mb-1">{ui.basecampNeighborhoodStrategy}</p>
             <p className="text-sm text-white/75 leading-relaxed">{neighborhoodInsight}</p>
           </div>
         </div>
@@ -431,14 +452,14 @@ function BookedHotelAroundSection({
       style={{
         background: 'linear-gradient(145deg, rgba(225,179,130,0.12) 0%, rgba(18,52,59,0.96) 42%, #12343b 100%)',
         border: '1px solid rgba(139,92,246,0.22)',
-        boxShadow: '0 0 0 1px rgba(200,150,102,0.12) inset, 0 20px 60px -30px rgba(0,0,0,0.5)',
+        boxShadow: '0 0 0 1px rgba(201,168,76,0.12) inset, 0 20px 60px -30px rgba(0,0,0,0.5)',
       }}
     >
       <div className="absolute -top-20 -right-16 w-72 h-72 rounded-full bg-[#4a7bde]/15 blur-[90px] pointer-events-none" />
-      <div className="absolute bottom-0 left-0 w-56 h-56 rounded-full bg-[#c89666]/10 blur-[70px] pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-56 h-56 rounded-full bg-[#a89254]/10 blur-[70px] pointer-events-none" />
       <div className="relative z-10 p-5 sm:p-6">
         <div className="flex flex-wrap items-center gap-2 mb-2">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-[#c89666]">{ui.aroundHotelBadge}</span>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-[#a89254]">{ui.aroundHotelBadge}</span>
           <span className="text-[10px] text-white/35 px-2 py-0.5 rounded-full border border-white/10 bg-white/[0.04]">
             {ui.aroundHotelPerkChip}
           </span>
@@ -446,7 +467,7 @@ function BookedHotelAroundSection({
         <h3 className="text-lg font-bold text-white tracking-tight mb-1">{ui.aroundHotelTitle}</h3>
         <p className="text-xs text-white/45 mb-4">{ui.aroundHotelSub(neighborhood)}</p>
         {around.areaHeadline && (
-          <p className="text-sm text-white/85 leading-relaxed mb-5 border-l-2 border-[#c89666] pl-3">{around.areaHeadline}</p>
+          <p className="text-sm text-white/85 leading-relaxed mb-5 border-l-2 border-[#a89254] pl-3">{around.areaHeadline}</p>
         )}
         <div className="grid gap-4 lg:grid-cols-2">
           {!!around.vibes?.length && (
@@ -454,16 +475,16 @@ function BookedHotelAroundSection({
               className="rounded-xl p-4"
               style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
             >
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-[#e1b382] mb-2">{ui.aroundHotelVibes}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-[#C9A84C] mb-2">{ui.aroundHotelVibes}</p>
               <div className="flex flex-wrap gap-1.5">
                 {around.vibes.map((v, i) => (
                   <span
                     key={i}
                     className="text-[11px] px-2.5 py-1 rounded-full font-medium"
                     style={{
-                      background: 'rgba(200,150,102,0.18)',
+                      background: 'rgba(201,168,76,0.18)',
                       color: '#f0d0d4',
-                      border: '1px solid rgba(200,150,102,0.35)',
+                      border: '1px solid rgba(201,168,76,0.35)',
                     }}
                   >
                     {v}
@@ -477,7 +498,7 @@ function BookedHotelAroundSection({
               className="rounded-xl p-4"
               style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
             >
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-[#e1b382] mb-2">{ui.aroundHotelTransit}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-[#C9A84C] mb-2">{ui.aroundHotelTransit}</p>
               <ul className="space-y-2">
                 {around.transitNearHotel.map((t, i) => (
                   <li key={i} className="text-xs text-white/70 leading-snug">
@@ -496,11 +517,11 @@ function BookedHotelAroundSection({
             className="mt-4 rounded-xl p-4"
             style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
           >
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-[#e1b382] mb-2">{ui.aroundHotelWalk}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-[#C9A84C] mb-2">{ui.aroundHotelWalk}</p>
             <ul className="grid sm:grid-cols-2 gap-2">
               {around.walkableHighlights.map((h, i) => (
                 <li key={i} className="text-xs text-white/72 leading-relaxed flex gap-2">
-                  <span className="text-[#c89666] shrink-0">▸</span>
+                  <span className="text-[#a89254] shrink-0">▸</span>
                   <span>{h}</span>
                 </li>
               ))}
@@ -511,8 +532,8 @@ function BookedHotelAroundSection({
           <div
             className="mt-4 rounded-xl p-4 relative overflow-hidden"
             style={{
-              background: 'linear-gradient(120deg, rgba(200,150,102,0.2) 0%, rgba(45,84,94,0.35) 100%)',
-              border: '1px solid rgba(200,150,102,0.35)',
+              background: 'linear-gradient(120deg, rgba(201,168,76,0.2) 0%, rgba(45,84,94,0.35) 100%)',
+              border: '1px solid rgba(201,168,76,0.35)',
             }}
           >
             <div className="absolute top-2 right-3 text-lg opacity-30 select-none" aria-hidden>
@@ -549,7 +570,7 @@ function TripIntelligenceButton({ meta, ui }: { meta: NonNullable<Itinerary['_me
         whileTap={{ scale: 0.93, transition: { type: 'spring', stiffness: 600, damping: 18 } }}
         className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-xs text-white/70 hover:bg-white/15 transition-colors"
       >
-        <span className="w-1.5 h-1.5 rounded-full bg-[#c89666] animate-pulse" />
+        <span className="w-1.5 h-1.5 rounded-full bg-[#a89254] animate-pulse" />
         {ui.tripIntel}
         <span className="text-white/40 ml-0.5">↗</span>
       </motion.button>
@@ -570,7 +591,7 @@ function TripIntelligenceButton({ meta, ui }: { meta: NonNullable<Itinerary['_me
               exit={{ y: 20, opacity: 0, scale: 0.96 }}
               transition={{ type: 'spring', stiffness: 380, damping: 30 }}
             >
-              <div className="absolute top-0 right-0 w-40 h-40 bg-[#c89666]/10 rounded-full blur-[60px] pointer-events-none" />
+              <div className="absolute top-0 right-0 w-40 h-40 bg-[#a89254]/10 rounded-full blur-[60px] pointer-events-none" />
               <div className="relative z-10">
                 <div className="flex items-start justify-between mb-5">
                   <div>
@@ -751,6 +772,24 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
     [profile?.startDate, profile?.endDate, ui.lang],
   );
 
+  const shareCopy = useMemo(
+    (): SharePanelCopy => ({
+      openButton: ui.shareOpenButton,
+      panelTitle: ui.sharePanelTitle(ui.audienceTitle(profile?.groupType)),
+      whatsapp: ui.shareWhatsApp,
+      whatsappSub: ui.shareWhatsAppSub(profile?.groupType),
+      copyLink: ui.shareCopyLinkCta(profile?.groupType),
+      copyLinkCopied: ui.shareLinkCopied,
+      copyLinkSub: ui.shareCopyLinkSub,
+      pdf: ui.sharePdf,
+      pdfSub: ui.sharePdfSub,
+      travelOsTitle: ui.shareTravelOsTitle,
+      travelOsBody: ui.shareTravelOsBody,
+      travelOsHint: ui.shareTravelOsHint,
+    }),
+    [ui, profile?.groupType],
+  );
+
   // Admin check — reads the client-readable cookie set by middleware on ?key= login.
   // Used purely for UI visibility; actual data filtering happens server-side.
   const isAdmin = useMemo(() => {
@@ -864,8 +903,18 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
 
   // ── FINAL MODE ──────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen" style={{ background: ITIN_RESULTS_PAGE_BG }} dir={ui.dir} lang={ui.htmlLang}>
-      {/* Edit banner */}
+    <div className="min-h-screen relative" style={{ background: ITIN_RESULTS_PAGE_BG }} dir={ui.dir} lang={ui.htmlLang}>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-0 opacity-[0.02]"
+        style={{
+          backgroundImage: `url(${ITIN_RESULTS_NOISE_DATA_URL})`,
+          backgroundSize: '180px 180px',
+          mixBlendMode: 'overlay',
+        }}
+      />
+      <div className="relative z-[1]">
+        {/* Edit banner */}
       <AnimatePresence>
         {editBanner && (
           <motion.div
@@ -887,7 +936,7 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
       >
         <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between gap-3">
           <Link href="/" className="text-lg font-semibold tracking-tight text-white">
-            Travel<span style={{ color: ITIN_PALETTE.sand }}>OS</span>
+            <BrandWordmark accent={ITIN_PALETTE.sand} className="text-lg" />
           </Link>
           <div className="flex items-center gap-2">
             {initialViewMode !== 'final' && (
@@ -907,20 +956,37 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
               profile={profile}
               itineraryDbId={itinerary._id ?? null}
               accessToken={session?.access_token ?? null}
+              copy={shareCopy}
             />
             {isAdmin && (
               <Link
                 href={`/explore/${encodeURIComponent(itinerary.destination)}`}
-                className="text-sm font-medium px-4 py-2 rounded-lg border transition-colors"
-                style={{ borderColor: 'rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.60)' }}
+                className="text-sm font-medium px-4 py-2 rounded-lg border transition-colors inline-flex items-center justify-center min-h-[40px]"
+                style={{ borderColor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.78)', background: 'rgba(255,255,255,0.05)' }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.10)';
+                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(201,168,76,0.35)';
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)';
+                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.12)';
+                }}
               >
                 {ui.scoutPicks}
               </Link>
             )}
             <Link
               href="/onboarding"
-              className="text-sm font-medium px-4 py-2 rounded-lg border transition-colors"
-              style={{ borderColor: 'rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.60)' }}
+              className="text-sm font-medium px-4 py-2 rounded-lg border transition-colors inline-flex items-center justify-center min-h-[40px]"
+              style={{ borderColor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.78)', background: 'rgba(255,255,255,0.05)' }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.10)';
+                (e.currentTarget as HTMLElement).style.borderColor = 'rgba(201,168,76,0.35)';
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)';
+                (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.12)';
+              }}
             >
               {ui.newTrip}
             </Link>
@@ -933,30 +999,52 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
 
-        {/* Hero — full-bleed destination photo with glassmorphism */}
+        {/* Hero — photo strip + personal framing (not “dashboard chrome”) */}
         <motion.div
           variants={heroVariant}
           initial="hidden"
           animate="show"
-          className="rounded-2xl mb-8 text-white relative overflow-hidden"
+          className="rounded-2xl mb-8 text-white relative overflow-hidden border border-white/10"
         >
-          <div className="absolute inset-0 pointer-events-none">
-            <DayPhoto
-              query={`${itinerary.destination} cityscape`}
-              alt={itinerary.destination}
-              height={520}
-              dark
-            />
+          <div className="relative h-[min(200px,34vh)] sm:h-[230px]">
+            <div className="absolute inset-0 pointer-events-none">
+              <DayPhoto
+                query={`${itinerary.destination} iconic skyline golden hour`}
+                alt={itinerary.destination}
+                height={440}
+                dark
+              />
+            </div>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/25 pointer-events-none" />
+            <div className="absolute bottom-0 right-0 w-64 h-64 bg-[#C9A84C]/14 rounded-full blur-[70px] pointer-events-none" />
+            <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-8 z-10">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/50 mb-2">
+                {ui.heroPersonalEyebrow}
+              </p>
+              <h1
+                className="font-light tracking-tight text-white leading-[1.06]"
+                style={{
+                  fontSize: 'clamp(2rem, 7vw, 3.35rem)',
+                  fontWeight: 300,
+                  textShadow: '0 4px 36px rgba(0,0,0,0.55), 0 1px 2px rgba(0,0,0,0.85)',
+                }}
+              >
+                {itinerary.destination ?? 'Your Trip'}
+              </h1>
+              <p className="text-sm text-white/62 mt-2 max-w-xl leading-relaxed">{ui.heroPersonalTagline}</p>
+            </div>
           </div>
-          <div className="absolute inset-0 bg-gradient-to-br from-black/80 via-black/55 to-black/30 pointer-events-none" />
-          <div className="absolute top-0 right-0 w-96 h-96 bg-[#c89666]/20 rounded-full blur-[90px] pointer-events-none" />
-          <div className="absolute bottom-0 left-1/4 w-72 h-72 bg-[#e1b382]/16 rounded-full blur-[90px] pointer-events-none" />
-          <div className="absolute top-1/2 right-1/3 w-40 h-40 bg-[#2d545e]/28 rounded-full blur-[70px] pointer-events-none" />
 
-          <div className="relative z-10 p-6 sm:p-10">
-            <div className="flex items-center gap-3 mb-6 flex-wrap">
+          <div
+            className="relative z-10 p-6 sm:p-8 border-t border-white/10"
+            style={{
+              background: 'linear-gradient(180deg, rgba(15,42,48,0.94) 0%, rgba(8,28,32,0.99) 100%)',
+            }}
+          >
+            <div className="pointer-events-none absolute top-0 right-0 w-72 h-72 bg-[#a89254]/12 rounded-full blur-[80px]" />
+            <div className="relative flex items-center gap-3 mb-5 flex-wrap">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-xs text-white/70 backdrop-blur-sm">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#c89666] animate-pulse" />
+                <span className="w-1.5 h-1.5 rounded-full bg-[#a89254] animate-pulse" />
                 {ui.heroAiBadge}
               </div>
               {itinerary._meta && <TripIntelligenceButton meta={itinerary._meta} ui={ui} />}
@@ -970,27 +1058,23 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
                 {ui.tripStoryButton}
               </motion.button>
             </div>
-            <h1
-              className="text-6xl sm:text-8xl font-black mb-3 tracking-tighter leading-none"
-              style={{ textShadow: '0 4px 40px rgba(0,0,0,0.55), 0 1px 2px rgba(0,0,0,0.8)' }}
-            >
-              {itinerary.destination ?? 'Your Trip'}
-            </h1>
-            <p className="text-white/65 text-sm mb-6">
+            <p className="text-white/65 text-sm mb-6 relative">
               {ui.dayItineraryMeta(itinerary.totalDays ?? '?')}
               {tripDatesLabel && ` · ${tripDatesLabel}`}
-              {profile && ` · ${profile.groupType} · ${profile.budget} budget · ${profile.pace} pace`}
+              {profile && ` · ${ui.tripMetaTeaser(profile)}`}
             </p>
             {itinerary.strategicOverview && (
               <div
-                className="rounded-xl p-4"
+                className="rounded-xl p-4 relative"
                 style={{
                   background: 'rgba(255,255,255,0.08)',
                   backdropFilter: 'blur(20px) saturate(160%)',
                   border: '1px solid rgba(255,255,255,0.15)',
                 }}
               >
-                <div className="text-xs font-semibold uppercase tracking-widest text-[#e1b382] mb-2">{ui.masterPlanLabel(ui.audienceTitle(profile?.groupType))}</div>
+                <div className="text-xs font-semibold uppercase tracking-widest text-[#C9A84C] mb-2">
+                  {ui.masterPlanLabel(ui.audienceTitle(profile?.groupType))}
+                </div>
                 <p className="text-white/85 text-sm leading-relaxed">{itinerary.strategicOverview}</p>
               </div>
             )}
@@ -1028,16 +1112,25 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
             style={{ background: 'rgba(45,84,94,0.28)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 4px 24px -4px rgba(0,0,0,0.30)' }}
           >
             <div className="text-center p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <div className="text-xs uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.38)' }}>{ui.budgetDaily}</div>
-              <div className="text-xl font-bold text-white tracking-tight">{itinerary.budgetSummary.dailyAverage ?? '—'}</div>
+              <p className="text-sm leading-snug text-white/82">
+                {itinerary.budgetSummary.dailyAverage
+                  ? ui.budgetDailyLine(itinerary.budgetSummary.dailyAverage)
+                  : '—'}
+              </p>
             </div>
-            <div className="text-center p-4 rounded-xl" style={{ background: 'rgba(200,150,102,0.12)', border: '1px solid rgba(200,150,102,0.22)' }}>
-              <div className="text-xs uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.38)' }}>{ui.budgetTotal}</div>
-              <div className="text-xl font-bold tracking-tight" style={{ color: '#e1b382' }}>{itinerary.budgetSummary.totalEstimate ?? '—'}</div>
+            <div className="text-center p-4 rounded-xl" style={{ background: 'rgba(201,168,76,0.12)', border: '1px solid rgba(201,168,76,0.22)' }}>
+              <p className="text-sm leading-snug font-medium" style={{ color: '#C9A84C' }}>
+                {itinerary.budgetSummary.totalEstimate
+                  ? ui.budgetTotalLine(itinerary.budgetSummary.totalEstimate)
+                  : '—'}
+              </p>
             </div>
             <div className="text-center p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <div className="text-xs uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.38)' }}>{ui.budgetIncludes}</div>
-              <div className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.55)' }}>{itinerary.budgetSummary.includes ?? '—'}</div>
+              <p className="text-sm leading-relaxed text-white/60">
+                {itinerary.budgetSummary.includes
+                  ? ui.budgetIncludesLine(itinerary.budgetSummary.includes)
+                  : '—'}
+              </p>
             </div>
           </motion.div>
         )}
@@ -1110,7 +1203,7 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
               <ul className="flex flex-col gap-2">
                 {(itinerary.packingTips ?? []).map((tip, i) => (
                   <li key={i} className="flex gap-2 text-sm" style={{ color: 'rgba(255,255,255,0.65)' }}>
-                    <span className="flex-shrink-0 mt-0.5" style={{ color: '#c89666' }}>✓</span>{tip}
+                    <span className="flex-shrink-0 mt-0.5" style={{ color: '#a89254' }}>✓</span>{tip}
                   </li>
                 ))}
               </ul>
@@ -1129,7 +1222,7 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
               <ul className="flex flex-col gap-2">
                 {(itinerary.bestLocalTips ?? []).map((tip, i) => (
                   <li key={i} className="flex gap-2 text-sm" style={{ color: 'rgba(255,255,255,0.65)' }}>
-                    <span className="flex-shrink-0 mt-0.5" style={{ color: '#c89666' }}>✦</span>{tip}
+                    <span className="flex-shrink-0 mt-0.5" style={{ color: '#a89254' }}>✦</span>{tip}
                   </li>
                 ))}
               </ul>
@@ -1151,9 +1244,9 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
             <Link
               href="/onboarding"
               className="inline-flex items-center gap-2 px-8 py-3 rounded-xl text-white font-semibold text-sm transition-colors"
-              style={{ background: '#c89666', boxShadow: '0 6px 24px -4px rgba(200,150,102,0.38)' }}
+              style={{ background: '#a89254', boxShadow: '0 6px 24px -4px rgba(201,168,76,0.38)' }}
               onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = '#b88455')}
-              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = '#c89666')}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = '#a89254')}
             >
               {ui.planNewTripButton}
             </Link>
@@ -1195,6 +1288,7 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
 
       <div className="print:hidden">
         <QuickEdit itinerary={itinerary} onUpdate={handleQuickEditUpdate} />
+      </div>
       </div>
     </div>
   );

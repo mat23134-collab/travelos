@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Itinerary, TravelerProfile } from '@/lib/types';
-import { audienceNounPlural, audienceTitle } from '@/lib/audienceCopy';
+import { audienceTitle } from '@/lib/audienceCopy';
 import { normalizeUsername, validateUsernameShape } from '@/lib/username';
 
 function buildWhatsAppText(itinerary: Itinerary, profile: TravelerProfile | null): string {
@@ -33,15 +33,48 @@ function buildWhatsAppText(itinerary: Itinerary, profile: TravelerProfile | null
   return parts.join('\n');
 }
 
+export type SharePanelCopy = {
+  openButton: string;
+  panelTitle: string;
+  whatsapp: string;
+  whatsappSub: string;
+  copyLink: string;
+  copyLinkCopied: string;
+  copyLinkSub: string;
+  pdf: string;
+  pdfSub: string;
+  travelOsTitle: string;
+  travelOsBody: string;
+  travelOsHint: string;
+};
+
+const DEFAULT_SHARE_COPY: SharePanelCopy = {
+  openButton: 'Share',
+  panelTitle: 'Share this trip',
+  whatsapp: 'WhatsApp',
+  whatsappSub: 'Pre-filled message with dates & stops',
+  copyLink: 'Copy link',
+  copyLinkCopied: 'Link copied!',
+  copyLinkSub: 'Copies the link — paste anywhere',
+  pdf: 'Download PDF',
+  pdfSub: 'Offline-friendly layout',
+  travelOsTitle: 'TravelOS users',
+  travelOsBody:
+    'Send this saved trip to someone’s dashboard by username — or use the link for anyone.',
+  travelOsHint: 'Save the trip to your account first, then reopen Share to send by username.',
+};
+
 interface Props {
   itinerary: Itinerary;
   profile: TravelerProfile | null;
   /** Saved trip id in Supabase — required to share with another TravelOS user */
   itineraryDbId?: string | null;
   accessToken?: string | null;
+  /** Localized / friendly labels — merged with English defaults */
+  copy?: Partial<SharePanelCopy>;
 }
 
-export function SharePanel({ itinerary, profile, itineraryDbId, accessToken }: Props) {
+export function SharePanel({ itinerary, profile, itineraryDbId, accessToken, copy }: Props) {
   const [portalEl, setPortalEl] = useState<HTMLElement | null>(null);
   const [open, setOpen]     = useState(false);
   const [copied, setCopied] = useState(false);
@@ -50,6 +83,8 @@ export function SharePanel({ itinerary, profile, itineraryDbId, accessToken }: P
   const [shareMsg, setShareMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
   const canShareInApp = !!itineraryDbId && !!accessToken;
+
+  const c = useMemo(() => ({ ...DEFAULT_SHARE_COPY, ...copy }), [copy]);
 
   useEffect(() => {
     setPortalEl(document.body);
@@ -115,24 +150,27 @@ export function SharePanel({ itinerary, profile, itineraryDbId, accessToken }: P
     {
       id: 'whatsapp',
       icon: '💬',
-      label: 'Share to WhatsApp',
-      sub: profile ? `Send to ${audienceNounPlural(profile.groupType)} instantly` : 'Send to your squad instantly',
+      label: c.whatsapp,
+      sub: c.whatsappSub,
       gradient: 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)',
-      action: () => { handleWhatsApp(); setOpen(false); },
+      action: () => {
+        handleWhatsApp();
+        setOpen(false);
+      },
     },
     {
       id: 'link',
       icon: copied ? '✓' : '🔗',
-      label: copied ? 'Link copied!' : 'Copy link',
-      sub: 'Share your master plan anywhere',
+      label: copied ? c.copyLinkCopied : c.copyLink,
+      sub: c.copyLinkSub,
       gradient: 'linear-gradient(135deg, #00d4ff 0%, #0066cc 100%)',
       action: handleCopyLink,
     },
     {
       id: 'pdf',
       icon: '📄',
-      label: 'Download PDF',
-      sub: 'Branded itinerary for offline use',
+      label: c.pdf,
+      sub: c.pdfSub,
       gradient: 'linear-gradient(135deg, #ff5a5f 0%, #ff8c5a 100%)',
       action: handlePrint,
     },
@@ -142,11 +180,24 @@ export function SharePanel({ itinerary, profile, itineraryDbId, accessToken }: P
     <div className="relative print:hidden">
       <motion.button
         onClick={() => setOpen(true)}
-        whileHover={{ scale: 1.04 }}
-        whileTap={{ scale: 0.93, transition: { type: 'spring', stiffness: 600, damping: 18 } }}
-        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-[#e5e7eb] bg-white text-[#374151] text-sm font-medium hover:border-[#ff5a5f] hover:text-[#ff5a5f] hover:bg-[#fff0f0] transition-all"
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.97, transition: { type: 'spring', stiffness: 600, damping: 18 } }}
+        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors"
+        style={{
+          borderColor: 'rgba(255,255,255,0.12)',
+          color: 'rgba(255,255,255,0.78)',
+          background: 'rgba(255,255,255,0.05)',
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.10)';
+          (e.currentTarget as HTMLElement).style.borderColor = 'rgba(201,168,76,0.35)';
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)';
+          (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.12)';
+        }}
       >
-        <span>↗</span> Share
+        {c.openButton}
       </motion.button>
 
       {portalEl &&
@@ -192,7 +243,7 @@ export function SharePanel({ itinerary, profile, itineraryDbId, accessToken }: P
                     <div className="flex items-start justify-between mb-5">
                       <div>
                         <h3 id="share-panel-title" className="font-bold text-white text-base tracking-tight">
-                          Share the {audienceTitle(profile?.groupType)} Plan
+                          {c.panelTitle}
                         </h3>
                         <p className="text-white/35 text-xs mt-0.5">
                           {itinerary.destination} · {itinerary.totalDays} days
@@ -243,9 +294,9 @@ export function SharePanel({ itinerary, profile, itineraryDbId, accessToken }: P
                     </div>
 
                     <div className="mt-5 pt-5 border-t border-white/10">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-[#e1b382] mb-2">TravelOS users</p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-[#C9A84C] mb-2">{c.travelOsTitle}</p>
                       <p className="text-white/40 text-xs mb-3 leading-relaxed">
-                        Send this saved trip to someone&apos;s dashboard by username. They&apos;ll see it under &quot;Shared with you&quot;. Or use Copy link for anyone.
+                        {c.travelOsBody}
                       </p>
                       {canShareInApp ? (
                         <>
@@ -286,7 +337,7 @@ export function SharePanel({ itinerary, profile, itineraryDbId, accessToken }: P
                         </>
                       ) : (
                         <p className="text-white/25 text-[11px] leading-relaxed">
-                          Save the trip to your account first (finish generating), then open Share again to send by username.
+                          {c.travelOsHint}
                         </p>
                       )}
                     </div>

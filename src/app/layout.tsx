@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Cormorant_Garamond, Inter } from 'next/font/google';
 import './globals.css';
 import { VersionStamp } from '@/components/VersionStamp';
 import { AuthProvider } from '@/lib/auth-context';
@@ -17,6 +17,13 @@ const inter = Inter({
   display: 'swap',
 });
 
+const brandSerif = Cormorant_Garamond({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-brand-serif',
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
   title: 'TravelOS — AI-Powered Trip Planning',
   description: 'Transform your travel dreams into hyper-personalized, data-validated itineraries crafted by AI with real-world intelligence.',
@@ -25,7 +32,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} h-full`}>
+    <html lang="en" className={`${inter.variable} ${brandSerif.variable} h-full`}>
       <body className="min-h-full antialiased">
         <AuthProvider>
           {children}
