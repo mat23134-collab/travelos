@@ -321,9 +321,12 @@ export function HotelStep({
 
         {/* Actions */}
         <div className="flex gap-3">
-          <button
+          <motion.button
             onClick={onBack}
-            className="flex-1 py-4 rounded-2xl text-sm font-bold transition-all"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.97 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 24 }}
+            className="flex-1 py-4 rounded-full text-sm font-bold transition-colors"
             style={{
               color: '#4f5f76',
               border: `1.5px solid rgba(255,255,255,0.07)`,
@@ -333,20 +336,23 @@ export function HotelStep({
             onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = '#4f5f76')}
           >
             ← Back
-          </button>
-          <button
+          </motion.button>
+          <motion.button
             onClick={onNext}
-            className="flex-[2] py-4 rounded-2xl text-sm font-black text-white tracking-wide transition-all"
+            whileHover={{ scale: 1.02, y: -2 }}
+            whileTap={{ scale: 0.97 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+            className="flex-[2] py-4 rounded-full text-sm font-black tracking-wide"
             style={{
               background: confirmed
                 ? `linear-gradient(135deg, ${GOLD}, ${GOLD_H})`
                 : `rgba(255,255,255,0.08)`,
-              boxShadow: confirmed ? `0 8px 32px -4px rgba(197,145,42,0.50)` : 'none',
+              boxShadow: confirmed ? `0 0 40px rgba(197,145,42,0.45), 0 8px 24px -4px rgba(197,145,42,0.35)` : 'none',
               color: confirmed ? '#071629' : 'rgba(255,255,255,0.35)',
             }}
           >
             {confirmed ? 'Build My Trip →' : 'Skip for now →'}
-          </button>
+          </motion.button>
         </div>
       </motion.div>
   );

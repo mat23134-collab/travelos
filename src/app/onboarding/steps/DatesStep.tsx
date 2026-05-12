@@ -254,10 +254,16 @@ export function DatesStep({
             {PRESETS.map(({ label, days }) => {
               const active = duration === days;
               return (
-                <button
+                <motion.button
                   key={label}
                   onClick={() => applyPreset(days)}
-                  className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
+                  whileHover={{ y: -3, scale: 1.06 }}
+                  whileTap={{ scale: 0.94 }}
+                  animate={active
+                    ? { boxShadow: `0 0 0 1.5px rgba(74,123,222,0.70), 0 8px 24px -4px rgba(74,123,222,0.30)` }
+                    : { boxShadow: '0 2px 8px rgba(0,0,0,0.20)' }}
+                  transition={{ type: 'spring', stiffness: 420, damping: 24 }}
+                  className="px-3 py-1.5 rounded-full text-xs font-bold"
                   style={{
                     background: active ? `rgba(74,123,222,0.22)` : `rgba(15,40,98,0.20)`,
                     border: active ? `1.5px solid rgba(74,123,222,0.55)` : `1.5px solid rgba(255,255,255,0.07)`,
@@ -265,7 +271,7 @@ export function DatesStep({
                   }}
                 >
                   {label}
-                </button>
+                </motion.button>
               );
             })}
           </div>
@@ -273,28 +279,34 @@ export function DatesStep({
 
         {/* Actions */}
         <div className="flex gap-3">
-          <button
+          <motion.button
             onClick={onBack}
-            className="flex-1 py-4 rounded-2xl text-sm font-bold transition-all"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.97 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 24 }}
+            className="flex-1 py-4 rounded-full text-sm font-bold transition-colors"
             style={{ color: '#4f5f76', border: `1.5px solid rgba(255,255,255,0.07)`, background: 'transparent' }}
             onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = '#ffffff')}
             onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = '#4f5f76')}
           >
             ← Back
-          </button>
-          <button
+          </motion.button>
+          <motion.button
             onClick={onNext}
             disabled={!canContinue}
-            className="flex-[2] py-4 rounded-2xl text-sm font-black text-white tracking-wide transition-all disabled:opacity-35 disabled:cursor-not-allowed"
+            whileHover={canContinue ? { scale: 1.02, y: -2 } : {}}
+            whileTap={canContinue ? { scale: 0.97 } : {}}
+            transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+            className="flex-[2] py-4 rounded-full text-sm font-black text-white tracking-wide disabled:opacity-35 disabled:cursor-not-allowed"
             style={{
               background: canContinue
                 ? `linear-gradient(135deg, ${ACCENT}, ${ACCENT_H})`
                 : `rgba(255,255,255,0.06)`,
-              boxShadow: canContinue ? `0 8px 32px -4px rgba(74,123,222,0.50)` : 'none',
+              boxShadow: canContinue ? `0 0 40px rgba(74,123,222,0.45), 0 8px 24px -4px rgba(74,123,222,0.35)` : 'none',
             }}
           >
             {canContinue ? `${duration} days → Let's time it →` : 'Pick your dates'}
-          </button>
+          </motion.button>
         </div>
       </motion.div>
     </>

@@ -263,8 +263,8 @@ function HotelCard({ hotel, onOpen, ui }: { hotel: HotelRecommendation; onOpen: 
       onClick={onOpen}
       whileHover={{ y: -3 }}
       whileTap={{ scale: 0.98 }}
-      className="relative flex flex-col rounded-2xl border border-white/10 overflow-hidden transition-all duration-200 hover:border-[#a89254]/40 text-left w-full cursor-pointer"
-      style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(12px)' }}
+      className="relative flex flex-col rounded-3xl border border-white/10 overflow-hidden transition-all duration-200 hover:border-[#a89254]/40 text-left w-full cursor-pointer"
+      style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(12px)', boxShadow: '0 8px 32px -8px rgba(0,0,0,0.40)' }}
     >
       <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#a89254]/50 to-transparent" />
       <div className="p-4 flex flex-col gap-3 flex-1">
@@ -320,8 +320,8 @@ function RecommendationsBasecampInner({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1, type: 'spring', stiffness: 280, damping: 26 }}
-        className="relative rounded-2xl overflow-hidden mb-8"
-        style={{ background: '#12343b', border: '1px solid rgba(255,255,255,0.08)' }}
+        className="relative rounded-3xl overflow-hidden mb-8"
+        style={{ background: '#12343b', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 24px 64px -12px rgba(0,0,0,0.55)' }}
       >
         <div className="absolute top-0 right-0 w-80 h-80 bg-[#a89254]/08 rounded-full blur-[100px] pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-60 h-60 bg-[#2d545e]/25 rounded-full blur-[80px] pointer-events-none" />
@@ -380,8 +380,8 @@ function BasecampSection({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1, type: 'spring', stiffness: 280, damping: 26 }}
-        className="relative rounded-2xl overflow-hidden mb-8"
-        style={{ background: '#12343b', border: '1px solid rgba(255,255,255,0.08)' }}
+        className="relative rounded-3xl overflow-hidden mb-8"
+        style={{ background: '#12343b', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 24px 64px -12px rgba(0,0,0,0.55)' }}
       >
         <div className="absolute top-0 right-0 w-64 h-64 bg-[#a89254]/10 rounded-full blur-[80px] pointer-events-none" />
         <div className="absolute bottom-0 left-1/4 w-40 h-40 bg-[#C9A84C]/12 rounded-full blur-[60px] pointer-events-none" />
@@ -448,11 +448,11 @@ function BookedHotelAroundSection({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.14, type: 'spring', stiffness: 280, damping: 26 }}
-      className="relative rounded-2xl overflow-hidden mb-8"
+      className="relative rounded-3xl overflow-hidden mb-8"
       style={{
         background: 'linear-gradient(145deg, rgba(225,179,130,0.12) 0%, rgba(18,52,59,0.96) 42%, #12343b 100%)',
         border: '1px solid rgba(139,92,246,0.22)',
-        boxShadow: '0 0 0 1px rgba(201,168,76,0.12) inset, 0 20px 60px -30px rgba(0,0,0,0.5)',
+        boxShadow: '0 0 0 1px rgba(201,168,76,0.12) inset, 0 24px 64px -12px rgba(0,0,0,0.60)',
       }}
     >
       <div className="absolute -top-20 -right-16 w-72 h-72 rounded-full bg-[#4a7bde]/15 blur-[90px] pointer-events-none" />
@@ -1108,8 +1108,8 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15, type: 'spring', stiffness: 280, damping: 26 }}
-            className="rounded-2xl p-6 mb-8 grid sm:grid-cols-3 gap-4"
-            style={{ background: 'rgba(45,84,94,0.28)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 4px 24px -4px rgba(0,0,0,0.30)' }}
+            className="rounded-3xl p-6 mb-8 grid sm:grid-cols-3 gap-4"
+            style={{ background: 'rgba(45,84,94,0.28)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 20px 60px -10px rgba(0,0,0,0.50)' }}
           >
             <div className="text-center p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
               <p className="text-sm leading-snug text-white/82">
@@ -1196,8 +1196,8 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-40px' }}
               transition={{ type: 'spring', stiffness: 280, damping: 26 }}
-              className="rounded-2xl p-6"
-              style={{ background: 'rgba(45,84,94,0.28)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 4px 24px -4px rgba(0,0,0,0.25)' }}
+              className="rounded-3xl p-6"
+              style={{ background: 'rgba(45,84,94,0.28)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 20px 60px -10px rgba(0,0,0,0.45)' }}
             >
               <h3 className="font-bold text-white mb-4 flex items-center gap-2 tracking-tight"><span>🎒</span> {ui.packingTitle(ui.audienceTitle(profile?.groupType))}</h3>
               <ul className="flex flex-col gap-2">
@@ -1215,8 +1215,8 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-40px' }}
               transition={{ type: 'spring', stiffness: 280, damping: 26, delay: 0.08 }}
-              className="rounded-2xl p-6"
-              style={{ background: 'rgba(45,84,94,0.28)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 4px 24px -4px rgba(0,0,0,0.25)' }}
+              className="rounded-3xl p-6"
+              style={{ background: 'rgba(45,84,94,0.28)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 20px 60px -10px rgba(0,0,0,0.45)' }}
             >
               <h3 className="font-bold text-white mb-4 flex items-center gap-2 tracking-tight"><span>🗝️</span> {ui.insiderIntel}</h3>
               <ul className="flex flex-col gap-2">

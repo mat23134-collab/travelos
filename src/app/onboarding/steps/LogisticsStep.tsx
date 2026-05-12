@@ -65,10 +65,16 @@ function TimeChips({
         const active = selected === value;
         const rgb = accentColor === PRIMARY ? '158,54,58' : '249,115,22';
         return (
-          <button
+          <motion.button
             key={value}
             onClick={() => onSelect(value)}
-            className="flex flex-col items-center py-2 px-1 rounded-xl text-[10px] font-semibold transition-all"
+            whileHover={{ y: -3, scale: 1.05 }}
+            whileTap={{ scale: 0.94 }}
+            animate={active
+              ? { boxShadow: `0 0 0 1.5px rgba(${rgb},0.65), 0 8px 20px -4px rgba(${rgb},0.28)` }
+              : { boxShadow: '0 2px 8px rgba(0,0,0,0.18)' }}
+            transition={{ type: 'spring', stiffness: 420, damping: 24 }}
+            className="flex flex-col items-center py-2 px-1 rounded-xl text-[10px] font-semibold"
             style={{
               background: active ? `rgba(${rgb},0.20)` : `rgba(15,40,98,0.18)`,
               border: active ? `1.5px solid rgba(${rgb},0.55)` : `1.5px solid rgba(255,255,255,0.06)`,
@@ -78,7 +84,7 @@ function TimeChips({
             <span className="text-sm mb-0.5">{emoji}</span>
             <span>{label}</span>
             <span className="text-[8px] opacity-50 font-mono">{value}</span>
-          </button>
+          </motion.button>
         );
       })}
     </div>
@@ -145,8 +151,8 @@ export function LogisticsStep({
 
         {/* ── Arrival ──────────────────────────────────────────────────────── */}
         <div
-          className="rounded-2xl p-4"
-          style={{ background: `rgba(15,40,98,0.20)`, border: `1px solid rgba(158,54,58,0.15)` }}
+          className="rounded-3xl p-4"
+          style={{ background: `rgba(15,40,98,0.20)`, border: `1px solid rgba(158,54,58,0.15)`, boxShadow: '0 8px 32px -8px rgba(0,0,0,0.35)' }}
         >
           <div className="flex items-center gap-2 mb-3">
             <span className="text-base">🛬</span>
@@ -193,8 +199,8 @@ export function LogisticsStep({
 
         {/* ── Departure ────────────────────────────────────────────────────── */}
         <div
-          className="rounded-2xl p-4"
-          style={{ background: `rgba(15,40,98,0.20)`, border: `1px solid rgba(74,123,222,0.15)` }}
+          className="rounded-3xl p-4"
+          style={{ background: `rgba(15,40,98,0.20)`, border: `1px solid rgba(74,123,222,0.15)`, boxShadow: '0 8px 32px -8px rgba(0,0,0,0.35)' }}
         >
           <div className="flex items-center gap-2 mb-3">
             <span className="text-base">🛫</span>
@@ -241,25 +247,31 @@ export function LogisticsStep({
 
         {/* Actions */}
         <div className="flex gap-3">
-          <button
+          <motion.button
             onClick={onBack}
-            className="flex-1 py-4 rounded-2xl text-sm font-bold transition-all"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.97 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 24 }}
+            className="flex-1 py-4 rounded-full text-sm font-bold transition-colors"
             style={{ color: '#4f5f76', border: `1.5px solid rgba(255,255,255,0.07)`, background: 'transparent' }}
             onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = '#ffffff')}
             onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = '#4f5f76')}
           >
             ← Back
-          </button>
-          <button
+          </motion.button>
+          <motion.button
             onClick={onNext}
-            className="flex-[2] py-4 rounded-2xl text-sm font-black text-white tracking-wide transition-all"
+            whileHover={{ scale: 1.02, y: -2 }}
+            whileTap={{ scale: 0.97 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+            className="flex-[2] py-4 rounded-full text-sm font-black text-white tracking-wide"
             style={{
               background: `linear-gradient(135deg, ${PRIMARY}, ${PRIMARY_H})`,
-              boxShadow: `0 8px 32px -4px rgba(158,54,58,0.45)`,
+              boxShadow: `0 0 40px rgba(158,54,58,0.45), 0 8px 24px -4px rgba(158,54,58,0.35)`,
             }}
           >
             Set Home Base →
-          </button>
+          </motion.button>
         </div>
 
         {/* Skip hint */}

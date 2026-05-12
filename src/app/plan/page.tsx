@@ -230,7 +230,7 @@ function TimeAwareStep({
                 animate={
                   sel
                     ? { boxShadow: '0 0 0 2px #9e363a, 0 8px 24px -4px rgba(158,54,58,0.22)' }
-                    : { boxShadow: '0 1px 3px rgba(0,0,0,0.25)' }
+                    : { boxShadow: '0 4px 16px rgba(0,0,0,0.28)' }
                 }
                 transition={{ type: 'spring', stiffness: 450, damping: 22 }}
                 className="relative p-4 rounded-2xl border text-center transition-colors"
@@ -649,7 +649,7 @@ function DietaryCubes({
             animate={
               sel
                 ? { boxShadow: '0 0 0 2px #9e363a, 0 8px 24px -4px rgba(158,54,58,0.22)' }
-                : { boxShadow: '0 1px 3px rgba(0,0,0,0.25)' }
+                : { boxShadow: '0 4px 16px rgba(0,0,0,0.28)' }
             }
             transition={{ type: 'spring', stiffness: 450, damping: 22 }}
             className="relative p-4 rounded-2xl border text-center transition-colors"
@@ -736,7 +736,7 @@ function MustHaveCubes({
                     animate={
                       sel
                         ? { boxShadow: '0 0 0 2px #9e363a, 0 8px 24px -4px rgba(158,54,58,0.22)' }
-                        : { boxShadow: '0 1px 3px rgba(0,0,0,0.25)' }
+                        : { boxShadow: '0 4px 16px rgba(0,0,0,0.28)' }
                     }
                     transition={{ type: 'spring', stiffness: 450, damping: 22 }}
                     className="relative p-3 rounded-xl border text-left transition-colors"
@@ -780,7 +780,7 @@ function MustHaveCubes({
         animate={
           otherSelected
             ? { boxShadow: '0 0 0 2px #9e363a, 0 8px 24px -4px rgba(158,54,58,0.22)' }
-            : { boxShadow: '0 1px 3px rgba(0,0,0,0.25)' }
+            : { boxShadow: '0 4px 16px rgba(0,0,0,0.28)' }
         }
         transition={{ type: 'spring', stiffness: 450, damping: 22 }}
         className="relative p-4 rounded-2xl border text-center transition-colors mt-3 w-full"
@@ -1571,7 +1571,7 @@ function PlanPage() {
                           animate={
                             selected
                               ? { boxShadow: '0 0 0 2px #9e363a, 0 8px 24px -4px rgba(158,54,58,0.20)' }
-                              : { boxShadow: '0 1px 3px rgba(0,0,0,0.25)' }
+                              : { boxShadow: '0 4px 16px rgba(0,0,0,0.28)' }
                           }
                           transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                           className="text-left p-4 rounded-2xl border transition-colors"
@@ -1628,7 +1628,7 @@ function PlanPage() {
                           animate={
                             selected
                               ? { boxShadow: '0 0 0 2px #9e363a, 0 6px 20px -4px rgba(158,54,58,0.22)' }
-                              : { boxShadow: '0 1px 3px rgba(0,0,0,0.25)' }
+                              : { boxShadow: '0 4px 16px rgba(0,0,0,0.28)' }
                           }
                           transition={{ type: 'spring', stiffness: 450, damping: 22 }}
                           className="p-3 rounded-2xl border text-center transition-colors"
@@ -1754,7 +1754,7 @@ function PlanPage() {
                   onClick={handleBack}
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
-                  className="px-6 py-3 rounded-xl border font-medium text-sm transition-colors"
+                  className="px-6 py-3 rounded-full border font-medium text-sm transition-colors"
                   style={{
                     borderColor: 'rgba(255,255,255,0.10)',
                     color: 'rgba(255,255,255,0.45)',
@@ -1778,10 +1778,10 @@ function PlanPage() {
                   disabled={continueDisabled}
                   whileHover={{ scale: continueDisabled ? 1 : 1.04, y: continueDisabled ? 0 : -2 }}
                   whileTap={{ scale: continueDisabled ? 1 : 0.96 }}
-                  className="relative px-8 py-3 rounded-xl font-semibold text-sm text-white overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="relative px-8 py-3 rounded-full font-semibold text-sm text-white overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed"
                   style={{
                     background: 'linear-gradient(135deg, #9e363a 0%, #7a2a2d 100%)',
-                    boxShadow: continueDisabled ? 'none' : '0 8px 28px -4px rgba(158,54,58,0.38)',
+                    boxShadow: continueDisabled ? 'none' : '0 0 32px rgba(158,54,58,0.45), 0 8px 24px -4px rgba(158,54,58,0.35)',
                   }}
                 >
                   <span className="relative z-10">

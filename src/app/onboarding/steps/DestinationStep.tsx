@@ -113,55 +113,68 @@ export function DestinationStep({ onNext }: { onNext: () => void }) {
           />
         </div>
 
-        {/* Featured destination chips */}
-        <div className="grid grid-cols-2 gap-2">
+        {/* Featured destination postcards */}
+        <div className="grid grid-cols-2 gap-2.5">
           {DESTINATIONS.map(({ name, flag, tagline, lat, lng }) => {
             const active = destination === name;
             return (
-              <button
+              <motion.button
                 key={name}
                 onClick={() => handleSelect(name, lat, lng)}
-                className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left text-xs font-semibold transition-all"
+                whileHover={{ y: -5, scale: 1.03, boxShadow: active
+                  ? `0 0 0 2px ${PRIMARY}, 0 20px 50px -8px rgba(158,54,58,0.40)`
+                  : '0 16px 40px -8px rgba(0,0,0,0.50)' }}
+                whileTap={{ scale: 0.96 }}
+                animate={active
+                  ? { boxShadow: `0 0 0 2px ${PRIMARY}, 0 12px 32px -6px rgba(158,54,58,0.32)` }
+                  : { boxShadow: '0 4px 16px rgba(0,0,0,0.28)' }}
+                transition={{ type: 'spring', stiffness: 400, damping: 24 }}
+                className="relative flex flex-col gap-1 px-3.5 py-4 rounded-2xl text-left transition-colors overflow-hidden"
                 style={{
-                  background: active ? `rgba(158,54,58,0.20)` : `rgba(15,40,98,0.20)`,
-                  border: active
-                    ? `1.5px solid rgba(158,54,58,0.55)`
-                    : `1.5px solid rgba(255,255,255,0.07)`,
-                  color: active ? PRIMARY : '#4f5f76',
-                }}
-                onMouseEnter={(e) => {
-                  if (!active) (e.currentTarget as HTMLElement).style.borderColor = 'rgba(158,54,58,0.30)';
-                }}
-                onMouseLeave={(e) => {
-                  if (!active) (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.07)';
+                  background: active ? `rgba(158,54,58,0.18)` : `rgba(15,40,98,0.28)`,
+                  border: active ? `1.5px solid rgba(158,54,58,0.55)` : `1.5px solid rgba(255,255,255,0.07)`,
                 }}
               >
-                <span className="text-base shrink-0">{flag}</span>
-                <div className="min-w-0">
-                  <div className="font-bold truncate" style={{ color: active ? PRIMARY : '#ffffff' }}>
-                    {name}
-                  </div>
-                  <div className="text-[10px] opacity-50 truncate">{tagline}</div>
+                {active && (
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center"
+                    style={{ background: PRIMARY }}
+                  >
+                    <span className="text-white text-[9px] font-bold">✓</span>
+                  </motion.div>
+                )}
+                <span className="text-2xl leading-none">{flag}</span>
+                <div className="font-black text-sm leading-tight mt-1"
+                  style={{ color: active ? '#ff9fa3' : '#ffffff' }}>
+                  {name}
                 </div>
-              </button>
+                <div className="text-[10px] leading-snug" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                  {tagline}
+                </div>
+              </motion.button>
             );
           })}
         </div>
 
         {/* CTA */}
-        <button
+        <motion.button
           onClick={onNext}
           disabled={!canContinue}
-          className="w-full py-4 rounded-2xl text-sm font-black text-white tracking-wide transition-all disabled:opacity-35 disabled:cursor-not-allowed"
+          whileHover={canContinue ? { scale: 1.02, y: -2 } : {}}
+          whileTap={canContinue ? { scale: 0.97 } : {}}
+          transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+          className="w-full py-4 rounded-full text-sm font-black text-white tracking-wide disabled:opacity-35 disabled:cursor-not-allowed"
           style={{
             background: canContinue
               ? `linear-gradient(135deg, ${PRIMARY}, ${PRIMARY_H})`
               : `rgba(255,255,255,0.06)`,
-            boxShadow: canContinue ? `0 8px 32px -4px rgba(158,54,58,0.50)` : 'none',
+            boxShadow: canContinue ? `0 0 40px rgba(158,54,58,0.45), 0 8px 24px -4px rgba(158,54,58,0.30)` : 'none',
           }}
         >
           {canContinue ? `Explore ${inputVal.trim()} →` : 'Pick a destination'}
-        </button>
+        </motion.button>
       </motion.div>
   );
 }
