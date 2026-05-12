@@ -1,166 +1,246 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/auth-context';
 import type { TripLanguage } from '@/lib/types';
 import { persistTripLanguagePref } from '@/lib/tripLanguagePref';
 import { TripLanguageGateModal } from '@/components/TripLanguageGateModal';
 import { BrandWordmark } from '@/components/BrandWordmark';
 
-// ── Palette ───────────────────────────────────────────────────────────────────
-// Background  : #091f36  (Purple Shadow)
-// Primary     : #9e363a  (Redline)      — buttons, accents, glow
-// Card surface: #0f2862  (Blue Popsicle)
-// Body text   : #4f5f76  (Grey Blue Leaf)
-// Headings    : #ffffff
+// ── Design tokens ─────────────────────────────────────────────────────────────
+// Night palette — deep lounge, not pitch black
+const NIGHT   = '#0b1220';
+const NIGHT_2 = '#0f1929';
+const REDLINE = '#9e363a';
+const MUTED   = '#64748b';
 
-const BG      = '#091f36';
-const BG_MID  = '#0b1d35';
-const BG_DEEP = '#071629';
-const PRIMARY = '#9e363a';
-const PRIMARY_HOVER = '#b5404a';
-const CARD    = '#0f2862';
-const MUTED   = '#4f5f76';
+// ── Data ──────────────────────────────────────────────────────────────────────
 
-// ── Content ───────────────────────────────────────────────────────────────────
-
-const features = [
-  {
-    num: '01',
-    title: 'Claude AI Intelligence',
-    description:
-      'Analyzes your traveler DNA against 2025–2026 live data to craft plans no generic itinerary builder can replicate.',
-  },
-  {
-    num: '02',
-    title: 'Hotel Center of Gravity',
-    description:
-      'Every day radiates out from your hotel. Zero wasted transit. Every stop geo-clustered within walking range of your basecamp.',
-  },
-  {
-    num: '03',
-    title: 'Live Web Intelligence',
-    description:
-      'Real-time blog data, crowd levels, and traveler reports. Tourist traps flagged. Hidden gems surfaced.',
-  },
-  {
-    num: '04',
-    title: 'Budget-Validated',
-    description:
-      'Every hotel, restaurant, and experience verified against your exact budget tier with current 2026 pricing.',
-  },
+const DESTINATIONS = [
+  { name: 'Rome',     country: 'Italy',   vibe: 'Eternal',  flag: '🇮🇹' },
+  { name: 'Paris',    country: 'France',  vibe: 'Luminous', flag: '🇫🇷' },
+  { name: 'London',   country: 'UK',      vibe: 'Electric', flag: '🇬🇧' },
+  { name: 'Athens',   country: 'Greece',  vibe: 'Ancient',  flag: '🇬🇷' },
+  { name: 'Budapest', country: 'Hungary', vibe: 'Opulent',  flag: '🇭🇺' },
 ];
 
-const testimonials = [
-  {
-    quote:
-      'We did Tokyo in 7 days with two toddlers and zero meltdowns. The family-optimized routing was genuinely brilliant.',
-    author: 'Sara M.',
-    trip: 'Tokyo, Japan',
-  },
-  {
-    quote:
-      'Three hours of tab-chaos replaced by one click. Caught that the museum was under renovation — saved our whole trip.',
-    author: 'James K.',
-    trip: 'Barcelona, Spain',
-  },
-  {
-    quote:
-      "Solo in Morocco, luxury budget. Found a riad most sites don't even list. Stayed two extra days because of it.",
-    author: 'Priya V.',
-    trip: 'Marrakech, Morocco',
-  },
+const FEATURES = [
+  { icon: '🧠', title: 'Claude AI Intelligence',   body: 'Analyzes your traveler DNA against live 2026 data to craft plans no generic builder can replicate.' },
+  { icon: '🏨', title: 'Hotel Center of Gravity',  body: 'Every day radiates from your hotel. Zero wasted transit. Every stop geo-clustered within walking range.' },
+  { icon: '📡', title: 'Live Web Intelligence',    body: 'Real-time blog data, crowd levels, traveler reports. Tourist traps flagged. Hidden gems surfaced.' },
+  { icon: '💰', title: 'Budget-Validated',         body: 'Every experience verified against your exact budget tier with current 2026 pricing.' },
 ];
 
-const HERO_SCATTER = [
-  { src: '/hero-scatter-1.png', cls: '-top-10 -left-12 rotate-[-7deg]' },
-  { src: '/hero-scatter-2.png', cls: '-top-12 right-0 rotate-[6deg]' },
-  { src: '/hero-scatter-3.png', cls: 'top-1/2 -left-16 -translate-y-1/2 rotate-[-5deg]' },
-  { src: '/hero-scatter-4.png', cls: 'top-1/2 -right-16 -translate-y-1/2 rotate-[5deg]' },
-  { src: '/hero-scatter-5.png', cls: '-bottom-12 left-2 rotate-[8deg]' },
-  { src: '/hero-scatter-6.png', cls: '-bottom-14 right-0 rotate-[-6deg]' },
+const TESTIMONIALS = [
+  { quote: 'We did Tokyo in 7 days with two toddlers and zero meltdowns. The family-optimized routing was genuinely brilliant.', author: 'Sara M.',  trip: 'Tokyo, Japan',       emoji: '🇯🇵' },
+  { quote: 'Three hours of tab-chaos replaced by one click. Caught the museum was under renovation — saved our whole trip.',      author: 'James K.', trip: 'Barcelona, Spain',    emoji: '🇪🇸' },
+  { quote: "Solo in Morocco, luxury budget. Found a riad most sites don't even list. Stayed two extra days because of it.",        author: 'Priya V.', trip: 'Marrakech, Morocco',  emoji: '🇲🇦' },
 ];
 
-// ── Shared inline-style helpers ───────────────────────────────────────────────
+// ── Postcard card ─────────────────────────────────────────────────────────────
 
-const CARD_STYLE = {
-  background: `rgba(15,40,98,0.22)`,
-  border: `1px solid rgba(255,255,255,0.07)`,
-};
+function PostcardCard({
+  dest,
+  index,
+  onSelect,
+}: {
+  dest: (typeof DESTINATIONS)[0];
+  index: number;
+  onSelect: (name: string) => void;
+}) {
+  const [photo,     setPhoto]     = useState<string | null>(null);
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [liked,     setLiked]     = useState(false);
 
-const LABEL_STYLE = {
-  color: PRIMARY,
-  fontSize: '0.625rem',
-  letterSpacing: '0.2em',
-  fontWeight: 700,
-  textTransform: 'uppercase' as const,
-};
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/place-photo?name=${encodeURIComponent(dest.name)}&city=${encodeURIComponent(dest.name)}`)
+      .then((r) => r.json())
+      .then((d) => { if (!cancelled && d.photoUrl) setPhoto(d.photoUrl); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [dest.name]);
 
-const DIVIDER_LINE = (
-  <span className="w-8 h-px flex-shrink-0" style={{ background: PRIMARY }} />
-);
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 40 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ delay: index * 0.09, type: 'spring', stiffness: 240, damping: 22 }}
+      whileHover={{ y: -12, boxShadow: '0 40px 80px rgba(0,0,0,0.6)' }}
+      onClick={() => onSelect(dest.name)}
+      className="group relative rounded-3xl overflow-hidden cursor-pointer select-none"
+      style={{
+        height: 340,
+        boxShadow: '0 16px 48px rgba(0,0,0,0.4)',
+        background: '#111827',
+      }}
+    >
+      {/* Photo */}
+      {photo && (
+        <img
+          src={photo}
+          alt={dest.name}
+          className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.07]"
+          style={{ opacity: imgLoaded ? 1 : 0, transition: 'opacity 0.55s ease, transform 0.7s ease' }}
+          onLoad={() => setImgLoaded(true)}
+        />
+      )}
+
+      {/* Skeleton shimmer while photo loads */}
+      {!imgLoaded && (
+        <div
+          className="absolute inset-0 animate-pulse"
+          style={{ background: 'linear-gradient(135deg, rgba(15,40,98,0.35) 0%, rgba(11,18,32,0.7) 100%)' }}
+        />
+      )}
+
+      {/* Dark gradient overlay — always present for text readability */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background: 'linear-gradient(to top, rgba(10,15,26,0.96) 0%, rgba(10,15,26,0.35) 55%, rgba(10,15,26,0.08) 100%)',
+        }}
+      />
+
+      {/* Redline neon top rule — the TravelOS signature */}
+      <div
+        className="absolute top-0 inset-x-0 h-px"
+        style={{ background: `linear-gradient(90deg, transparent 5%, ${REDLINE}88 50%, transparent 95%)` }}
+      />
+
+      {/* Heart / favorite */}
+      <motion.button
+        className="absolute top-4 right-4 z-20 w-9 h-9 rounded-full flex items-center justify-center"
+        style={{ background: 'rgba(11,18,32,0.65)', backdropFilter: 'blur(8px)' }}
+        onClick={(e) => { e.stopPropagation(); setLiked((l) => !l); }}
+        whileTap={{ scale: 0.78 }}
+        transition={{ type: 'spring', stiffness: 600, damping: 20 }}
+      >
+        <span style={{ color: liked ? REDLINE : 'rgba(255,255,255,0.45)', fontSize: 13 }}>
+          {liked ? '♥' : '♡'}
+        </span>
+      </motion.button>
+
+      {/* Content */}
+      <div className="absolute bottom-0 inset-x-0 p-6 z-10">
+        <div
+          className="text-xs italic font-light tracking-wide mb-1"
+          style={{ color: 'rgba(255,255,255,0.45)' }}
+        >
+          {dest.vibe}
+        </div>
+        <div
+          className="font-black text-2xl text-white leading-tight"
+          style={{ letterSpacing: '-0.03em' }}
+        >
+          {dest.name}
+        </div>
+        <div className="text-xs mt-0.5 mb-5" style={{ color: 'rgba(255,255,255,0.32)' }}>
+          {dest.country} {dest.flag}
+        </div>
+
+        {/* CTA — slides up on hover via group-hover */}
+        <div
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-bold text-white opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300"
+          style={{ background: REDLINE }}
+        >
+          Plan this trip →
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ── Hero background — fetches a cinematic photo for Rome ─────────────────────
+
+function useHeroPhoto() {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    fetch('/api/place-photo?name=Rome+Colosseum&city=Rome')
+      .then((r) => r.json())
+      .then((d) => { if (d.photoUrl) setUrl(d.photoUrl); })
+      .catch(() => {});
+  }, []);
+  return url;
+}
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
   const router = useRouter();
   const { user, loading } = useAuth();
-  const [showAuthGate, setShowAuthGate] = useState(false);
-  const [showLangModal, setShowLangModal] = useState(false);
 
+  const [showLangModal,   setShowLangModal]   = useState(false);
+  const [showAuthGate,    setShowAuthGate]    = useState(false);
+  const [scrolled,        setScrolled]        = useState(false);
+  const [pendingDest,     setPendingDest]     = useState<string | null>(null);
+
+  const heroPhoto = useHeroPhoto();
+
+  // Scroll-aware nav opacity
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 60);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // "Start Planning" CTA
   const openPlanningLanguageStep = (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (loading) return;
     e.preventDefault();
+    setPendingDest(null);
+    setShowLangModal(true);
+  };
+
+  // Postcard click — pre-selects destination
+  const handleDestinationSelect = (name: string) => {
+    setPendingDest(name);
     setShowLangModal(true);
   };
 
   const confirmTripLanguage = (lang: TripLanguage) => {
     persistTripLanguagePref(lang);
     setShowLangModal(false);
-    if (!user) {
-      setShowAuthGate(true);
-      return;
+    if (!user) { setShowAuthGate(true); return; }
+    if (pendingDest) {
+      router.push(`/plan?destination=${encodeURIComponent(pendingDest)}`);
+    } else {
+      router.push('/onboarding');
     }
-    router.push('/onboarding');
   };
 
   return (
-    <main
-      className="min-h-screen overflow-x-hidden relative"
-      style={{
-        backgroundColor: BG,
-        color: '#ffffff',
-        backgroundImage:
-          'linear-gradient(rgba(9,31,54,0.78), rgba(9,31,54,0.86)), url("/hero-scatter-1.png"), url("/hero-scatter-2.png"), url("/hero-scatter-3.png"), url("/hero-scatter-4.png"), url("/hero-scatter-5.png"), url("/hero-scatter-6.png")',
-        backgroundSize: 'cover, 34% 34%, 34% 34%, 34% 34%, 34% 34%, 34% 34%, 34% 34%',
-        backgroundRepeat: 'no-repeat',
-        backgroundPosition: 'center, 0% 0%, 100% 0%, 0% 100%, 100% 100%, 25% 50%, 75% 50%',
-        backgroundAttachment: 'fixed',
-      }}
-    >
-      {/* ── Nav ──────────────────────────────────────────────────────────────── */}
-      <nav
-        className="fixed top-0 inset-x-0 z-40 flex items-center justify-between px-8 py-5"
+    <main className="min-h-screen overflow-x-hidden" style={{ backgroundColor: NIGHT, color: '#fff' }}>
+
+      {/* ── Glassmorphism Nav ──────────────────────────────────────────────── */}
+      <motion.nav
+        className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-8 py-5"
+        animate={{
+          backgroundColor: scrolled ? 'rgba(11,18,32,0.90)' : 'rgba(11,18,32,0.01)',
+          borderBottomColor: scrolled ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0)',
+        }}
+        transition={{ duration: 0.35 }}
         style={{
-          borderBottom: `1px solid rgba(255,255,255,0.06)`,
-          background: `rgba(9,31,54,0.88)`,
-          backdropFilter: 'blur(18px)',
-          WebkitBackdropFilter: 'blur(18px)',
+          borderBottom: '1px solid',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
         }}
       >
-        <Link href="/" className="text-base text-white tracking-tight inline-block" style={{ letterSpacing: '-0.025em' }}>
-          <BrandWordmark accent={PRIMARY} className="text-base" />
+        <Link href="/" className="text-base font-bold text-white">
+          <BrandWordmark accent={REDLINE} className="text-base" />
         </Link>
 
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-5">
           <Link
             href="/onboarding"
-            className="hidden sm:inline text-[11px] font-semibold transition-colors"
-            style={{ color: MUTED, letterSpacing: '0.14em', textTransform: 'uppercase' }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = '#ffffff')}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = MUTED)}
+            className="hidden sm:block text-[11px] font-semibold uppercase tracking-[0.15em] transition-colors duration-200"
+            style={{ color: 'rgba(255,255,255,0.40)' }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = '#fff')}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.40)')}
           >
             Plan a Trip
           </Link>
@@ -169,15 +249,15 @@ export default function HomePage() {
             user ? (
               <Link
                 href="/dashboard"
-                className="text-xs font-bold px-5 py-2.5 rounded-xl transition-all"
-                style={{ background: PRIMARY, color: '#fff', boxShadow: `0 0 20px rgba(158,54,58,0.35)` }}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold text-white transition-all duration-200"
+                style={{ background: REDLINE, boxShadow: `0 0 22px rgba(158,54,58,0.40)` }}
                 onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.background = PRIMARY_HOVER;
-                  (e.currentTarget as HTMLElement).style.boxShadow = '0 0 32px rgba(181,64,74,0.5)';
+                  (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)';
+                  (e.currentTarget as HTMLElement).style.boxShadow = '0 0 36px rgba(158,54,58,0.58)';
                 }}
                 onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.background = PRIMARY;
-                  (e.currentTarget as HTMLElement).style.boxShadow = '0 0 20px rgba(158,54,58,0.35)';
+                  (e.currentTarget as HTMLElement).style.transform = '';
+                  (e.currentTarget as HTMLElement).style.boxShadow = `0 0 22px rgba(158,54,58,0.40)`;
                 }}
               >
                 My Trips
@@ -185,15 +265,20 @@ export default function HomePage() {
             ) : (
               <Link
                 href="/auth"
-                className="text-xs font-semibold px-5 py-2.5 rounded-xl transition-all"
-                style={{ color: MUTED, border: '1px solid rgba(255,255,255,0.1)' }}
+                className="px-5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200"
+                style={{
+                  color: 'rgba(255,255,255,0.60)',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  backdropFilter: 'blur(8px)',
+                  background: 'rgba(255,255,255,0.05)',
+                }}
                 onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.borderColor = `rgba(158,54,58,0.5)`;
-                  (e.currentTarget as HTMLElement).style.color = '#ffffff';
+                  (e.currentTarget as HTMLElement).style.color = '#fff';
+                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(158,54,58,0.45)';
                 }}
                 onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.1)';
-                  (e.currentTarget as HTMLElement).style.color = MUTED;
+                  (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.60)';
+                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.12)';
                 }}
               >
                 Log In
@@ -201,340 +286,428 @@ export default function HomePage() {
             )
           )}
         </div>
-      </nav>
+      </motion.nav>
 
-      {/* ── Hero ─────────────────────────────────────────────────────────────── */}
-      <section className="relative min-h-screen flex items-center px-8 pt-28 pb-20 lg:px-16">
-
-        {/* Radial washes */}
+      {/* ── Hero — fullscreen cinematic ────────────────────────────────────── */}
+      <section
+        className="relative min-h-screen flex items-center justify-center px-8 py-32 overflow-hidden"
+        style={{
+          backgroundImage: heroPhoto
+            ? `linear-gradient(to bottom, rgba(11,18,32,0.45) 0%, rgba(11,18,32,0.72) 55%, rgba(11,18,32,1) 100%), url('${heroPhoto}')`
+            : `linear-gradient(160deg, ${NIGHT} 0%, #0f2040 50%, ${NIGHT} 100%)`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center 35%',
+          backgroundAttachment: 'fixed',
+        }}
+      >
+        {/* Ambient Redline glow at bottom */}
         <div
           className="absolute inset-0 pointer-events-none"
-          style={{ background: `radial-gradient(ellipse 55% 70% at 10% 50%, rgba(158,54,58,0.07) 0%, transparent 70%)` }}
-        />
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{ background: `radial-gradient(ellipse 60% 80% at 85% 30%, rgba(15,40,98,0.18) 0%, transparent 65%)` }}
+          style={{ background: 'radial-gradient(ellipse 75% 45% at 50% 105%, rgba(158,54,58,0.10) 0%, transparent 65%)' }}
         />
 
-        <div className="relative z-10 max-w-6xl mx-auto w-full grid lg:grid-cols-2 gap-16 items-center">
+        <div className="relative z-10 max-w-3xl mx-auto text-center">
 
-          {/* ── Left: copy ─────────────────────────────────────────────────── */}
-          <div>
-
-            {/* Eyebrow label */}
-            <div className="flex items-center gap-3 mb-9">
-              <span className="w-6 h-px" style={{ background: PRIMARY }} />
-              <span style={LABEL_STYLE}>AI-Powered Travel Intelligence</span>
-            </div>
-
-            {/* Headline */}
-            <h1
-              className="font-black leading-[0.93] mb-8"
-              style={{ fontSize: 'clamp(2.9rem, 6.5vw, 5.25rem)', letterSpacing: '-0.038em' }}
+          {/* Eyebrow */}
+          <motion.div
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15, type: 'spring', stiffness: 300, damping: 24 }}
+            className="flex items-center justify-center gap-3 mb-8"
+          >
+            <span className="w-7 h-px" style={{ background: REDLINE }} />
+            <span
+              className="text-[10px] font-bold uppercase tracking-[0.28em]"
+              style={{ color: REDLINE }}
             >
-              The world,
-              <br />
-              <span style={{ color: 'rgba(255,255,255,0.20)' }}>precisely</span>
-              <br />
-              planned.
-            </h1>
+              AI-Powered Travel Intelligence
+            </span>
+            <span className="w-7 h-px" style={{ background: REDLINE }} />
+          </motion.div>
 
-            {/* Sub-copy */}
-            <p
-              className="mb-10 leading-relaxed max-w-md"
-              style={{ color: MUTED, fontSize: '1.05rem', lineHeight: 1.8 }}
+          {/* Headline */}
+          <motion.h1
+            initial={{ opacity: 0, y: 28 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.22, type: 'spring', stiffness: 240, damping: 22 }}
+            className="font-black text-white leading-[0.91] mb-7"
+            style={{ fontSize: 'clamp(3rem, 7.5vw, 5.75rem)', letterSpacing: '-0.04em' }}
+          >
+            Where will you
+            <br />
+            <span style={{ color: 'rgba(255,255,255,0.20)' }}>wake up next?</span>
+          </motion.h1>
+
+          {/* Sub-copy */}
+          <motion.p
+            initial={{ opacity: 0, y: 22 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.30, type: 'spring', stiffness: 240, damping: 24 }}
+            className="text-base sm:text-lg leading-relaxed mb-11 mx-auto max-w-xl"
+            style={{ color: 'rgba(255,255,255,0.48)', lineHeight: 1.8 }}
+          >
+            Answer 10 questions. Get a hyper-personal itinerary built from live
+            intelligence, verified pricing, and neighborhood-level logistics — in 60 seconds.
+          </motion.p>
+
+          {/* Primary CTA — pill-shaped */}
+          <motion.div
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.38, type: 'spring', stiffness: 260, damping: 24 }}
+            className="flex flex-col sm:flex-row items-center justify-center gap-4"
+          >
+            <Link
+              href="/onboarding"
+              className="group inline-flex items-center gap-3 px-10 py-4 rounded-full font-bold text-sm text-white transition-all duration-200"
+              style={{
+                background: REDLINE,
+                boxShadow: `0 0 50px rgba(158,54,58,0.48), 0 4px 24px rgba(158,54,58,0.28)`,
+                letterSpacing: '-0.01em',
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLElement).style.transform = 'translateY(-3px) scale(1.025)';
+                (e.currentTarget as HTMLElement).style.boxShadow = '0 0 75px rgba(158,54,58,0.62), 0 8px 32px rgba(158,54,58,0.38)';
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLElement).style.transform = '';
+                (e.currentTarget as HTMLElement).style.boxShadow = `0 0 50px rgba(158,54,58,0.48), 0 4px 24px rgba(158,54,58,0.28)`;
+              }}
+              onClick={openPlanningLanguageStep}
             >
-              Set your hotel as home base. Answer 10 questions. Get a
-              hyper-personalized itinerary built from live intelligence,
-              verified pricing, and neighborhood-level logistics — in under 60 seconds.
-            </p>
+              Start Planning
+              <span className="inline-block transition-transform duration-200 group-hover:translate-x-1">→</span>
+            </Link>
 
-            {/* Primary CTA → Onboarding (new Hotel Anchor flow) */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 mb-14">
-              <Link
-                href="/onboarding"
-                className="group inline-flex items-center gap-3 px-8 py-4 rounded-xl font-bold text-sm transition-all"
-                style={{
-                  background: PRIMARY,
-                  color: '#fff',
-                  letterSpacing: '-0.01em',
-                  boxShadow: `0 0 40px rgba(158,54,58,0.32), 0 4px 20px rgba(158,54,58,0.22)`,
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.background = PRIMARY_HOVER;
-                  (e.currentTarget as HTMLElement).style.boxShadow = '0 0 60px rgba(181,64,74,0.48), 0 4px 24px rgba(181,64,74,0.32)';
-                  (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)';
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.background = PRIMARY;
-                  (e.currentTarget as HTMLElement).style.boxShadow = `0 0 40px rgba(158,54,58,0.32), 0 4px 20px rgba(158,54,58,0.22)`;
-                  (e.currentTarget as HTMLElement).style.transform = '';
-                }}
-                onClick={openPlanningLanguageStep}
+            <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.20)' }}>
+              {user ? '~60 seconds · Ready to plan' : 'Account required · Free to start'}
+            </span>
+          </motion.div>
+
+          {/* Stats strip */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.56, duration: 0.7 }}
+            className="flex items-center justify-center gap-12 mt-16 pt-10"
+            style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}
+          >
+            {[
+              { val: '60s',  label: 'To generate'  },
+              { val: '10',   label: 'Questions'     },
+              { val: '100%', label: 'Personalized'  },
+            ].map((s) => (
+              <div key={s.val} className="text-center">
+                <div
+                  className="font-black text-2xl"
+                  style={{ color: REDLINE, letterSpacing: '-0.04em' }}
+                >
+                  {s.val}
+                </div>
+                <div
+                  className="text-[10px] uppercase tracking-[0.2em] mt-0.5"
+                  style={{ color: 'rgba(255,255,255,0.22)' }}
+                >
+                  {s.label}
+                </div>
+              </div>
+            ))}
+          </motion.div>
+        </div>
+
+        {/* Scroll indicator */}
+        <motion.div
+          className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
+          animate={{ y: [0, 8, 0] }}
+          transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
+        >
+          <div
+            className="w-px h-10"
+            style={{ background: 'linear-gradient(to bottom, rgba(255,255,255,0.18), transparent)' }}
+          />
+          <span className="text-[9px] uppercase tracking-[0.22em]" style={{ color: 'rgba(255,255,255,0.18)' }}>
+            Explore
+          </span>
+        </motion.div>
+      </section>
+
+      {/* ── Destination Postcards ─────────────────────────────────────────── */}
+      <section className="py-28 px-8 lg:px-16" style={{ backgroundColor: NIGHT }}>
+        <div className="max-w-6xl mx-auto">
+
+          {/* Section header */}
+          <div className="mb-12">
+            <div className="flex items-center gap-3 mb-5">
+              <span className="w-6 h-px" style={{ background: REDLINE }} />
+              <span
+                className="text-[10px] font-bold uppercase tracking-[0.24em]"
+                style={{ color: REDLINE }}
               >
-                Start Planning
-                <span className="transition-transform group-hover:translate-x-0.5 inline-block">→</span>
-              </Link>
-              <span className="text-xs" style={{ color: 'rgba(255,255,255,0.18)' }}>
-                {user ? 'Ready to plan · ~60 seconds' : 'Account required · ~60 seconds'}
+                Trending Escapes
               </span>
             </div>
-
-            {/* Stats strip */}
-            <div
-              className="flex items-center gap-10 pt-8"
-              style={{ borderTop: `1px solid rgba(255,255,255,0.06)` }}
+            <h2
+              className="font-black text-white"
+              style={{ fontSize: 'clamp(1.9rem, 4vw, 3rem)', letterSpacing: '-0.035em', maxWidth: 480 }}
             >
-              {[
-                { val: '60s',  label: 'To generate'   },
-                { val: '10',   label: 'Questions'      },
-                { val: '100%', label: 'Personalized'   },
-              ].map((s) => (
-                <div key={s.val}>
-                  <div
-                    className="font-black text-2xl"
-                    style={{ color: PRIMARY, letterSpacing: '-0.04em' }}
-                  >
-                    {s.val}
-                  </div>
-                  <div className="mt-0.5" style={{ ...LABEL_STYLE, color: MUTED }}>
-                    {s.label}
-                  </div>
-                </div>
-              ))}
-            </div>
+              Your evening in{' '}
+              <span style={{ color: 'rgba(255,255,255,0.18)' }}>one of these.</span>
+            </h2>
           </div>
 
-          {/* ── Right: static emblem image ─────────────────────────────────── */}
-          <div className="hidden lg:flex justify-center items-center" aria-hidden="true">
-            <div className="relative w-[520px] h-[520px] flex items-center justify-center">
-              {HERO_SCATTER.map((item, i) => (
-                <img
-                  key={i}
-                  src={item.src}
-                  alt=""
-                  className={`absolute ${item.cls} w-[116px] h-[116px] rounded-2xl object-cover border border-white/20 shadow-xl opacity-90`}
-                  style={{ boxShadow: '0 18px 28px -18px rgba(0,0,0,0.75)' }}
-                  draggable={false}
-                />
-              ))}
-
-              <div
-                className="rounded-[2rem] p-4 relative z-10"
-                style={{
-                  background: 'rgba(9,31,54,0.18)',
-                  border: '1px solid rgba(255,255,255,0.06)',
-                  boxShadow: '0 28px 60px -28px rgba(0,0,0,0.55)',
-                }}
-              >
-                <img
-                  src="/hero-globe.png"
-                  alt="TravelOS global intelligence"
-                  className="w-[360px] h-[360px] object-contain select-none rounded-[1.5rem]"
-                  draggable={false}
-                />
-              </div>
-            </div>
+          {/* 5 postcard cards — 3-col on lg, 2-col on sm */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {DESTINATIONS.map((dest, i) => (
+              <PostcardCard
+                key={dest.name}
+                dest={dest}
+                index={i}
+                onSelect={handleDestinationSelect}
+              />
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ── Manifesto strip ───────────────────────────────────────────────────── */}
-      <div
-        className="py-14 px-8 text-center"
-        style={{
-          borderTop:    `1px solid rgba(255,255,255,0.05)`,
-          borderBottom: `1px solid rgba(255,255,255,0.05)`,
-          background: `linear-gradient(90deg, transparent, rgba(15,40,98,0.12), transparent)`,
-        }}
-      >
-        <p
-          className="font-light italic"
-          style={{
-            color: 'rgba(255,255,255,0.18)',
-            fontSize: 'clamp(1.1rem, 2.5vw, 1.5rem)',
-            maxWidth: 560,
-            margin: '0 auto',
-            letterSpacing: '0.02em',
-          }}
-        >
-          &ldquo;Intelligence meets wanderlust.&rdquo;
-        </p>
-      </div>
+      {/* ── How it works ──────────────────────────────────────────────────── */}
+      <section className="py-28 px-8 lg:px-16" style={{ backgroundColor: NIGHT_2 }}>
+        <div className="max-w-5xl mx-auto">
 
-      {/* ── Features ─────────────────────────────────────────────────────────── */}
-      <section className="py-28 px-8 lg:px-16" style={{ backgroundColor: BG_MID }}>
-        <div className="max-w-6xl mx-auto">
-
-          <div className="flex items-center gap-4 mb-14">
-            {DIVIDER_LINE}
-            <span style={LABEL_STYLE}>The System</span>
+          <div className="flex items-center gap-3 mb-5">
+            <span className="w-6 h-px" style={{ background: REDLINE }} />
+            <span
+              className="text-[10px] font-bold uppercase tracking-[0.24em]"
+              style={{ color: REDLINE }}
+            >
+              The Process
+            </span>
           </div>
 
           <h2
-            className="font-black mb-14"
-            style={{
-              fontSize: 'clamp(1.8rem, 3.8vw, 3rem)',
-              letterSpacing: '-0.035em',
-              maxWidth: 520,
-            }}
+            className="font-black text-white mb-16"
+            style={{ fontSize: 'clamp(1.9rem, 4vw, 3rem)', letterSpacing: '-0.035em' }}
+          >
+            From hotel to hero itinerary
+            <br />
+            <span style={{ color: 'rgba(255,255,255,0.18)' }}>in three steps.</span>
+          </h2>
+
+          <div className="grid sm:grid-cols-3 gap-12">
+            {[
+              {
+                n: '01',
+                title: 'Set your hotel',
+                body: 'Drop in your hotel address — it becomes the gravitational centre of your entire trip. Every stop within walking range.',
+              },
+              {
+                n: '02',
+                title: 'Answer 10 questions',
+                body: 'Your pace, budget, vibe, dietary needs. Claude cross-references live 2026 data and builds around your exact profile.',
+              },
+              {
+                n: '03',
+                title: 'Travel with precision',
+                body: 'Day-by-day schedules, geo-clustered by neighbourhood. Every time slot filled. Every meal considered.',
+              },
+            ].map((item, i) => (
+              <motion.div
+                key={item.n}
+                initial={{ opacity: 0, y: 32 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.10, type: 'spring', stiffness: 250, damping: 24 }}
+              >
+                <div
+                  className="font-black font-mono mb-5 select-none"
+                  style={{ fontSize: '3.5rem', color: 'rgba(158,54,58,0.14)', letterSpacing: '-0.04em' }}
+                >
+                  {item.n}
+                </div>
+                <h3
+                  className="font-bold text-white mb-3"
+                  style={{ letterSpacing: '-0.015em' }}
+                >
+                  {item.title}
+                </h3>
+                <p className="text-sm leading-relaxed" style={{ color: MUTED }}>
+                  {item.body}
+                </p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Features ──────────────────────────────────────────────────────── */}
+      <section className="py-28 px-8 lg:px-16" style={{ backgroundColor: NIGHT }}>
+        <div className="max-w-5xl mx-auto">
+
+          <div className="flex items-center gap-3 mb-5">
+            <span className="w-6 h-px" style={{ background: REDLINE }} />
+            <span
+              className="text-[10px] font-bold uppercase tracking-[0.24em]"
+              style={{ color: REDLINE }}
+            >
+              Why TravelOS
+            </span>
+          </div>
+
+          <h2
+            className="font-black text-white mb-16"
+            style={{ fontSize: 'clamp(1.9rem, 4vw, 3rem)', letterSpacing: '-0.035em', maxWidth: 440 }}
           >
             Not another generic planner.
           </h2>
 
-          {/* 2×2 grid */}
-          <div
-            className="grid sm:grid-cols-2"
-            style={{ border: `1px solid rgba(255,255,255,0.07)`, overflow: 'hidden' }}
-          >
-            {features.map((f, i) => (
-              <div
-                key={f.num}
-                className="p-9 transition-colors duration-300"
+          <div className="grid sm:grid-cols-2 gap-5">
+            {FEATURES.map((f, i) => (
+              <motion.div
+                key={f.title}
+                initial={{ opacity: 0, y: 24 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.08, type: 'spring', stiffness: 250, damping: 24 }}
+                className="p-8 rounded-3xl transition-all duration-300 cursor-default"
                 style={{
-                  background: `rgba(9,31,54,0.70)`,
-                  borderRight:  i % 2 === 0 ? `1px solid rgba(255,255,255,0.07)` : 'none',
-                  borderBottom: i < 2       ? `1px solid rgba(255,255,255,0.07)` : 'none',
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  boxShadow: '0 4px 24px rgba(0,0,0,0.22)',
                 }}
-                onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = `rgba(15,40,98,0.32)`)}
-                onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = `rgba(9,31,54,0.70)`)}
+                onMouseEnter={(e) => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.background    = 'rgba(255,255,255,0.056)';
+                  el.style.borderColor   = 'rgba(158,54,58,0.24)';
+                  el.style.transform     = 'translateY(-5px)';
+                  el.style.boxShadow     = '0 24px 56px rgba(0,0,0,0.38)';
+                }}
+                onMouseLeave={(e) => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.background  = 'rgba(255,255,255,0.03)';
+                  el.style.borderColor = 'rgba(255,255,255,0.06)';
+                  el.style.transform   = '';
+                  el.style.boxShadow   = '0 4px 24px rgba(0,0,0,0.22)';
+                }}
               >
-                <div
-                  className="font-black font-mono mb-7"
-                  style={{ fontSize: '2.75rem', color: `rgba(158,54,58,0.18)`, letterSpacing: '-0.04em' }}
-                >
-                  {f.num}
-                </div>
+                <div className="text-3xl mb-5">{f.icon}</div>
                 <h3
-                  className="font-bold text-base mb-3"
-                  style={{ color: '#ffffff', letterSpacing: '-0.015em' }}
+                  className="font-bold text-white mb-3"
+                  style={{ letterSpacing: '-0.015em' }}
                 >
                   {f.title}
                 </h3>
                 <p className="text-sm leading-relaxed" style={{ color: MUTED }}>
-                  {f.description}
+                  {f.body}
                 </p>
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── How it works ─────────────────────────────────────────────────────── */}
-      <section className="py-28 px-8 lg:px-16" style={{ backgroundColor: BG }}>
-        <div className="max-w-6xl mx-auto">
+      {/* ── Testimonials ──────────────────────────────────────────────────── */}
+      <section className="py-28 px-8 lg:px-16" style={{ backgroundColor: NIGHT_2 }}>
+        <div className="max-w-5xl mx-auto">
 
-          <div className="flex items-center gap-4 mb-14">
-            {DIVIDER_LINE}
-            <span style={LABEL_STYLE}>The Process</span>
-          </div>
-
-          <div className="grid sm:grid-cols-3 gap-14 sm:gap-10">
-            {[
-              { step: '01', title: 'Set your hotel',        desc: 'Drop in your hotel address — it becomes the gravitational center of your entire itinerary.' },
-              { step: '02', title: 'AI builds your plan',   desc: 'Claude cross-references live data, real blogs, and current 2026 pricing around your basecamp.' },
-              { step: '03', title: 'Travel with precision', desc: 'Day-by-day schedules, geo-clustered by neighborhood, with dining built in.' },
-            ].map((item, i) => (
-              <div key={item.step} className="relative">
-                {i < 2 && (
-                  <div
-                    className="absolute hidden sm:block"
-                    style={{
-                      top: '1.5rem',
-                      left: 'calc(100% + 1rem)',
-                      width: '2rem',
-                      height: '1px',
-                      background: `linear-gradient(90deg, rgba(158,54,58,0.5), transparent)`,
-                    }}
-                  />
-                )}
-                <div
-                  className="font-black font-mono mb-5"
-                  style={{ fontSize: '3rem', color: `rgba(158,54,58,0.16)`, letterSpacing: '-0.04em' }}
-                >
-                  {item.step}
-                </div>
-                <h3 className="font-bold mb-3" style={{ color: '#ffffff', letterSpacing: '-0.015em' }}>
-                  {item.title}
-                </h3>
-                <p className="text-sm leading-relaxed" style={{ color: MUTED }}>
-                  {item.desc}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Testimonials ─────────────────────────────────────────────────────── */}
-      <section className="py-28 px-8 lg:px-16" style={{ backgroundColor: BG_MID }}>
-        <div className="max-w-6xl mx-auto">
-
-          <div className="flex items-center gap-4 mb-14">
-            {DIVIDER_LINE}
-            <span style={LABEL_STYLE}>From Travelers</span>
-          </div>
-
-          <div className="grid sm:grid-cols-3 gap-5">
-            {testimonials.map((t) => (
-              <div
-                key={t.author}
-                className="p-7 rounded-2xl transition-all duration-300"
-                style={CARD_STYLE}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.borderColor = `rgba(158,54,58,0.28)`;
-                  (e.currentTarget as HTMLElement).style.background   = `rgba(15,40,98,0.40)`;
-                  (e.currentTarget as HTMLElement).style.transform     = 'translateY(-3px)';
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.07)';
-                  (e.currentTarget as HTMLElement).style.background   = `rgba(15,40,98,0.22)`;
-                  (e.currentTarget as HTMLElement).style.transform     = '';
-                }}
-              >
-                <div
-                  className="font-black mb-4 leading-none select-none"
-                  style={{ color: PRIMARY, fontSize: '2rem', fontFamily: 'Georgia, serif' }}
-                >
-                  &ldquo;
-                </div>
-                <p className="text-sm leading-relaxed mb-7" style={{ color: MUTED }}>
-                  {t.quote}
-                </p>
-                <div style={{ borderTop: `1px solid rgba(255,255,255,0.06)`, paddingTop: '1rem' }}>
-                  <div className="text-sm font-semibold" style={{ color: '#ffffff' }}>{t.author}</div>
-                  <div className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.22)' }}>{t.trip}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Final CTA ────────────────────────────────────────────────────────── */}
-      <section
-        className="relative py-36 px-8 text-center overflow-hidden"
-        style={{ backgroundColor: BG_DEEP }}
-      >
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{ background: `radial-gradient(ellipse 60% 55% at 50% 100%, rgba(158,54,58,0.12) 0%, transparent 70%)` }}
-        />
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{ background: `radial-gradient(ellipse 50% 40% at 50% 0%, rgba(15,40,98,0.18) 0%, transparent 65%)` }}
-        />
-
-        <div className="max-w-xl mx-auto relative z-10">
-          <div className="flex items-center justify-center gap-4 mb-10">
-            {DIVIDER_LINE}
-            <span style={LABEL_STYLE}>Ready</span>
-            {DIVIDER_LINE}
+          <div className="flex items-center gap-3 mb-5">
+            <span className="w-6 h-px" style={{ background: REDLINE }} />
+            <span
+              className="text-[10px] font-bold uppercase tracking-[0.24em]"
+              style={{ color: REDLINE }}
+            >
+              From Travelers
+            </span>
           </div>
 
           <h2
-            className="font-black mb-8"
-            style={{ fontSize: 'clamp(2.4rem, 5vw, 3.75rem)', letterSpacing: '-0.038em', lineHeight: 1.0 }}
+            className="font-black text-white mb-16"
+            style={{ fontSize: 'clamp(1.9rem, 4vw, 3rem)', letterSpacing: '-0.035em' }}
+          >
+            Stories worth repeating.
+          </h2>
+
+          <div className="grid sm:grid-cols-3 gap-5">
+            {TESTIMONIALS.map((t, i) => (
+              <motion.div
+                key={t.author}
+                initial={{ opacity: 0, y: 32 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.09, type: 'spring', stiffness: 240, damping: 22 }}
+                className="flex flex-col p-8 rounded-3xl transition-all duration-300"
+                style={{
+                  background: 'rgba(255,255,255,0.028)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.28)',
+                }}
+                onMouseEnter={(e) => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.transform   = 'translateY(-7px)';
+                  el.style.boxShadow   = '0 28px 64px rgba(0,0,0,0.44)';
+                  el.style.borderColor = 'rgba(158,54,58,0.20)';
+                }}
+                onMouseLeave={(e) => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.transform   = '';
+                  el.style.boxShadow   = '0 8px 32px rgba(0,0,0,0.28)';
+                  el.style.borderColor = 'rgba(255,255,255,0.06)';
+                }}
+              >
+                <div className="text-3xl mb-5">{t.emoji}</div>
+                <p
+                  className="text-sm leading-relaxed mb-7 flex-1 italic"
+                  style={{ color: 'rgba(255,255,255,0.60)' }}
+                >
+                  &ldquo;{t.quote}&rdquo;
+                </p>
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '1rem' }}>
+                  <div className="font-semibold text-sm text-white">{t.author}</div>
+                  <div className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.24)' }}>
+                    {t.trip}
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Final CTA ─────────────────────────────────────────────────────── */}
+      <section
+        className="relative py-40 px-8 text-center overflow-hidden"
+        style={{ backgroundColor: NIGHT }}
+      >
+        {/* Redline glow from below */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse 70% 50% at 50% 110%, rgba(158,54,58,0.15) 0%, transparent 65%)' }}
+        />
+        {/* Top hairline in Redline */}
+        <div
+          className="absolute top-0 inset-x-0 h-px"
+          style={{ background: 'linear-gradient(90deg, transparent 5%, rgba(158,54,58,0.45) 50%, transparent 95%)' }}
+        />
+
+        <motion.div
+          className="relative z-10 max-w-lg mx-auto"
+          initial={{ opacity: 0, y: 44 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ type: 'spring', stiffness: 220, damping: 22 }}
+        >
+          <div className="flex items-center justify-center gap-5 mb-10">
+            <span className="w-10 h-px" style={{ background: REDLINE }} />
+            <span
+              className="text-[10px] font-bold uppercase tracking-[0.28em]"
+              style={{ color: REDLINE }}
+            >
+              Ready
+            </span>
+            <span className="w-10 h-px" style={{ background: REDLINE }} />
+          </div>
+
+          <h2
+            className="font-black text-white mb-10 leading-[0.93]"
+            style={{ fontSize: 'clamp(2.6rem, 6vw, 4.2rem)', letterSpacing: '-0.04em' }}
           >
             Travel smarter.
             <br />
@@ -543,33 +716,46 @@ export default function HomePage() {
 
           <Link
             href="/onboarding"
-            className="inline-flex items-center gap-3 px-10 py-5 rounded-xl font-bold text-sm transition-all"
+            className="inline-flex items-center gap-3 px-12 py-5 rounded-full font-bold text-sm text-white transition-all duration-200"
             style={{
-              background: PRIMARY,
-              color: '#fff',
+              background: REDLINE,
+              boxShadow: `0 0 65px rgba(158,54,58,0.44), 0 4px 28px rgba(158,54,58,0.28)`,
               letterSpacing: '-0.01em',
-              boxShadow: `0 0 60px rgba(158,54,58,0.32)`,
             }}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.background = PRIMARY_HOVER;
-              (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)';
-              (e.currentTarget as HTMLElement).style.boxShadow = '0 0 80px rgba(181,64,74,0.48)';
+              (e.currentTarget as HTMLElement).style.transform = 'translateY(-3px) scale(1.03)';
+              (e.currentTarget as HTMLElement).style.boxShadow = '0 0 96px rgba(158,54,58,0.60), 0 8px 36px rgba(158,54,58,0.38)';
             }}
             onMouseLeave={(e) => {
-              (e.currentTarget as HTMLElement).style.background = PRIMARY;
               (e.currentTarget as HTMLElement).style.transform = '';
-              (e.currentTarget as HTMLElement).style.boxShadow = `0 0 60px rgba(158,54,58,0.32)`;
+              (e.currentTarget as HTMLElement).style.boxShadow = `0 0 65px rgba(158,54,58,0.44), 0 4px 28px rgba(158,54,58,0.28)`;
             }}
             onClick={openPlanningLanguageStep}
           >
             Plan My First Trip →
           </Link>
 
-          <p className="mt-5 text-xs" style={{ color: 'rgba(255,255,255,0.15)' }}>
-            {user ? 'Signed in · continue to onboarding' : 'Sign in or create an account to continue'}
+          <p className="mt-6 text-xs" style={{ color: 'rgba(255,255,255,0.14)' }}>
+            {user ? 'Signed in · continue to onboarding' : 'Create a free account to continue'}
           </p>
-        </div>
+        </motion.div>
       </section>
+
+      {/* ── Footer ────────────────────────────────────────────────────────── */}
+      <footer
+        className="flex flex-col sm:flex-row items-center justify-between px-8 py-8 gap-3"
+        style={{
+          borderTop: '1px solid rgba(255,255,255,0.05)',
+          backgroundColor: NIGHT,
+        }}
+      >
+        <BrandWordmark accent={REDLINE} className="text-sm" />
+        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.18)' }}>
+          AI-powered travel intelligence · 2026
+        </p>
+      </footer>
+
+      {/* ── Modals ────────────────────────────────────────────────────────── */}
 
       <TripLanguageGateModal
         open={showLangModal}
@@ -577,56 +763,61 @@ export default function HomePage() {
         onCancel={() => setShowLangModal(false)}
       />
 
-      {showAuthGate && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center px-4"
-          style={{ background: 'rgba(7,22,41,0.78)', backdropFilter: 'blur(4px)' }}
-        >
-          <div
-            className="w-full max-w-md rounded-2xl p-6"
-            style={{ background: '#0b1d35', border: '1px solid rgba(255,255,255,0.10)' }}
+      <AnimatePresence>
+        {showAuthGate && (
+          <motion.div
+            key="auth-gate-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center px-4"
+            style={{ background: 'rgba(7,12,22,0.88)', backdropFilter: 'blur(10px)' }}
           >
-            <h3 className="text-xl font-black mb-2" style={{ letterSpacing: '-0.02em' }}>
-              Sign in to create a trip
-            </h3>
-            <p className="text-sm mb-6" style={{ color: MUTED }}>
-              To generate personalized itineraries, please log in or create a free account.
-            </p>
-            <div className="flex gap-3">
-              <Link
-                href="/auth"
-                className="flex-1 text-center px-4 py-3 rounded-xl text-sm font-bold"
-                style={{ background: PRIMARY, color: '#fff' }}
+            <motion.div
+              key="auth-gate-modal"
+              initial={{ opacity: 0, scale: 0.93, y: 24 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.93, y: 24 }}
+              transition={{ type: 'spring', stiffness: 340, damping: 26 }}
+              className="w-full max-w-md rounded-3xl p-8"
+              style={{
+                background: NIGHT_2,
+                border: '1px solid rgba(255,255,255,0.08)',
+                boxShadow: '0 48px 100px rgba(0,0,0,0.60)',
+              }}
+            >
+              <h3
+                className="text-xl font-black mb-2"
+                style={{ letterSpacing: '-0.025em' }}
               >
-                Log In / Sign Up
-              </Link>
-              <button
-                type="button"
-                className="px-4 py-3 rounded-xl text-sm font-semibold"
-                style={{ border: '1px solid rgba(255,255,255,0.15)', color: '#fff' }}
-                onClick={() => setShowAuthGate(false)}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Footer ───────────────────────────────────────────────────────────── */}
-      <footer
-        className="flex items-center justify-between px-8 py-7 text-xs"
-        style={{
-          borderTop: `1px solid rgba(255,255,255,0.055)`,
-          backgroundColor: BG,
-          color: MUTED,
-        }}
-      >
-        <span className="font-semibold" style={{ letterSpacing: '-0.015em' }}>
-          <BrandWordmark accent={PRIMARY} className="text-xs sm:text-sm" />
-        </span>
-        <span>AI-powered travel intelligence · 2026</span>
-      </footer>
+                Sign in to create a trip
+              </h3>
+              <p className="text-sm mb-7" style={{ color: MUTED }}>
+                To generate personalised itineraries, please log in or create a free account.
+              </p>
+              <div className="flex gap-3">
+                <Link
+                  href="/auth"
+                  className="flex-1 text-center px-4 py-3 rounded-xl text-sm font-bold text-white"
+                  style={{ background: REDLINE }}
+                >
+                  Log In / Sign Up
+                </Link>
+                <button
+                  type="button"
+                  className="px-4 py-3 rounded-xl text-sm font-semibold text-white transition-colors"
+                  style={{ border: '1px solid rgba(255,255,255,0.12)' }}
+                  onClick={() => setShowAuthGate(false)}
+                  onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.28)')}
+                  onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.12)')}
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }
