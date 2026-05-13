@@ -37,6 +37,11 @@ export interface HotelRecommendation {
   reviewCountHint?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  /**
+   * True = confirmed available for the trip dates (hide card when explicitly false).
+   * Omitted / null → show the card (backward-compatible default).
+   */
+  availability?: boolean | null;
 }
 
 /** One nearby public-transport anchor from the hotel (names stay English for maps). */

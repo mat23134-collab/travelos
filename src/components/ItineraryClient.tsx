@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -255,45 +256,422 @@ function HotelDetailCube({
   );
 }
 
-function HotelCard({ hotel, onOpen, ui }: { hotel: HotelRecommendation; onOpen: () => void; ui: ItineraryUiStrings }) {
-  const stars = starRow(hotel.ratingStars);
+// ── OTA brand icon components ─────────────────────────────────────────────────
+
+function BookingDotIcon({ size = 10 }: { size?: number }) {
+  // Stylised "B." in Booking.com blue
   return (
-    <motion.button
-      type="button"
-      onClick={onOpen}
-      whileHover={{ y: -3 }}
-      whileTap={{ scale: 0.98 }}
-      className="relative flex flex-col rounded-3xl border border-white/10 overflow-hidden transition-all duration-200 hover:border-[#a89254]/40 text-left w-full cursor-pointer"
-      style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(12px)', boxShadow: '0 8px 32px -8px rgba(0,0,0,0.40)' }}
-    >
-      <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#a89254]/50 to-transparent" />
-      <div className="p-4 flex flex-col gap-3 flex-1">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-[#a89254] bg-[#a89254]/12 px-2 py-0.5 rounded-full">
-            {hotel.neighborhoodVibe}
-          </span>
-          <span className="text-[10px] text-white/40 font-mono">{hotel.priceRange}</span>
-          {stars && hotel.ratingStars != null && (
-            <span className="text-[10px]" style={{ color: 'rgba(201,168,76,0.95)' }}>{stars}</span>
+    <svg width={size} height={size + 2} viewBox="0 0 10 12" fill="none" aria-hidden>
+      <path d="M1.5 1.5h3.2c1.15 0 2.1.95 2.1 2.1s-.95 2.1-2.1 2.1H1.5V1.5z" fill="#0071c2" fillOpacity="0.95" />
+      <path d="M1.5 5.7h3.5c1.27 0 2.3 1.03 2.3 2.3s-1.03 2.3-2.3 2.3H1.5V5.7z" fill="#0071c2" fillOpacity="0.95" />
+    </svg>
+  );
+}
+
+function ExpediaCompassIcon({ size = 10 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 10 10" fill="none" aria-hidden>
+      <circle cx="5" cy="5" r="4.2" stroke="#ffc600" strokeWidth="1.1" strokeOpacity="0.9" />
+      <circle cx="5" cy="5" r="1.6" fill="#ffc600" fillOpacity="0.85" />
+      <line x1="5" y1="1" x2="5" y2="2.4" stroke="#ffc600" strokeWidth="1" strokeOpacity="0.6" />
+      <line x1="5" y1="7.6" x2="5" y2="9" stroke="#ffc600" strokeWidth="1" strokeOpacity="0.6" />
+    </svg>
+  );
+}
+
+// ── TravelOS Index interactive badge ──────────────────────────────────────────
+
+/** Inline popover rendered into document.body via portal — escapes backdrop-filter stacking contexts. */
+function TosPopoverPortal({
+  hotel,
+  destination,
+  profile,
+  coords,
+  onClose,
+}: {
+  hotel: HotelRecommendation;
+  destination: string;
+  profile: TravelerProfile | null;
+  coords: { top: number; right: number };
+  onClose: () => void;
+}) {
+  const otaRows = mergeHotelOtaRows(hotel.otaPriceCompare);
+  const tosScore = hotel.ratingStars != null && Number.isFinite(hotel.ratingStars)
+    ? Math.round(hotel.ratingStars * 20)
+    : null;
+
+  // Inline brand badge inside popover rows
+  const brandBadge = (id: 'booking' | 'expedia' | 'airbnb') => {
+    const map = {
+      booking: { bg: '#003580', color: '#fff', label: 'B.' },
+      expedia: { bg: '#1b1b6b', color: '#ffd700', label: 'E' },
+      airbnb:  { bg: '#ff385c', color: '#fff',    label: 'A' },
+    };
+    const { bg, color, label } = map[id];
+    return (
+      <span
+        className="inline-flex items-center justify-center w-5 h-5 rounded text-[9px] font-black leading-none flex-shrink-0"
+        style={{ background: bg, color }}
+      >
+        {label}
+      </span>
+    );
+  };
+
+  return createPortal(
+    <AnimatePresence>
+      <div className="fixed inset-0 z-[98]" onClick={onClose} />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.88, y: -8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.88, y: -8 }}
+        transition={{ type: 'spring', stiffness: 500, damping: 34 }}
+        style={{
+          position: 'fixed',
+          top: coords.top,
+          right: coords.right,
+          zIndex: 99,
+          width: 228,
+        }}
+      >
+        <div
+          className="rounded-2xl overflow-hidden"
+          style={{
+            background: 'rgba(5, 14, 30, 0.97)',
+            backdropFilter: 'blur(28px) saturate(180%)',
+            border: '1px solid rgba(255,255,255,0.11)',
+            boxShadow: '0 28px 80px -12px rgba(0,0,0,0.88), 0 0 0 1px rgba(201,168,76,0.10) inset',
+          }}
+        >
+          {/* Header — composite score */}
+          <div className="px-4 pt-4 pb-3.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            <p
+              className="text-[9px] font-bold uppercase tracking-[0.18em] mb-2"
+              style={{ color: 'rgba(201,168,76,0.60)' }}
+            >
+              TravelOS Index
+            </p>
+            <div className="flex items-end gap-1.5">
+              <span className="text-4xl font-black text-white leading-none">{tosScore ?? '—'}</span>
+              <span className="text-base pb-0.5" style={{ color: 'rgba(255,255,255,0.25)' }}>/100</span>
+            </div>
+            {(hotel.ratingSource || hotel.reviewCountHint) && (
+              <p className="text-[10px] mt-1.5" style={{ color: 'rgba(255,255,255,0.28)' }}>
+                {[hotel.ratingSource, hotel.reviewCountHint].filter(Boolean).join(' · ')}
+              </p>
+            )}
+          </div>
+
+          {/* Per-OTA nightly price rows */}
+          <div className="px-3 py-3 flex flex-col gap-1.5">
+            {otaRows.map((row) => (
+              <div
+                key={row.id}
+                className="flex items-center justify-between px-2.5 py-2 rounded-xl"
+                style={{ background: 'rgba(255,255,255,0.038)' }}
+              >
+                <div className="flex items-center gap-2">
+                  {brandBadge(row.id)}
+                  <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.58)' }}>
+                    {row.label}
+                  </span>
+                </div>
+                <span
+                  className="text-[11px] font-semibold tabular-nums"
+                  style={{ color: row.indicativeNightly ? '#d4b96a' : 'rgba(255,255,255,0.22)' }}
+                >
+                  {row.indicativeNightly ?? '—'}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <p
+            className="px-4 pb-3.5 text-[10px] text-center"
+            style={{ color: 'rgba(255,255,255,0.18)' }}
+          >
+            Indicative rates · verify live pricing
+          </p>
+        </div>
+      </motion.div>
+    </AnimatePresence>,
+    document.body,
+  );
+}
+
+// ── Premium HotelCard ─────────────────────────────────────────────────────────
+
+function HotelCard({
+  hotel,
+  onOpen,
+  destination,
+  profile,
+  ui,
+}: {
+  hotel: HotelRecommendation;
+  onOpen: () => void;
+  destination: string;
+  profile: TravelerProfile | null;
+  ui: ItineraryUiStrings;
+}) {
+  const [tosOpen, setTosOpen] = useState(false);
+  const [popoverCoords, setPopoverCoords] = useState({ top: 0, right: 0 });
+  const [mounted, setMounted] = useState(false);
+  const badgeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => { setMounted(true); }, []);
+
+  // ── Pricing helpers ──
+  const checkIn  = profile?.startDate?.slice(0, 10);
+  const checkOut = profile?.endDate?.slice(0, 10);
+  const adults   = profile?.groupSize && profile.groupSize > 0 ? profile.groupSize : 2;
+
+  const nights = useMemo(() => {
+    if (!checkIn || !checkOut) return null;
+    const diff = Math.round(
+      (new Date(`${checkOut}T12:00:00`).getTime() - new Date(`${checkIn}T12:00:00`).getTime()) / 86_400_000,
+    );
+    return diff > 0 ? diff : null;
+  }, [checkIn, checkOut]);
+
+  const otaRows = mergeHotelOtaRows(hotel.otaPriceCompare);
+
+  // Prefer the first OTA row with a price; fall back to the AI-generated band
+  const perNightStr: string | null =
+    otaRows.find((r) => r.indicativeNightly)?.indicativeNightly ??
+    hotel.estimatedPriceRangeTripDates ??
+    null;
+
+  // Try to extract a leading $ figure for total calculation
+  const perNightNum = useMemo(() => {
+    if (!perNightStr) return null;
+    const m = /\$(\d[\d,]*)/.exec(perNightStr);
+    return m ? parseInt(m[1].replace(/,/g, ''), 10) : null;
+  }, [perNightStr]);
+
+  const totalPrice =
+    nights != null && perNightNum != null
+      ? `$${(nights * perNightNum).toLocaleString()}`
+      : null;
+
+  // TravelOS score — 5-star scale → /100
+  const tosScore =
+    hotel.ratingStars != null && Number.isFinite(hotel.ratingStars)
+      ? Math.round(hotel.ratingStars * 20)
+      : null;
+
+  // OTA deep-link URLs (dates + party size pre-filled)
+  const otaOpts  = { checkIn, checkOut, adults };
+  const bookingUrl = hotelOtaSearchUrl('booking', hotel.name, destination, otaOpts);
+  const expediaUrl = hotelOtaSearchUrl('expedia', hotel.name, destination, otaOpts);
+
+  // Badge click — position popover near the badge, then toggle
+  const handleBadgeClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (badgeRef.current) {
+      const r = badgeRef.current.getBoundingClientRect();
+      setPopoverCoords({
+        top: r.bottom + 8,                    // viewport-relative; fixed positioning, no scrollY needed
+        right: window.innerWidth - r.right,   // distance from right viewport edge
+      });
+    }
+    setTosOpen((v) => !v);
+  };
+
+  return (
+    <>
+      {/* ── Card shell ──────────────────────────────────────────── */}
+      <motion.div
+        onClick={onOpen}
+        whileHover={{ y: -5, boxShadow: '0 24px 64px -10px rgba(0,0,0,0.72), 0 0 0 1px rgba(168,146,84,0.30)' }}
+        whileTap={{ scale: 0.984 }}
+        transition={{
+          y:         { type: 'spring', stiffness: 360, damping: 28 },
+          boxShadow: { duration: 0.22, ease: 'easeOut' },
+          scale:     { type: 'spring', stiffness: 560, damping: 30 },
+        }}
+        className="relative rounded-3xl cursor-pointer flex flex-col group"
+        style={{
+          background:     'rgba(10, 24, 44, 0.74)',
+          border:         '1px solid rgba(255,255,255,0.09)',
+          boxShadow:      '0 8px 32px -8px rgba(0,0,0,0.50)',
+          backdropFilter: 'blur(14px)',
+        }}
+      >
+        {/* Top shimmer line */}
+        <div className="absolute top-0 inset-x-0 h-px rounded-t-3xl bg-gradient-to-r from-transparent via-[#a89254]/38 to-transparent pointer-events-none" />
+
+        {/* ── Image zone ──────────────────────────────────────────── */}
+        <div className="relative h-40 rounded-t-3xl overflow-hidden flex-shrink-0">
+          <DayPhoto
+            query={`${hotel.name} ${destination} hotel exterior luxury`}
+            alt={hotel.name}
+            height={220}
+            dark
+          />
+          {/* Cinematic gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0a1828]/90 via-[#0a1828]/15 to-transparent pointer-events-none" />
+
+          {/* TravelOS Index badge — top-right corner */}
+          {tosScore != null && (
+            <button
+              ref={badgeRef}
+              type="button"
+              onClick={handleBadgeClick}
+              className="absolute top-2.5 right-2.5 w-[42px] h-[42px] rounded-xl flex flex-col items-center justify-center z-10 transition-transform hover:scale-105 active:scale-95"
+              style={{
+                background:     'rgba(5, 13, 28, 0.90)',
+                backdropFilter: 'blur(16px)',
+                border:         '1px solid rgba(201,168,76,0.42)',
+                boxShadow:      '0 4px 20px rgba(0,0,0,0.55)',
+              }}
+              title="TravelOS Index — tap for source breakdown"
+            >
+              <span
+                className="text-[14px] font-black leading-none"
+                style={{ color: '#C9A84C' }}
+              >
+                {tosScore}
+              </span>
+              <span
+                className="text-[7px] font-bold uppercase tracking-wider mt-0.5"
+                style={{ color: 'rgba(201,168,76,0.50)' }}
+              >
+                TOS
+              </span>
+            </button>
+          )}
+
+          {/* Neighborhood vibe pill — bottom-left of image */}
+          {hotel.neighborhoodVibe && (
+            <div
+              className="absolute bottom-2.5 left-2.5 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest z-10"
+              style={{
+                background:     'rgba(201,168,76,0.20)',
+                border:         '1px solid rgba(201,168,76,0.34)',
+                color:          '#d4b96a',
+                backdropFilter: 'blur(8px)',
+              }}
+            >
+              {hotel.neighborhoodVibe}
+            </div>
           )}
         </div>
-        <div>
-          <p className="text-sm font-bold text-white leading-tight">{hotel.name}</p>
-          <p className="text-[11px] text-white/45 mt-0.5">📍 {hotel.neighborhood}</p>
+
+        {/* ── Content zone ────────────────────────────────────────── */}
+        <div className="flex flex-col gap-3 p-4 flex-1">
+
+          {/* Name + location */}
+          <div>
+            <p className="font-bold text-white text-[15px] leading-tight tracking-tight">
+              {hotel.name}
+            </p>
+            <p
+              className="text-[11px] mt-0.5 flex items-center gap-1"
+              style={{ color: 'rgba(255,255,255,0.36)' }}
+            >
+              <span className="text-[10px]">📍</span>
+              {hotel.neighborhood}
+            </p>
+          </div>
+
+          {/* Price block */}
+          <div>
+            {totalPrice ? (
+              <>
+                <p className="text-xl font-black text-white leading-none tracking-tight">
+                  {totalPrice}
+                </p>
+                <p className="text-[11px] mt-1 leading-snug" style={{ color: 'rgba(255,255,255,0.34)' }}>
+                  {perNightStr} · {nights} night{nights !== 1 ? 's' : ''}
+                </p>
+              </>
+            ) : perNightStr ? (
+              <>
+                <p className="text-base font-bold text-white leading-none">
+                  {perNightStr}
+                </p>
+                <p className="text-[11px] mt-0.5" style={{ color: 'rgba(255,255,255,0.34)' }}>
+                  per night
+                </p>
+              </>
+            ) : hotel.priceRange ? (
+              <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.48)' }}>
+                {hotel.priceRange}
+              </p>
+            ) : null}
+          </div>
+
+          {/* Fit summary — airy, 2-line cap */}
+          {(hotel.fitSummary?.trim() || hotel.whyItFits) && (
+            <p
+              className="text-[12px] leading-relaxed line-clamp-2"
+              style={{ color: 'rgba(255,255,255,0.50)' }}
+            >
+              {hotel.fitSummary?.trim() || hotel.whyItFits}
+            </p>
+          )}
+
+          {/* ── Footer: OTA icon links + hint ────────────────────── */}
+          <div
+            className="flex items-center justify-between mt-auto pt-3"
+            style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
+          >
+            {/* Booking.com + Expedia icon links */}
+            <div className="flex items-center gap-1.5">
+              <a
+                href={bookingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all hover:scale-105"
+                style={{
+                  background: 'rgba(0, 113, 194, 0.13)',
+                  border:     '1px solid rgba(0, 113, 194, 0.28)',
+                  color:      '#4da3e8',
+                }}
+                title="Search on Booking.com"
+              >
+                <BookingDotIcon size={9} />
+                Booking
+              </a>
+              <a
+                href={expediaUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all hover:scale-105"
+                style={{
+                  background: 'rgba(255, 198, 0, 0.10)',
+                  border:     '1px solid rgba(255, 198, 0, 0.24)',
+                  color:      '#e8c842',
+                }}
+                title="Search on Expedia"
+              >
+                <ExpediaCompassIcon size={10} />
+                Expedia
+              </a>
+            </div>
+
+            {/* Tap hint */}
+            <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.20)' }}>
+              Explore →
+            </p>
+          </div>
         </div>
-        <p className="text-xs text-white/65 leading-relaxed line-clamp-3">
-          {hotel.fitSummary?.trim() || hotel.whyItFits}
-        </p>
-        <div
-          className="mt-auto rounded-xl px-3 py-2"
-          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
-        >
-          <p className="text-[10px] text-white/40 uppercase tracking-widest mb-0.5">{ui.hotelNeighborhoodEdge}</p>
-          <p className="text-[11px] text-white/60 leading-relaxed">{hotel.neighborhoodInsight}</p>
-        </div>
-        <p className="text-[10px] text-white/30 text-center pt-1">{ui.hotelCardHint}</p>
-      </div>
-    </motion.button>
+      </motion.div>
+
+      {/* ── TravelOS popover (portal — escapes backdrop-filter stacking context) ── */}
+      {mounted && tosOpen && (
+        <TosPopoverPortal
+          hotel={hotel}
+          destination={destination}
+          profile={profile}
+          coords={popoverCoords}
+          onClose={() => setTosOpen(false)}
+        />
+      )}
+    </>
   );
 }
 
@@ -314,6 +692,11 @@ function RecommendationsBasecampInner({
 }) {
   const [selected, setSelected] = useState<HotelRecommendation | null>(null);
 
+  // Only render hotels where availability is not explicitly false
+  // (undefined / null / true all pass — backward-compatible default)
+  const visibleHotels = recommendations.filter((h) => h.availability !== false);
+  if (!visibleHotels.length) return null;
+
   return (
     <>
       <motion.div
@@ -332,8 +715,15 @@ function RecommendationsBasecampInner({
           </div>
           <h3 className="text-base font-bold text-white mb-4">{ui.basecampWhereStay(target)}</h3>
           <div className="grid gap-3 sm:grid-cols-3">
-            {recommendations.map((hotel, i) => (
-              <HotelCard key={`${hotel.name}-${hotel.neighborhood}-${i}`} hotel={hotel} onOpen={() => setSelected(hotel)} ui={ui} />
+            {visibleHotels.map((hotel, i) => (
+              <HotelCard
+                key={`${hotel.name}-${hotel.neighborhood}-${i}`}
+                hotel={hotel}
+                onOpen={() => setSelected(hotel)}
+                destination={destination}
+                profile={profile}
+                ui={ui}
+              />
             ))}
           </div>
           <p className="text-[10px] text-white/25 mt-4 text-center">
