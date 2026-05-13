@@ -41,6 +41,21 @@ function starRow(score?: number | null): string | null {
   return `${'★'.repeat(full)}${half ? '½' : ''}${'☆'.repeat(empty)}`;
 }
 
+const ACTIVE_OTA_IDS = new Set(['booking', 'expedia'] as const);
+
+function activeOtaRowsForHotel(hotel: HotelRecommendation) {
+  return mergeHotelOtaRows(hotel.otaPriceCompare).filter((r) =>
+    ACTIVE_OTA_IDS.has(r.id as 'booking' | 'expedia'),
+  );
+}
+
+/** At least one channel with date-available inventory: official site OR Booking/Expedia not sold out. */
+function hasAnyBookableChannel(hotel: HotelRecommendation): boolean {
+  const officialAvailable = Boolean(hotel.websiteUrl?.trim());
+  const otaAvailable = activeOtaRowsForHotel(hotel).some((r) => r.hasData && !isSoldOut(r.note));
+  return officialAvailable || otaAvailable;
+}
+
 function HotelDetailCube({
   hotel,
   destination,
@@ -58,7 +73,7 @@ function HotelDetailCube({
   const checkOut = profile?.endDate?.slice(0, 10);
   const adults = profile?.groupSize && profile.groupSize > 0 ? profile.groupSize : 2;
   const otaOpts = { checkIn, checkOut, adults };
-  const otaRows = mergeHotelOtaRows(hotel.otaPriceCompare);
+  const otaRows = activeOtaRowsForHotel(hotel);
   const reviewsHref = `https://www.google.com/search?q=${encodeURIComponent(`${hotel.name} hotel ${destination} reviews`)}`;
   const stars = starRow(hotel.ratingStars);
   const photoQuery = `${hotel.name} ${destination}`.trim();
@@ -346,7 +361,7 @@ function TosPopoverPortal({
   coords: { top: number; right: number };
   onClose: () => void;
 }) {
-  const otaRows = mergeHotelOtaRows(hotel.otaPriceCompare);
+  const otaRows = activeOtaRowsForHotel(hotel);
   const tosScore = hotel.ratingStars != null && Number.isFinite(hotel.ratingStars)
     ? Math.round(hotel.ratingStars * 20)
     : null;
@@ -501,7 +516,7 @@ function HotelCard({
     return diff > 0 ? diff : null;
   }, [checkIn, checkOut]);
 
-  const otaRows = mergeHotelOtaRows(hotel.otaPriceCompare);
+  const otaRows = activeOtaRowsForHotel(hotel);
 
   // Prefer the first OTA row with a price; fall back to the AI-generated band
   const perNightStr: string | null =
@@ -532,6 +547,7 @@ function HotelCard({
 
   // Only render links for OTAs that the AI actually returned data for
   const activeOtaRows = otaRows.filter((r) => r.hasData);
+  const hotelAvailable = hasAnyBookableChannel(hotel);
 
   // Badge click — position popover near the badge, then toggle
   const handleBadgeClick = (e: React.MouseEvent) => {
@@ -640,6 +656,18 @@ function HotelCard({
             >
               <span className="text-[10px]">📍</span>
               {hotel.neighborhood}
+            </p>
+            <p className="mt-1">
+              <span
+                className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-black tracking-wide"
+                style={
+                  hotelAvailable
+                    ? { color: '#86efac', background: 'rgba(34,197,94,0.12)', borderColor: 'rgba(34,197,94,0.35)' }
+                    : { color: '#fca5a5', background: 'rgba(239,68,68,0.12)', borderColor: 'rgba(239,68,68,0.35)' }
+                }
+              >
+                {hotelAvailable ? 'זמין' : 'SOLD OUT'}
+              </span>
             </p>
           </div>
 
@@ -766,9 +794,8 @@ function RecommendationsBasecampInner({
 }) {
   const [selected, setSelected] = useState<HotelRecommendation | null>(null);
 
-  // Only render hotels where availability is not explicitly false
-  // (undefined / null / true all pass — backward-compatible default)
-  const visibleHotels = recommendations.filter((h) => h.availability !== false);
+  // Show only hotels that have at least one bookable channel for these dates.
+  const visibleHotels = recommendations.filter((h) => h.availability !== false && hasAnyBookableChannel(h));
   if (!visibleHotels.length) return null;
 
   return (
