@@ -540,7 +540,7 @@ async function runPipeline(
         startDate: profile.startDate ?? null,
         endDate: profile.endDate ?? null,
       });
-      await ensureTransportationForCity(dbWrite, destCity);
+      await ensureTransportationForCity(dbWrite, destCity, profile.duration);
     })();
   }
 

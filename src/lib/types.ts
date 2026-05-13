@@ -204,7 +204,15 @@ export interface CityTransportLink {
 export interface CityTransportOption {
   mode: string;
   summary: string;
+  /** Legacy combined band — keep for older itineraries; prefer dailyAverage + tripTotalEstimate. */
   typicalPrice: string;
+  /** Typical spend per calendar day using this mode (local currency). */
+  dailyAverage?: string | null;
+  /** Rough total for the whole trip length if relying mainly on this mode (same currency as dailyAverage). */
+  tripTotalEstimate?: string | null;
+  /** Optional official pass / operator link for this mode (https only). */
+  optionUrl?: string | null;
+  optionLinkLabel?: string | null;
   tip?: string | null;
 }
 

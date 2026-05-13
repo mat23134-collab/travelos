@@ -13,11 +13,27 @@ export function parseTransportGuideJson(data: unknown): CityTransportGuide | nul
       const mode = typeof r.mode === 'string' ? r.mode.trim() : '';
       const summary = typeof r.summary === 'string' ? r.summary.trim() : '';
       const typicalPrice = typeof r.typicalPrice === 'string' ? r.typicalPrice.trim() : '';
+      const dailyAverage = typeof r.dailyAverage === 'string' ? r.dailyAverage.trim() : null;
+      const tripTotalEstimate = typeof r.tripTotalEstimate === 'string' ? r.tripTotalEstimate.trim() : null;
+      const optionUrlRaw = typeof r.optionUrl === 'string' ? r.optionUrl.trim() : '';
+      const optionLinkLabel = typeof r.optionLinkLabel === 'string' ? r.optionLinkLabel.trim() : null;
       if (!mode || !summary) continue;
+      let optionUrl: string | null = null;
+      if (/^https:\/\//i.test(optionUrlRaw)) {
+        try {
+          if (new URL(optionUrlRaw).protocol === 'https:') optionUrl = optionUrlRaw;
+        } catch {
+          optionUrl = null;
+        }
+      }
       options.push({
         mode,
         summary,
-        typicalPrice: typicalPrice || '—',
+        typicalPrice: typicalPrice || dailyAverage || '—',
+        dailyAverage: dailyAverage || null,
+        tripTotalEstimate: tripTotalEstimate || null,
+        optionUrl,
+        optionLinkLabel: optionLinkLabel || null,
         tip: typeof r.tip === 'string' ? r.tip.trim() : null,
       });
     }

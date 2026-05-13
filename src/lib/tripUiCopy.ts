@@ -90,6 +90,31 @@ export function itineraryUi(lang: TripUiLang) {
         : `Quick links to plan routes and tickets in ${city}. New trips will include tailored tips here.`,
     cityTransportSearchTickets: he ? 'חיפוש כרטיסים וקווים' : 'Search tickets & routes',
     cityTransportOpenMapsTransit: he ? 'מסלולים בתחבורה ציבורית (מפות)' : 'Transit directions (Maps)',
+    cityTransportDailyAvgLabel: he ? 'ממוצע ליום' : 'Daily (avg)',
+    cityTransportTripTotalLabel: (n: number) =>
+      he ? `לכל הטיול (~${n} ימים)` : `Full trip (~${n} days)`,
+    cityTransportOptionSite: he ? 'אתר / כרטיסים' : 'Tickets / site',
+    cityTransportGoogleRoutesDoc: he ? 'תיעוד Google Routes — תחבורה ציבורית' : 'Google Routes API — transit (docs)',
+    cityTransportGoogleRoutesDocUrl:
+      'https://developers.google.com/maps/documentation/routes/transit-route?hl=he',
+
+    mapDistanceTool: he ? 'מדידת מרחק' : 'Distance tool',
+    mapSelectMoreHint: (remaining: number) =>
+      remaining >= 2
+        ? he
+          ? 'לחצו על שני סימונים במפה (יום / בסיס וכו׳).'
+          : 'Tap two pins on the map (e.g. two days or base camp).'
+        : he
+          ? 'לחצו על סימון נוסף אחד.'
+          : 'Tap one more pin.',
+    mapComputingRoutes: he ? 'מחשבים מסלולי הליכה ונהיגה…' : 'Computing walking & driving routes…',
+    mapBetween: he ? 'בין' : 'Between',
+    mapDirect: he ? 'קו אוויר' : 'Direct',
+    mapWalking: he ? 'הליכה' : 'Walking',
+    mapDriving: he ? 'נהיגה' : 'Driving',
+    mapNa: he ? 'לא זמין' : 'N/A',
+    mapOpenGoogleTransit: he ? 'מסלול בתחבורה ציבורית (Google Maps)' : 'Transit route (Google Maps)',
+    mapClearSelection: he ? 'נקה בחירה' : 'Clear selection',
 
     draftReviewTitle: he ? 'סקירת טיוטה' : 'Review Draft',
     draftInstructions: (swaps: number) =>

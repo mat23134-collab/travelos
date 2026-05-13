@@ -58,7 +58,11 @@ export async function upsertTransportationGuide(
  * When a trip is created: if no `transportation` row for this city, run the transport scout
  * (Gemini + optional web snippets) and upsert the guide.
  */
-export async function ensureTransportationForCity(db: SupabaseClient, cityRaw: string): Promise<void> {
+export async function ensureTransportationForCity(
+  db: SupabaseClient,
+  cityRaw: string,
+  tripDays?: number,
+): Promise<void> {
   const city = cityRaw.trim();
   if (!city) return;
 
@@ -71,7 +75,7 @@ export async function ensureTransportationForCity(db: SupabaseClient, cityRaw: s
   if (existing) return;
 
   try {
-    const guide = await runTransportScoutAgent(city);
+    const guide = await runTransportScoutAgent(city, { tripDays });
     if (!guide || !isNonEmptyGuide(guide)) {
       console.warn('[tripTransport] scout returned empty guide for', city);
       return;

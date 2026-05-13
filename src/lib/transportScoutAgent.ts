@@ -18,14 +18,24 @@ const TRANSPORT_SYSTEM =
   'Return a single JSON object with this exact shape:\n' +
   '{\n' +
   '  "intro": string (1–2 sentences),\n' +
-  '  "options": [ { "mode": string, "summary": string, "typicalPrice": string, "tip": string|null } ],\n' +
+  '  "options": [ {\n' +
+  '    "mode": string,\n' +
+  '    "summary": string,\n' +
+  '    "typicalPrice": string (optional legacy; may mirror dailyAverage),\n' +
+  '    "dailyAverage": string — typical spend per day using this mode (local currency),\n' +
+  '    "tripTotalEstimate": string — rough total for TRIP_DAY_COUNT days if this mode is the main way to get around,\n' +
+  '    "optionUrl": string|null — https official pass/tickets page for this mode if known,\n' +
+  '    "optionLinkLabel": string|null — short label for optionUrl,\n' +
+  '    "tip": string|null\n' +
+  '  } ],\n' +
   '  "links": [ { "label": string, "url": string (https only), "description": string|null } ]\n' +
   '}\n' +
   'Rules:\n' +
-  '- 3–6 options covering metro/subway, bus, rail, bike share, taxis/rideshare as relevant to the city.\n' +
-  '- typicalPrice: short human ranges (include local currency symbol when known).\n' +
-  '- links: official transit apps, day-pass purchase, or airport line — only https URLs you are confident are real.\n' +
-  '- If unsure of a URL, omit that link rather than guessing.\n';
+  '- 4–6 options: metro/subway, bus/tram, rail, bike share, ferry, taxi/rideshare norms as relevant.\n' +
+  '- dailyAverage + tripTotalEstimate must use the SAME trip length the user prompt gives (TRIP_DAY_COUNT).\n' +
+  '- Be honest bands (not exact fares); local currency symbols.\n' +
+  '- links: official city/operator pass or national rail — only https URLs you trust.\n' +
+  '- If unsure of a URL, omit that field or link entry.\n';
 
 function parseAIJson(rawText: string): unknown {
   const text = rawText.trim();
@@ -95,9 +105,17 @@ async function callGeminiTransport(userPrompt: string): Promise<string> {
   return raw;
 }
 
-export async function runTransportScoutAgent(city: string): Promise<CityTransportGuide | null> {
+export async function runTransportScoutAgent(
+  city: string,
+  opts?: { tripDays?: number },
+): Promise<CityTransportGuide | null> {
   const c = city.trim();
   if (!c) return null;
+
+  const tripDays =
+    typeof opts?.tripDays === 'number' && Number.isFinite(opts.tripDays) && opts.tripDays > 0
+      ? Math.min(30, Math.round(opts.tripDays))
+      : 5;
 
   let ragBlock = '';
   try {
@@ -116,6 +134,7 @@ export async function runTransportScoutAgent(city: string): Promise<CityTranspor
 
   const userPrompt =
     `City: ${c}\n` +
+    `TRIP_DAY_COUNT: ${tripDays} (use this exact day count for every tripTotalEstimate).\n` +
     `Produce the mobility JSON described in the system message.${ragBlock}`;
 
   const raw = await callGeminiTransport(userPrompt);

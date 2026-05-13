@@ -21,6 +21,7 @@ import { useAuth } from '@/lib/auth-context';
 import { ITIN_RESULTS_PAGE_BG, ITIN_RESULTS_NOISE_DATA_URL, ITIN_PALETTE } from '@/lib/itineraryResultsPalette';
 import { BrandWordmark } from '@/components/BrandWordmark';
 import { TransportCard, hasTransportContent } from '@/components/CityTransportSection';
+import type { ItineraryMapLabels } from '@/components/ItineraryMap';
 import { parseTransportGuideJson } from '@/lib/transportGuideParse';
 
 const ItineraryMap = dynamic(
@@ -1165,7 +1166,13 @@ const heroVariant = {
 // ─── Mobile map overlay ───────────────────────────────────────────────────────
 
 function MobileMapOverlay({
-  days, destination, focusedNeighborhood, basecampMarker, onClose, mapTitle,
+  days,
+  destination,
+  focusedNeighborhood,
+  basecampMarker,
+  onClose,
+  mapTitle,
+  mapLabels,
 }: {
   days: Itinerary['days'];
   destination: string;
@@ -1173,6 +1180,7 @@ function MobileMapOverlay({
   basecampMarker?: { lat: number; lng: number; label?: string } | null;
   onClose: () => void;
   mapTitle: string;
+  mapLabels: ItineraryMapLabels;
 }) {
   return (
     <AnimatePresence>
@@ -1210,6 +1218,7 @@ function MobileMapOverlay({
               destination={destination}
               focusedNeighborhood={focusedNeighborhood}
               basecampMarker={basecampMarker}
+              labels={mapLabels}
             />
           </div>
         </motion.div>
@@ -1297,6 +1306,24 @@ export function ItineraryClient({
   const ui = useMemo(
     () => itineraryUi(profile?.tripLanguage === 'he' ? 'he' : 'en'),
     [profile?.tripLanguage],
+  );
+
+  const mapLabels = useMemo(
+    (): ItineraryMapLabels => ({
+      mapDistanceTool: ui.mapDistanceTool,
+      mapSelectMoreHint: ui.mapSelectMoreHint,
+      mapComputingRoutes: ui.mapComputingRoutes,
+      mapBetween: ui.mapBetween,
+      mapDirect: ui.mapDirect,
+      mapWalking: ui.mapWalking,
+      mapDriving: ui.mapDriving,
+      mapNa: ui.mapNa,
+      mapOpenGoogleTransit: ui.mapOpenGoogleTransit,
+      mapClearSelection: ui.mapClearSelection,
+      cityTransportGoogleRoutesDoc: ui.cityTransportGoogleRoutesDoc,
+      cityTransportGoogleRoutesDocUrl: ui.cityTransportGoogleRoutesDocUrl,
+    }),
+    [ui],
   );
 
   const tripDatesLabel = useMemo(
@@ -1692,10 +1719,16 @@ export function ItineraryClient({
             destination={itinerary.destination}
             focusedNeighborhood={focusedNeighborhood}
             basecampMarker={basecampMarker}
+            labels={mapLabels}
           />
         </section>
 
-        <TransportCard destination={itinerary.destination} guide={displayCityTransport} ui={ui} />
+        <TransportCard
+          destination={itinerary.destination}
+          guide={displayCityTransport}
+          ui={ui}
+          totalDays={itinerary.totalDays}
+        />
 
         {/* Day cards — staggered fade-in */}
         <motion.div
@@ -1822,6 +1855,7 @@ export function ItineraryClient({
           focusedNeighborhood={focusedNeighborhood}
           basecampMarker={basecampMarker}
           mapTitle={ui.mapOpenMobile}
+          mapLabels={mapLabels}
           onClose={() => { setMobileMapOpen(false); setFocusedNeighborhood(undefined); }}
         />
       )}

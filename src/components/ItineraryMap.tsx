@@ -12,6 +12,24 @@ import { useRef, useState, useEffect, useCallback, memo } from 'react';
 import Map, { Marker, Popup, NavigationControl, type MapRef } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { DayPlan } from '@/lib/types';
+import type { ItineraryUiStrings } from '@/lib/tripUiCopy';
+
+/** Strings for the distance / transit overlay — pass `Pick` from `itineraryUi(...)`. */
+export type ItineraryMapLabels = Pick<
+  ItineraryUiStrings,
+  | 'mapDistanceTool'
+  | 'mapSelectMoreHint'
+  | 'mapComputingRoutes'
+  | 'mapBetween'
+  | 'mapDirect'
+  | 'mapWalking'
+  | 'mapDriving'
+  | 'mapNa'
+  | 'mapOpenGoogleTransit'
+  | 'mapClearSelection'
+  | 'cityTransportGoogleRoutesDoc'
+  | 'cityTransportGoogleRoutesDocUrl'
+>;
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -42,6 +60,7 @@ export interface Props {
     lng: number;
     label?: string;
   } | null;
+  labels: ItineraryMapLabels;
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -177,7 +196,13 @@ function EmptyState({ message }: { message: string }) {
 
 // ── ItineraryMap ─────────────────────────────────────────────────────────────
 
-function ItineraryMapInner({ days, destination, focusedNeighborhood, basecampMarker }: Props) {
+function googleMapsTransitDirUrl(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+  const origin = encodeURIComponent(`${a.lat},${a.lng}`);
+  const dest = encodeURIComponent(`${b.lat},${b.lng}`);
+  return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}&travelmode=transit`;
+}
+
+function ItineraryMapInner({ days, destination, focusedNeighborhood, basecampMarker, labels }: Props) {
   const mapRef = useRef<MapRef>(null);
   const markers = buildMarkers(days);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -464,37 +489,75 @@ function ItineraryMapInner({ days, destination, focusedNeighborhood, basecampMar
             background: 'rgba(8,10,18,0.86)',
             border: '1px solid rgba(255,255,255,0.12)',
             backdropFilter: 'blur(10px)',
-            maxWidth: 280,
+            maxWidth: 300,
           }}
         >
-          <div className="text-[10px] font-bold uppercase tracking-wider text-white/65 mb-1">
-            Distance Tool
+          <div className="flex items-start justify-between gap-2 mb-1">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-white/65">
+              {labels.mapDistanceTool}
+            </div>
+            {selectedPoints.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedPoints([]);
+                  setDistanceStats(null);
+                }}
+                className="text-[10px] font-semibold shrink-0 px-2 py-0.5 rounded-md border border-white/15 text-white/70 hover:text-white hover:bg-white/5"
+              >
+                {labels.mapClearSelection}
+              </button>
+            )}
           </div>
           {selectedPoints.length < 2 ? (
             <div className="text-[11px] text-white/60">
-              Select {2 - selectedPoints.length} more point{2 - selectedPoints.length === 1 ? '' : 's'}.
+              {labels.mapSelectMoreHint(2 - selectedPoints.length)}
             </div>
           ) : isComputingDistance ? (
-            <div className="text-[11px] text-white/60">Calculating walking and driving routes...</div>
+            <div className="text-[11px] text-white/60">{labels.mapComputingRoutes}</div>
           ) : distanceStats ? (
-            <div className="text-[11px] text-white/75 leading-relaxed">
-              <div>Between: <span className="text-white/90">{selectedPoints[0].label}</span> ↔ <span className="text-white/90">{selectedPoints[1].label}</span></div>
-              <div>Direct: <span className="text-white">{distanceStats.airKm.toFixed(1)} km</span></div>
+            <div className="text-[11px] text-white/75 leading-relaxed space-y-1.5">
               <div>
-                Walking:{' '}
+                {labels.mapBetween}:{' '}
+                <span className="text-white/90">{selectedPoints[0].label}</span> ↔{' '}
+                <span className="text-white/90">{selectedPoints[1].label}</span>
+              </div>
+              <div>
+                {labels.mapDirect}: <span className="text-white">{distanceStats.airKm.toFixed(1)} km</span>
+              </div>
+              <div>
+                {labels.mapWalking}:{' '}
                 <span className="text-white">
                   {distanceStats.walkKm != null && distanceStats.walkMin != null
                     ? `${distanceStats.walkKm.toFixed(1)} km · ${Math.round(distanceStats.walkMin)} min`
-                    : 'N/A'}
+                    : labels.mapNa}
                 </span>
               </div>
               <div>
-                Driving:{' '}
+                {labels.mapDriving}:{' '}
                 <span className="text-white">
                   {distanceStats.driveKm != null && distanceStats.driveMin != null
                     ? `${distanceStats.driveKm.toFixed(1)} km · ${Math.round(distanceStats.driveMin)} min`
-                    : 'N/A'}
+                    : labels.mapNa}
                 </span>
+              </div>
+              <div className="flex flex-col gap-1.5 pt-1 border-t border-white/10">
+                <a
+                  href={googleMapsTransitDirUrl(selectedPoints[0], selectedPoints[1])}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center text-center rounded-lg px-2.5 py-1.5 text-[11px] font-semibold border border-sky-400/35 bg-sky-500/15 text-sky-100 hover:bg-sky-500/25"
+                >
+                  {labels.mapOpenGoogleTransit} ↗
+                </a>
+                <a
+                  href={labels.cityTransportGoogleRoutesDocUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[10px] text-white/45 hover:text-sky-200/90 underline-offset-2 hover:underline"
+                >
+                  {labels.cityTransportGoogleRoutesDoc}
+                </a>
               </div>
             </div>
           ) : null}

@@ -28,12 +28,16 @@ export function CityTransportSection({
   destination,
   guide,
   ui,
+  totalDays = 0,
 }: {
   destination: string;
   guide: CityTransportGuide | null | undefined;
   ui: ItineraryUiStrings;
+  /** Trip length — used for trip-total labels when estimates are trip-scoped. */
+  totalDays?: number;
 }) {
   const city = destination.trim() || (ui.lang === 'he' ? 'היעד' : 'your destination');
+  const tripDayCount = Math.max(1, Math.round(Number(totalDays)) || 1);
   const ticketsSearchUrl = `https://www.google.com/search?q=${encodeURIComponent(`${city} public transport tickets`)}`;
   const mapsTransitUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(city)}&travelmode=transit`;
 
@@ -89,29 +93,57 @@ export function CityTransportSection({
             <div className="mb-5">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-[#C9A84C] mb-3">{ui.cityTransportOptionsHeading}</p>
               <div className="grid gap-3 sm:grid-cols-2">
-                {(guide!.options ?? []).map((opt, i) => (
+                {(guide!.options ?? []).map((opt, i) => {
+                  const daily = opt.dailyAverage?.trim() || opt.typicalPrice?.trim() || '—';
+                  const tripTotal = opt.tripTotalEstimate?.trim();
+                  const safeOpt = safeHttpsUrl(opt.optionUrl);
+                  return (
                   <div
                     key={`${opt.mode}-${i}`}
                     className="rounded-2xl p-4"
                     style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
                   >
                     <p className="font-bold text-white text-sm tracking-tight mb-1">{opt.mode}</p>
-                    <p className="text-xs leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.62)' }}>
+                    <p className="text-xs leading-relaxed mb-3" style={{ color: 'rgba(255,255,255,0.62)' }}>
                       {opt.summary}
                     </p>
-                    <p className="text-[10px] font-semibold uppercase tracking-wide mb-0.5" style={{ color: 'rgba(255,255,255,0.38)' }}>
-                      {ui.cityTransportPriceLabel}
-                    </p>
-                    <p className="text-sm font-semibold tabular-nums" style={{ color: '#C9A84C' }}>
-                      {opt.typicalPrice}
-                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+                      <div className="rounded-xl px-3 py-2" style={{ background: 'rgba(0,0,0,0.2)' }}>
+                        <p className="text-[10px] font-semibold uppercase tracking-wide mb-0.5" style={{ color: 'rgba(255,255,255,0.38)' }}>
+                          {ui.cityTransportDailyAvgLabel}
+                        </p>
+                        <p className="text-sm font-semibold tabular-nums" style={{ color: '#C9A84C' }}>
+                          {daily}
+                        </p>
+                      </div>
+                      <div className="rounded-xl px-3 py-2" style={{ background: 'rgba(0,0,0,0.2)' }}>
+                        <p className="text-[10px] font-semibold uppercase tracking-wide mb-0.5" style={{ color: 'rgba(255,255,255,0.38)' }}>
+                          {ui.cityTransportTripTotalLabel(tripDayCount)}
+                        </p>
+                        <p className="text-sm font-semibold tabular-nums" style={{ color: '#e8d9b4' }}>
+                          {tripTotal ?? '—'}
+                        </p>
+                      </div>
+                    </div>
+                    {safeOpt && (
+                      <a
+                        href={safeOpt}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex text-xs font-semibold mb-2 underline-offset-2 hover:underline"
+                        style={{ color: '#93c5d8' }}
+                      >
+                        {opt.optionLinkLabel?.trim() || ui.cityTransportOptionSite} ↗
+                      </a>
+                    )}
                     {opt.tip?.trim() && (
-                      <p className="text-[11px] mt-2 leading-snug" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                      <p className="text-[11px] mt-1 leading-snug" style={{ color: 'rgba(255,255,255,0.45)' }}>
                         💡 {opt.tip.trim()}
                       </p>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -167,6 +199,19 @@ export function CityTransportSection({
                 }}
               >
                 {ui.cityTransportOpenMapsTransit} ↗
+              </a>
+              <a
+                href={ui.cityTransportGoogleRoutesDocUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center px-4 py-3 rounded-xl text-sm font-semibold border transition-colors"
+                style={{
+                  background: 'rgba(56,189,248,0.08)',
+                  borderColor: 'rgba(56,189,248,0.25)',
+                  color: 'rgba(186,230,253,0.95)',
+                }}
+              >
+                {ui.cityTransportGoogleRoutesDoc} ↗
               </a>
             </div>
           </div>
