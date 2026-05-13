@@ -1443,59 +1443,30 @@ function PlanPage() {
       sessionStorage.setItem('travelos_profile', JSON.stringify(profile));
       localStorage.removeItem(STORAGE_KEY);
 
-      const res = await fetch('/api/generate-stream', {
+      // Plain JSON POST → /api/generate. No SSE, no streaming reader, no
+      // per-place updates: the client waits for one response and navigates.
+      const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...profile, userId: user?.id ?? null }),
       });
 
-      if (!res.ok || !res.body) {
+      if (!res.ok) {
         const text = await res.text();
         let parsed: { error?: string; details?: string } = {};
         try { parsed = JSON.parse(text); } catch { /* ignore */ }
         throw new Error(parsed.error ?? `Server error ${res.status}: ${text.slice(0, 200)}`);
       }
 
-      // Read SSE stream
-      const reader  = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = '';
-
-      // eslint-disable-next-line no-constant-condition
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buf += decoder.decode(value, { stream: true });
-        const lines = buf.split('\n');
-        buf = lines.pop() ?? '';
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const raw = line.slice(6).trim();
-          if (!raw) continue;
-
-          let evt: Record<string, unknown>;
-          try { evt = JSON.parse(raw) as Record<string, unknown>; } catch { continue; }
-
-          const t = evt.type as string;
-          if (t === 'status') {
-            setStreamStatus({ message: evt.message as string, icon: evt.icon as string });
-          } else if (t === 'place') {
-            setStreamedPlaces((prev) => [...prev, evt as unknown as PlaceEvent]);
-          } else if (t === 'tip') {
-            setStreamedTips((prev) => [...prev, evt.text as string]);
-          } else if (t === 'complete') {
-            const id = evt.id as string;
-            if (evt.itinerary) sessionStorage.setItem('travelos_itinerary', JSON.stringify(evt.itinerary));
-            router.push('/itinerary/' + id);
-            return;
-          } else if (t === 'error') {
-            throw new Error(evt.message as string);
-          }
-          // 'heartbeat' and unknown types ignored
-        }
+      const data = (await res.json()) as { id?: string; itinerary?: unknown; error?: string };
+      if (data.error || !data.id) {
+        throw new Error(data.error ?? 'Generation failed');
       }
+      if (data.itinerary) {
+        sessionStorage.setItem('travelos_itinerary', JSON.stringify(data.itinerary));
+      }
+      router.push('/itinerary/' + data.id);
+      return;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
       setIsSubmitting(false);

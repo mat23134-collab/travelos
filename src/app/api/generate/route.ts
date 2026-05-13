@@ -363,52 +363,49 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Destination is required' }, { status: 400 });
     }
 
-    // ── Hybrid RAG: pre-scouted places from Supabase ───────────────────────────
+    // ── All pre-AI I/O in parallel ──────────────────────────────────────────────
+    // queryPlacesForCity (Supabase) + runChainOfThoughtSearch (Tavily/Exa)
+    // + hotel searchWeb all fire simultaneously — total wait = slowest of
+    // the three, not the sum. Saves ~20-30s vs the prior sequential version.
+    const hotelQuery = !profile.hotelBooked?.trim()
+      ? (() => {
+          const accommodation = profile.accommodation?.replace(/-/g, ' ') ?? 'boutique hotel';
+          const dest = profile.destination.trim();
+          const dates =
+            profile.startDate?.slice(0, 10) && profile.endDate?.slice(0, 10)
+              ? `${profile.startDate.slice(0, 10)} to ${profile.endDate.slice(0, 10)}`
+              : '';
+          return [
+            accommodation, 'hotel', dest, profile.budget, dates,
+            'Booking.com Expedia price per night availability',
+            dates ? 'rooms available' : '', '2026',
+          ].filter(Boolean).join(' ');
+        })()
+      : null;
+
+    const [scoutedPlaces, classifiedResults, rawHotelResults] = await Promise.all([
+      queryPlacesForCity(profile.destination).catch((err) => {
+        console.warn('[generate] Hybrid RAG query failed (non-critical):', err);
+        return [] as Awaited<ReturnType<typeof queryPlacesForCity>>;
+      }),
+      runChainOfThoughtSearch(profile).catch(() => [] as ClassifiedResult[]),
+      hotelQuery ? searchWeb(hotelQuery).catch(() => []) : Promise.resolve([]),
+    ]);
+
     let internalPlaces: string | undefined;
-    try {
-      const scoutedPlaces = await queryPlacesForCity(profile.destination);
-      if (scoutedPlaces.length > 0) {
-        internalPlaces = formatPlacesForPrompt(scoutedPlaces);
-        console.log(`[generate] Hybrid RAG: injecting ${scoutedPlaces.length} scouted places for ${profile.destination}`);
-      } else {
-        console.log(`[generate] Hybrid RAG: no pre-scouted places found for ${profile.destination}`);
-      }
-    } catch (err) {
-      console.warn('[generate] Hybrid RAG query failed (non-critical):', err);
+    if (scoutedPlaces.length > 0) {
+      internalPlaces = formatPlacesForPrompt(scoutedPlaces);
+      console.log(`[generate] Hybrid RAG: injecting ${scoutedPlaces.length} scouted places for ${profile.destination}`);
+    } else {
+      console.log(`[generate] Hybrid RAG: no pre-scouted places found for ${profile.destination}`);
     }
 
-    // ── RAG search ──────────────────────────────────────────────────────────────
-    const classifiedResults = await runChainOfThoughtSearch(profile).catch(() => []);
-
     let hotelContext: string | undefined;
-    if (!profile.hotelBooked?.trim()) {
-      try {
-        const accommodation = profile.accommodation?.replace(/-/g, ' ') ?? 'boutique hotel';
-        const dest = profile.destination.trim();
-        const dates =
-          profile.startDate?.slice(0, 10) && profile.endDate?.slice(0, 10)
-            ? `${profile.startDate.slice(0, 10)} to ${profile.endDate.slice(0, 10)}`
-            : '';
-        const query = [
-          accommodation,
-          'hotel',
-          dest,
-          profile.budget,
-          dates,
-          'Booking.com Expedia price per night availability',
-          dates ? 'rooms available' : '',
-          '2026',
-        ]
-          .filter(Boolean)
-          .join(' ');
-        const results = await searchWeb(query);
-        if (results.length > 0) {
-          hotelContext = results
-            .slice(0, 5)
-            .map((r) => '- ' + r.title + ': ' + r.snippet.slice(0, 280))
-            .join('\n');
-        }
-      } catch { /* non-critical */ }
+    if (rawHotelResults.length > 0) {
+      hotelContext = rawHotelResults
+        .slice(0, 5)
+        .map((r) => '- ' + r.title + ': ' + r.snippet.slice(0, 280))
+        .join('\n');
     }
 
     // ── Generate itinerary: Gemini first, Claude fallback ───────────────────────
