@@ -32,13 +32,22 @@ export function expediaHotelSearchUrl(
   destination: string,
   opts?: HotelOtaLinkOpts,
 ): string {
+  // Expedia expects dates as MM/DD/YYYY (not ISO), and the query goes in `destination`
   const params = new URLSearchParams();
   params.set('destination', `${hotelName}, ${destination}`);
   const ci = opts?.checkIn?.slice(0, 10);
   const co = opts?.checkOut?.slice(0, 10);
-  if (ci && /^\d{4}-\d{2}-\d{2}$/.test(ci)) params.set('startDate', ci);
-  if (co && /^\d{4}-\d{2}-\d{2}$/.test(co)) params.set('endDate', co);
+  if (ci && /^\d{4}-\d{2}-\d{2}$/.test(ci)) {
+    const [y, m, d] = ci.split('-');
+    params.set('startDate', `${m}/${d}/${y}`);   // e.g. 07/15/2025
+  }
+  if (co && /^\d{4}-\d{2}-\d{2}$/.test(co)) {
+    const [y, m, d] = co.split('-');
+    params.set('endDate', `${m}/${d}/${y}`);
+  }
   params.set('adults', String(adultsParam(opts?.adults)));
+  params.set('rooms', '1');
+  params.set('sort', 'RECOMMENDED');
   return `https://www.expedia.com/Hotel-Search?${params.toString()}`;
 }
 
@@ -74,12 +83,32 @@ function matchOtaId(source: string): OtaId | null {
   return null;
 }
 
+/**
+ * Returns true when an OTA note explicitly signals no availability for the
+ * requested dates (sold out, fully booked, etc.).
+ */
+export function isSoldOut(note: string | null | undefined): boolean {
+  if (!note) return false;
+  const n = note.toLowerCase();
+  return (
+    n.includes('sold out') ||
+    n.includes('fully booked') ||
+    n.includes('no availability') ||
+    n.includes('not available') ||
+    n.includes('unavailable') ||
+    n.includes('no rooms') ||
+    n.includes('closed')
+  );
+}
+
 /** Merge model rows with canonical Booking → Expedia → Airbnb order for the UI. */
 export function mergeHotelOtaRows(rows: OtaPriceCompareRow[] | null | undefined): Array<{
   id: OtaId;
   label: string;
   indicativeNightly: string | null;
   note: string | null;
+  /** true = the AI returned a row for this OTA; false = not mentioned at all */
+  hasData: boolean;
 }> {
   const hit = new Map<OtaId, OtaPriceCompareRow>();
   for (const r of rows ?? []) {
@@ -95,6 +124,7 @@ export function mergeHotelOtaRows(rows: OtaPriceCompareRow[] | null | undefined)
       label,
       indicativeNightly: nightly || null,
       note: note || null,
+      hasData: hit.has(id),
     };
   });
 }

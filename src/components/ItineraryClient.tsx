@@ -15,7 +15,7 @@ import { DraftOverview } from '@/components/DraftOverview';
 import { TrendingTicker } from '@/components/TrendingTicker';
 import { TripStoryCube } from '@/components/TripStoryCube';
 import { itineraryUi, type ItineraryUiStrings } from '@/lib/tripUiCopy';
-import { hotelOtaSearchUrl, mergeHotelOtaRows } from '@/lib/hotelOtaLinks';
+import { hotelOtaSearchUrl, mergeHotelOtaRows, isSoldOut } from '@/lib/hotelOtaLinks';
 import type { SwapResult } from '@/app/api/swap/route';
 import { useAuth } from '@/lib/auth-context';
 import { ITIN_RESULTS_PAGE_BG, ITIN_RESULTS_NOISE_DATA_URL, ITIN_PALETTE } from '@/lib/itineraryResultsPalette';
@@ -193,27 +193,51 @@ function HotelDetailCube({
               {ui.hotelOtaCompareTitle}
             </p>
             <ul className="divide-y divide-white/8">
-              {otaRows.map((row) => (
-                <li key={row.id} className="px-3 py-2.5 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold text-white/90">{row.label}</p>
-                    <p className="text-[11px] font-mono mt-0.5" style={{ color: 'rgba(212,200,168,0.88)' }}>
-                      {row.indicativeNightly ? `${row.indicativeNightly} · ${ui.hotelOtaPerNight}` : ui.hotelOtaNoPrice}
-                    </p>
-                    {row.note && (
-                      <p className="text-[10px] text-white/40 leading-snug mt-1">{row.note}</p>
-                    )}
-                  </div>
-                  <a
-                    href={hotelOtaSearchUrl(row.id, hotel.name, destination, otaOpts)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="shrink-0 inline-flex items-center justify-center px-3 py-2 rounded-lg text-[11px] font-bold text-white border border-white/15 hover:bg-white/10 transition-colors"
-                  >
-                    {ui.hotelOtaOpen}
-                  </a>
+              {otaRows.filter((r) => r.hasData).map((row) => {
+                const soldOut = isSoldOut(row.note);
+                return (
+                  <li key={row.id} className="px-3 py-2.5 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-semibold text-white/90">{row.label}</p>
+                        {soldOut && (
+                          <span
+                            className="text-[8px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-full"
+                            style={{ background: 'rgba(239,68,68,0.20)', color: '#f87171', border: '1px solid rgba(239,68,68,0.32)' }}
+                          >
+                            SOLD OUT
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] font-mono mt-0.5" style={{ color: soldOut ? '#f87171' : 'rgba(212,200,168,0.88)' }}>
+                        {soldOut ? 'No availability for your dates' : row.indicativeNightly ? `${row.indicativeNightly} · ${ui.hotelOtaPerNight}` : ui.hotelOtaNoPrice}
+                      </p>
+                      {row.note && !soldOut && (
+                        <p className="text-[10px] text-white/40 leading-snug mt-1">{row.note}</p>
+                      )}
+                    </div>
+                    <a
+                      href={hotelOtaSearchUrl(row.id, hotel.name, destination, otaOpts)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 inline-flex items-center justify-center px-3 py-2 rounded-lg text-[11px] font-bold border transition-colors"
+                      style={soldOut
+                        ? { color: '#f87171', borderColor: 'rgba(239,68,68,0.28)', background: 'rgba(239,68,68,0.08)' }
+                        : { color: 'white',   borderColor: 'rgba(255,255,255,0.15)', background: 'transparent' }
+                      }
+                      onMouseEnter={(e) => { if (!soldOut) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.10)'; }}
+                      onMouseLeave={(e) => { if (!soldOut) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                    >
+                      {soldOut ? 'Check anyway ↗' : ui.hotelOtaOpen}
+                    </a>
+                  </li>
+                );
+              })}
+              {otaRows.every((r) => !r.hasData) && (
+                <li className="px-3 py-4 text-center text-[11px] text-white/30">
+                  No OTA pricing data available for this hotel
                 </li>
-              ))}
+              )}
             </ul>
           </div>
 
@@ -278,6 +302,33 @@ function ExpediaCompassIcon({ size = 10 }: { size?: number }) {
     </svg>
   );
 }
+
+function AirbnbFlameIcon({ size = 10 }: { size?: number }) {
+  return (
+    <svg width={size} height={size + 2} viewBox="0 0 10 12" fill="none" aria-hidden>
+      <path
+        d="M5 1C5 1 2 4.5 2 7a3 3 0 006 0C8 4.5 5 1 5 1z"
+        fill="#FF385C"
+        fillOpacity="0.92"
+      />
+      <circle cx="5" cy="7" r="1.2" fill="white" fillOpacity="0.85" />
+    </svg>
+  );
+}
+
+// OTA icon map — used in both card footer and popover
+const OTA_ICON: Record<string, (size: number) => React.ReactNode> = {
+  booking: (s) => <BookingDotIcon size={s} />,
+  expedia: (s) => <ExpediaCompassIcon size={s} />,
+  airbnb:  (s) => <AirbnbFlameIcon size={s} />,
+};
+
+// OTA color theme map
+const OTA_THEME: Record<string, { bg: string; border: string; color: string }> = {
+  booking: { bg: 'rgba(0,113,194,0.13)',  border: 'rgba(0,113,194,0.28)',  color: '#4da3e8'  },
+  expedia: { bg: 'rgba(255,198,0,0.10)',  border: 'rgba(255,198,0,0.24)',  color: '#e8c842'  },
+  airbnb:  { bg: 'rgba(255,56,92,0.11)',  border: 'rgba(255,56,92,0.26)',  color: '#ff6b87'  },
+};
 
 // ── TravelOS Index interactive badge ──────────────────────────────────────────
 
@@ -362,28 +413,44 @@ function TosPopoverPortal({
             )}
           </div>
 
-          {/* Per-OTA nightly price rows */}
+          {/* Per-OTA nightly price rows — only OTAs the AI returned data for */}
           <div className="px-3 py-3 flex flex-col gap-1.5">
-            {otaRows.map((row) => (
-              <div
-                key={row.id}
-                className="flex items-center justify-between px-2.5 py-2 rounded-xl"
-                style={{ background: 'rgba(255,255,255,0.038)' }}
-              >
-                <div className="flex items-center gap-2">
-                  {brandBadge(row.id)}
-                  <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.58)' }}>
-                    {row.label}
+            {otaRows.filter((r) => r.hasData).map((row) => {
+              const soldOut = isSoldOut(row.note);
+              return (
+                <div
+                  key={row.id}
+                  className="flex items-center justify-between px-2.5 py-2 rounded-xl"
+                  style={{ background: 'rgba(255,255,255,0.038)' }}
+                >
+                  <div className="flex items-center gap-2">
+                    {brandBadge(row.id)}
+                    <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.58)' }}>
+                      {row.label}
+                    </span>
+                    {soldOut && (
+                      <span
+                        className="text-[8px] font-black uppercase tracking-wide px-1 py-0.5 rounded"
+                        style={{ background: 'rgba(239,68,68,0.20)', color: '#f87171', border: '1px solid rgba(239,68,68,0.30)' }}
+                      >
+                        SOLD OUT
+                      </span>
+                    )}
+                  </div>
+                  <span
+                    className="text-[11px] font-semibold tabular-nums"
+                    style={{ color: soldOut ? '#f87171' : row.indicativeNightly ? '#d4b96a' : 'rgba(255,255,255,0.22)' }}
+                  >
+                    {soldOut ? '—' : (row.indicativeNightly ?? '—')}
                   </span>
                 </div>
-                <span
-                  className="text-[11px] font-semibold tabular-nums"
-                  style={{ color: row.indicativeNightly ? '#d4b96a' : 'rgba(255,255,255,0.22)' }}
-                >
-                  {row.indicativeNightly ?? '—'}
-                </span>
-              </div>
-            ))}
+              );
+            })}
+            {otaRows.every((r) => !r.hasData) && (
+              <p className="text-[11px] text-center py-2" style={{ color: 'rgba(255,255,255,0.25)' }}>
+                No live pricing data available
+              </p>
+            )}
           </div>
 
           <p
@@ -461,9 +528,10 @@ function HotelCard({
       : null;
 
   // OTA deep-link URLs (dates + party size pre-filled)
-  const otaOpts  = { checkIn, checkOut, adults };
-  const bookingUrl = hotelOtaSearchUrl('booking', hotel.name, destination, otaOpts);
-  const expediaUrl = hotelOtaSearchUrl('expedia', hotel.name, destination, otaOpts);
+  const otaOpts = { checkIn, checkOut, adults };
+
+  // Only render links for OTAs that the AI actually returned data for
+  const activeOtaRows = otaRows.filter((r) => r.hasData);
 
   // Badge click — position popover near the badge, then toggle
   const handleBadgeClick = (e: React.MouseEvent) => {
@@ -612,45 +680,51 @@ function HotelCard({
             </p>
           )}
 
-          {/* ── Footer: OTA icon links + hint ────────────────────── */}
+          {/* ── Footer: OTA icon links (only OTAs with AI data) + hint ── */}
           <div
             className="flex items-center justify-between mt-auto pt-3"
             style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
           >
-            {/* Booking.com + Expedia icon links */}
-            <div className="flex items-center gap-1.5">
-              <a
-                href={bookingUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all hover:scale-105"
-                style={{
-                  background: 'rgba(0, 113, 194, 0.13)',
-                  border:     '1px solid rgba(0, 113, 194, 0.28)',
-                  color:      '#4da3e8',
-                }}
-                title="Search on Booking.com"
-              >
-                <BookingDotIcon size={9} />
-                Booking
-              </a>
-              <a
-                href={expediaUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all hover:scale-105"
-                style={{
-                  background: 'rgba(255, 198, 0, 0.10)',
-                  border:     '1px solid rgba(255, 198, 0, 0.24)',
-                  color:      '#e8c842',
-                }}
-                title="Search on Expedia"
-              >
-                <ExpediaCompassIcon size={10} />
-                Expedia
-              </a>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {activeOtaRows.map((row) => {
+                const soldOut = isSoldOut(row.note);
+                const theme   = OTA_THEME[row.id] ?? OTA_THEME.booking;
+                const icon    = OTA_ICON[row.id]?.(9) ?? null;
+                const url     = hotelOtaSearchUrl(row.id, hotel.name, destination, otaOpts);
+                const shortLabel = row.label.replace('.com', '').replace('booking', 'Booking').split('.')[0];
+                return (
+                  <a
+                    key={row.id}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    title={`Search on ${row.label}`}
+                    className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all hover:scale-105"
+                    style={{
+                      background: soldOut ? 'rgba(239,68,68,0.10)' : theme.bg,
+                      border:     soldOut ? '1px solid rgba(239,68,68,0.28)' : `1px solid ${theme.border}`,
+                      color:      soldOut ? '#f87171' : theme.color,
+                    }}
+                  >
+                    {icon}
+                    <span>{shortLabel}</span>
+                    {soldOut && (
+                      <span
+                        className="text-[8px] font-black uppercase tracking-wide px-1 py-0.5 rounded ml-0.5"
+                        style={{ background: 'rgba(239,68,68,0.22)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.32)' }}
+                      >
+                        SOLD OUT
+                      </span>
+                    )}
+                  </a>
+                );
+              })}
+              {activeOtaRows.length === 0 && (
+                <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.22)' }}>
+                  No pricing data
+                </span>
+              )}
             </div>
 
             {/* Tap hint */}
