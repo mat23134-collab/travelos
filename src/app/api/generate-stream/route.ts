@@ -228,34 +228,45 @@ async function runPipeline(
 
   await send({ type: 'status', message: 'Analyzing your trip preferences…', icon: '🧠' });
 
-  // ── Hybrid RAG: scouted places ─────────────────────────────────────────────
-  await send({ type: 'status', message: `Scouting ${profile.destination} for hidden gems…`, icon: '🔍' });
-  let internalPlaces: string | undefined;
-  try {
-    const scouted = await queryPlacesForCity(profile.destination);
-    if (scouted.length > 0) {
-      internalPlaces = formatPlacesForPrompt(scouted);
-      console.log(`[generate-stream] Hybrid RAG: ${scouted.length} scouted places`);
-    }
-  } catch (e) { console.warn('[generate-stream] Hybrid RAG failed (non-critical):', e); }
+  // ── Build hotel query early (pure string work — no I/O) ───────────────────
+  const hotelQuery = !profile.hotelBooked?.trim()
+    ? (() => {
+        const accommodation = profile.accommodation?.replace(/-/g, ' ') ?? 'boutique hotel';
+        const dates = profile.startDate?.slice(0, 10) && profile.endDate?.slice(0, 10)
+          ? `${profile.startDate.slice(0, 10)} to ${profile.endDate.slice(0, 10)}`
+          : '';
+        return [accommodation, 'hotel', profile.destination.trim(), profile.budget, dates, 'Booking.com Expedia price per night', '2026'].filter(Boolean).join(' ');
+      })()
+    : null;
 
-  // ── Web search ─────────────────────────────────────────────────────────────
-  const classifiedResults = await runChainOfThoughtSearch(profile).catch(() => []);
+  // ── All pre-AI I/O in parallel ────────────────────────────────────────────
+  // scouted places (Supabase) + chain-of-thought web search + hotel search
+  // all fire simultaneously — total wait = slowest of the three, not the sum.
+  await send({ type: 'status', message: `Scouting ${profile.destination} for hidden gems…`, icon: '🔍' });
+
+  const [scoutedPlaces, classifiedResults, rawHotelResults] = await Promise.all([
+    queryPlacesForCity(profile.destination).catch((e) => {
+      console.warn('[generate-stream] Hybrid RAG failed (non-critical):', e);
+      return [] as Awaited<ReturnType<typeof queryPlacesForCity>>;
+    }),
+    runChainOfThoughtSearch(profile).catch(() => []),
+    hotelQuery ? searchWeb(hotelQuery).catch(() => []) : Promise.resolve([]),
+  ]);
+
+  let internalPlaces: string | undefined;
+  if (scoutedPlaces.length > 0) {
+    internalPlaces = formatPlacesForPrompt(scoutedPlaces);
+    console.log(`[generate-stream] Hybrid RAG: ${scoutedPlaces.length} scouted places`);
+  }
+
   if (classifiedResults.length > 0) {
     await send({ type: 'status', message: `Analyzed ${classifiedResults.length} insider sources`, icon: '📚' });
   }
 
-  // ── Hotel context ──────────────────────────────────────────────────────────
   let hotelContext: string | undefined;
-  if (!profile.hotelBooked?.trim()) {
+  if (rawHotelResults.length > 0) {
     await send({ type: 'status', message: 'Finding top hotel options…', icon: '🏨' });
-    try {
-      const accommodation = profile.accommodation?.replace(/-/g, ' ') ?? 'boutique hotel';
-      const dates = profile.startDate?.slice(0, 10) && profile.endDate?.slice(0, 10) ? `${profile.startDate.slice(0, 10)} to ${profile.endDate.slice(0, 10)}` : '';
-      const q = [accommodation, 'hotel', profile.destination.trim(), profile.budget, dates, 'Booking.com Expedia price per night', '2026'].filter(Boolean).join(' ');
-      const results = await searchWeb(q);
-      if (results.length > 0) hotelContext = results.slice(0, 5).map((r) => `- ${r.title}: ${r.snippet.slice(0, 280)}`).join('\n');
-    } catch { /* non-critical */ }
+    hotelContext = rawHotelResults.slice(0, 5).map((r) => `- ${r.title}: ${r.snippet.slice(0, 280)}`).join('\n');
   }
 
   // ── AI generation ──────────────────────────────────────────────────────────

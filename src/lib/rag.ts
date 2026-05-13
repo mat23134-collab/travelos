@@ -194,14 +194,31 @@ export function classifyAndRank(results: SearchResult[], profile: TravelerProfil
 
 // ─── Web search helpers (Tavily / Exa fallback) ───────────────────────────────
 
+// Per-query fetch timeout — prevents a single slow Tavily/Exa call from
+// blocking the entire pipeline. 9s is generous; typical fast calls are <3s.
+const SEARCH_TIMEOUT_MS = 9_000;
+
+function withSearchTimeout<T>(promise: Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error('search timeout')), SEARCH_TIMEOUT_MS);
+    promise.then(
+      (v) => { clearTimeout(t); resolve(v); },
+      (e) => { clearTimeout(t); reject(e as Error); },
+    );
+  });
+}
+
 async function searchTavily(query: string): Promise<SearchResult[]> {
+  // 'basic' depth: uses Tavily's pre-index (~2-4s vs ~20s for 'advanced').
+  // We cap content at 700 chars anyway, so we get identical signal at a
+  // fraction of the latency.
   const res = await fetch('https://api.tavily.com/search', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       api_key: process.env.TAVILY_API_KEY,
       query,
-      search_depth: 'advanced',
+      search_depth: 'basic',
       include_answer: false,
       max_results: 5,
     }),
@@ -232,10 +249,10 @@ async function searchExa(query: string): Promise<SearchResult[]> {
 
 export async function searchWeb(query: string): Promise<SearchResult[]> {
   if (process.env.TAVILY_API_KEY && !process.env.TAVILY_API_KEY.includes('your_')) {
-    try { return await searchTavily(query); } catch { /* fall through */ }
+    try { return await withSearchTimeout(searchTavily(query)); } catch { /* fall through */ }
   }
   if (process.env.EXA_API_KEY && !process.env.EXA_API_KEY.includes('your_')) {
-    try { return await searchExa(query); } catch { /* fall through */ }
+    try { return await withSearchTimeout(searchExa(query)); } catch { /* fall through */ }
   }
   return [];
 }
