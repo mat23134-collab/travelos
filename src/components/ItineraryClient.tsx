@@ -220,12 +220,12 @@ function HotelDetailCube({
                             className="text-[8px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-full"
                             style={{ background: 'rgba(239,68,68,0.20)', color: '#f87171', border: '1px solid rgba(239,68,68,0.32)' }}
                           >
-                            SOLD OUT
+                            {ui.hotelStatusSoldOut}
                           </span>
                         )}
                       </div>
                       <p className="text-[11px] font-mono mt-0.5" style={{ color: soldOut ? '#f87171' : 'rgba(212,200,168,0.88)' }}>
-                        {soldOut ? 'No availability for your dates' : row.indicativeNightly ? `${row.indicativeNightly} · ${ui.hotelOtaPerNight}` : ui.hotelOtaNoPrice}
+                        {soldOut ? ui.hotelNoAvailabilityDates : row.indicativeNightly ? `${row.indicativeNightly} · ${ui.hotelOtaPerNight}` : ui.hotelOtaNoPrice}
                       </p>
                       {row.note && !soldOut && (
                         <p className="text-[10px] text-white/40 leading-snug mt-1">{row.note}</p>
@@ -243,7 +243,7 @@ function HotelDetailCube({
                       onMouseEnter={(e) => { if (!soldOut) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.10)'; }}
                       onMouseLeave={(e) => { if (!soldOut) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                     >
-                      {soldOut ? 'Check anyway ↗' : ui.hotelOtaOpen}
+                      {soldOut ? ui.hotelCheckAnyway : ui.hotelOtaOpen}
                     </a>
                   </li>
                 );
@@ -362,6 +362,7 @@ function TosPopoverPortal({
   onClose: () => void;
 }) {
   const otaRows = activeOtaRowsForHotel(hotel);
+  const soldOutLabel = profile?.tripLanguage === 'he' ? 'אזל' : 'SOLD OUT';
   const tosScore = hotel.ratingStars != null && Number.isFinite(hotel.ratingStars)
     ? Math.round(hotel.ratingStars * 20)
     : null;
@@ -448,7 +449,7 @@ function TosPopoverPortal({
                         className="text-[8px] font-black uppercase tracking-wide px-1 py-0.5 rounded"
                         style={{ background: 'rgba(239,68,68,0.20)', color: '#f87171', border: '1px solid rgba(239,68,68,0.30)' }}
                       >
-                        SOLD OUT
+                        {soldOutLabel}
                       </span>
                     )}
                   </div>
@@ -666,7 +667,7 @@ function HotelCard({
                     : { color: '#fca5a5', background: 'rgba(239,68,68,0.12)', borderColor: 'rgba(239,68,68,0.35)' }
                 }
               >
-                {hotelAvailable ? 'זמין' : 'SOLD OUT'}
+                {hotelAvailable ? ui.hotelStatusAvailable : ui.hotelStatusSoldOut}
               </span>
             </p>
           </div>
@@ -742,7 +743,7 @@ function HotelCard({
                         className="text-[8px] font-black uppercase tracking-wide px-1 py-0.5 rounded ml-0.5"
                         style={{ background: 'rgba(239,68,68,0.22)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.32)' }}
                       >
-                        SOLD OUT
+                        {ui.hotelStatusSoldOut}
                       </span>
                     )}
                   </a>

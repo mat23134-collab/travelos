@@ -138,6 +138,10 @@ export function itineraryUi(lang: TripUiLang) {
     hotelOtaOpen: he ? 'פתיחה ↗' : 'Open ↗',
     hotelOtaPerNight: he ? 'לילה (הערכה)' : '/night (est.)',
     hotelOtaNoPrice: he ? 'בדקו חי באתר' : 'Check live on site',
+    hotelStatusAvailable: he ? 'זמין' : 'Available',
+    hotelStatusSoldOut: he ? 'SOLD OUT' : 'SOLD OUT',
+    hotelNoAvailabilityDates: he ? 'אין זמינות בתאריכים שלכם' : 'No availability for your dates',
+    hotelCheckAnyway: he ? 'לבדוק בכל זאת ↗' : 'Check anyway ↗',
     hotelDisclaimer: he
       ? 'הערכות המחיר אינדיקטיביות אלא אם יש אינטגרציה חיה להזמנות. קישורי הזמנה מציגים זמינות בזמן אמת אצל הספק.'
       : 'Price hints are indicative unless sourced from a live booking integration. Opening booking links shows real-time availability from the provider.',
