@@ -396,4 +396,47 @@ export const MOCK_ITINERARY: Itinerary = {
     'The "quiet carriage" rule applies to the first carriage of every metro train — no phone calls, low-volume music only',
     'Tipping is not just unnecessary in Japan — it can cause confusion and mild offense. Excellent service is standard, not transactional',
   ],
+
+  cityTransport: {
+    intro:
+      'Tokyo is built for IC cards: Suica or Pasmo covers almost all JR, Metro, and buses. Taxis are clean but pricey — use them late at night or with luggage.',
+    options: [
+      {
+        mode: 'JR + Tokyo Metro / Toei',
+        summary: 'Suica tap-in everywhere; Google Maps shows exact platform and car exit.',
+        typicalPrice: '¥150–¥320 per ride; ~¥800 day-style spend if hopping zones',
+        tip: 'Avoid rush 7:30–9:00 if you can.',
+      },
+      {
+        mode: 'Local buses',
+        summary: 'Flat fare in 23 wards; IC same as trains; English next-stop screens on many routes.',
+        typicalPrice: '¥210 flat in central wards',
+        tip: 'Enter rear, exit front.',
+      },
+      {
+        mode: 'Taxi / Uber',
+        summary: 'Door-to-door; great after last train; drivers rarely speak English but are honest.',
+        typicalPrice: '¥500–¥800 flag; ¥3,000–¥6,000 Shibuya ↔ Haneda typical',
+        tip: 'Uber exists but often dispatches taxis.',
+      },
+      {
+        mode: 'Walking',
+        summary: 'Many neighborhoods are 10–20 min walks between clusters — often faster than one metro stop.',
+        typicalPrice: 'Free',
+        tip: 'Carry coins + IC for vending drinks.',
+      },
+    ],
+    links: [
+      {
+        label: 'JR East — trains & passes',
+        url: 'https://www.jreast.co.jp/e/',
+        description: 'Shinkansen + regional tickets and rail pass info.',
+      },
+      {
+        label: 'Tokyo Metro',
+        url: 'https://www.tokyometro.jp/en/',
+        description: 'Subway maps, passes, and station guides.',
+      },
+    ],
+  },
 };

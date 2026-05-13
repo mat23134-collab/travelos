@@ -20,6 +20,7 @@ import type { SwapResult } from '@/app/api/swap/route';
 import { useAuth } from '@/lib/auth-context';
 import { ITIN_RESULTS_PAGE_BG, ITIN_RESULTS_NOISE_DATA_URL, ITIN_PALETTE } from '@/lib/itineraryResultsPalette';
 import { BrandWordmark } from '@/components/BrandWordmark';
+import { CityTransportSection } from '@/components/CityTransportSection';
 
 const ItineraryMap = dynamic(
   () => import('@/components/ItineraryMap').then((m) => m.ItineraryMap),
@@ -1641,6 +1642,8 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
             basecampMarker={basecampMarker}
           />
         </section>
+
+        <CityTransportSection destination={itinerary.destination} guide={itinerary.cityTransport} ui={ui} />
 
         {/* Day cards — staggered fade-in */}
         <motion.div

@@ -193,6 +193,29 @@ export interface ClassifiedResult extends SearchResult {
   contradictionNote?: string; // set when this result conflicts with another
 }
 
+/** Official or well-known ticket / info links for getting around the destination city. */
+export interface CityTransportLink {
+  label: string;
+  url: string;
+  description?: string | null;
+}
+
+/** One transport mode (metro, bus, train, bike share, taxi norms, etc.). */
+export interface CityTransportOption {
+  mode: string;
+  summary: string;
+  typicalPrice: string;
+  tip?: string | null;
+}
+
+/** City-level mobility guide — shown between map and day cards on the itinerary. */
+export interface CityTransportGuide {
+  /** 1–2 sentences: how visitors usually move in this city */
+  intro?: string | null;
+  options: CityTransportOption[];
+  links: CityTransportLink[];
+}
+
 export interface Itinerary {
   /** DB UUID from itineraries table — embedded post-save for targeted row-level swaps */
   _id?: string;
@@ -205,6 +228,8 @@ export interface Itinerary {
     totalEstimate?: string;
     includes?: string;
   };
+  /** Tips, typical prices, and ticket / transit links for the destination (AI-generated when supported). */
+  cityTransport?: CityTransportGuide | null;
   days: DayPlan[];
   packingTips?: string[];
   bestLocalTips?: string[];

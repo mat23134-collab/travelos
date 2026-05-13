@@ -72,6 +72,20 @@ export function itineraryUi(lang: TripUiLang) {
     routeSection: (audience: string) => (he ? `מסלול ${audience}` : `${audience} Route`),
     mapOpenMobile: he ? 'מפת מסלול' : 'Route Map',
 
+    cityTransportTitle: he ? 'תחבורה בעיר' : 'Getting around',
+    cityTransportSubtitle: (city: string) =>
+      he ? `איך לזוז ב${city} — מחירים משוערים וקישורים לכרטיסים` : `How to move in ${city} — typical prices & ticket links`,
+    cityTransportOptionsHeading: he ? 'אפשרויות' : 'Options',
+    cityTransportLinksHeading: he ? 'קישורים לכרטיסים ומידע' : 'Tickets & official info',
+    cityTransportPriceLabel: he ? 'מחיר משוער' : 'Typical cost',
+    cityTransportFallbackTitle: he ? 'תחבורה ציבורית' : 'Public transport',
+    cityTransportFallbackBody: (city: string) =>
+      he
+        ? `חיפוש מהיר לכרטיסים ומסלולים ב${city} — אחרי הטיול יתווספו כאן טיפים ספציפיים מהמערכת.`
+        : `Quick links to plan routes and tickets in ${city}. New trips will include tailored tips here.`,
+    cityTransportSearchTickets: he ? 'חיפוש כרטיסים וקווים' : 'Search tickets & routes',
+    cityTransportOpenMapsTransit: he ? 'מסלולים בתחבורה ציבורית (מפות)' : 'Transit directions (Maps)',
+
     draftReviewTitle: he ? 'סקירת טיוטה' : 'Review Draft',
     draftInstructions: (swaps: number) =>
       he
