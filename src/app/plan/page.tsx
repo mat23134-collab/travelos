@@ -16,6 +16,13 @@ import { TripLanguageGateModal } from '@/components/TripLanguageGateModal';
 import { BrandWordmark } from '@/components/BrandWordmark';
 type FormData = Record<string, unknown>;
 
+// ── SSE streaming types ───────────────────────────────────────────────────────
+type PlaceEvent = {
+  name: string; emoji: string; description: string;
+  slot: string; day: number; vibeLabel: string;
+};
+type StatusEvent = { message: string; icon: string };
+
 const STORAGE_KEY = 'travelos_plan_draft';
 const PRE_ONBOARDING_KEYS = new Set(['destination', 'dates', 'tripTimes']);
 /** tripLanguage is chosen on the home gate or /plan gate, not in this wizard */
@@ -839,14 +846,115 @@ function MustHaveCubes({
   );
 }
 
+// ─── Live discovery panel (SSE-fed sidebar) ───────────────────────────────────
+
+function DiscoveryPanel({
+  places,
+  tips,
+  destination,
+}: {
+  places: PlaceEvent[];
+  tips: string[];
+  destination: string;
+}) {
+  const isEmpty = places.length === 0 && tips.length === 0;
+  return (
+    <div className="flex flex-col gap-2 w-full">
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-1">
+        <motion.div
+          className="w-2 h-2 rounded-full flex-shrink-0"
+          style={{ background: '#9e363a' }}
+          animate={{ opacity: [1, 0.2, 1], scale: [1, 0.75, 1] }}
+          transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+        />
+        <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.32)' }}>
+          Discovering {destination || 'your destination'}
+        </span>
+      </div>
+
+      {/* Empty state */}
+      {isEmpty && (
+        <motion.div
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}
+          className="py-8 text-center"
+        >
+          <div className="text-3xl mb-2 opacity-40">🌍</div>
+          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.18)' }}>
+            Searching for hidden gems…
+          </p>
+        </motion.div>
+      )}
+
+      {/* Place cards — slide in from the right */}
+      <AnimatePresence initial={false}>
+        {places.map((place, i) => (
+          <motion.div
+            key={`${place.name}|${place.day}|${place.slot}|${i}`}
+            initial={{ opacity: 0, x: 36, height: 0 }}
+            animate={{ opacity: 1, x: 0, height: 'auto' }}
+            transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+            className="overflow-hidden"
+          >
+            <div
+              className="flex items-center gap-3 px-3 py-2.5 rounded-2xl"
+              style={{ background: 'rgba(15,40,98,0.40)', border: '1px solid rgba(255,255,255,0.07)' }}
+            >
+              <span className="text-xl leading-none flex-shrink-0">{place.emoji}</span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-white leading-tight truncate">{place.name}</p>
+                <p className="text-[10px] mt-0.5 capitalize" style={{ color: 'rgba(255,255,255,0.32)' }}>
+                  Day {place.day} · {place.slot}
+                </p>
+              </div>
+              {place.vibeLabel && place.vibeLabel !== 'dining' && (
+                <span
+                  className="text-[9px] px-1.5 py-0.5 rounded-full flex-shrink-0 font-semibold"
+                  style={{ background: 'rgba(158,54,58,0.22)', color: '#ffb3b6', border: '1px solid rgba(158,54,58,0.30)' }}
+                >
+                  {place.vibeLabel}
+                </span>
+              )}
+            </div>
+          </motion.div>
+        ))}
+      </AnimatePresence>
+
+      {/* Tips — fade up */}
+      <AnimatePresence>
+        {tips.map((tip, i) => (
+          <motion.div
+            key={`tip-${i}`}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 360, damping: 28 }}
+            className="px-3 py-2.5 rounded-2xl"
+            style={{ background: 'rgba(158,54,58,0.10)', border: '1px solid rgba(158,54,58,0.22)' }}
+          >
+            <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.55)' }}>
+              💡 {tip}
+            </p>
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 // ─── Loading screen ───────────────────────────────────────────────────────────
 
 function LoadingScreen({
   destination,
   lang,
+  streamedPlaces,
+  streamedTips,
+  streamStatus,
 }: {
   destination: string;
   lang: TripLanguage;
+  streamedPlaces: PlaceEvent[];
+  streamedTips: string[];
+  streamStatus: StatusEvent | null;
 }) {
   const [activeStep, setActiveStep] = useState(0);
   const [tick, setTick] = useState(0);
@@ -883,13 +991,16 @@ function LoadingScreen({
   const pct = Math.round(((activeStep + 1) / LOADING_STEPS.length) * 100);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center relative overflow-hidden"
+    <div className="min-h-screen flex flex-col lg:flex-row items-center lg:items-start justify-center gap-10 lg:gap-16 px-6 lg:px-14 py-12 lg:py-0 relative overflow-hidden"
       style={{ backgroundColor: '#091f36' }}>
       {/* Ambient orbs */}
       <div className="noise absolute w-[560px] h-[560px] rounded-full blur-[130px] top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
         style={{ background: 'rgba(158,54,58,0.12)' }} />
       <div className="noise absolute w-[320px] h-[320px] rounded-full blur-[100px] bottom-1/4 right-1/4 pointer-events-none"
         style={{ background: 'rgba(15,40,98,0.40)' }} />
+
+      {/* ── Left panel: spinner + steps ─────────────────────────────────── */}
+      <div className="relative z-10 flex flex-col items-center text-center w-full max-w-xs shrink-0 lg:py-20">
 
       <motion.div
         initial={{ opacity: 0, scale: 0.7, y: 20 }}
@@ -1005,7 +1116,39 @@ function LoadingScreen({
         />
       </div>
       <p className="text-white/20 text-[10px] tabular-nums leading-relaxed">{pct}% · {tc.footer}</p>
-    </div>
+
+      {/* SSE live status pill */}
+      <AnimatePresence mode="wait">
+        {streamStatus && (
+          <motion.p
+            key={streamStatus.message}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.22 }}
+            className="mt-4 text-[11px] font-medium px-3 py-1.5 rounded-full"
+            style={{ color: 'rgba(255,255,255,0.50)', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+          >
+            {streamStatus.icon} {streamStatus.message}
+          </motion.p>
+        )}
+      </AnimatePresence>
+    </div> {/* end left panel */}
+
+    {/* ── Right panel: live discovery ───────────────────────────────────── */}
+    <motion.div
+      className="relative z-10 w-full lg:w-72 xl:w-80 shrink-0 lg:py-20 max-h-[55vh] lg:max-h-[80vh] overflow-y-auto"
+      initial={{ opacity: 0, x: 24 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: 0.35, type: 'spring', stiffness: 260, damping: 26 }}
+    >
+      <DiscoveryPanel
+        places={streamedPlaces}
+        tips={streamedTips}
+        destination={destination}
+      />
+    </motion.div>
+  </div>
   );
 }
 
@@ -1040,6 +1183,10 @@ function PlanPage() {
   });
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // SSE streaming state
+  const [streamedPlaces, setStreamedPlaces] = useState<PlaceEvent[]>([]);
+  const [streamedTips,   setStreamedTips]   = useState<string[]>([]);
+  const [streamStatus,   setStreamStatus]   = useState<StatusEvent | null>(null);
   const [showTripLangGate, setShowTripLangGate] = useState(false);
   const [showFamilyKidsModal, setShowFamilyKidsModal] = useState(false);
   const groupTypeBeforeFamilyRef = useRef<GroupType>('couple');
@@ -1248,6 +1395,9 @@ function PlanPage() {
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
+    setStreamedPlaces([]);
+    setStreamedTips([]);
+    setStreamStatus(null);
 
     const start = form['startDate'] as string;
     const end = form['endDate'] as string;
@@ -1293,38 +1443,59 @@ function PlanPage() {
       sessionStorage.setItem('travelos_profile', JSON.stringify(profile));
       localStorage.removeItem(STORAGE_KEY);
 
-      const res = await fetch('/api/generate', {
+      const res = await fetch('/api/generate-stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...profile, userId: user?.id ?? null }),
       });
 
-      const rawText = await res.text();
-      console.log('[plan] /api/generate response:', rawText.slice(0, 300));
-
-      let result: { id?: string; itinerary?: unknown; error?: string; details?: string } = {};
-      try {
-        result = JSON.parse(rawText);
-      } catch {
-        throw new Error('Server returned a non-JSON response: ' + rawText.slice(0, 200));
+      if (!res.ok || !res.body) {
+        const text = await res.text();
+        let parsed: { error?: string; details?: string } = {};
+        try { parsed = JSON.parse(text); } catch { /* ignore */ }
+        throw new Error(parsed.error ?? `Server error ${res.status}: ${text.slice(0, 200)}`);
       }
 
-      if (!res.ok || result.error) {
-        const detail = result.details ? ` (${result.details})` : '';
-        throw new Error((result.error || `Server error ${res.status}`) + detail);
-      }
+      // Read SSE stream
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
 
-      const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      const itineraryId = result.id ?? '';
-      if (!UUID_RE.test(itineraryId)) {
-        throw new Error('Invalid ID returned: "' + itineraryId + '"');
-      }
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-      if (result.itinerary) {
-        sessionStorage.setItem('travelos_itinerary', JSON.stringify(result.itinerary));
-      }
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split('\n');
+        buf = lines.pop() ?? '';
 
-      router.push('/itinerary/' + itineraryId);
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const raw = line.slice(6).trim();
+          if (!raw) continue;
+
+          let evt: Record<string, unknown>;
+          try { evt = JSON.parse(raw) as Record<string, unknown>; } catch { continue; }
+
+          const t = evt.type as string;
+          if (t === 'status') {
+            setStreamStatus({ message: evt.message as string, icon: evt.icon as string });
+          } else if (t === 'place') {
+            setStreamedPlaces((prev) => [...prev, evt as unknown as PlaceEvent]);
+          } else if (t === 'tip') {
+            setStreamedTips((prev) => [...prev, evt.text as string]);
+          } else if (t === 'complete') {
+            const id = evt.id as string;
+            if (evt.itinerary) sessionStorage.setItem('travelos_itinerary', JSON.stringify(evt.itinerary));
+            router.push('/itinerary/' + id);
+            return;
+          } else if (t === 'error') {
+            throw new Error(evt.message as string);
+          }
+          // 'heartbeat' and unknown types ignored
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
       setIsSubmitting(false);
@@ -1336,6 +1507,9 @@ function PlanPage() {
       <LoadingScreen
         destination={(form.destination as string) || ''}
         lang={(form.tripLanguage as TripLanguage) || 'en'}
+        streamedPlaces={streamedPlaces}
+        streamedTips={streamedTips}
+        streamStatus={streamStatus}
       />
     );
   }
