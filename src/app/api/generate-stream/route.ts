@@ -174,7 +174,7 @@ async function persistNewPlaces(itineraryObj: Record<string, unknown>, cityRaw: 
 
 type GeminiBody = { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> }; finishReason?: string }>; promptFeedback?: { blockReason?: string } };
 
-async function callGemini(userPrompt: string): Promise<string> {
+async function callGemini(userPrompt: string, signal?: AbortSignal): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) throw new Error('GEMINI_API_KEY is not set');
   const model = process.env.GEMINI_MODEL ?? 'gemini-3-flash-preview';
@@ -189,6 +189,7 @@ async function callGemini(userPrompt: string): Promise<string> {
       contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
       generationConfig: { temperature: 0.35, maxOutputTokens: maxTokens, responseMimeType: 'application/json' },
     }),
+    signal, // ← shared abort signal
   });
   if (!res.ok) throw new Error(`Gemini API ${res.status}: ${(await res.text()).slice(0, 600)}`);
   const data = (await res.json()) as GeminiBody;
@@ -202,12 +203,15 @@ async function callGemini(userPrompt: string): Promise<string> {
   return raw;
 }
 
-async function callClaude(userPrompt: string): Promise<string> {
+async function callClaude(userPrompt: string, signal?: AbortSignal): Promise<string> {
   if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not set');
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
   console.log(`[generate-stream] Claude ${model}`);
-  const message = await client.messages.create({ model, max_tokens: 16000, system: JSON_PREAMBLE + SYSTEM_PROMPT, messages: [{ role: 'user', content: userPrompt }] });
+  const message = await client.messages.create(
+    { model, max_tokens: 16000, system: JSON_PREAMBLE + SYSTEM_PROMPT, messages: [{ role: 'user', content: userPrompt }] },
+    signal ? { signal } : {},  // ← shared abort signal
+  );
   const block = message.content[0];
   const raw = block.type === 'text' ? block.text : '';
   console.log(`[generate-stream] Claude: ${raw.length} chars | stop: ${message.stop_reason}`);
@@ -274,6 +278,13 @@ async function runPipeline(
 
   const userPrompt = buildUserPrompt(profile, classifiedResults, hotelContext, internalPlaces);
 
+  // Hard 75-second budget shared across Gemini + any Claude fallback.
+  // AbortSignal is passed into fetch/SDK so the in-flight request is cancelled
+  // immediately when the timer fires — no hanging forever.
+  const AI_TIMEOUT_MS = 75_000;
+  const aiController = new AbortController();
+  const aiAbortTimer = setTimeout(() => aiController.abort(), AI_TIMEOUT_MS);
+
   // Heartbeat every 12s so the connection stays alive while LLM thinks
   let heartbeatTimer: ReturnType<typeof setInterval> | null = setInterval(async () => {
     try { await send({ type: 'status', message: `Crafting every detail for ${profile.destination}…`, icon: '✨' }); } catch { /* ignore */ }
@@ -284,18 +295,21 @@ async function runPipeline(
   try {
     if (process.env.GEMINI_API_KEY?.trim()) {
       try {
-        raw = await withRetry(() => callGemini(userPrompt));
+        raw = await callGemini(userPrompt, aiController.signal);
         provider = 'gemini';
       } catch (geminiErr) {
+        // If the shared budget already expired, surface a clear timeout error
+        if (aiController.signal.aborted) throw new Error('Itinerary generation timed out. Please try again.');
         console.warn('[generate-stream] Gemini failed — falling back to Claude:', geminiErr instanceof Error ? geminiErr.message : geminiErr);
-        raw = await withRetry(() => callClaude(userPrompt));
+        raw = await callClaude(userPrompt, aiController.signal);
         provider = 'claude';
       }
     } else {
-      raw = await withRetry(() => callClaude(userPrompt));
+      raw = await callClaude(userPrompt, aiController.signal);
       provider = 'claude';
     }
   } finally {
+    clearTimeout(aiAbortTimer);
     if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
   }
 
@@ -305,9 +319,16 @@ async function runPipeline(
   try {
     itinerary = parseAIJson(raw);
   } catch (parseErr) {
-    if (provider === 'gemini') {
+    if (provider === 'gemini' && !aiController.signal.aborted) {
       console.warn('[generate-stream] Gemini JSON parse failed — fallback to Claude');
-      raw = await withRetry(() => callClaude(userPrompt));
+      // Reuse a fresh controller for the one-shot retry (original may be aborted)
+      const retryController = new AbortController();
+      const retryTimer = setTimeout(() => retryController.abort(), 30_000);
+      try {
+        raw = await callClaude(userPrompt, retryController.signal);
+      } finally {
+        clearTimeout(retryTimer);
+      }
       provider = 'claude';
       itinerary = parseAIJson(raw);
     } else { throw parseErr; }
@@ -420,13 +441,14 @@ async function runPipeline(
   const itineraryDbId = data.id;
   itinerary._id = itineraryDbId;
 
-  // ── Wait for streaming to finish, then navigate immediately ───────────────
-  // streamingDone may already be finished (insert took longer than streaming),
-  // or still in progress — either way we wait here so the panel looks complete
-  // before we fire `complete` and the client transitions to the results page.
-  await streamingDone.catch(() => {/* send() failures are silent — ignore */});
-
+  // ── Navigate immediately after DB save ────────────────────────────────────
+  // Fire `complete` as soon as we have the itinerary ID — don't wait for the
+  // streaming panel to finish. The streaming IIFE continues in the background;
+  // its send() calls silently no-op once the client disconnects.
   await send({ type: 'complete', id: itineraryDbId, itinerary });
+
+  // Drain the streaming promise so unhandled-rejection warnings don't fire
+  streamingDone.catch(() => {});
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Everything below runs AFTER the client has navigated to the results page.
