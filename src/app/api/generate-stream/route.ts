@@ -304,82 +304,7 @@ async function runPipeline(
 
   normalizeBasecampHotels(itinerary.basecamp);
 
-  // ── Stream places one by one ───────────────────────────────────────────────
-  await send({ type: 'status', message: 'Discovering places & experiences…', icon: '🗺️' });
-
-  for (const [dayIdx, day] of ((itinerary.days ?? []) as Record<string, unknown>[]).entries()) {
-    // Activity slots
-    for (const slot of ['morning', 'afternoon', 'evening'] as const) {
-      const act = day?.[slot] as Activity | undefined;
-      if (act?.name) {
-        await send({
-          type: 'place',
-          name: String(act.name),
-          emoji: (typeof act.category_emoji === 'string' && act.category_emoji) ? act.category_emoji : '📍',
-          description: String(act.description || act.whyThis || '').slice(0, 110),
-          slot,
-          day: dayIdx + 1,
-          vibeLabel: (typeof act.vibeLabel === 'string' ? act.vibeLabel : '') || '',
-        });
-        await sleep(110);
-      }
-    }
-
-    // One dinner per day as a dining discovery
-    const dinner = day?.['dinner'] as DiningSpot | undefined;
-    if (dinner?.name) {
-      await send({
-        type: 'place',
-        name: String(dinner.name),
-        emoji: '🍽️',
-        description: String(dinner.mustTry || dinner.cuisine || '').slice(0, 90),
-        slot: 'dinner',
-        day: dayIdx + 1,
-        vibeLabel: 'dining',
-      });
-      await sleep(90);
-    }
-
-    // Insider tip
-    const tip = (day as Record<string, unknown>)?.insiderTip;
-    if (typeof tip === 'string' && tip.trim()) {
-      await send({ type: 'tip', text: tip.trim().slice(0, 220) });
-      await sleep(70);
-    }
-  }
-
-  // ── JIT Verification ───────────────────────────────────────────────────────
-  const exaKey = process.env.EXA_API_KEY;
-  let jitChecked = 0, jitFlagged = 0;
-  if (exaKey) {
-    await send({ type: 'status', message: 'Verifying all places are open & accessible…', icon: '✅' });
-    try {
-      type ActivityRef = { dayIdx: number; slot: 'morning' | 'afternoon' | 'evening'; name: string };
-      const refs: ActivityRef[] = [];
-      for (let di = 0; di < (itinerary.days ?? []).length; di++) {
-        const day = itinerary.days[di];
-        for (const slot of ['morning', 'afternoon', 'evening'] as const) {
-          const act = day?.[slot];
-          if (act?.name) refs.push({ dayIdx: di, slot, name: act.name });
-        }
-      }
-      if (refs.length > 0) {
-        const results = await batchVerifyPlaces(refs.map((r) => ({ name: r.name, city: profile.destination })), exaKey, 7000);
-        results.forEach((vr, i) => {
-          const { dayIdx, slot } = refs[i];
-          const act = itinerary.days[dayIdx]?.[slot];
-          if (!act) return;
-          act.verificationStatus = vr.status; act.verifiedAt = vr.checkedAt;
-          if (vr.signal) act.verificationSignal = vr.signal;
-          jitChecked++;
-          if (vr.status === 'flagged-closed' || vr.status === 'flagged-renovating') jitFlagged++;
-        });
-        console.log(`[generate-stream] JIT Shield: ${jitChecked} checked, ${jitFlagged} flagged`);
-      }
-    } catch (e) { console.warn('[generate-stream] JIT Shield failed (non-critical):', e); }
-  }
-
-  // ── Normalize coordinates ──────────────────────────────────────────────────
+  // ── Normalize coordinates (synchronous — runs before any awaits below) ─────
   for (const day of (itinerary.days ?? [])) {
     for (const slot of ['morning', 'afternoon', 'evening'] as const) {
       const act = day?.[slot];
@@ -391,16 +316,53 @@ async function runPipeline(
     }
   }
 
-  // ── Metadata ───────────────────────────────────────────────────────────────
+  // ── Metadata (set early so main insert captures it) ────────────────────────
+  // jit fields filled in later (background Exa); default to 0 for now
   itinerary._meta = {
     searchEnabled: classifiedResults.length > 0, sourcesFound: classifiedResults.length,
     hiddenGems: classifiedResults.filter((r) => r.vibeScore === 'hidden-gem').length,
     trapsFiltered: classifiedResults.filter((r) => r.vibeScore === 'tourist-trap').length,
     contradictionsFound: classifiedResults.filter((r) => r.contradictionNote).length,
-    provider, jitVerified: jitChecked, jitFlagged,
+    provider, jitVerified: 0, jitFlagged: 0,
   };
 
-  // ── Save to Supabase ───────────────────────────────────────────────────────
+  // ── Kick off place streaming in background ─────────────────────────────────
+  // Runs concurrently with the DB save below — user sees the discovery panel
+  // populate while we write to Supabase. send() silently ignores writes after
+  // the client navigates away.
+  void send({ type: 'status', message: 'Discovering places & experiences…', icon: '🗺️' });
+  const streamingDone: Promise<void> = (async () => {
+    for (const [dayIdx, day] of ((itinerary.days ?? []) as Record<string, unknown>[]).entries()) {
+      for (const slot of ['morning', 'afternoon', 'evening'] as const) {
+        const act = day?.[slot] as Activity | undefined;
+        if (act?.name) {
+          await send({
+            type: 'place',
+            name: String(act.name),
+            emoji: (typeof act.category_emoji === 'string' && act.category_emoji) ? act.category_emoji : '📍',
+            description: String(act.description || act.whyThis || '').slice(0, 110),
+            slot, day: dayIdx + 1,
+            vibeLabel: (typeof act.vibeLabel === 'string' ? act.vibeLabel : '') || '',
+          });
+          await sleep(110);
+        }
+      }
+      const dinner = day?.['dinner'] as DiningSpot | undefined;
+      if (dinner?.name) {
+        await send({ type: 'place', name: String(dinner.name), emoji: '🍽️',
+          description: String(dinner.mustTry || dinner.cuisine || '').slice(0, 90),
+          slot: 'dinner', day: dayIdx + 1, vibeLabel: 'dining' });
+        await sleep(90);
+      }
+      const tip = (day as Record<string, unknown>)?.insiderTip;
+      if (typeof tip === 'string' && tip.trim()) {
+        await send({ type: 'tip', text: tip.trim().slice(0, 220) });
+        await sleep(70);
+      }
+    }
+  })();
+
+  // ── Main DB save — runs while streaming is in progress ────────────────────
   await send({ type: 'status', message: 'Saving your personalized trip…', icon: '💾' });
 
   const dbWrite = createDbWriteClient();
@@ -445,6 +407,53 @@ async function runPipeline(
   if (dbErr || !data?.id) throw new Error('Database error: ' + (dbErr?.message ?? 'unknown'));
 
   const itineraryDbId = data.id;
+  itinerary._id = itineraryDbId;
+
+  // ── Wait for streaming to finish, then navigate immediately ───────────────
+  // streamingDone may already be finished (insert took longer than streaming),
+  // or still in progress — either way we wait here so the panel looks complete
+  // before we fire `complete` and the client transitions to the results page.
+  await streamingDone.catch(() => {/* send() failures are silent — ignore */});
+
+  await send({ type: 'complete', id: itineraryDbId, itinerary });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Everything below runs AFTER the client has navigated to the results page.
+  // send() calls silently fail once the SSE connection closes — that's fine.
+  // The Supabase writes use a service-role client and complete regardless.
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // ── JIT Verification (background — enriches final blob) ───────────────────
+  const exaKey = process.env.EXA_API_KEY;
+  let jitChecked = 0, jitFlagged = 0;
+  if (exaKey) {
+    try {
+      type ActivityRef = { dayIdx: number; slot: 'morning' | 'afternoon' | 'evening'; name: string };
+      const refs: ActivityRef[] = [];
+      for (let di = 0; di < (itinerary.days ?? []).length; di++) {
+        const day = itinerary.days[di];
+        for (const slot of ['morning', 'afternoon', 'evening'] as const) {
+          const act = day?.[slot];
+          if (act?.name) refs.push({ dayIdx: di, slot, name: act.name });
+        }
+      }
+      if (refs.length > 0) {
+        const results = await batchVerifyPlaces(refs.map((r) => ({ name: r.name, city: profile.destination })), exaKey, 7000);
+        results.forEach((vr, i) => {
+          const { dayIdx, slot } = refs[i];
+          const act = itinerary.days[dayIdx]?.[slot];
+          if (!act) return;
+          act.verificationStatus = vr.status; act.verifiedAt = vr.checkedAt;
+          if (vr.signal) act.verificationSignal = vr.signal;
+          jitChecked++;
+          if (vr.status === 'flagged-closed' || vr.status === 'flagged-renovating') jitFlagged++;
+        });
+        // Patch _meta with real Exa counts now that we have them
+        if (itinerary._meta) { itinerary._meta.jitVerified = jitChecked; itinerary._meta.jitFlagged = jitFlagged; }
+        console.log(`[generate-stream] JIT Shield: ${jitChecked} checked, ${jitFlagged} flagged`);
+      }
+    } catch (e) { console.warn('[generate-stream] JIT Shield failed (non-critical):', e); }
+  }
 
   // ── Hotel anchors ──────────────────────────────────────────────────────────
   const hotelRows: Record<string, unknown>[] = [];
@@ -562,19 +571,15 @@ async function runPipeline(
       }
     }
   }
-  itinerary._id = itineraryDbId;
 
-  // ── Final blob update ──────────────────────────────────────────────────────
+  // ── Final blob update (includes Exa verification data if it ran above) ─────
   const { error: finalErr } = await dbWrite.from('itineraries').update({ itinerary_json: { ...itinerary, _profile: profile, hotel_info: hotelInfo } }).eq('id', itineraryDbId);
   if (finalErr) console.warn('[generate-stream] final blob update failed (non-critical):', finalErr.message);
 
   // ── Persist new places globally ────────────────────────────────────────────
   await persistNewPlaces(itinerary as Record<string, unknown>, profile.destination ?? '');
 
-  console.log('[generate-stream] saved row id:', itineraryDbId);
-
-  // ── Done ───────────────────────────────────────────────────────────────────
-  await send({ type: 'complete', id: itineraryDbId, itinerary });
+  console.log('[generate-stream] background tasks done for id:', itineraryDbId);
 }
 
 // ── Route handler ─────────────────────────────────────────────────────────────
