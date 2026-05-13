@@ -9,6 +9,8 @@ import { queryPlacesForCity, formatPlacesForPrompt } from '@/lib/places';
 import { batchVerifyPlaces } from '@/lib/verification';
 import { normalizeBasecampHotels } from '@/lib/hotelNormalize';
 import { classifyActivity } from '@/lib/activityGenre';
+import { resolveAuthenticatedTraveler } from '@/lib/resolveAuthUser';
+import { ensureTransportationForCity, persistTripSessionRow } from '@/lib/tripTransport';
 
 // ── JSON instruction prepended to every system prompt ────────────────────────
 
@@ -354,10 +356,9 @@ async function callClaude(userPrompt: string): Promise<string> {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    // userId is sent by the client when the user is logged in (optional)
-    const userId: string | null = body.userId ?? null;
-    // Strip userId before passing to TravelerProfile (not part of that type)
-    const { userId: _u, ...profile } = body as TravelerProfile & { userId?: string | null };
+    const bodyObj = body as TravelerProfile & { userId?: string | null };
+    let userId: string | null = bodyObj.userId ?? null;
+    const { userId: _u, ...profile } = bodyObj;
 
     if (!profile.destination) {
       return NextResponse.json({ error: 'Destination is required' }, { status: 400 });
@@ -541,6 +542,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const resolved = await resolveAuthenticatedTraveler(req, dbWrite, userId);
+    userId = resolved.userId;
+    const travelerUsername = resolved.username;
+
     // ── Save to Supabase ────────────────────────────────────────────────────────
     const hotelInfo = profile.hotelAddress?.trim()
       ? {
@@ -687,6 +692,21 @@ export async function POST(req: NextRequest) {
       .upsert(tripChoiceRow, { onConflict: 'itinerary_id' });
     if (tripChoicesErr) {
       console.warn('[generate] user_trip_choices upsert skipped (non-critical):', tripChoicesErr.message);
+    }
+
+    const destCity = String(itinerary.destination || profile.destination || '').trim();
+    if (destCity) {
+      void (async () => {
+        await persistTripSessionRow(dbWrite, {
+          itineraryId: itineraryDbId,
+          userId,
+          cityName: destCity,
+          username: travelerUsername,
+          startDate: profile.startDate ?? null,
+          endDate: profile.endDate ?? null,
+        });
+        await ensureTransportationForCity(dbWrite, destCity);
+      })();
     }
 
     // ── Optional: write tags column (non-critical — column may not exist yet) ───

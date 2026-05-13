@@ -1164,7 +1164,7 @@ export default function PlanPageWrapper() {
 
 function PlanPage() {
   const router      = useRouter();
-  const { user }    = useAuth();
+  const { user, session } = useAuth();
 
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
@@ -1445,9 +1445,14 @@ function PlanPage() {
 
       // Plain JSON POST → /api/generate. No SSE, no streaming reader, no
       // per-place updates: the client waits for one response and navigates.
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers.Authorization = `Bearer ${session.access_token}`;
+      }
+
       const res = await fetch('/api/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ ...profile, userId: user?.id ?? null }),
       });
 

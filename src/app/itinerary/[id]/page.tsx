@@ -2,7 +2,9 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { ItineraryClient } from '@/components/ItineraryClient';
-import { Itinerary, TravelerProfile } from '@/lib/types';
+import { Itinerary, TravelerProfile, type CityTransportGuide } from '@/lib/types';
+import { fetchTransportGuideForCity } from '@/lib/tripTransport';
+import { createServiceRoleClient } from '@/lib/supabaseService';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -51,11 +53,42 @@ export default async function ItineraryByIdPage({ params }: PageProps) {
 
   const { _profile, ...itinerary } = itinData.itinerary_json as Itinerary & { _profile?: TravelerProfile };
 
+  const city = (itinerary.destination ?? '').trim();
+  let transportFromDb: CityTransportGuide | null = null;
+  let tripSummaryUsername: string | null = null;
+
+  const tripsClient = createServiceRoleClient() ?? supabase;
+  try {
+    const { data: tripRow, error: tripErr } = await tripsClient
+      .from('trips')
+      .select('username')
+      .eq('itinerary_id', id)
+      .maybeSingle();
+    if (tripErr) {
+      console.warn('[itinerary/id] trips select:', tripErr.message);
+    } else {
+      const u = tripRow?.username;
+      tripSummaryUsername = typeof u === 'string' && u.trim() ? u.trim() : null;
+    }
+  } catch (e) {
+    console.warn('[itinerary/id] trips fetch skipped:', e instanceof Error ? e.message : e);
+  }
+
+  if (city) {
+    try {
+      transportFromDb = await fetchTransportGuideForCity(supabase, city);
+    } catch (e) {
+      console.warn('[itinerary/id] transportation fetch skipped:', e instanceof Error ? e.message : e);
+    }
+  }
+
   return (
     <ItineraryClient
       initialItinerary={itinerary}
       initialProfile={_profile ?? null}
       initialViewMode="final"
+      initialTransportFromDb={transportFromDb}
+      initialTripSummaryUsername={tripSummaryUsername}
     />
   );
 }

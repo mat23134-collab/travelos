@@ -58,6 +58,11 @@ export function itineraryUi(lang: TripUiLang) {
     budgetIncludesLine: (text: string) =>
       he ? `בשורה הזו: ${text}` : `Usually covers: ${text}`,
     heroPersonalEyebrow: he ? 'הטיול שלכם' : 'Your trip',
+    /** Trip summary hero — `username` is the app handle from `trips.username`. */
+    tripSummaryWelcome: (username: string) =>
+      he
+        ? `מוכנים לדרך, ${username}?`
+        : `Ready for your journey, ${username}?`,
     heroPersonalTagline: he
       ? 'תאריכים, קצב ושכונות — לפי מה שסיפקתם, לא לפי טבלת אקסל.'
       : 'Dates, pace, and neighborhoods — tuned to what you told us, not a spreadsheet.',

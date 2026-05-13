@@ -16,7 +16,7 @@ function safeHttpsUrl(raw: string | null | undefined): string | null {
   }
 }
 
-function hasTransportContent(g: CityTransportGuide | null | undefined): boolean {
+export function hasTransportContent(g: CityTransportGuide | null | undefined): boolean {
   if (!g) return false;
   if (g.intro?.trim()) return true;
   if ((g.options?.length ?? 0) > 0) return true;
@@ -175,3 +175,6 @@ export function CityTransportSection({
     </motion.section>
   );
 }
+
+/** Alias for product copy / data mapping — same component as `CityTransportSection`. */
+export { CityTransportSection as TransportCard };

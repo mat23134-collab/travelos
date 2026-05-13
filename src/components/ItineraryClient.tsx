@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Itinerary, TravelerProfile, Basecamp, HotelRecommendation, type BookedHotelAround, type Activity } from '@/lib/types';
+import { Itinerary, TravelerProfile, Basecamp, HotelRecommendation, type BookedHotelAround, type Activity, type CityTransportGuide } from '@/lib/types';
 import { DayCard } from '@/components/DayCard';
 import { DayPhoto } from '@/components/DayPhoto';
 import { QuickEdit } from '@/components/QuickEdit';
@@ -20,7 +20,8 @@ import type { SwapResult } from '@/app/api/swap/route';
 import { useAuth } from '@/lib/auth-context';
 import { ITIN_RESULTS_PAGE_BG, ITIN_RESULTS_NOISE_DATA_URL, ITIN_PALETTE } from '@/lib/itineraryResultsPalette';
 import { BrandWordmark } from '@/components/BrandWordmark';
-import { CityTransportSection } from '@/components/CityTransportSection';
+import { TransportCard, hasTransportContent } from '@/components/CityTransportSection';
+import { parseTransportGuideJson } from '@/lib/transportGuideParse';
 
 const ItineraryMap = dynamic(
   () => import('@/components/ItineraryMap').then((m) => m.ItineraryMap),
@@ -1223,13 +1224,24 @@ interface Props {
   initialItinerary: Itinerary;
   initialProfile: TravelerProfile | null;
   initialViewMode?: ViewMode;
+  /** When set, overrides itinerary JSON for the transport card (from `public.transportation`). */
+  initialTransportFromDb?: CityTransportGuide | null;
+  /** From `public.trips.username` — personalized trip summary welcome. */
+  initialTripSummaryUsername?: string | null;
 }
 
-export function ItineraryClient({ initialItinerary, initialProfile, initialViewMode = 'draft' }: Props) {
+export function ItineraryClient({
+  initialItinerary,
+  initialProfile,
+  initialViewMode = 'draft',
+  initialTransportFromDb = null,
+  initialTripSummaryUsername = null,
+}: Props) {
   const { session } = useAuth();
   const [itinerary, setItinerary] = useState<Itinerary>(initialItinerary);
   const [profile] = useState<TravelerProfile | null>(initialProfile);
   const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
+  const [liveTransportFromDb, setLiveTransportFromDb] = useState<CityTransportGuide | null>(initialTransportFromDb ?? null);
   const [editBanner, setEditBanner] = useState('');
   const [mobileMapOpen, setMobileMapOpen] = useState(false);
   const [tripStoryOpen, setTripStoryOpen] = useState(false);
@@ -1249,6 +1261,38 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
     }
     return null;
   }, [profile]);
+
+  const displayCityTransport = useMemo(() => {
+    if (liveTransportFromDb && hasTransportContent(liveTransportFromDb)) return liveTransportFromDb;
+    return itinerary.cityTransport ?? null;
+  }, [liveTransportFromDb, itinerary.cityTransport]);
+
+  useEffect(() => {
+    setLiveTransportFromDb(initialTransportFromDb ?? null);
+  }, [initialTransportFromDb]);
+
+  // If DB row is still being written by the transport scout, pick it up shortly after load.
+  useEffect(() => {
+    const city = itinerary.destination?.trim();
+    if (!city) return;
+    if (hasTransportContent(displayCityTransport)) return;
+
+    let cancelled = false;
+    const tid = setTimeout(() => {
+      fetch(`/api/transportation?city=${encodeURIComponent(city)}`)
+        .then((r) => r.json())
+        .then((body: { guide?: unknown } | null) => {
+          if (cancelled || !body?.guide) return;
+          const parsed = parseTransportGuideJson(body.guide);
+          if (parsed && hasTransportContent(parsed)) setLiveTransportFromDb(parsed);
+        })
+        .catch(() => {});
+    }, 2800);
+    return () => {
+      cancelled = true;
+      clearTimeout(tid);
+    };
+  }, [itinerary.destination, displayCityTransport]);
 
   const ui = useMemo(
     () => itineraryUi(profile?.tripLanguage === 'he' ? 'he' : 'en'),
@@ -1514,6 +1558,14 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
               <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/50 mb-2">
                 {ui.heroPersonalEyebrow}
               </p>
+              {initialViewMode === 'final' && initialTripSummaryUsername?.trim() && (
+                <p
+                  className="text-base sm:text-lg font-medium text-white/90 mb-2 tracking-tight"
+                  style={{ textShadow: '0 2px 24px rgba(0,0,0,0.5)' }}
+                >
+                  {ui.tripSummaryWelcome(initialTripSummaryUsername.trim())}
+                </p>
+              )}
               <h1
                 className="font-light tracking-tight text-white leading-[1.06]"
                 style={{
@@ -1643,7 +1695,7 @@ export function ItineraryClient({ initialItinerary, initialProfile, initialViewM
           />
         </section>
 
-        <CityTransportSection destination={itinerary.destination} guide={itinerary.cityTransport} ui={ui} />
+        <TransportCard destination={itinerary.destination} guide={displayCityTransport} ui={ui} />
 
         {/* Day cards — staggered fade-in */}
         <motion.div

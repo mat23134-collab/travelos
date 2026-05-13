@@ -23,6 +23,8 @@ import { queryPlacesForCity, formatPlacesForPrompt } from '@/lib/places';
 import { batchVerifyPlaces } from '@/lib/verification';
 import { normalizeBasecampHotels } from '@/lib/hotelNormalize';
 import { classifyActivity } from '@/lib/activityGenre';
+import { resolveAuthenticatedTraveler } from '@/lib/resolveAuthUser';
+import { ensureTransportationForCity, persistTripSessionRow } from '@/lib/tripTransport';
 
 export const maxDuration = 300; // 5 min — Vercel Pro/Enterprise or Railway
 export const dynamic = 'force-dynamic';
@@ -225,8 +227,9 @@ const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 const SLOT_ORDER: Record<string, number> = { breakfast: 0, morning: 1, lunch: 2, afternoon: 3, dinner: 4, evening: 5 };
 
 async function runPipeline(
+  req: NextRequest,
   profile: TravelerProfile,
-  userId: string | null,
+  bodyUserId: string | null,
   send: (event: SseEvent) => Promise<void>,
 ): Promise<void> {
 
@@ -399,6 +402,10 @@ async function runPipeline(
 
   const dbWrite = createDbWriteClient();
 
+  const resolved = await resolveAuthenticatedTraveler(req, dbWrite, bodyUserId);
+  const userId = resolved.userId;
+  const travelerUsername = resolved.username;
+
   const hotelInfo = profile.hotelAddress?.trim()
     ? { name: profile.hotelBooked?.trim() || profile.hotelAddress.trim(), address: profile.hotelAddress.trim(), lat: profile.hotelLat ?? null, lng: profile.hotelLng ?? null }
     : itinerary.basecamp?.booked
@@ -522,6 +529,21 @@ async function runPipeline(
   const { error: tcErr } = await dbWrite.from('user_trip_choices').upsert(tcRow, { onConflict: 'itinerary_id' });
   if (tcErr) console.warn('[generate-stream] user_trip_choices skipped:', tcErr.message);
 
+  const destCity = String(itinerary.destination || profile.destination || '').trim();
+  if (destCity) {
+    void (async () => {
+      await persistTripSessionRow(dbWrite, {
+        itineraryId: itineraryDbId,
+        userId,
+        cityName: destCity,
+        username: travelerUsername,
+        startDate: profile.startDate ?? null,
+        endDate: profile.endDate ?? null,
+      });
+      await ensureTransportationForCity(dbWrite, destCity);
+    })();
+  }
+
   // ── Interest tags ──────────────────────────────────────────────────────────
   if ((profile.interests?.length ?? 0) > 0) {
     dbWrite.from('itineraries').update({ tags: profile.interests }).eq('id', itineraryDbId)
@@ -624,7 +646,7 @@ export async function POST(req: NextRequest) {
   }
 
   const bodyObj = body as TravelerProfile & { userId?: string | null };
-  const userId: string | null = bodyObj.userId ?? null;
+  const bodyUserId: string | null = bodyObj.userId ?? null;
   const { userId: _u, ...profile } = bodyObj;
 
   if (!profile.destination) {
@@ -643,7 +665,7 @@ export async function POST(req: NextRequest) {
     }
   };
 
-  void runPipeline(profile, userId, send)
+  void runPipeline(req, profile, bodyUserId, send)
     .then(() => writer.close().catch(() => {}))
     .catch(async (err) => {
       const msg = err instanceof Error ? err.message : String(err);
