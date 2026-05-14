@@ -3,18 +3,12 @@
 /**
  * DatesStep — Step 2 of 4 in the onboarding flow.
  *
- * Collects the trip start and end dates. Auto-calculates duration.
- * Injects a twin-orbit 3D scene: two glowing spheres orbiting each
- * other represent "departure day" and "return day".
- *
+ * Single inline calendar range-picker: click departure, click return.
  * Palette: Blue-steel (#4a7bde) accent on Purple Shadow bg.
  */
 
-import { useRef } from 'react';
-import { motion } from 'framer-motion';
-import { useFrame } from '@react-three/fiber';
-import * as THREE from 'three';
-import { sceneContent } from '@/three/tunnel';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useOnboardingStore } from '@/state/onboardingStore';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
@@ -22,88 +16,10 @@ const ACCENT   = '#4a7bde';
 const ACCENT_H = '#5a8bee';
 const GOLD     = '#c5912a';
 
-// ── 3D Twin-Orbit Scene ───────────────────────────────────────────────────────
-
-function OrbitScene({ hasRange }: { hasRange: boolean }) {
-  const orbitRef  = useRef<THREE.Group>(null);
-  const sphere1Ref = useRef<THREE.Mesh>(null);
-  const sphere2Ref = useRef<THREE.Mesh>(null);
-
-  useFrame(({ clock }) => {
-    const t = clock.elapsedTime;
-
-    if (orbitRef.current) {
-      orbitRef.current.rotation.z = t * 0.35;
-      orbitRef.current.rotation.x = 0.3 + Math.sin(t * 0.4) * 0.08;
-    }
-
-    if (sphere1Ref.current) {
-      (sphere1Ref.current.material as THREE.MeshStandardMaterial).emissiveIntensity =
-        0.8 + Math.sin(t * 1.6) * 0.3;
-    }
-    if (sphere2Ref.current) {
-      (sphere2Ref.current.material as THREE.MeshStandardMaterial).emissiveIntensity =
-        hasRange ? 0.8 + Math.sin(t * 1.6 + Math.PI) * 0.3 : 0.2;
-    }
-  });
-
-  return (
-    <group position={[2.0, 0, 0]}>
-      <ambientLight intensity={0.15} />
-      <pointLight position={[3, 4, 4]}  intensity={1.2} color="#b8d0f0" />
-      <pointLight position={[0, 0, 3]}  intensity={1.8} color={ACCENT} distance={12} decay={2} />
-      {hasRange && (
-        <pointLight position={[0, 0, 3]} intensity={1.0} color={GOLD} distance={10} decay={2} />
-      )}
-
-      {/* Central axis */}
-      <mesh>
-        <sphereGeometry args={[0.06, 10, 10]} />
-        <meshStandardMaterial color="#1e3a6e" metalness={0.9} roughness={0.1} />
-      </mesh>
-
-      {/* Ring track */}
-      <mesh rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[0.9, 0.008, 8, 64]} />
-        <meshBasicMaterial color={ACCENT} transparent opacity={0.18} />
-      </mesh>
-
-      {/* Orbiting spheres */}
-      <group ref={orbitRef}>
-        {/* Departure — always blue */}
-        <mesh ref={sphere1Ref} position={[0.9, 0, 0]}>
-          <sphereGeometry args={[0.18, 20, 20]} />
-          <meshStandardMaterial
-            color={ACCENT}
-            emissive={ACCENT}
-            emissiveIntensity={0.8}
-            metalness={0.55}
-            roughness={0.18}
-          />
-        </mesh>
-        {/* Return — gold when range is set */}
-        <mesh ref={sphere2Ref} position={[-0.9, 0, 0]}>
-          <sphereGeometry args={[0.16, 20, 20]} />
-          <meshStandardMaterial
-            color={hasRange ? GOLD : '#1e3a6e'}
-            emissive={hasRange ? GOLD : '#1e3a6e'}
-            emissiveIntensity={hasRange ? 0.8 : 0.2}
-            metalness={0.55}
-            roughness={0.18}
-          />
-        </mesh>
-      </group>
-
-      {/* Outer atmosphere */}
-      <mesh>
-        <sphereGeometry args={[1.4, 10, 8]} />
-        <meshBasicMaterial color={ACCENT} transparent opacity={0.012} />
-      </mesh>
-    </group>
-  );
-}
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
+function todayString() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 function tripDuration(start: string, end: string): number | null {
   if (!start || !end) return null;
@@ -112,8 +28,232 @@ function tripDuration(start: string, end: string): number | null {
   return days > 0 ? days : null;
 }
 
-function todayString() {
-  return new Date().toISOString().slice(0, 10);
+function toDateObj(str: string): Date | null {
+  if (!str) return null;
+  const d = new Date(str + 'T00:00:00');
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function dateStr(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function addDays(str: string, days: number): string {
+  const d = new Date(str + 'T00:00:00');
+  d.setDate(d.getDate() + days);
+  return dateStr(d);
+}
+
+const MONTH_NAMES = [
+  'January','February','March','April','May','June',
+  'July','August','September','October','November','December',
+];
+const DAY_LABELS = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+
+// ── Calendar Range Picker ─────────────────────────────────────────────────────
+function CalendarRangePicker({
+  startDate,
+  endDate,
+  onChange,
+}: {
+  startDate: string;
+  endDate: string;
+  onChange: (start: string, end: string) => void;
+}) {
+  const today = todayString();
+
+  // Which month is shown
+  const initialDate = toDateObj(startDate) ?? new Date();
+  const [viewYear, setViewYear]   = useState(initialDate.getFullYear());
+  const [viewMonth, setViewMonth] = useState(initialDate.getMonth());
+
+  // Picking state: null = pick start next, 'start' = start chosen, wait for end
+  const [picking, setPicking] = useState<'end' | null>(startDate ? 'end' : null);
+  const [hoverDay, setHoverDay] = useState<string | null>(null);
+
+  const prevMonth = () => {
+    if (viewMonth === 0) { setViewYear(y => y - 1); setViewMonth(11); }
+    else setViewMonth(m => m - 1);
+  };
+  const nextMonth = () => {
+    if (viewMonth === 11) { setViewYear(y => y + 1); setViewMonth(0); }
+    else setViewMonth(m => m + 1);
+  };
+
+  // Build the day grid for this month
+  const firstDay = new Date(viewYear, viewMonth, 1).getDay(); // 0=Sun
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const cells: (string | null)[] = [
+    ...Array(firstDay).fill(null),
+    ...Array.from({ length: daysInMonth }, (_, i) => {
+      const d = new Date(viewYear, viewMonth, i + 1);
+      return dateStr(d);
+    }),
+  ];
+  // Pad to full weeks
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const handleDayClick = (day: string) => {
+    if (day < today) return; // past dates disabled
+    if (!startDate || picking === null) {
+      // Start fresh: set start, wait for end
+      onChange(day, '');
+      setPicking('end');
+    } else if (picking === 'end') {
+      if (day < startDate) {
+        // Clicked before start → restart with new start
+        onChange(day, '');
+        setPicking('end');
+      } else if (day === startDate) {
+        // Same day — reset
+        onChange('', '');
+        setPicking(null);
+      } else {
+        onChange(startDate, day);
+        setPicking(null);
+      }
+    }
+  };
+
+  // Visual range (preview with hover)
+  const rangeStart = startDate || null;
+  const rangeEnd   = (picking === 'end' && hoverDay && startDate && hoverDay > startDate)
+    ? hoverDay
+    : (endDate || null);
+
+  const isStart   = (d: string) => d === rangeStart;
+  const isEnd     = (d: string) => d === rangeEnd && rangeEnd !== rangeStart;
+  const isInRange = (d: string) =>
+    rangeStart && rangeEnd && d > rangeStart && d < rangeEnd;
+  const isPast    = (d: string) => d < today;
+  const isToday   = (d: string) => d === today;
+
+  return (
+    <div
+      className="rounded-2xl overflow-hidden select-none"
+      style={{
+        background: 'rgba(15,40,98,0.30)',
+        border: '1.5px solid rgba(74,123,222,0.20)',
+      }}
+    >
+      {/* Month navigation */}
+      <div className="flex items-center justify-between px-4 py-3.5 border-b" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
+        <button
+          onClick={prevMonth}
+          className="w-8 h-8 rounded-full flex items-center justify-center transition-colors text-sm"
+          style={{ color: 'rgba(255,255,255,0.50)' }}
+          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+        >
+          ‹
+        </button>
+        <span className="text-sm font-bold text-white tracking-wide">
+          {MONTH_NAMES[viewMonth]} {viewYear}
+        </span>
+        <button
+          onClick={nextMonth}
+          className="w-8 h-8 rounded-full flex items-center justify-center transition-colors text-sm"
+          style={{ color: 'rgba(255,255,255,0.50)' }}
+          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+        >
+          ›
+        </button>
+      </div>
+
+      {/* Day-of-week headers */}
+      <div className="grid grid-cols-7 px-2 pt-2 pb-0">
+        {DAY_LABELS.map(d => (
+          <div key={d} className="text-center text-[10px] font-bold uppercase tracking-widest py-1" style={{ color: 'rgba(255,255,255,0.28)' }}>
+            {d}
+          </div>
+        ))}
+      </div>
+
+      {/* Day cells */}
+      <div className="grid grid-cols-7 px-2 pb-3">
+        {cells.map((day, idx) => {
+          if (!day) return <div key={`empty-${idx}`} />;
+          const start  = isStart(day);
+          const end    = isEnd(day);
+          const inRange = isInRange(day);
+          const past   = isPast(day);
+          const tod    = isToday(day);
+          const col = idx % 7;
+          const isFirstCol = col === 0;
+          const isLastCol  = col === 6;
+
+          return (
+            <div
+              key={day}
+              className="relative flex items-center justify-center"
+              style={{ height: 40 }}
+              onMouseEnter={() => picking === 'end' && setHoverDay(day)}
+              onMouseLeave={() => setHoverDay(null)}
+            >
+              {/* Range strip background */}
+              {inRange && (
+                <div
+                  className="absolute inset-y-0"
+                  style={{
+                    left: isFirstCol ? '50%' : 0,
+                    right: isLastCol  ? '50%' : 0,
+                    background: 'rgba(74,123,222,0.15)',
+                  }}
+                />
+              )}
+              {/* Cap strips for start/end */}
+              {start && rangeEnd && rangeEnd !== rangeStart && (
+                <div
+                  className="absolute inset-y-0"
+                  style={{ left: '50%', right: isLastCol ? '50%' : 0, background: 'rgba(74,123,222,0.15)' }}
+                />
+              )}
+              {end && (
+                <div
+                  className="absolute inset-y-0"
+                  style={{ right: '50%', left: isFirstCol ? '50%' : 0, background: 'rgba(74,123,222,0.15)' }}
+                />
+              )}
+
+              {/* Day circle */}
+              <button
+                onClick={() => handleDayClick(day)}
+                disabled={past}
+                className="relative z-10 w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all disabled:cursor-not-allowed"
+                style={{
+                  background: (start || end)
+                    ? ACCENT
+                    : 'transparent',
+                  color: (start || end)
+                    ? '#fff'
+                    : past
+                      ? 'rgba(255,255,255,0.18)'
+                      : tod
+                        ? ACCENT
+                        : 'rgba(255,255,255,0.82)',
+                  fontWeight: tod && !(start || end) ? 800 : 600,
+                  boxShadow: (start || end) ? `0 0 14px rgba(74,123,222,0.55)` : 'none',
+                }}
+                onMouseEnter={e => {
+                  if (!past && !(start || end)) {
+                    (e.currentTarget as HTMLElement).style.background = 'rgba(74,123,222,0.25)';
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!(start || end)) {
+                    (e.currentTarget as HTMLElement).style.background = 'transparent';
+                  }
+                }}
+              >
+                {new Date(day + 'T00:00:00').getDate()}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 // ── Animation variants ────────────────────────────────────────────────────────
@@ -141,102 +281,92 @@ export function DatesStep({
   const { destination, startDate, endDate, setDateRange } = useOnboardingStore();
   const duration = tripDuration(startDate, endDate);
   const hasRange = duration !== null;
+  const canContinue = hasRange;
 
   const applyPreset = (days: number) => {
     const start = startDate || todayString();
-    const end = new Date(new Date(start).getTime() + days * 86400000)
-      .toISOString()
-      .slice(0, 10);
-    setDateRange(start, end);
+    setDateRange(start, addDays(start, days));
   };
 
-  const canContinue = hasRange;
-
   return (
-    <>
-      <sceneContent.In>
-        <OrbitScene hasRange={hasRange} />
-      </sceneContent.In>
+    <motion.div
+      variants={CONTAINER_VARIANTS}
+      initial="hidden"
+      animate="visible"
+      exit="exit"
+      className="relative z-10 flex flex-col gap-5"
+    >
+      {/* Step badge */}
+      <div className="flex items-center gap-2">
+        <span
+          className="px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-widest uppercase"
+          style={{
+            background: `rgba(74,123,222,0.15)`,
+            color: ACCENT,
+            border: `1px solid rgba(74,123,222,0.30)`,
+          }}
+        >
+          Step 2 of 4
+        </span>
+      </div>
 
-      <motion.div
-        variants={CONTAINER_VARIANTS}
-        initial="hidden"
-        animate="visible"
-        exit="exit"
-        className="relative z-10 flex flex-col gap-6"
-      >
-        {/* Step badge */}
-        <div className="flex items-center gap-2">
-          <span
-            className="px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-widest uppercase"
-            style={{
-              background: `rgba(74,123,222,0.15)`,
-              color: ACCENT,
-              border: `1px solid rgba(74,123,222,0.30)`,
-            }}
-          >
-            Step 2 of 4
+      {/* Heading */}
+      <div>
+        <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-tight">
+          When are you<br />
+          <span style={{ color: ACCENT }}>
+            {destination ? `in ${destination}?` : 'traveling?'}
           </span>
+        </h2>
+        <p className="mt-2 text-sm max-w-xs" style={{ color: '#4f5f76' }}>
+          Tap your departure, then your return date.
+        </p>
+      </div>
+
+      {/* Instruction / selection summary */}
+      <div className="flex items-center gap-3">
+        <div
+          className="flex-1 rounded-xl px-3 py-2 text-center text-sm font-semibold"
+          style={{
+            background: startDate ? 'rgba(74,123,222,0.18)' : 'rgba(255,255,255,0.05)',
+            border: `1.5px solid ${startDate ? 'rgba(74,123,222,0.45)' : 'rgba(255,255,255,0.08)'}`,
+            color: startDate ? '#fff' : 'rgba(255,255,255,0.30)',
+          }}
+        >
+          {startDate
+            ? new Date(startDate + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+            : '— Departure'}
         </div>
-
-        {/* Heading */}
-        <div>
-          <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-tight">
-            When are you<br />
-            <span style={{ color: ACCENT }}>
-              {destination ? `in ${destination}?` : 'traveling?'}
-            </span>
-          </h2>
-          <p className="mt-2 text-sm max-w-xs" style={{ color: '#4f5f76' }}>
-            Exact dates help us nail seasonal tips, crowd levels, and pricing.
-          </p>
+        <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 18 }}>→</span>
+        <div
+          className="flex-1 rounded-xl px-3 py-2 text-center text-sm font-semibold"
+          style={{
+            background: endDate ? `rgba(197,145,42,0.18)` : 'rgba(255,255,255,0.05)',
+            border: `1.5px solid ${endDate ? 'rgba(197,145,42,0.45)' : 'rgba(255,255,255,0.08)'}`,
+            color: endDate ? '#fff' : 'rgba(255,255,255,0.30)',
+          }}
+        >
+          {endDate
+            ? new Date(endDate + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+            : '— Return'}
         </div>
+      </div>
 
-        {/* Date inputs */}
-        <div className="flex flex-col gap-3">
-          <div>
-            <label className="block text-xs font-semibold mb-2 tracking-wider uppercase" style={{ color: '#4f5f76' }}>
-              Departure date
-            </label>
-            <input
-              type="date"
-              value={startDate}
-              min={todayString()}
-              onChange={(e) => setDateRange(e.target.value, endDate)}
-              className="w-full px-4 py-3.5 rounded-2xl text-white text-base font-medium outline-none transition-all"
-              style={{
-                background: `rgba(15,40,98,0.30)`,
-                border: `1.5px solid ${startDate ? `rgba(74,123,222,0.50)` : `rgba(255,255,255,0.10)`}`,
-                colorScheme: 'dark',
-              }}
-            />
-          </div>
+      {/* Single calendar */}
+      <CalendarRangePicker
+        startDate={startDate}
+        endDate={endDate}
+        onChange={(s, e) => setDateRange(s, e)}
+      />
 
-          <div>
-            <label className="block text-xs font-semibold mb-2 tracking-wider uppercase" style={{ color: '#4f5f76' }}>
-              Return date
-            </label>
-            <input
-              type="date"
-              value={endDate}
-              min={startDate || todayString()}
-              onChange={(e) => setDateRange(startDate, e.target.value)}
-              className="w-full px-4 py-3.5 rounded-2xl text-white text-base font-medium outline-none transition-all"
-              style={{
-                background: `rgba(15,40,98,0.30)`,
-                border: `1.5px solid ${endDate ? `rgba(197,145,42,0.50)` : `rgba(255,255,255,0.10)`}`,
-                colorScheme: 'dark',
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Duration display */}
+      {/* Duration badge */}
+      <AnimatePresence>
         {hasRange && (
           <motion.div
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-center py-2"
+            exit={{ opacity: 0 }}
+            className="text-center py-1"
           >
             <span className="text-2xl font-black" style={{ color: ACCENT }}>{duration}</span>
             <span className="text-sm ml-1.5" style={{ color: '#4f5f76' }}>
@@ -244,71 +374,72 @@ export function DatesStep({
             </span>
           </motion.div>
         )}
+      </AnimatePresence>
 
-        {/* Quick duration chips */}
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: '#4f5f76' }}>
-            Quick fill
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {PRESETS.map(({ label, days }) => {
-              const active = duration === days;
-              return (
-                <motion.button
-                  key={label}
-                  onClick={() => applyPreset(days)}
-                  whileHover={{ y: -3, scale: 1.06 }}
-                  whileTap={{ scale: 0.94 }}
-                  animate={active
-                    ? { boxShadow: `0 0 0 1.5px rgba(74,123,222,0.70), 0 8px 24px -4px rgba(74,123,222,0.30)` }
-                    : { boxShadow: '0 2px 8px rgba(0,0,0,0.20)' }}
-                  transition={{ type: 'spring', stiffness: 420, damping: 24 }}
-                  className="px-3 py-1.5 rounded-full text-xs font-bold"
-                  style={{
-                    background: active ? `rgba(74,123,222,0.22)` : `rgba(15,40,98,0.20)`,
-                    border: active ? `1.5px solid rgba(74,123,222,0.55)` : `1.5px solid rgba(255,255,255,0.07)`,
-                    color: active ? ACCENT : '#4f5f76',
-                  }}
-                >
-                  {label}
-                </motion.button>
-              );
-            })}
-          </div>
+      {/* Quick-fill chips */}
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: '#4f5f76' }}>
+          Quick fill
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {PRESETS.map(({ label, days }) => {
+            const active = duration === days;
+            return (
+              <motion.button
+                key={label}
+                onClick={() => applyPreset(days)}
+                whileTap={{ scale: 0.94 }}
+                animate={active
+                  ? { boxShadow: `0 0 0 1.5px rgba(74,123,222,0.70), 0 8px 24px -4px rgba(74,123,222,0.30)` }
+                  : { boxShadow: '0 2px 8px rgba(0,0,0,0.20)' }}
+                transition={{ type: 'spring', stiffness: 420, damping: 24 }}
+                className="px-3 py-1.5 rounded-full text-xs font-bold"
+                style={{
+                  background: active ? `rgba(74,123,222,0.22)` : `rgba(15,40,98,0.20)`,
+                  border: active ? `1.5px solid rgba(74,123,222,0.55)` : `1.5px solid rgba(255,255,255,0.07)`,
+                  color: active ? ACCENT : '#4f5f76',
+                }}
+              >
+                {label}
+              </motion.button>
+            );
+          })}
         </div>
+      </div>
 
-        {/* Actions */}
-        <div className="flex gap-3">
-          <motion.button
-            onClick={onBack}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.97 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 24 }}
-            className="flex-1 py-4 rounded-full text-sm font-bold transition-colors"
-            style={{ color: '#4f5f76', border: `1.5px solid rgba(255,255,255,0.07)`, background: 'transparent' }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = '#ffffff')}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = '#4f5f76')}
-          >
-            ← Back
-          </motion.button>
-          <motion.button
-            onClick={onNext}
-            disabled={!canContinue}
-            whileHover={canContinue ? { scale: 1.02, y: -2 } : {}}
-            whileTap={canContinue ? { scale: 0.97 } : {}}
-            transition={{ type: 'spring', stiffness: 400, damping: 22 }}
-            className="flex-[2] py-4 rounded-full text-sm font-black text-white tracking-wide disabled:opacity-35 disabled:cursor-not-allowed"
-            style={{
-              background: canContinue
-                ? `linear-gradient(135deg, ${ACCENT}, ${ACCENT_H})`
-                : `rgba(255,255,255,0.06)`,
-              boxShadow: canContinue ? `0 0 40px rgba(74,123,222,0.45), 0 8px 24px -4px rgba(74,123,222,0.35)` : 'none',
-            }}
-          >
-            {canContinue ? `${duration} days → Let's time it →` : 'Pick your dates'}
-          </motion.button>
-        </div>
-      </motion.div>
-    </>
+      {/* Actions */}
+      <div className="flex gap-3">
+        <motion.button
+          onClick={onBack}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.97 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 24 }}
+          className="flex-1 py-4 rounded-full text-sm font-bold transition-colors"
+          style={{ color: '#4f5f76', border: `1.5px solid rgba(255,255,255,0.07)`, background: 'transparent' }}
+          onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#ffffff')}
+          onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = '#4f5f76')}
+        >
+          ← Back
+        </motion.button>
+        <motion.button
+          onClick={onNext}
+          disabled={!canContinue}
+          whileHover={canContinue ? { scale: 1.02, y: -2 } : {}}
+          whileTap={canContinue ? { scale: 0.97 } : {}}
+          transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+          className="flex-[2] py-4 rounded-full text-sm font-black text-white tracking-wide disabled:opacity-35 disabled:cursor-not-allowed"
+          style={{
+            background: canContinue
+              ? `linear-gradient(135deg, ${ACCENT}, ${ACCENT_H})`
+              : `rgba(255,255,255,0.06)`,
+            boxShadow: canContinue
+              ? `0 0 40px rgba(74,123,222,0.45), 0 8px 24px -4px rgba(74,123,222,0.35)`
+              : 'none',
+          }}
+        >
+          {canContinue ? `${duration} days — Let's go →` : 'Pick your dates'}
+        </motion.button>
+      </div>
+    </motion.div>
   );
 }
