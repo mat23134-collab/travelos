@@ -12,7 +12,9 @@ import {
 type Props = {
   open: boolean;
   initial: FamilyKidsByAge | null | undefined;
-  onSave: (counts: FamilyKidsByAge) => void;
+  initialParents?: 1 | 2;
+  /** Receives both the kids breakdown AND the parents count */
+  onSave: (counts: FamilyKidsByAge, parents: 1 | 2) => void;
   onCancel: () => void;
 };
 
@@ -24,8 +26,9 @@ function clampCount(n: number): number {
   return Math.min(12, Math.floor(n));
 }
 
-export function FamilyKidsModal({ open, initial, onSave, onCancel }: Props) {
+export function FamilyKidsModal({ open, initial, initialParents, onSave, onCancel }: Props) {
   const [counts, setCounts] = useState<FamilyKidsByAge>(() => emptyFamilyKidsByAge());
+  const [parents, setParents] = useState<1 | 2>(initialParents ?? 2);
 
   useEffect(() => {
     if (!open) return;
@@ -35,12 +38,14 @@ export function FamilyKidsModal({ open, initial, onSave, onCancel }: Props) {
       next[k] = v != null && v > 0 ? clampCount(v) : 0;
     }
     setCounts(next);
-  }, [open, initial]);
+    setParents(initialParents ?? 2);
+  }, [open, initial, initialParents]);
 
   if (!open) return null;
 
-  const total = totalFamilyKids(counts);
-  const canSave = total >= 1;
+  const totalKids = totalFamilyKids(counts);
+  const totalPeople = parents + totalKids;
+  const canSave = totalKids >= 1;
 
   const bump = (key: (typeof FAMILY_CHILD_AGE_BANDS)[number], delta: number) => {
     setCounts((prev) => {
@@ -66,16 +71,45 @@ export function FamilyKidsModal({ open, initial, onSave, onCancel }: Props) {
           className="text-xl font-black mb-1"
           style={{ letterSpacing: '-0.02em', color: '#fff' }}
         >
-          Children on this trip
+          Who's coming?
         </h3>
-        <p className="text-sm mb-1" style={{ color: MUTED }}>
-          How many kids fall in each age band? We use this for stroller access, nap windows, and kid-friendly pacing.
-        </p>
-        <p className="text-sm mb-6" style={{ color: 'rgba(255,255,255,0.38)' }} dir="rtl">
-          כמה ילדים בכל טווח גילים? (שנים) — נשתמש בזה לקצב מתאים למשפחות, מנוחות ונגישות.
+        <p className="text-sm mb-6" style={{ color: MUTED }}>
+          Tell us how many parents and kids are on this trip — we'll use it for pacing, room sizing, and kid-friendly picks.
         </p>
 
-        <div className="space-y-3 mb-6">
+        {/* ── Parents ──────────────────────────────────────────────────────── */}
+        <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'rgba(255,255,255,0.40)' }}>
+          Parents / Adults
+        </p>
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          {([1, 2] as const).map((n) => {
+            const selected = parents === n;
+            return (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setParents(n)}
+                className="flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold transition-colors"
+                style={
+                  selected
+                    ? { background: 'rgba(158,54,58,0.20)', border: `1.5px solid ${PRIMARY}`, color: '#fff' }
+                    : { background: 'rgba(15,40,98,0.35)', border: '1.5px solid rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.70)' }
+                }
+              >
+                <span className="text-base">{n === 1 ? '🧑' : '👫'}</span>
+                {n === 1 ? '1 Parent' : '2 Parents'}
+                {selected && <span className="ml-1 text-xs" style={{ color: PRIMARY }}>✓</span>}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ── Children ─────────────────────────────────────────────────────── */}
+        <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'rgba(255,255,255,0.40)' }}>
+          Children by age band
+        </p>
+
+        <div className="space-y-3 mb-5">
           {FAMILY_CHILD_AGE_BANDS.map((band) => {
             const n = clampCount(counts[band] ?? 0);
             const label = `${FAMILY_BAND_LABEL[band].en} yrs`;
@@ -118,10 +152,26 @@ export function FamilyKidsModal({ open, initial, onSave, onCancel }: Props) {
           })}
         </div>
 
-        <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.35)' }}>
-          Total children: <span className="font-bold text-white">{total}</span>
-          {total < 1 && ' — add at least one child, or go back and pick another travel style.'}
-        </p>
+        {/* ── Summary ──────────────────────────────────────────────────────── */}
+        <div
+          className="rounded-xl px-4 py-3 mb-6 flex items-center justify-between"
+          style={{ background: 'rgba(158,54,58,0.10)', border: '1px solid rgba(158,54,58,0.25)' }}
+        >
+          <span className="text-sm" style={{ color: 'rgba(255,255,255,0.55)' }}>
+            Total travelers
+          </span>
+          <span className="text-lg font-black" style={{ color: '#fff' }}>
+            {totalPeople} <span className="text-sm font-normal" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              ({parents} {parents === 1 ? 'parent' : 'parents'} + {totalKids} {totalKids === 1 ? 'child' : 'children'})
+            </span>
+          </span>
+        </div>
+
+        {!canSave && (
+          <p className="text-xs mb-4 text-center" style={{ color: 'rgba(255,255,255,0.40)' }}>
+            Add at least one child, or go back and pick another travel style.
+          </p>
+        )}
 
         <div className="flex flex-col sm:flex-row gap-3">
           <button
@@ -133,9 +183,9 @@ export function FamilyKidsModal({ open, initial, onSave, onCancel }: Props) {
               cursor: canSave ? 'pointer' : 'not-allowed',
             }}
             disabled={!canSave}
-            onClick={() => canSave && onSave(counts)}
+            onClick={() => canSave && onSave(counts, parents)}
           >
-            Save
+            Save — {totalPeople} travelers
           </button>
           <button
             type="button"

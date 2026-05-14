@@ -1162,6 +1162,7 @@ function PlanPage() {
   const [direction, setDirection] = useState(1);
   const [form, setForm] = useState<FormData>({
     groupSize: 2,
+    familyParents: 2 as 1 | 2,
     familyKidsByAge: {} as FamilyKidsByAge,
     tripLanguage: 'en',
     interests: [],
@@ -1237,6 +1238,7 @@ function PlanPage() {
 
     setForm({
       groupSize: 2,
+      familyParents: 2 as 1 | 2,
       familyKidsByAge: {} as FamilyKidsByAge,
       tripLanguage: initialTripLang,
       interests: [],
@@ -1261,17 +1263,18 @@ function PlanPage() {
   const hasHotelAnchor =
     !!(form.hotelBooked as string)?.trim() ||
     (typeof form.hotelLat === 'number' && typeof form.hotelLng === 'number');
-  const activeQuestions = PLAN_QUESTIONS.filter(
-    // When the traveler already booked a hotel via onboarding, skip the
-    // accommodation type AND the three hotel-refinement steps (budget /
-    // location / amenities) — they're moot for a pre-booked stay.
-    (q) => !(hasHotelAnchor && (
+  const activeQuestions = PLAN_QUESTIONS.filter((q) => {
+    // groupSize slider: only shown for 'group' — solo/couple/family auto-derive it
+    if (q.key === 'groupSize' && (form.groupType as string) !== 'group') return false;
+    // Hotel-refinement steps: skip when hotel already booked via onboarding
+    if (hasHotelAnchor && (
       q.key === 'accommodation' ||
       q.key === 'hotelNightlyBudget' ||
       q.key === 'hotelLocationPref' ||
       q.key === 'hotelAmenities'
-    )),
-  );
+    )) return false;
+    return true;
+  });
   const question = activeQuestions[step];
   const planStepTotal = Math.max(1, activeQuestions.length);
   const planStepNumber = Math.min(step + 1, planStepTotal);
@@ -1295,9 +1298,16 @@ function PlanPage() {
     setShowTripLangGate(false);
   }, []);
 
-  const handleFamilyKidsSave = useCallback((counts: FamilyKidsByAge) => {
+  const handleFamilyKidsSave = useCallback((counts: FamilyKidsByAge, parents: 1 | 2) => {
     const cleaned = sanitizeFamilyKids(counts);
-    setForm((prev) => ({ ...prev, familyKidsByAge: cleaned ?? {} }));
+    const kids = totalFamilyKids(cleaned ?? {});
+    setForm((prev) => ({
+      ...prev,
+      familyKidsByAge: cleaned ?? {},
+      familyParents: parents,
+      // groupSize auto-computed: parents + all kids
+      groupSize: parents + kids,
+    }));
     setShowFamilyKidsModal(false);
   }, []);
 
@@ -1428,7 +1438,15 @@ function PlanPage() {
         form.groupType === 'family'
           ? sanitizeFamilyKids(form.familyKidsByAge as FamilyKidsByAge) ?? undefined
           : undefined,
-      groupSize: (form.groupSize as number) || 1,
+      // groupSize is auto-derived for solo / couple / family; only the slider
+      // value is used for group trips (where the question is actually shown).
+      groupSize: (() => {
+        const gt = (form.groupType as string) || 'solo';
+        if (gt === 'solo')   return 1;
+        if (gt === 'couple') return 2;
+        if (gt === 'family') return (form.groupSize as number) || 2; // set by handleFamilyKidsSave
+        return (form.groupSize as number) || 3; // group — from slider
+      })(),
       budget: (form.budget as TravelerProfile['budget']) || 'mid-range',
       pace: (form.pace as TravelerProfile['pace']) || 'moderate',
       interests: (form.interests as string[]) || [],
@@ -1553,6 +1571,7 @@ function PlanPage() {
       <FamilyKidsModal
         open={showFamilyKidsModal}
         initial={(form.familyKidsByAge as FamilyKidsByAge) || {}}
+        initialParents={(form.familyParents as 1 | 2) ?? 2}
         onSave={handleFamilyKidsSave}
         onCancel={handleFamilyKidsCancel}
       />
