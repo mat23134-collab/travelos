@@ -534,6 +534,9 @@ async function runPipeline(
     group_type: profile.groupType ?? null, group_size: profile.groupSize ?? null,
     budget: profile.budget ?? null, pace: profile.pace ?? null,
     interests: profile.interests ?? [], accommodation: profile.accommodation ?? null,
+    hotel_nightly_budget: profile.hotelNightlyBudget ?? null,
+    hotel_location_pref:  profile.hotelLocationPref ?? [],
+    hotel_amenities:      profile.hotelAmenities ?? [],
     dietary_restrictions: profile.dietaryRestrictions ?? '', must_have: profile.mustHave ?? '',
   };
   const { error: tcErr } = await dbWrite.from('user_trip_choices').upsert(tcRow, { onConflict: 'itinerary_id' });

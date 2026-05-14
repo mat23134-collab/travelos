@@ -733,6 +733,9 @@ export async function POST(req: NextRequest) {
       pace: profile.pace ?? null,
       interests: profile.interests ?? [],
       accommodation: profile.accommodation ?? null,
+      hotel_nightly_budget: profile.hotelNightlyBudget ?? null,
+      hotel_location_pref:  profile.hotelLocationPref ?? [],
+      hotel_amenities:      profile.hotelAmenities ?? [],
       dietary_restrictions: profile.dietaryRestrictions ?? '',
       must_have: profile.mustHave ?? '',
     };
