@@ -69,13 +69,15 @@ const optionVariant = {
 // ─── Destination grid (Step 1 — ONLY valid UI for destination) ────────────────
 
 const FEATURED_DESTINATIONS = [
-  { name: 'Rome',       country: 'Italy',       flag: '🇮🇹', tagline: 'La Dolce Vita',           accent: '#f97316' },
-  { name: 'Paris',      country: 'France',      flag: '🇫🇷', tagline: 'City of Light',            accent: '#a855f7' },
-  { name: 'London',     country: 'UK',          flag: '🇬🇧', tagline: 'Iconic & Eclectic',       accent: '#3b82f6' },
-  { name: 'Athens',     country: 'Greece',      flag: '🇬🇷', tagline: 'Cradle of Civilization', accent: '#10b981' },
-  { name: 'Budapest',   country: 'Hungary',     flag: '🇭🇺', tagline: 'Paris of the East',       accent: '#ec4899' },
-  { name: 'Vienna',     country: 'Austria',     flag: '🇦🇹', tagline: 'Imperial & Café Culture',   accent: '#eab308' },
-  { name: 'Amsterdam',  country: 'Netherlands', flag: '🇳🇱', tagline: 'Canals & Contrasts',      accent: '#06b6d4' },
+  { name: 'Rome',       country: 'Italy',       flag: '🇮🇹', tagline: 'La Dolce Vita',            accent: '#f97316' },
+  { name: 'Paris',      country: 'France',      flag: '🇫🇷', tagline: 'City of Light',             accent: '#a855f7' },
+  { name: 'London',     country: 'UK',          flag: '🇬🇧', tagline: 'Iconic & Eclectic',        accent: '#3b82f6' },
+  { name: 'Athens',     country: 'Greece',      flag: '🇬🇷', tagline: 'Cradle of Civilization',  accent: '#10b981' },
+  { name: 'Budapest',   country: 'Hungary',     flag: '🇭🇺', tagline: 'Paris of the East',        accent: '#ec4899' },
+  { name: 'Vienna',     country: 'Austria',     flag: '🇦🇹', tagline: 'Imperial & Café Culture',  accent: '#eab308' },
+  { name: 'Amsterdam',  country: 'Netherlands', flag: '🇳🇱', tagline: 'Canals & Contrasts',       accent: '#06b6d4' },
+  { name: 'Sicily',     country: 'Italy',       flag: '🇮🇹', tagline: 'Sun, Sea & Ancient Ruins', accent: '#f59e0b' },
+  { name: 'Lima',       country: 'Peru',        flag: '🇵🇪', tagline: 'Gastronomic Capital',      accent: '#c084fc' },
 ];
 
 function DestinationGrid({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -93,7 +95,7 @@ function DestinationGrid({ value, onChange }: { value: string; onChange: (v: str
             key={dest.name}
             variants={optionVariant}
             onClick={() => onChange(dest.name)}
-            whileHover={{ scale: 1.06, y: -6 }}
+            whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.95 }}
             animate={
               selected

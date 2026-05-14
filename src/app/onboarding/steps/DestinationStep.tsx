@@ -10,7 +10,6 @@
  * Palette: Redline (#9e363a) accents on Purple Shadow (#091f36) bg.
  */
 
-import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useOnboardingStore } from '@/state/onboardingStore';
 
@@ -20,13 +19,15 @@ const PRIMARY_H = '#b5404a';
 
 // ── Featured destinations ─────────────────────────────────────────────────────
 const DESTINATIONS = [
-  { name: 'Rome',       flag: '🇮🇹', tagline: 'La Dolce Vita', lat: 41.9028, lng: 12.4964 },
-  { name: 'London',     flag: '🇬🇧', tagline: 'Iconic & Eclectic', lat: 51.5074, lng: -0.1278 },
-  { name: 'Athens',     flag: '🇬🇷', tagline: 'Cradle of Civilization', lat: 37.9838, lng: 23.7275 },
-  { name: 'Paris',      flag: '🇫🇷', tagline: 'City of Light', lat: 48.8566, lng: 2.3522 },
-  { name: 'Budapest',   flag: '🇭🇺', tagline: 'Paris of the East', lat: 47.4979, lng: 19.0402 },
-  { name: 'Vienna',     flag: '🇦🇹', tagline: 'Imperial & Café Culture', lat: 48.2082, lng: 16.3738 },
-  { name: 'Amsterdam',  flag: '🇳🇱', tagline: 'Canals & Contrasts', lat: 52.3676, lng: 4.9041 },
+  { name: 'Rome',       flag: '🇮🇹', tagline: 'La Dolce Vita',           lat: 41.9028,  lng:  12.4964 },
+  { name: 'London',     flag: '🇬🇧', tagline: 'Iconic & Eclectic',       lat: 51.5074,  lng:  -0.1278 },
+  { name: 'Athens',     flag: '🇬🇷', tagline: 'Cradle of Civilization',  lat: 37.9838,  lng:  23.7275 },
+  { name: 'Paris',      flag: '🇫🇷', tagline: 'City of Light',           lat: 48.8566,  lng:   2.3522 },
+  { name: 'Budapest',   flag: '🇭🇺', tagline: 'Paris of the East',       lat: 47.4979,  lng:  19.0402 },
+  { name: 'Vienna',     flag: '🇦🇹', tagline: 'Imperial & Café Culture', lat: 48.2082,  lng:  16.3738 },
+  { name: 'Amsterdam',  flag: '🇳🇱', tagline: 'Canals & Contrasts',      lat: 52.3676,  lng:   4.9041 },
+  { name: 'Sicily',     flag: '🇮🇹', tagline: 'Sun, Sea & Ancient Ruins',lat: 37.5999,  lng:  14.0154 },
+  { name: 'Lima',       flag: '🇵🇪', tagline: 'Gastronomic Capital',     lat: -12.0464, lng: -77.0428 },
 ];
 
 // ── Animation variants ────────────────────────────────────────────────────────
@@ -37,24 +38,13 @@ const CONTAINER_VARIANTS = {
 };
 
 export function DestinationStep({ onNext }: { onNext: () => void }) {
-  const { destination, setDestination, setDestinationGeo } = useOnboardingStore();
-  const [inputVal, setInputVal] = useState(destination);
-
-  useEffect(() => {
-    setInputVal(destination);
-  }, [destination]);
+  const { destination, setDestinationGeo } = useOnboardingStore();
 
   const handleSelect = (name: string, lat: number, lng: number) => {
-    setInputVal(name);
     setDestinationGeo(name, lat, lng);
   };
 
-  const handleInputChange = (v: string) => {
-    setInputVal(v);
-    setDestination(v);
-  };
-
-  const canContinue = inputVal.trim().length >= 2;
+  const canContinue = destination.trim().length >= 2;
 
   return (
     <motion.div
@@ -89,30 +79,6 @@ export function DestinationStep({ onNext }: { onNext: () => void }) {
           </p>
         </div>
 
-        {/* Text input */}
-        <div>
-          <label
-            className="block text-xs font-semibold mb-2 tracking-wider uppercase"
-            style={{ color: '#4f5f76' }}
-          >
-            City or country
-          </label>
-          <input
-            type="text"
-            value={inputVal}
-            onChange={(e) => handleInputChange(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && canContinue && onNext()}
-            placeholder="e.g. Tokyo, Japan"
-            autoFocus
-            className="w-full px-4 py-3.5 rounded-2xl text-white text-base font-medium outline-none transition-all"
-            style={{
-              background: `rgba(15,40,98,0.30)`,
-              border: `1.5px solid ${canContinue ? `rgba(158,54,58,0.55)` : `rgba(255,255,255,0.10)`}`,
-              colorScheme: 'dark',
-            }}
-          />
-        </div>
-
         {/* Featured destination postcards */}
         <div className="grid grid-cols-2 gap-2.5">
           {DESTINATIONS.map(({ name, flag, tagline, lat, lng }) => {
@@ -121,9 +87,7 @@ export function DestinationStep({ onNext }: { onNext: () => void }) {
               <motion.button
                 key={name}
                 onClick={() => handleSelect(name, lat, lng)}
-                whileHover={{ y: -5, scale: 1.03, boxShadow: active
-                  ? `0 0 0 2px ${PRIMARY}, 0 20px 50px -8px rgba(158,54,58,0.40)`
-                  : '0 16px 40px -8px rgba(0,0,0,0.50)' }}
+                whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.96 }}
                 animate={active
                   ? { boxShadow: `0 0 0 2px ${PRIMARY}, 0 12px 32px -6px rgba(158,54,58,0.32)` }
@@ -173,7 +137,7 @@ export function DestinationStep({ onNext }: { onNext: () => void }) {
             boxShadow: canContinue ? `0 0 40px rgba(158,54,58,0.45), 0 8px 24px -4px rgba(158,54,58,0.30)` : 'none',
           }}
         >
-          {canContinue ? `Explore ${inputVal.trim()} →` : 'Pick a destination'}
+          {canContinue ? `Explore ${destination.trim()} →` : 'Pick a destination'}
         </motion.button>
       </motion.div>
   );
