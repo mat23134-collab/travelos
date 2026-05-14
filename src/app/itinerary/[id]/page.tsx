@@ -52,6 +52,10 @@ export default async function ItineraryByIdPage({ params }: PageProps) {
   }
 
   const { _profile, ...itinerary } = itinData.itinerary_json as Itinerary & { _profile?: TravelerProfile };
+  // _id may be missing from the blob when the background write races the client
+  // navigation. Always stamp it from the URL param so SharePanel + swap routes
+  // always have a valid itineraryDbId.
+  if (!itinerary._id) itinerary._id = id;
 
   const city = (itinerary.destination ?? '').trim();
   let transportFromDb: CityTransportGuide | null = null;

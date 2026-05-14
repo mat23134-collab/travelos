@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Itinerary, TravelerProfile } from '@/lib/types';
 import { audienceTitle } from '@/lib/audienceCopy';
 import { normalizeUsername, validateUsernameShape } from '@/lib/username';
+import { useAuth } from '@/lib/auth-context';
 
 function buildWhatsAppText(itinerary: Itinerary, profile: TravelerProfile | null): string {
   const header = `✈️ *${itinerary.destination}* — ${itinerary.totalDays}-day ${audienceTitle(profile?.groupType).toLowerCase()} plan`;
@@ -74,7 +75,7 @@ interface Props {
   copy?: Partial<SharePanelCopy>;
 }
 
-export function SharePanel({ itinerary, profile, itineraryDbId, accessToken, copy }: Props) {
+export function SharePanel({ itinerary, profile, itineraryDbId, accessToken: accessTokenProp, copy }: Props) {
   const [portalEl, setPortalEl] = useState<HTMLElement | null>(null);
   const [open, setOpen]     = useState(false);
   const [copied, setCopied] = useState(false);
@@ -82,7 +83,12 @@ export function SharePanel({ itinerary, profile, itineraryDbId, accessToken, cop
   const [shareBusy, setShareBusy] = useState(false);
   const [shareMsg, setShareMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
-  const canShareInApp = !!itineraryDbId && !!accessToken;
+  // Pull session directly so SharePanel works even if the parent forgot to
+  // pass accessToken, or if the session loaded after the first render.
+  const { session, loading: authLoading } = useAuth();
+  const resolvedToken = session?.access_token ?? accessTokenProp ?? null;
+
+  const canShareInApp = !!itineraryDbId && !!resolvedToken;
 
   const c = useMemo(() => ({ ...DEFAULT_SHARE_COPY, ...copy }), [copy]);
 
@@ -123,7 +129,7 @@ export function SharePanel({ itinerary, profile, itineraryDbId, accessToken, cop
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${resolvedToken}`,
         },
         body: JSON.stringify({ itineraryId: itineraryDbId, username: u }),
       });
@@ -335,7 +341,19 @@ export function SharePanel({ itinerary, profile, itineraryDbId, accessToken, cop
                             </p>
                           )}
                         </>
+                      ) : authLoading ? (
+                        // Auth is still being restored from storage — spinner
+                        <div className="flex items-center gap-2 text-white/30 text-[11px]">
+                          <span className="inline-block w-3 h-3 rounded-full border-2 border-white/20 border-t-white/60 animate-spin" />
+                          Checking login…
+                        </div>
+                      ) : !resolvedToken ? (
+                        // Not logged in at all
+                        <p className="text-white/25 text-[11px] leading-relaxed">
+                          Log in to send this trip to another TravelOS user.
+                        </p>
                       ) : (
+                        // Logged in but no itineraryDbId — shouldn't happen
                         <p className="text-white/25 text-[11px] leading-relaxed">
                           {c.travelOsHint}
                         </p>
