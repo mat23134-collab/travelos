@@ -102,9 +102,16 @@ export async function persistTripSessionRow(
     end_date: args.endDate?.trim().slice(0, 10) || null,
     updated_at: new Date().toISOString(),
   };
-  for (let i = 0; i < 6; i++) {
-    const { error } = await db.from('trips').upsert(row, { onConflict: 'itinerary_id' });
+
+  for (let i = 0; i < 8; i++) {
+    // If itinerary_id was stripped (missing column), fall back to plain insert
+    // so we at least get a row even if the conflict-key column is absent.
+    const hasItinId = 'itinerary_id' in row;
+    const { error } = hasItinId
+      ? await db.from('trips').upsert(row, { onConflict: 'itinerary_id' })
+      : await db.from('trips').insert(row);
     if (!error) return;
+
     const missing = error.message?.match(/Could not find the '([^']+)' column/)?.[1];
     if (!missing || !(missing in row)) {
       console.warn('[tripTransport] trips upsert skipped:', error.message);
