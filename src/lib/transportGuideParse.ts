@@ -1,4 +1,27 @@
-import type { CityTransportGuide, CityTransportLink, CityTransportOption } from '@/lib/types';
+import type { CityTransportGuide, CityTransportLink, CityTransportOption, CityTransportApp } from '@/lib/types';
+
+function safeHttps(raw: string | null | undefined): string | null {
+  const t = (raw ?? '').trim();
+  if (!/^https:\/\//i.test(t)) return null;
+  try {
+    return new URL(t).protocol === 'https:' ? t : null;
+  } catch {
+    return null;
+  }
+}
+
+/** True when the guide has enough to render the transport card (not only empty defaults). */
+export function hasTransportContent(g: CityTransportGuide | null | undefined): boolean {
+  if (!g) return false;
+  if (g.intro?.trim()) return true;
+  if (g.scoutTipPayment?.trim()) return true;
+  if (g.officialTicketsUrl?.trim()) return true;
+  if (g.priceSingle?.trim() || g.priceDayPass?.trim() || g.priceWeekPass?.trim()) return true;
+  if (g.transportApp?.name?.trim()) return true;
+  if ((g.options?.length ?? 0) > 0) return true;
+  if ((g.links?.length ?? 0) > 0) return true;
+  return false;
+}
 
 /** Parse JSON from DB or scout — tolerates partial shapes. */
 export function parseTransportGuideJson(data: unknown): CityTransportGuide | null {
@@ -18,14 +41,7 @@ export function parseTransportGuideJson(data: unknown): CityTransportGuide | nul
       const optionUrlRaw = typeof r.optionUrl === 'string' ? r.optionUrl.trim() : '';
       const optionLinkLabel = typeof r.optionLinkLabel === 'string' ? r.optionLinkLabel.trim() : null;
       if (!mode || !summary) continue;
-      let optionUrl: string | null = null;
-      if (/^https:\/\//i.test(optionUrlRaw)) {
-        try {
-          if (new URL(optionUrlRaw).protocol === 'https:') optionUrl = optionUrlRaw;
-        } catch {
-          optionUrl = null;
-        }
-      }
+      const optionUrl = safeHttps(optionUrlRaw);
       options.push({
         mode,
         summary,
@@ -56,6 +72,48 @@ export function parseTransportGuideJson(data: unknown): CityTransportGuide | nul
   }
 
   const intro = typeof o.intro === 'string' ? o.intro.trim() : null;
-  if (!intro && options.length === 0 && links.length === 0) return null;
-  return { intro: intro || null, options, links };
+  const priceSingle = typeof o.priceSingle === 'string' ? o.priceSingle.trim() : null;
+  const priceDayPass = typeof o.priceDayPass === 'string' ? o.priceDayPass.trim() : null;
+  const priceWeekPass = typeof o.priceWeekPass === 'string' ? o.priceWeekPass.trim() : null;
+  const officialTicketsUrl = safeHttps(typeof o.officialTicketsUrl === 'string' ? o.officialTicketsUrl : null);
+  const scoutTipPayment = typeof o.scoutTipPayment === 'string' ? o.scoutTipPayment.trim() : null;
+
+  let transportApp: CityTransportApp | null = null;
+  if (o.transportApp && typeof o.transportApp === 'object') {
+    const a = o.transportApp as Record<string, unknown>;
+    const name = typeof a.name === 'string' ? a.name.trim() : '';
+    if (name) {
+      transportApp = {
+        name,
+        iosUrl: safeHttps(typeof a.iosUrl === 'string' ? a.iosUrl : null),
+        androidUrl: safeHttps(typeof a.androidUrl === 'string' ? a.androidUrl : null),
+      };
+    }
+  }
+
+  if (
+    !intro &&
+    options.length === 0 &&
+    links.length === 0 &&
+    !priceSingle &&
+    !priceDayPass &&
+    !priceWeekPass &&
+    !officialTicketsUrl &&
+    !scoutTipPayment &&
+    !transportApp
+  ) {
+    return null;
+  }
+
+  return {
+    intro: intro || null,
+    priceSingle: priceSingle || null,
+    priceDayPass: priceDayPass || null,
+    priceWeekPass: priceWeekPass || null,
+    officialTicketsUrl,
+    scoutTipPayment: scoutTipPayment || null,
+    transportApp,
+    options,
+    links,
+  };
 }

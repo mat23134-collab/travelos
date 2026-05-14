@@ -216,10 +216,28 @@ export interface CityTransportOption {
   tip?: string | null;
 }
 
+/** Official mobility app for the city (from operator / city pages). */
+export interface CityTransportApp {
+  name: string;
+  iosUrl?: string | null;
+  androidUrl?: string | null;
+}
+
 /** City-level mobility guide — shown between map and day cards on the itinerary. */
 export interface CityTransportGuide {
   /** 1–2 sentences: how visitors usually move in this city */
   intro?: string | null;
+  /** Typical single-ride fare (display string, e.g. "€3.40"). */
+  priceSingle?: string | null;
+  /** 24h / day pass band (display string). */
+  priceDayPass?: string | null;
+  /** 7-day pass band (display string). */
+  priceWeekPass?: string | null;
+  /** Primary official tickets / operator page for "Search tickets". */
+  officialTicketsUrl?: string | null;
+  /** Short tip: easiest way to pay (contactless, app, IC card…). */
+  scoutTipPayment?: string | null;
+  transportApp?: CityTransportApp | null;
   options: CityTransportOption[];
   links: CityTransportLink[];
 }

@@ -234,6 +234,12 @@ CRITICAL: Return ONLY a valid JSON object — no markdown fences, no prose. Stru
   "bestLocalTips": ["tip1","tip2","tip3","tip4","tip5"],
   "cityTransport": {
     "intro": "max 35 words — how visitors get around THIS city (cards, apps, what to avoid)",
+    "priceSingle": "typical single-ride fare band (local currency)",
+    "priceDayPass": "24h / day pass band",
+    "priceWeekPass": "7-day pass band or null",
+    "officialTicketsUrl": "https://… one best official tickets/fares page or null",
+    "scoutTipPayment": "1–2 sentences — easiest way for visitors to pay (contactless / app / card)",
+    "transportApp": { "name": "Official app name", "iosUrl": "https://apps.apple.com/… or null", "androidUrl": "https://play.google.com/… or null" },
     "options": [
       { "mode": "Real system name for destination (e.g. U-Bahn, JR, Oyster)", "summary": "max 22 words — coverage + how to pay", "typicalPrice": "optional short band", "dailyAverage": "realistic spend for ONE day using this mode (local currency)", "tripTotalEstimate": "rough total for ALL trip days (see CITY_TRANSPORT_TRIP_DAYS) if mainly this mode", "optionUrl": "https://… optional official tickets", "optionLinkLabel": "short label or null", "tip": "max 12 words optional" }
     ],
@@ -362,7 +368,7 @@ TRIP_OUTPUT_LANGUAGE: Hebrew (Modern Israeli Hebrew).
 BILINGUAL OUTPUT RULES (mandatory):
 1) ENGLISH ONLY — official venue names: every Activity and DiningSpot "name", every basecamp hotel "name", and neighborhood strings that are proper English map labels (e.g. "Le Marais", "Neubau"). Never Hebrew-transliterate business names.
 
-2) HEBREW — all explanatory prose: strategicOverview; budgetSummary (dailyAverage, totalEstimate, includes); each day "theme" and human-readable "date" line; activity "description", "whyThis", "bestTimeToVisit", "transitFromPrevious", "duration", "estimatedCost" when prose; all DiningSpot text fields except the venue "name" and except "cuisine" (keep cuisine as short English token if needed, or Hebrew — prefer clear Hebrew for diners); webInsights[].text; packingTips[]; bestLocalTips[]; transportTip; cityTransport.intro, cityTransport.options[].summary, cityTransport.options[].typicalPrice, cityTransport.options[].dailyAverage, cityTransport.options[].tripTotalEstimate, cityTransport.options[].optionLinkLabel, cityTransport.options[].tip, cityTransport.links[].label, cityTransport.links[].description; basecamp neighborhoodInsight / whyItFits / fitSummary / availabilitySummary / estimatedPriceRangeTripDates / otaPriceCompare[].note (keep currency symbols and numbers readable; keep OTA brand names in Latin: Booking.com, Expedia, Airbnb). For basecamp.booked.aroundHotel when HOTEL_BOOKED: Hebrew for areaHeadline, walkableHighlights[], signatureMove; keep vibes[] as short English tags; keep transitNearHotel[].modeLabel and lineOrRoute in English. Keep cityTransport.options[].mode as the real English/local system name (e.g. "JR Yamanote Line", "Metro M2") for map/ticket searches.
+2) HEBREW — all explanatory prose: strategicOverview; budgetSummary (dailyAverage, totalEstimate, includes); each day "theme" and human-readable "date" line; activity "description", "whyThis", "bestTimeToVisit", "transitFromPrevious", "duration", "estimatedCost" when prose; all DiningSpot text fields except the venue "name" and except "cuisine" (keep cuisine as short English token if needed, or Hebrew — prefer clear Hebrew for diners); webInsights[].text; packingTips[]; bestLocalTips[]; transportTip; cityTransport.intro, cityTransport.priceSingle, cityTransport.priceDayPass, cityTransport.priceWeekPass, cityTransport.scoutTipPayment, cityTransport.transportApp.name, cityTransport.options[].summary, cityTransport.options[].typicalPrice, cityTransport.options[].dailyAverage, cityTransport.options[].tripTotalEstimate, cityTransport.options[].optionLinkLabel, cityTransport.options[].tip, cityTransport.links[].label, cityTransport.links[].description; basecamp neighborhoodInsight / whyItFits / fitSummary / availabilitySummary / estimatedPriceRangeTripDates / otaPriceCompare[].note (keep currency symbols and numbers readable; keep OTA brand names in Latin: Booking.com, Expedia, Airbnb). For basecamp.booked.aroundHotel when HOTEL_BOOKED: Hebrew for areaHeadline, walkableHighlights[], signatureMove; keep vibes[] as short English tags; keep transitNearHotel[].modeLabel and lineOrRoute in English. Keep cityTransport.options[].mode as the real English/local system name (e.g. "JR Yamanote Line", "Metro M2") for map/ticket searches.
 
 3) JSON keys unchanged. "destination" value stays the English city name (e.g. "Vienna"). time_slot stays 24h HH:MM format.
 
@@ -425,6 +431,7 @@ export function buildUserPrompt(profile: TravelerProfile, searchResults?: Classi
   const transportPricingBlock = `
 CITY_TRANSPORT_TRIP_DAYS: ${days}
 - Every cityTransport.options[] entry MUST include "dailyAverage" and "tripTotalEstimate" (strings, local currency).
+- cityTransport SHOULD include priceSingle, priceDayPass, priceWeekPass (honest bands), officialTicketsUrl (https or null), scoutTipPayment (easiest payment for visitors), and transportApp when a clear official app exists (store URLs only when real https links).
 - dailyAverage = realistic spend for ONE day using mainly that mode.
 - tripTotalEstimate = rough total for ALL ${days} trip days if that mode is the primary way to get around (prefix with ~, mention "${days} days").`;
 

@@ -5,21 +5,13 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CityTransportGuide } from '@/lib/types';
-import { parseTransportGuideJson } from '@/lib/transportGuideParse';
+import { parseTransportGuideJson, hasTransportContent } from '@/lib/transportGuideParse';
 import { runTransportScoutAgent } from '@/lib/transportScoutAgent';
 
-export { parseTransportGuideJson } from '@/lib/transportGuideParse';
+export { parseTransportGuideJson, hasTransportContent } from '@/lib/transportGuideParse';
 
 export function normalizeCityKey(city: string): string {
   return city.trim().toLowerCase();
-}
-
-function isNonEmptyGuide(g: CityTransportGuide | null | undefined): boolean {
-  if (!g) return false;
-  if (g.intro?.trim()) return true;
-  if ((g.options?.length ?? 0) > 0) return true;
-  if ((g.links?.length ?? 0) > 0) return true;
-  return false;
 }
 
 export async function fetchTransportGuideForCity(
@@ -76,7 +68,7 @@ export async function ensureTransportationForCity(
 
   try {
     const guide = await runTransportScoutAgent(city, { tripDays });
-    if (!guide || !isNonEmptyGuide(guide)) {
+    if (!guide || !hasTransportContent(guide)) {
       console.warn('[tripTransport] scout returned empty guide for', city);
       return;
     }

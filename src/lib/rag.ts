@@ -232,11 +232,11 @@ async function searchTavily(query: string): Promise<SearchResult[]> {
   }));
 }
 
-async function searchExa(query: string): Promise<SearchResult[]> {
+async function searchExa(query: string, numResults = 5): Promise<SearchResult[]> {
   const res = await fetch('https://api.exa.ai/search', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.EXA_API_KEY ?? '' },
-    body: JSON.stringify({ query, numResults: 5, contents: { text: { maxCharacters: 700 } } }),
+    body: JSON.stringify({ query, numResults, contents: { text: { maxCharacters: 700 } } }),
   });
   if (!res.ok) throw new Error(`Exa ${res.status}`);
   const data = await res.json();
@@ -245,6 +245,19 @@ async function searchExa(query: string): Promise<SearchResult[]> {
     url: r.url,
     snippet: r.text?.slice(0, 700) ?? '',
   }));
+}
+
+/**
+ * Exa-only search (no Tavily) — for transport fare research where we want consistent engine behavior.
+ */
+export async function searchExaOnly(query: string, numResults = 6): Promise<SearchResult[]> {
+  const key = process.env.EXA_API_KEY?.trim() ?? '';
+  if (!key || key.includes('your_')) return [];
+  try {
+    return await withSearchTimeout(searchExa(query, numResults));
+  } catch {
+    return [];
+  }
 }
 
 export async function searchWeb(query: string): Promise<SearchResult[]> {

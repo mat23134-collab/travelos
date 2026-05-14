@@ -400,6 +400,17 @@ export const MOCK_ITINERARY: Itinerary = {
   cityTransport: {
     intro:
       'Tokyo is built for IC cards: Suica or Pasmo covers almost all JR, Metro, and buses. Taxis are clean but pricey — use them late at night or with luggage.',
+    priceSingle: '¥150–¥220 per metro ride (IC same as cash)',
+    priceDayPass: 'Tokyo Metro 24h pass ~¥800 when doing many subway hops',
+    priceWeekPass: 'JR Tokyo Wide Pass exists for side trips — central Tokyo usually IC',
+    officialTicketsUrl: 'https://www.jreast.co.jp/e/',
+    scoutTipPayment:
+      'Tap in/out with Apple Pay or physical Suica/Pasmo — most gates accept contactless bank cards at major stations; load ¥2,000–¥5,000 for a short trip.',
+    transportApp: {
+      name: 'Mobile Suica / PASMO (wallet apps)',
+      iosUrl: null,
+      androidUrl: null,
+    },
     options: [
       {
         mode: 'JR + Tokyo Metro / Toei',

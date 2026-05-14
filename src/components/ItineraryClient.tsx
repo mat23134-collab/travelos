@@ -20,7 +20,7 @@ import type { SwapResult } from '@/app/api/swap/route';
 import { useAuth } from '@/lib/auth-context';
 import { ITIN_RESULTS_PAGE_BG, ITIN_RESULTS_NOISE_DATA_URL, ITIN_PALETTE } from '@/lib/itineraryResultsPalette';
 import { BrandWordmark } from '@/components/BrandWordmark';
-import { TransportCard, hasTransportContent } from '@/components/CityTransportSection';
+import { TransportCard, hasTransportContent } from '@/components/TransportCard';
 import type { ItineraryMapLabels } from '@/components/ItineraryMap';
 import { parseTransportGuideJson } from '@/lib/transportGuideParse';
 
@@ -1251,6 +1251,7 @@ export function ItineraryClient({
   const [profile] = useState<TravelerProfile | null>(initialProfile);
   const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
   const [liveTransportFromDb, setLiveTransportFromDb] = useState<CityTransportGuide | null>(initialTransportFromDb ?? null);
+  const [transportLoading, setTransportLoading] = useState(false);
   const [editBanner, setEditBanner] = useState('');
   const [mobileMapOpen, setMobileMapOpen] = useState(false);
   const [tripStoryOpen, setTripStoryOpen] = useState(false);
@@ -1276,32 +1277,78 @@ export function ItineraryClient({
     return itinerary.cityTransport ?? null;
   }, [liveTransportFromDb, itinerary.cityTransport]);
 
+  const scoutPostedRef = useRef(false);
+
+  useEffect(() => {
+    scoutPostedRef.current = false;
+  }, [itinerary.destination]);
+
+  const transportDataReady = useMemo(
+    () => hasTransportContent(displayCityTransport),
+    [displayCityTransport],
+  );
+
   useEffect(() => {
     setLiveTransportFromDb(initialTransportFromDb ?? null);
   }, [initialTransportFromDb]);
 
-  // If DB row is still being written by the transport scout, pick it up shortly after load.
+  /** Poll Supabase `transportation`; if still empty, POST scout once and poll until filled or timeout. */
   useEffect(() => {
     const city = itinerary.destination?.trim();
-    if (!city) return;
-    if (hasTransportContent(displayCityTransport)) return;
+    if (!city) {
+      setTransportLoading(false);
+      return;
+    }
+    if (transportDataReady) {
+      setTransportLoading(false);
+      return;
+    }
 
+    setTransportLoading(true);
     let cancelled = false;
-    const tid = setTimeout(() => {
-      fetch(`/api/transportation?city=${encodeURIComponent(city)}`)
-        .then((r) => r.json())
-        .then((body: { guide?: unknown } | null) => {
-          if (cancelled || !body?.guide) return;
-          const parsed = parseTransportGuideJson(body.guide);
-          if (parsed && hasTransportContent(parsed)) setLiveTransportFromDb(parsed);
-        })
-        .catch(() => {});
-    }, 2800);
+
+    const poll = async (): Promise<boolean> => {
+      try {
+        const res = await fetch(`/api/transportation?city=${encodeURIComponent(city)}`);
+        const body = (await res.json()) as { guide?: unknown };
+        const parsed = parseTransportGuideJson(body.guide ?? null);
+        if (!cancelled && parsed && hasTransportContent(parsed)) {
+          setLiveTransportFromDb(parsed);
+          setTransportLoading(false);
+          return true;
+        }
+      } catch {
+        /* ignore */
+      }
+      return false;
+    };
+
+    void (async () => {
+      if (await poll()) return;
+      if (cancelled) return;
+      if (!scoutPostedRef.current) {
+        scoutPostedRef.current = true;
+        try {
+          await fetch('/api/transportation/scout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ city, tripDays: itinerary.totalDays }),
+          });
+        } catch {
+          /* ignore */
+        }
+      }
+      for (let i = 0; i < 20 && !cancelled; i++) {
+        await new Promise<void>((r) => setTimeout(r, 2500));
+        if (await poll()) return;
+      }
+      if (!cancelled) setTransportLoading(false);
+    })();
+
     return () => {
       cancelled = true;
-      clearTimeout(tid);
     };
-  }, [itinerary.destination, displayCityTransport]);
+  }, [itinerary.destination, itinerary.totalDays, transportDataReady]);
 
   const ui = useMemo(
     () => itineraryUi(profile?.tripLanguage === 'he' ? 'he' : 'en'),
@@ -1728,6 +1775,12 @@ export function ItineraryClient({
           guide={displayCityTransport}
           ui={ui}
           totalDays={itinerary.totalDays}
+          isLoading={transportLoading}
+          hotelAnchor={
+            basecampMarker
+              ? { lat: basecampMarker.lat, lng: basecampMarker.lng }
+              : null
+          }
         />
 
         {/* Day cards — staggered fade-in */}

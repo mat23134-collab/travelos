@@ -6,6 +6,7 @@
 import { searchWeb } from '@/lib/rag';
 import type { CityTransportGuide } from '@/lib/types';
 import { parseTransportGuideJson } from '@/lib/transportGuideParse';
+import { gatherTransportExaSnippets } from '@/lib/transportExaIntel';
 
 const JSON_PREAMBLE =
   'IMPORTANT: Your output MUST be a raw JSON object only. ' +
@@ -18,6 +19,12 @@ const TRANSPORT_SYSTEM =
   'Return a single JSON object with this exact shape:\n' +
   '{\n' +
   '  "intro": string (1–2 sentences),\n' +
+  '  "priceSingle": string|null — typical single ride / single ticket (local currency),\n' +
+  '  "priceDayPass": string|null — 24h / day pass typical price band,\n' +
+  '  "priceWeekPass": string|null — 7-day / weekly pass band if the city offers one; else null,\n' +
+  '  "officialTicketsUrl": string|null — one best https URL to buy tickets or official fares page,\n' +
+  '  "scoutTipPayment": string|null — 1–2 sentences: easiest payment for visitors (contactless bank card, tap-and-go, official app, IC card…),\n' +
+  '  "transportApp": { "name": string, "iosUrl": string|null, "androidUrl": string|null }|null — official operator app if any; store URLs must be https,\n' +
   '  "options": [ {\n' +
   '    "mode": string,\n' +
   '    "summary": string,\n' +
@@ -31,9 +38,11 @@ const TRANSPORT_SYSTEM =
   '  "links": [ { "label": string, "url": string (https only), "description": string|null } ]\n' +
   '}\n' +
   'Rules:\n' +
+  '- Prefer facts from EXA / WEB SNIPPETS; if uncertain, use honest bands (e.g. "€2.50–€3.20") not fake precision.\n' +
+  '- officialTicketsUrl must be https and official or Wikipedia-linked operator domain when possible.\n' +
+  '- transportApp.iosUrl / androidUrl: only real App Store / Play store https links from snippets; else null.\n' +
   '- 4–6 options: metro/subway, bus/tram, rail, bike share, ferry, taxi/rideshare norms as relevant.\n' +
   '- dailyAverage + tripTotalEstimate must use the SAME trip length the user prompt gives (TRIP_DAY_COUNT).\n' +
-  '- Be honest bands (not exact fares); local currency symbols.\n' +
   '- links: official city/operator pass or national rail — only https URLs you trust.\n' +
   '- If unsure of a URL, omit that field or link entry.\n';
 
@@ -118,13 +127,15 @@ export async function runTransportScoutAgent(
       : 5;
 
   let ragBlock = '';
+  const exaBlock = await gatherTransportExaSnippets(c);
+  if (exaBlock) ragBlock += exaBlock;
   try {
     const hits = await searchWeb(`${c} public transport official tickets metro bus day pass how to pay`);
     if (hits.length > 0) {
-      ragBlock =
-        '\n\nWEB SNIPPETS (grounding — prefer facts consistent with these):\n' +
+      ragBlock +=
+        '\n\nWEB SNIPPETS (extra grounding):\n' +
         hits
-          .slice(0, 10)
+          .slice(0, 8)
           .map((h) => `- ${h.title}: ${h.snippet}`)
           .join('\n');
     }

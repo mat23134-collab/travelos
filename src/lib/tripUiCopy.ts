@@ -98,6 +98,22 @@ export function itineraryUi(lang: TripUiLang) {
     cityTransportGoogleRoutesDocUrl:
       'https://developers.google.com/maps/documentation/routes/transit-route?hl=he',
 
+    transportFareSingle: he ? 'נסיעה בודדת' : 'Single',
+    transportFareDay: he ? 'כרטיס יום' : 'Day pass',
+    transportFareWeek: he ? '7 ימים' : '7-day pass',
+    transportScoutTipEyebrow: he ? 'טיפ Scout' : 'Scout tip',
+    transportOfficialApp: he ? 'אפליקציה רשמית' : 'Official app',
+    transportIos: 'iOS',
+    transportAndroid: 'Android',
+    transportSearchOfficialTickets: he ? 'חיפוש כרטיסים' : 'Search tickets',
+    transportTransitToCity: he ? 'מסלולים בתחבורה ציבורית' : 'Transit directions',
+    transportRoutesPreview: he ? 'תצוגת מסלול' : 'Routes preview',
+    transportRoutesLoading: he ? 'מעריכים זמן…' : 'Estimating…',
+    transportRoutesUnavailable: he ? 'לא זמין' : 'Unavailable',
+    transportRoutesResult: (mins: string) =>
+      he ? `בערך ${mins} בתחבורה ציבורית למרכז` : `~${mins} transit to city center`,
+    transportLoadingCard: he ? 'טוענים מחירי תחבורה…' : 'Loading transport prices…',
+
     mapDistanceTool: he ? 'מדידת מרחק' : 'Distance tool',
     mapSelectMoreHint: (remaining: number) =>
       remaining >= 2
