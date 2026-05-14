@@ -1174,7 +1174,8 @@ function PlanPage() {
     dailyStartTime: '08:30',
     skipDay1: false,
   });
-  const [error, setError] = useState('');
+  const [error, setError] = useState('');           // validation error (inline)
+  const [genError, setGenError] = useState('');     // generation/timeout error (banner)
   const [isSubmitting, setIsSubmitting] = useState(false);
   // SSE streaming state
   const [streamedPlaces, setStreamedPlaces] = useState<PlaceEvent[]>([]);
@@ -1406,6 +1407,8 @@ function PlanPage() {
   };
 
   const handleBack = () => {
+    setError('');
+    setGenError('');
     if (step > 0) {
       setDirection(-1);
       setStep((s) => s - 1);
@@ -1521,7 +1524,7 @@ function PlanPage() {
           : err instanceof Error
             ? err.message
             : 'Something went wrong. Please try again.';
-      setError(msg);
+      setGenError(msg);   // shown as a prominent banner, not inline validation
       setIsSubmitting(false);
     }
   };
@@ -1612,6 +1615,49 @@ function PlanPage() {
       {/* Question area */}
       <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 py-12">
         <div className="w-full max-w-xl">
+
+          {/* Generation error banner */}
+          <AnimatePresence>
+            {genError && (
+              <motion.div
+                initial={{ opacity: 0, y: -12, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -8, scale: 0.97 }}
+                transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                className="mb-6 rounded-2xl p-5"
+                style={{
+                  background: 'rgba(158,54,58,0.14)',
+                  border: '1px solid rgba(158,54,58,0.40)',
+                  boxShadow: '0 4px 24px -4px rgba(158,54,58,0.20)',
+                }}
+              >
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl flex-shrink-0 mt-0.5">⚠️</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-white mb-1">
+                      Generation failed
+                    </p>
+                    <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.60)' }}>
+                      {genError}
+                    </p>
+                  </div>
+                </div>
+                <motion.button
+                  type="button"
+                  onClick={() => { setGenError(''); handleSubmit(); }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.97 }}
+                  className="mt-4 w-full py-2.5 rounded-xl text-sm font-bold text-white"
+                  style={{
+                    background: 'linear-gradient(135deg, #9e363a 0%, #b5404a 100%)',
+                    boxShadow: '0 4px 16px -4px rgba(158,54,58,0.50)',
+                  }}
+                >
+                  Try again →
+                </motion.button>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Step dots */}
           <div className="flex items-center gap-1.5 mb-8 justify-center">
