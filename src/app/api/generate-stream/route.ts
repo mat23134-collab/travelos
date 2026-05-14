@@ -15,7 +15,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { TravelerProfile, type Activity, type DiningSpot } from '@/lib/types';
+import { TravelerProfile, ClassifiedResult, type Activity, type DiningSpot } from '@/lib/types';
 import { SYSTEM_PROMPT, buildUserPrompt } from '@/lib/prompts';
 import { runChainOfThoughtSearch, searchWeb } from '@/lib/rag';
 import { supabase } from '@/lib/supabase';
@@ -25,6 +25,10 @@ import { normalizeBasecampHotels } from '@/lib/hotelNormalize';
 import { classifyActivity } from '@/lib/activityGenre';
 import { resolveAuthenticatedTraveler } from '@/lib/resolveAuthUser';
 import { ensureTransportationForCity, persistTripSessionRow } from '@/lib/tripTransport';
+import {
+  GENERATE_PREFETCH_PER_BRANCH_MS,
+  GENERATE_LLM_FETCH_MS,
+} from '@/lib/generateBudget';
 
 export const maxDuration = 300; // 5 min — Vercel Pro/Enterprise or Railway
 export const dynamic = 'force-dynamic';
@@ -58,28 +62,20 @@ function parseAIJson(rawText: string): unknown {
   return JSON.parse(text.slice(start, end + 1));
 }
 
-function isRetryable(err: unknown): boolean {
-  const msg = err instanceof Error ? err.message : String(err);
-  return (
-    msg.includes('529') || msg.includes('503') || msg.includes('429') ||
-    msg.toLowerCase().includes('overloaded') ||
-    msg.toLowerCase().includes('service unavailable') ||
-    msg.toLowerCase().includes('rate limit')
-  );
-}
-
-async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
-  let lastErr: unknown;
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try { return await fn(); } catch (err) {
-      lastErr = err;
-      if (!isRetryable(err) || attempt === maxAttempts) throw err;
-      const delay = attempt * 2000;
-      console.warn(`[generate-stream] LLM transient error — retrying in ${delay}ms (${attempt}/${maxAttempts})`);
-      await new Promise((r) => setTimeout(r, delay));
-    }
-  }
-  throw lastErr;
+/** Resolve after `ms` with `fallback` if `promise` is still pending — keeps prefetch under budget. */
+function withPrefetchTimeout<T>(promise: Promise<T>, ms: number, fallback: T, label: string): Promise<T> {
+  return Promise.race([
+    promise.catch((err) => {
+      console.warn(`[generate-stream] ${label} failed (non-critical):`, err instanceof Error ? err.message : err);
+      return fallback;
+    }),
+    new Promise<T>((resolve) => {
+      setTimeout(() => {
+        console.warn(`[generate-stream] ${label} timed out after ${ms}ms — continuing without this block`);
+        resolve(fallback);
+      }, ms);
+    }),
+  ]);
 }
 
 function toTimeOnly(time?: string): string | null {
@@ -212,7 +208,7 @@ async function callClaude(userPrompt: string, signal?: AbortSignal): Promise<str
   console.log(`[generate-stream] Claude ${model}`);
   const message = await client.messages.create(
     { model, max_tokens: 16000, system: JSON_PREAMBLE + SYSTEM_PROMPT, messages: [{ role: 'user', content: userPrompt }] },
-    signal ? { signal } : {},  // ← shared abort signal
+    { ...(signal ? { signal } : {}), timeout: GENERATE_LLM_FETCH_MS },
   );
   const block = message.content[0];
   const raw = block.type === 'text' ? block.text : '';
@@ -252,12 +248,29 @@ async function runPipeline(
   await send({ type: 'status', message: `Scouting ${profile.destination} for hidden gems…`, icon: '🔍' });
 
   const [scoutedPlaces, classifiedResults, rawHotelResults] = await Promise.all([
-    queryPlacesForCity(profile.destination).catch((e) => {
-      console.warn('[generate-stream] Hybrid RAG failed (non-critical):', e);
-      return [] as Awaited<ReturnType<typeof queryPlacesForCity>>;
-    }),
-    runChainOfThoughtSearch(profile).catch(() => []),
-    hotelQuery ? searchWeb(hotelQuery).catch(() => []) : Promise.resolve([]),
+    withPrefetchTimeout(
+      queryPlacesForCity(profile.destination).catch((e) => {
+        console.warn('[generate-stream] Hybrid RAG failed (non-critical):', e);
+        return [] as Awaited<ReturnType<typeof queryPlacesForCity>>;
+      }),
+      GENERATE_PREFETCH_PER_BRANCH_MS,
+      [] as Awaited<ReturnType<typeof queryPlacesForCity>>,
+      'places prefetch',
+    ),
+    withPrefetchTimeout(
+      runChainOfThoughtSearch(profile).catch(() => [] as ClassifiedResult[]),
+      GENERATE_PREFETCH_PER_BRANCH_MS,
+      [] as ClassifiedResult[],
+      'web RAG prefetch',
+    ),
+    hotelQuery
+      ? withPrefetchTimeout(
+          searchWeb(hotelQuery).catch(() => []),
+          GENERATE_PREFETCH_PER_BRANCH_MS,
+          [] as Awaited<ReturnType<typeof searchWeb>>,
+          'hotel search prefetch',
+        )
+      : Promise.resolve([]),
   ]);
 
   let internalPlaces: string | undefined;
@@ -281,12 +294,9 @@ async function runPipeline(
 
   const userPrompt = buildUserPrompt(profile, classifiedResults, hotelContext, internalPlaces);
 
-  // Hard 75-second budget shared across Gemini + any Claude fallback.
-  // AbortSignal is passed into fetch/SDK so the in-flight request is cancelled
-  // immediately when the timer fires — no hanging forever.
-  const AI_TIMEOUT_MS = 75_000;
+  // LLM HTTP budget (aligned with /api/generate + client abort on plan page).
   const aiController = new AbortController();
-  const aiAbortTimer = setTimeout(() => aiController.abort(), AI_TIMEOUT_MS);
+  const aiAbortTimer = setTimeout(() => aiController.abort(), GENERATE_LLM_FETCH_MS);
 
   // Heartbeat every 12s so the connection stays alive while LLM thinks
   let heartbeatTimer: ReturnType<typeof setInterval> | null = setInterval(async () => {
@@ -631,8 +641,10 @@ async function runPipeline(
   const { error: finalErr } = await dbWrite.from('itineraries').update({ itinerary_json: { ...itinerary, _profile: profile, hotel_info: hotelInfo } }).eq('id', itineraryDbId);
   if (finalErr) console.warn('[generate-stream] final blob update failed (non-critical):', finalErr.message);
 
-  // ── Persist new places globally ────────────────────────────────────────────
-  await persistNewPlaces(itinerary as Record<string, unknown>, profile.destination ?? '');
+  // Best-effort: do not block background completion on places sync.
+  void persistNewPlaces(itinerary as Record<string, unknown>, profile.destination ?? '').catch((e) =>
+    console.warn('[generate-stream] places sync background:', e instanceof Error ? e.message : e),
+  );
 
   console.log('[generate-stream] background tasks done for id:', itineraryDbId);
 }

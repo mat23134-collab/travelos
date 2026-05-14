@@ -11,6 +11,11 @@ import { normalizeBasecampHotels } from '@/lib/hotelNormalize';
 import { classifyActivity } from '@/lib/activityGenre';
 import { resolveAuthenticatedTraveler } from '@/lib/resolveAuthUser';
 import { ensureTransportationForCity, persistTripSessionRow } from '@/lib/tripTransport';
+import {
+  GENERATE_PREFETCH_PER_BRANCH_MS,
+  GENERATE_LLM_FETCH_MS,
+  GENERATE_LLM_MAX_ATTEMPTS,
+} from '@/lib/generateBudget';
 
 // ── JSON instruction prepended to every system prompt ────────────────────────
 
@@ -60,12 +65,28 @@ async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
     } catch (err) {
       lastErr = err;
       if (!isRetryable(err) || attempt === maxAttempts) throw err;
-      const delay = attempt * 2000;
+      const delay = Math.min(3500, attempt * 1000);
       console.warn(`[generate] LLM transient error — retrying in ${delay}ms (attempt ${attempt}/${maxAttempts})`);
       await new Promise((r) => setTimeout(r, delay));
     }
   }
   throw lastErr;
+}
+
+/** Resolve after `ms` with `fallback` if `promise` is still pending — keeps prefetch under budget. */
+function withPrefetchTimeout<T>(promise: Promise<T>, ms: number, fallback: T, label: string): Promise<T> {
+  return Promise.race([
+    promise.catch((err) => {
+      console.warn(`[generate] ${label} failed (non-critical):`, err instanceof Error ? err.message : err);
+      return fallback;
+    }),
+    new Promise<T>((resolve) => {
+      setTimeout(() => {
+        console.warn(`[generate] ${label} timed out after ${ms}ms — continuing without this block`);
+        resolve(fallback);
+      }, ms);
+    }),
+  ]);
 }
 
 function toTimeOnly(time?: string): string | null {
@@ -282,22 +303,30 @@ async function callGemini(userPrompt: string): Promise<string> {
   const systemText = JSON_PREAMBLE + SYSTEM_PROMPT;
   console.log(`[generate] Gemini ${modelName} — key prefix: ${apiKey.slice(0, 8)}`);
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: systemText }] },
-      contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-      generationConfig: {
-        temperature: 0.35,
-        maxOutputTokens: (() => {
-          const n = Number(process.env.GEMINI_MAX_OUTPUT_TOKENS);
-          return Number.isFinite(n) && n > 0 ? n : 16384;
-        })(),
-        responseMimeType: 'application/json',
-      },
-    }),
-  });
+  const ac = new AbortController();
+  const tid = setTimeout(() => ac.abort(), GENERATE_LLM_FETCH_MS);
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: ac.signal,
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: systemText }] },
+        contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+        generationConfig: {
+          temperature: 0.35,
+          maxOutputTokens: (() => {
+            const n = Number(process.env.GEMINI_MAX_OUTPUT_TOKENS);
+            return Number.isFinite(n) && n > 0 ? n : 16384;
+          })(),
+          responseMimeType: 'application/json',
+        },
+      }),
+    });
+  } finally {
+    clearTimeout(tid);
+  }
 
   const errBody = !res.ok ? await res.text() : '';
   if (!res.ok) {
@@ -338,12 +367,15 @@ async function callClaude(userPrompt: string): Promise<string> {
   const modelName = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
   console.log(`[generate] Claude ${modelName} — key prefix: ${process.env.ANTHROPIC_API_KEY.slice(0, 8)}`);
 
-  const message = await client.messages.create({
-    model: modelName,
-    max_tokens: 16000,
-    system: JSON_PREAMBLE + SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: userPrompt }],
-  });
+  const message = await client.messages.create(
+    {
+      model: modelName,
+      max_tokens: 16000,
+      system: JSON_PREAMBLE + SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: userPrompt }],
+    },
+    { timeout: GENERATE_LLM_FETCH_MS },
+  );
 
   const block = message.content[0];
   const raw = block.type === 'text' ? block.text : '';
@@ -385,12 +417,29 @@ export async function POST(req: NextRequest) {
       : null;
 
     const [scoutedPlaces, classifiedResults, rawHotelResults] = await Promise.all([
-      queryPlacesForCity(profile.destination).catch((err) => {
-        console.warn('[generate] Hybrid RAG query failed (non-critical):', err);
-        return [] as Awaited<ReturnType<typeof queryPlacesForCity>>;
-      }),
-      runChainOfThoughtSearch(profile).catch(() => [] as ClassifiedResult[]),
-      hotelQuery ? searchWeb(hotelQuery).catch(() => []) : Promise.resolve([]),
+      withPrefetchTimeout(
+        queryPlacesForCity(profile.destination).catch((err) => {
+          console.warn('[generate] Hybrid RAG query failed (non-critical):', err);
+          return [] as Awaited<ReturnType<typeof queryPlacesForCity>>;
+        }),
+        GENERATE_PREFETCH_PER_BRANCH_MS,
+        [] as Awaited<ReturnType<typeof queryPlacesForCity>>,
+        'places prefetch',
+      ),
+      withPrefetchTimeout(
+        runChainOfThoughtSearch(profile).catch(() => [] as ClassifiedResult[]),
+        GENERATE_PREFETCH_PER_BRANCH_MS,
+        [] as ClassifiedResult[],
+        'web RAG prefetch',
+      ),
+      hotelQuery
+        ? withPrefetchTimeout(
+            searchWeb(hotelQuery).catch(() => []),
+            GENERATE_PREFETCH_PER_BRANCH_MS,
+            [] as Awaited<ReturnType<typeof searchWeb>>,
+            'hotel search prefetch',
+          )
+        : Promise.resolve([]),
     ]);
 
     let internalPlaces: string | undefined;
@@ -417,19 +466,19 @@ export async function POST(req: NextRequest) {
 
     if (process.env.GEMINI_API_KEY?.trim()) {
       try {
-        raw = await withRetry(() => callGemini(userPrompt));
+        raw = await withRetry(() => callGemini(userPrompt), GENERATE_LLM_MAX_ATTEMPTS);
         provider = 'gemini';
       } catch (geminiErr) {
         console.warn(
           '[generate] Gemini failed — falling back to Claude:',
           geminiErr instanceof Error ? geminiErr.message : geminiErr,
         );
-        raw = await withRetry(() => callClaude(userPrompt));
+        raw = await withRetry(() => callClaude(userPrompt), GENERATE_LLM_MAX_ATTEMPTS);
         provider = 'claude';
       }
     } else {
       console.log('[generate] GEMINI_API_KEY not set — using Claude only');
-      raw = await withRetry(() => callClaude(userPrompt));
+      raw = await withRetry(() => callClaude(userPrompt), GENERATE_LLM_MAX_ATTEMPTS);
       provider = 'claude';
     }
 
@@ -443,7 +492,7 @@ export async function POST(req: NextRequest) {
           '[generate] Gemini JSON parse failed — falling back to Claude:',
           parseErr instanceof Error ? parseErr.message : parseErr,
         );
-        raw = await withRetry(() => callClaude(userPrompt));
+        raw = await withRetry(() => callClaude(userPrompt), GENERATE_LLM_MAX_ATTEMPTS);
         provider = 'claude';
         itinerary = parseAIJson(raw);
       } else {
@@ -887,8 +936,10 @@ export async function POST(req: NextRequest) {
       console.warn('[generate] itinerary_json final update failed (non-critical):', finalBlobErr.message);
     }
 
-    // Persist generated map-ready places into the global places table if missing.
-    await persistNewPlacesFromItinerary(itinerary as Record<string, unknown>, profile.destination ?? '');
+    // Best-effort: do not block the HTTP response on places sync (saves tail latency vs 90s budget).
+    void persistNewPlacesFromItinerary(itinerary as Record<string, unknown>, profile.destination ?? '').catch((e) =>
+      console.warn('[generate] places sync background:', e instanceof Error ? e.message : e),
+    );
 
     return NextResponse.json({ id: itineraryDbId, itinerary });
 

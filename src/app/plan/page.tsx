@@ -1,7 +1,7 @@
 // UI Version: 2.1.0 - 2026-05-06T00:00:00Z (dark palette)
 'use client';
 
-import { useState, useCallback, useEffect, useRef, Suspense } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -14,6 +14,7 @@ import { getStepBackground } from '@/lib/stepBackgrounds';
 import { readTripLanguagePref, persistTripLanguagePref } from '@/lib/tripLanguagePref';
 import { TripLanguageGateModal } from '@/components/TripLanguageGateModal';
 import { BrandWordmark } from '@/components/BrandWordmark';
+import { GENERATE_WALL_CLOCK_MS } from '@/lib/generateBudget';
 type FormData = Record<string, unknown>;
 
 // ── SSE streaming types ───────────────────────────────────────────────────────
@@ -157,36 +158,31 @@ const LOADING_STEPS = [
   { icon: '💎', label: 'Filtering tourist traps. You deserve better.' },
 ];
 
-/** Soft ETA for the generate API — remaining timer counts down to 0, then shows overtime copy. */
-const GENERATION_ESTIMATE_SEC = 72;
+/** Soft target length for UX pacing (steps + progress bar — aligned with server budget). */
+const GENERATION_SOFT_TARGET_SEC = 90;
+/** Never show 100% in the UI while waiting on the server (avoids “stuck at 100%”). */
+const GENERATION_UI_MAX_PCT = 97;
 
 const GENERATION_TIMER_COPY = {
   en: {
-    elapsed: 'Elapsed',
-    remaining: 'Est. remaining',
-    pastEstimate: 'Past estimate',
+    phase: (n: number, total: number) => `Step ${n} of ${total}`,
+    progressLabel: 'Trip build',
     footer: 'Typical build: 30s–2 min · AI-powered',
     building: (dest: string) =>
       `Building your ${dest.trim() || 'trip'} itinerary`,
+    almostDone: 'Finalizing details on our servers…',
   },
   he: {
-    elapsed: 'עבר',
-    remaining: 'משוער נותר',
-    pastEstimate: 'מעבר לזמן המשוער',
+    phase: (n: number, total: number) => `שלב ${n} מתוך ${total}`,
+    progressLabel: 'התקדמות בניית הטיול',
     footer: 'זמן טיפוסי: 30 שנ׳ עד 2 דק׳ · בינה מלאכותית',
     building: (dest: string) =>
       dest.trim()
         ? `בונים את המסלול ל${dest}`
         : 'בונים את המסלול שלך',
+    almostDone: 'מסיימים פרטים בשרת…',
   },
 } as const;
-
-function formatDurationMmSs(totalSec: number): string {
-  const s = Math.max(0, Math.floor(totalSec));
-  const m = Math.floor(s / 60);
-  const r = s % 60;
-  return `${m}:${r.toString().padStart(2, '0')}`;
-}
 
 // ─── Step 3 — Time-Aware inputs ───────────────────────────────────────────────
 
@@ -956,24 +952,12 @@ function LoadingScreen({
   streamedTips: string[];
   streamStatus: StatusEvent | null;
 }) {
-  const [activeStep, setActiveStep] = useState(0);
   const [tick, setTick] = useState(0);
   const startedAtRef = useRef<number | null>(null);
   const tc = GENERATION_TIMER_COPY[lang === 'he' ? 'he' : 'en'];
 
   useEffect(() => {
     startedAtRef.current = Date.now();
-  }, []);
-
-  useEffect(() => {
-    const id = setInterval(
-      () => setActiveStep((s) => Math.min(s + 1, LOADING_STEPS.length - 1)),
-      5400,
-    );
-    return () => clearInterval(id);
-  }, []);
-
-  useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(id);
   }, []);
@@ -985,10 +969,25 @@ function LoadingScreen({
 
   void tick;
 
-  const remainingSec = Math.max(0, GENERATION_ESTIMATE_SEC - elapsedSec);
-  const overtime = elapsedSec > GENERATION_ESTIMATE_SEC;
+  /** Advance one loading phase every N seconds so the last phase is not reached in ~27s while the API still runs. */
+  const phaseSec = Math.max(
+    14,
+    Math.floor(GENERATION_SOFT_TARGET_SEC / LOADING_STEPS.length),
+  );
+  const activeStep = Math.min(
+    LOADING_STEPS.length - 1,
+    Math.floor(elapsedSec / phaseSec),
+  );
 
-  const pct = Math.round(((activeStep + 1) / LOADING_STEPS.length) * 100);
+  /**
+   * Progress %: mostly time-based (honest “how long you’ve been waiting”), lightly boosted by phase
+   * so the bar moves with phases but never hits 100% until navigation unmounts this screen.
+   */
+  const timeRatio = Math.min(1, elapsedSec / GENERATION_SOFT_TARGET_SEC);
+  const phaseRatio = (activeStep + 1) / LOADING_STEPS.length;
+  const blended = 0.62 * timeRatio + 0.38 * phaseRatio;
+  const pct = Math.min(GENERATION_UI_MAX_PCT, Math.round(blended * 100));
+  const showAlmostDone = activeStep >= LOADING_STEPS.length - 1;
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row items-center lg:items-start justify-center gap-10 lg:gap-16 px-6 lg:px-14 py-12 lg:py-0 relative overflow-hidden"
@@ -1033,31 +1032,24 @@ function LoadingScreen({
       </div>
 
       <div
-        className="mb-7 px-5 py-4 rounded-2xl w-full max-w-sm border tabular-nums"
+        className="mb-7 px-5 py-4 rounded-2xl w-full max-w-sm border text-center"
         style={{
           background: 'rgba(255,255,255,0.04)',
           borderColor: 'rgba(255,255,255,0.10)',
         }}
       >
-        <div className="flex items-center justify-between gap-4 text-sm">
-          <div className="text-left flex-1 min-w-0">
-            <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.38)' }}>
-              {tc.elapsed}
-            </div>
-            <div className="font-bold text-white text-lg tracking-tight">{formatDurationMmSs(elapsedSec)}</div>
-          </div>
-          <div className="w-px h-10 shrink-0" style={{ background: 'rgba(255,255,255,0.08)' }} />
-          <div className="text-left flex-1 min-w-0">
-            <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.38)' }}>
-              {overtime ? tc.pastEstimate : tc.remaining}
-            </div>
-            <div className="font-bold text-lg tracking-tight" style={{ color: overtime ? '#fbbf24' : 'rgba(255,255,255,0.92)' }}>
-              {overtime
-                ? `+${formatDurationMmSs(elapsedSec - GENERATION_ESTIMATE_SEC)}`
-                : formatDurationMmSs(remainingSec)}
-            </div>
-          </div>
+        <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.38)' }}>
+          {tc.progressLabel}
         </div>
+        <div className="font-extrabold text-white text-3xl sm:text-4xl tracking-tight tabular-nums">{pct}%</div>
+        <div className="text-xs mt-2 font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>
+          {tc.phase(activeStep + 1, LOADING_STEPS.length)}
+        </div>
+        {showAlmostDone && (
+          <p className="text-[11px] mt-3 leading-snug" style={{ color: 'rgba(251,191,36,0.88)' }}>
+            {tc.almostDone}
+          </p>
+        )}
       </div>
 
       <div className="h-16 flex items-center justify-center mb-8 w-full max-w-sm">
@@ -1115,7 +1107,7 @@ function LoadingScreen({
           style={{ background: 'linear-gradient(90deg, #9e363a, #4a7bde)' }}
         />
       </div>
-      <p className="text-white/20 text-[10px] tabular-nums leading-relaxed">{pct}% · {tc.footer}</p>
+      <p className="text-white/20 text-[10px] tabular-nums leading-relaxed">{tc.footer}</p>
 
       {/* SSE live status pill */}
       <AnimatePresence mode="wait">
@@ -1192,6 +1184,7 @@ function PlanPage() {
   const groupTypeBeforeFamilyRef = useRef<GroupType>('couple');
 
   const searchParams = useSearchParams();
+  const planSearchKey = useMemo(() => searchParams.toString(), [searchParams]);
 
   /** Plan wizard expects onboarding-completed query params; otherwise send users to /onboarding first. */
   const [planGateReady, setPlanGateReady] = useState(false);
@@ -1263,7 +1256,7 @@ function PlanPage() {
       hotelLng:       Number.isFinite(preHotelLng) ? preHotelLng : null,
     });
     setPlanGateReady(true);
-  }, [router, searchParams]);
+  }, [router, planSearchKey]);
 
   const hasHotelAnchor =
     !!(form.hotelBooked as string)?.trim() ||
@@ -1443,37 +1436,53 @@ function PlanPage() {
       sessionStorage.setItem('travelos_profile', JSON.stringify(profile));
       localStorage.removeItem(STORAGE_KEY);
 
-      // Plain JSON POST → /api/generate. No SSE, no streaming reader, no
-      // per-place updates: the client waits for one response and navigates.
       const headers: HeadersInit = { 'Content-Type': 'application/json' };
       if (session?.access_token) {
         headers.Authorization = `Bearer ${session.access_token}`;
       }
 
-      const res = await fetch('/api/generate', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ ...profile, userId: user?.id ?? null }),
-      });
+      const controller = new AbortController();
+      const genTimeoutMs = GENERATE_WALL_CLOCK_MS;
+      const timeoutId = setTimeout(() => controller.abort(), genTimeoutMs);
+      try {
+        const res = await fetch('/api/generate', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ ...profile, userId: user?.id ?? null }),
+          signal: controller.signal,
+        });
 
-      if (!res.ok) {
-        const text = await res.text();
-        let parsed: { error?: string; details?: string } = {};
-        try { parsed = JSON.parse(text); } catch { /* ignore */ }
-        throw new Error(parsed.error ?? `Server error ${res.status}: ${text.slice(0, 200)}`);
-      }
+        if (!res.ok) {
+          const text = await res.text();
+          let parsed: { error?: string; details?: string } = {};
+          try { parsed = JSON.parse(text); } catch { /* ignore */ }
+          throw new Error(parsed.error ?? `Server error ${res.status}: ${text.slice(0, 200)}`);
+        }
 
-      const data = (await res.json()) as { id?: string; itinerary?: unknown; error?: string };
-      if (data.error || !data.id) {
-        throw new Error(data.error ?? 'Generation failed');
+        const data = (await res.json()) as { id?: string; itinerary?: unknown; error?: string };
+        if (data.error || !data.id) {
+          throw new Error(data.error ?? 'Generation failed');
+        }
+        if (data.itinerary) {
+          sessionStorage.setItem('travelos_itinerary', JSON.stringify(data.itinerary));
+        }
+        router.push('/itinerary/' + data.id);
+        return;
+      } finally {
+        clearTimeout(timeoutId);
       }
-      if (data.itinerary) {
-        sessionStorage.setItem('travelos_itinerary', JSON.stringify(data.itinerary));
-      }
-      router.push('/itinerary/' + data.id);
-      return;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+      const isAbort =
+        (typeof DOMException !== 'undefined' && err instanceof DOMException && err.name === 'AbortError') ||
+        (err instanceof Error && err.name === 'AbortError');
+      const msg = isAbort
+          ? ((form.tripLanguage as TripLanguage) === 'he'
+            ? 'הבנייה ארכה יותר מדי — נסו שוב או בדקו את החיבור.'
+            : 'This is taking too long — please try again or check your connection.')
+          : err instanceof Error
+            ? err.message
+            : 'Something went wrong. Please try again.';
+      setError(msg);
       setIsSubmitting(false);
     }
   };
