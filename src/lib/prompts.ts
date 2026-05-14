@@ -401,6 +401,52 @@ export function buildUserPrompt(profile: TravelerProfile, searchResults?: Classi
       ? `\nHOTEL_SEARCH_DATA (use to generate 3 squad-approved recommendations for basecamp.recommendations[]):\n${hotelContext}${hotelDateAnchoring}`
       : `\nHOTEL_BOOKED: none — generate 3 squad-approved hotel recommendations for basecamp.recommendations[] based on expertise${hotelDateAnchoring}`;
 
+  // ── Hotel-fit refinement preferences ───────────────────────────────────────
+  // Only inject when the user has NOT pre-booked a hotel (otherwise these
+  // questions weren't asked / are irrelevant). Each line is a direct
+  // instruction so the model treats them as hard filters / weighting.
+  const hotelPrefLines: string[] = [];
+  if (!profile.hotelBooked?.trim()) {
+    const NIGHTLY: Record<string, string> = {
+      budget:  'Up to $80/night — prioritize value picks; skip 5-star',
+      mid:     '$80–$150/night — comfortable mid-tier; smart picks only',
+      comfort: '$150–$300/night — full comfort, polished service',
+      luxury:  '$300+/night — premium properties, no compromises',
+    };
+    const LOCATION: Record<string, string> = {
+      center:  'City Center (walking distance to main sights)',
+      nature:  'Near Beach / Nature (sea or green views)',
+      quiet:   'Quiet & Residential (off the tourist grid)',
+      transit: 'Near Transit (metro/train hub, easy mobility)',
+    };
+    const AMEN: Record<string, string> = {
+      breakfast: 'breakfast included', pool: 'on-site pool',
+      parking:   'parking available',  gym:  'gym / fitness center',
+      pets:      'pet friendly',       spa:  'spa / wellness',
+      suite:     'large room or suite', workspace: 'in-room workspace',
+      rooftop:   'rooftop or view',
+    };
+    const nb = profile.hotelNightlyBudget && NIGHTLY[profile.hotelNightlyBudget];
+    if (nb) hotelPrefLines.push(`HOTEL_NIGHTLY_BUDGET: ${nb}`);
+    const locs = (profile.hotelLocationPref ?? [])
+      .map((k) => LOCATION[k]).filter(Boolean);
+    if (locs.length > 0) {
+      hotelPrefLines.push(
+        `HOTEL_LOCATION_PREF: ${locs.join(' OR ')} — all 3 recommendations MUST match at least one of these vibes`,
+      );
+    }
+    const ams = (profile.hotelAmenities ?? [])
+      .map((k) => AMEN[k]).filter(Boolean);
+    if (ams.length > 0) {
+      hotelPrefLines.push(
+        `HOTEL_MUST_HAVE_AMENITIES: ${ams.join(', ')} — call out which of these each recommendation offers in its fitSummary`,
+      );
+    }
+  }
+  const hotelPrefBlock = hotelPrefLines.length > 0
+    ? `\nHOTEL_FIT_PREFERENCES (hard filters for basecamp.recommendations[]):\n${hotelPrefLines.join('\n')}\n`
+    : '';
+
   const internalPlacesBlock = internalPlaces
     ? `\n${internalPlaces}\n`
     : '';
@@ -453,7 +499,7 @@ INTERESTS: ${interestsList}
 ACCOMMODATION: ${profile.accommodation}
 DIETARY: ${profile.dietaryRestrictions || 'none'}
 MUST-HAVES: ${profile.mustHave || 'none specified'}
-${hotelBlock}${timeBlock}${langBlock}${transportPricingBlock}
+${hotelBlock}${hotelPrefBlock}${timeBlock}${langBlock}${transportPricingBlock}
 
 VIBE TARGETING:
 ${vibeDirective}

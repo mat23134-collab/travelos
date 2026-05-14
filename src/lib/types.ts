@@ -79,6 +79,14 @@ export interface Basecamp {
 export type BudgetLevel = 'budget' | 'mid-range' | 'luxury';
 export type PaceLevel = 'relaxed' | 'moderate' | 'intense';
 export type AccommodationType = 'hostel' | 'boutique-hotel' | 'luxury-hotel' | 'airbnb' | 'resort';
+
+/** Hotel-specific preferences captured after the user picks an accommodation type. */
+export type HotelNightlyBudget = 'budget' | 'mid' | 'comfort' | 'luxury';
+export type HotelLocationPref  = 'center' | 'nature' | 'quiet' | 'transit';
+export type HotelAmenity =
+  | 'breakfast' | 'pool' | 'parking' | 'gym' | 'pets'
+  | 'spa' | 'suite' | 'workspace' | 'rooftop';
+
 export type InsightType = 'tip' | 'warning' | 'trend';
 export type VibeLabel = 'hidden-gem' | 'local-favorite' | 'viral-trend' | 'classic' | 'luxury-pick' | 'budget-pick';
 export type VibeScore = 'hidden-gem' | 'local-favorite' | 'viral-trend' | 'tourist-trap' | 'guided-tour' | 'unknown';
@@ -98,6 +106,12 @@ export interface TravelerProfile {
   pace: PaceLevel;
   interests: string[];
   accommodation: AccommodationType;
+  /** Nightly hotel budget tier (asked after accommodation type) */
+  hotelNightlyBudget?: HotelNightlyBudget | null;
+  /** Up to 2 preferred hotel location vibes */
+  hotelLocationPref?: HotelLocationPref[];
+  /** Optional must-have amenities — empty = no preference */
+  hotelAmenities?: HotelAmenity[];
   dietaryRestrictions: string;
   mustHave: string;
   hotelBooked?: string;

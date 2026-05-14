@@ -1262,7 +1262,15 @@ function PlanPage() {
     !!(form.hotelBooked as string)?.trim() ||
     (typeof form.hotelLat === 'number' && typeof form.hotelLng === 'number');
   const activeQuestions = PLAN_QUESTIONS.filter(
-    (q) => !(hasHotelAnchor && q.key === 'accommodation'),
+    // When the traveler already booked a hotel via onboarding, skip the
+    // accommodation type AND the three hotel-refinement steps (budget /
+    // location / amenities) — they're moot for a pre-booked stay.
+    (q) => !(hasHotelAnchor && (
+      q.key === 'accommodation' ||
+      q.key === 'hotelNightlyBudget' ||
+      q.key === 'hotelLocationPref' ||
+      q.key === 'hotelAmenities'
+    )),
   );
   const question = activeQuestions[step];
   const planStepTotal = Math.max(1, activeQuestions.length);
@@ -1302,18 +1310,28 @@ function PlanPage() {
     setShowFamilyKidsModal(false);
   }, []);
 
-  const toggleInterest = useCallback((val: string) => {
+  /**
+   * Generic multi-select toggle. Writes to the form key matching the current
+   * question (interests / hotelLocationPref / hotelAmenities). Optional `cap`
+   * enforces a max selection count by evicting the oldest entry (FIFO).
+   */
+  const toggleMulti = useCallback((key: string, val: string, cap?: number) => {
     setForm((prev) => {
-      const current = (prev.interests as string[]) || [];
-      return {
-        ...prev,
-        interests: current.includes(val)
-          ? current.filter((i) => i !== val)
-          : [...current, val],
-      };
+      const current = (prev[key] as string[]) || [];
+      const next = current.includes(val)
+        ? current.filter((i) => i !== val)
+        : [...current, val];
+      if (cap && next.length > cap) next.shift();
+      return { ...prev, [key]: next };
     });
     setError('');
   }, []);
+
+  // Back-compat alias — interests is the original multi-select; keep the name
+  // so existing tests/utilities that referenced `toggleInterest` still resolve.
+  const toggleInterest = useCallback((val: string) => {
+    toggleMulti('interests', val);
+  }, [toggleMulti]);
 
   const toggleDietary = useCallback((val: string) => {
     setForm((prev) => {
@@ -1415,6 +1433,9 @@ function PlanPage() {
       pace: (form.pace as TravelerProfile['pace']) || 'moderate',
       interests: (form.interests as string[]) || [],
       accommodation: (form.accommodation as TravelerProfile['accommodation']) || 'boutique-hotel',
+      hotelNightlyBudget: (form.hotelNightlyBudget as TravelerProfile['hotelNightlyBudget']) ?? null,
+      hotelLocationPref: ((form.hotelLocationPref as TravelerProfile['hotelLocationPref']) || []),
+      hotelAmenities: ((form.hotelAmenities as TravelerProfile['hotelAmenities']) || []),
       dietaryRestrictions: ((form.dietaryRestrictions as string[]) || []).join(', '),
       mustHave: [
         ...((form.mustHaveItems as string[]) || []),
@@ -1781,7 +1802,12 @@ function PlanPage() {
                         <motion.button
                           key={opt.value}
                           variants={optionVariant}
-                          onClick={() => toggleInterest(opt.value)}
+                          onClick={() => toggleMulti(
+                            question.key,
+                            opt.value,
+                            // City Center / Beach / Quiet / Transit — cap at 2
+                            question.key === 'hotelLocationPref' ? 2 : undefined,
+                          )}
                           whileHover={{ scale: 1.06, y: -3 }}
                           whileTap={{ scale: 0.94 }}
                           animate={
