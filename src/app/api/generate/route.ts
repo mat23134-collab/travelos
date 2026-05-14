@@ -1,9 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { NextRequest, NextResponse } from 'next/server';
-
-// Allow up to 5 min on Vercel Pro/Enterprise (or Railway).
-// Without this, Vercel kills the function after 10s (Hobby) or 60s (Pro default).
-export const maxDuration = 300;
 import { createClient } from '@supabase/supabase-js';
 import { TravelerProfile, ClassifiedResult, type Activity, type DiningSpot } from '@/lib/types';
 import { SYSTEM_PROMPT, buildUserPrompt } from '@/lib/prompts';

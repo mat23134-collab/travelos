@@ -1,0 +1,10 @@
+[deploy]
+# Give the old container up to 120 seconds to finish in-flight requests
+# (e.g. AI trip generation) before Railway terminates it on redeploy.
+# Without this, any active /api/generate call gets a 502 the moment a
+# new deploy lands.
+drainSeconds = 120
+
+# Health-check: Railway waits for the app to be ready before cutting over.
+healthcheckPath = "/"
+healthcheckTimeout = 60
