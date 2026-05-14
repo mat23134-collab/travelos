@@ -113,6 +113,7 @@ export const useOnboardingStore = create<OnboardingState>()(
     {
       name: 'travelos-onboarding',
       partialize: (s) => ({
+        step:           s.step,          // ← persist current step so tab-switch doesn't reset
         destination:    s.destination,
         destinationLat: s.destinationLat,
         destinationLng: s.destinationLng,

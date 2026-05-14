@@ -114,19 +114,30 @@ function OnboardingPageContent() {
 
   useEffect(() => {
     if (!user) return;
-    const resume = searchParams.get('resume') === '1';
+    const resume  = searchParams.get('resume') === '1';
+    const seedDest = searchParams.get('destination')?.trim() ?? '';
+
     if (resume) {
-      // Resume flow from final onboarding step when returning from /plan "Back".
+      // Returning from /plan wizard "Back" → jump to hotel step
       goToStep(3);
       return;
     }
-    // Normal entry starts onboarding from a clean slate.
-    reset();
-    const seedDest = searchParams.get('destination')?.trim();
+
     if (seedDest) {
+      // Home page sent a specific destination → fresh start with that destination
+      reset();
       setDestination(seedDest);
+      return;
     }
-  }, [goToStep, reset, searchParams, user, setDestination]);
+
+    // No special params: restore progress from localStorage (tab-switch / refresh safe).
+    // Only reset if there is genuinely nothing to restore (first-ever visit).
+    const hasProgress = destination.trim().length > 0 || step > 0;
+    if (!hasProgress) {
+      reset();
+    }
+    // else: keep existing step + data — user just switched tabs or refreshed
+  }, [goToStep, reset, searchParams, user, setDestination, destination, step]);
 
   if (loading || !user) {
     return (
