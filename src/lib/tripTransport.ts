@@ -103,18 +103,42 @@ export async function persistTripSessionRow(
     updated_at: new Date().toISOString(),
   };
 
+  // Strategy: try upsert first; on unique violation fall back to UPDATE;
+  // on missing-column errors strip the column and retry.
   for (let i = 0; i < 8; i++) {
-    // If itinerary_id was stripped (missing column), fall back to plain insert
-    // so we at least get a row even if the conflict-key column is absent.
     const hasItinId = 'itinerary_id' in row;
+
     const { error } = hasItinId
       ? await db.from('trips').upsert(row, { onConflict: 'itinerary_id' })
       : await db.from('trips').insert(row);
-    if (!error) return;
 
-    const missing = error.message?.match(/Could not find the '([^']+)' column/)?.[1];
+    if (!error) {
+      console.log('[tripTransport] trips row saved for itinerary:', args.itineraryId);
+      return;
+    }
+
+    const msg = error.message ?? '';
+    console.warn('[tripTransport] trips upsert attempt', i + 1, 'error:', msg);
+
+    // Unique violation (23505) — row already exists, update it instead
+    if (error.code === '23505' || msg.includes('duplicate key') || msg.includes('unique')) {
+      const { id: _id, itinerary_id: _iid, ...updateFields } = row as Record<string, unknown>;
+      const { error: updErr } = await db
+        .from('trips')
+        .update(updateFields)
+        .eq('itinerary_id', args.itineraryId);
+      if (updErr) {
+        console.warn('[tripTransport] trips update fallback failed:', updErr.message);
+      } else {
+        console.log('[tripTransport] trips row updated (fallback) for itinerary:', args.itineraryId);
+      }
+      return;
+    }
+
+    // Missing column — strip and retry
+    const missing = msg.match(/Could not find the '([^']+)' column/)?.[1];
     if (!missing || !(missing in row)) {
-      console.warn('[tripTransport] trips upsert skipped:', error.message);
+      console.warn('[tripTransport] trips upsert skipped (unrecoverable):', msg);
       return;
     }
     delete row[missing];
