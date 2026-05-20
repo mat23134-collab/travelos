@@ -1,7 +1,7 @@
 /**
- * Next.js Edge Middleware — TravelOS Admin Auth
+ * Next.js Edge Middleware — TravelOS
  *
- * Two gestures, zero login page:
+ * Two gestures, zero login page (admin auth):
  *
  *   LOGIN   — visit any URL with  ?key=<ADMIN_SECRET>
  *             Middleware sets both cookies and strips the param.
@@ -9,12 +9,12 @@
  *   LOGOUT  — visit any URL with  ?logout=1
  *             Middleware clears both cookies and strips the param.
  *
- * Cookies set:
- *   travelos_admin     (httpOnly)  — carries the raw secret for server-side checks
- *   travelos_admin_ui  (readable)  — carries "1" for client-side UI show/hide
+ * Supabase SSR session refresh runs on every non-redirect request so that
+ * server components and API routes always receive a fresh JWT in cookies.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient as createSupabaseMiddlewareClient } from '@/utils/supabase/middleware';
 
 const ADMIN_SECRET  = process.env.ADMIN_SECRET ?? '';
 const COOKIE_SECURE = process.env.NODE_ENV === 'production';
@@ -63,7 +63,11 @@ export function middleware(req: NextRequest) {
     return res;
   }
 
-  return NextResponse.next();
+  // ── Supabase SSR session refresh ────────────────────────────────────────────
+  // Keeps the user's JWT fresh by propagating updated session cookies.
+  // Must run on every non-redirect response so server components always have
+  // valid auth context.
+  return createSupabaseMiddlewareClient(req);
 }
 
 // Run on all non-asset paths so ?key= works from any page
