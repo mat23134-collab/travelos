@@ -42,3 +42,7 @@ next-env.d.ts
 
 # Local media (large; keep out of git)
 /ENTRANCE VIDEO 2.mp4
+
+# Claude Code skills
+.agents/
+skills-lock.json
