@@ -400,8 +400,9 @@ export default function AuthPage() {
                         onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(158,54,58,0.55)'; e.currentTarget.style.background = 'rgba(158,54,58,0.07)'; }}
                         onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
                       >
-                        <option value="male" style={{ background: '#091f36', color: '#fff' }}>גבר</option>
-                        <option value="female" style={{ background: '#091f36', color: '#fff' }}>אישה</option>
+                        <option value="male"   style={{ background: '#091f36', color: '#fff' }}>Male</option>
+                        <option value="female" style={{ background: '#091f36', color: '#fff' }}>Female</option>
+                        <option value="other"  style={{ background: '#091f36', color: '#fff' }}>Other</option>
                       </select>
                     </div>
 
@@ -513,8 +514,15 @@ export default function AuthPage() {
           </p>
         </div>
 
-        <p className="text-center text-[10px] text-white/15 mt-5">
-          By continuing you agree to our Terms of Service and Privacy Policy.
+        <p className="text-center text-[10px] text-white/25 mt-5">
+          By continuing you agree to our{' '}
+          <a href="/terms" className="underline underline-offset-2 hover:text-white/60 transition-colors">
+            Terms of Service
+          </a>
+          {' '}and{' '}
+          <a href="/privacy" className="underline underline-offset-2 hover:text-white/60 transition-colors">
+            Privacy Policy
+          </a>.
         </p>
       </motion.div>
     </main>
