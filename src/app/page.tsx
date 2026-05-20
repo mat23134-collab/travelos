@@ -145,7 +145,7 @@ function PostcardCard({
 
         {/* CTA — slides up on hover via group-hover */}
         <div
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-bold text-white opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-bold text-white opacity-60 translate-y-0 group-hover:opacity-100 transition-all duration-300"
           style={{ background: REDLINE }}
         >
           Plan this trip →
