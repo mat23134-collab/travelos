@@ -27,7 +27,7 @@ const brandSerif = Cormorant_Garamond({
 export const metadata: Metadata = {
   title: 'TravelOS — AI-Powered Trip Planning',
   description: 'Transform your travel dreams into hyper-personalized, data-validated itineraries crafted by AI with real-world intelligence.',
-  icons: { icon: '/favicon.ico' },
+  icons: { icon: { url: '/icon.svg', type: 'image/svg+xml' } },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
