@@ -1,43 +1,33 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
   <defs>
-    <!-- Background gradient -->
+    <!-- Background radial gradient -->
     <radialGradient id="bg" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#0d1b2e"/>
-      <stop offset="100%" stop-color="#060f1c"/>
+      <stop offset="0%" stop-color="#0f2d52"/>
+      <stop offset="100%" stop-color="#091f36"/>
     </radialGradient>
 
-    <!-- Purple center glow -->
-    <radialGradient id="purpleGlow" cx="50%" cy="50%" r="40%">
-      <stop offset="0%" stop-color="#5b2d8e" stop-opacity="0.85"/>
-      <stop offset="60%" stop-color="#3a1a6e" stop-opacity="0.40"/>
-      <stop offset="100%" stop-color="#0d1b2e" stop-opacity="0"/>
+    <!-- Purple inner glow -->
+    <radialGradient id="purpleGlow" cx="50%" cy="50%" r="45%">
+      <stop offset="0%" stop-color="#3d2080" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#091f36" stop-opacity="0"/>
     </radialGradient>
 
-    <!-- Neon cyan glow filter for the S -->
-    <filter id="neonGlow" x="-40%" y="-40%" width="180%" height="180%">
-      <feGaussianBlur stdDeviation="6" result="blur1"/>
-      <feGaussianBlur stdDeviation="14" result="blur2"/>
+    <!-- Neon cyan glow for S-curve -->
+    <filter id="sGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="7"  result="b1"/>
+      <feGaussianBlur stdDeviation="18" result="b2"/>
       <feMerge>
-        <feMergeNode in="blur2"/>
-        <feMergeNode in="blur1"/>
+        <feMergeNode in="b2"/>
+        <feMergeNode in="b1"/>
         <feMergeNode in="SourceGraphic"/>
       </feMerge>
     </filter>
 
-    <!-- Subtle glow for diamonds -->
-    <filter id="dimGlow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="3" result="blur"/>
+    <!-- Dot glow -->
+    <filter id="dotGlow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="4" result="b"/>
       <feMerge>
-        <feMergeNode in="blur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-
-    <!-- Red dot glow -->
-    <filter id="redGlow" x="-100%" y="-100%" width="300%" height="300%">
-      <feGaussianBlur stdDeviation="3" result="blur"/>
-      <feMerge>
-        <feMergeNode in="blur"/>
+        <feMergeNode in="b"/>
         <feMergeNode in="SourceGraphic"/>
       </feMerge>
     </filter>
@@ -46,99 +36,56 @@
   <!-- Background -->
   <rect width="512" height="512" fill="url(#bg)"/>
 
-  <!-- Subtle star particles -->
-  <circle cx="80"  cy="90"  r="1.2" fill="white" opacity="0.35"/>
-  <circle cx="430" cy="70"  r="1.0" fill="white" opacity="0.28"/>
-  <circle cx="460" cy="200" r="0.8" fill="white" opacity="0.22"/>
-  <circle cx="55"  cy="350" r="1.0" fill="white" opacity="0.25"/>
-  <circle cx="390" cy="430" r="0.8" fill="white" opacity="0.20"/>
-  <circle cx="140" cy="460" r="1.2" fill="white" opacity="0.30"/>
-  <circle cx="480" cy="310" r="0.9" fill="white" opacity="0.20"/>
+  <!-- Purple center glow -->
+  <ellipse cx="256" cy="256" rx="160" ry="160" fill="url(#purpleGlow)"/>
 
-  <!-- Purple center glow blob -->
-  <ellipse cx="256" cy="256" rx="130" ry="140" fill="url(#purpleGlow)"/>
-
-  <!-- Outer diamond frame (purple) -->
+  <!-- Outer diamond -->
   <polygon
-    points="256,42 460,256 256,470 52,256"
+    points="256,18 494,256 256,494 18,256"
     fill="none"
-    stroke="#7b52b8"
-    stroke-width="5"
-    opacity="0.90"
-    filter="url(#dimGlow)"
+    stroke="#7B68C8"
+    stroke-width="4"
+    stroke-opacity="0.55"
   />
 
-  <!-- Inner diamond frame (black/dark with thin border) -->
+  <!-- Inner diamond -->
   <polygon
-    points="256,88 416,256 256,424 96,256"
+    points="256,90 422,256 256,422 90,256"
     fill="none"
-    stroke="#1a1a2e"
-    stroke-width="18"
-  />
-  <polygon
-    points="256,88 416,256 256,424 96,256"
-    fill="none"
-    stroke="#1e1e3e"
+    stroke="#7B68C8"
     stroke-width="3"
-    opacity="0.60"
+    stroke-opacity="0.42"
   />
 
-  <!-- The neon S curve -->
-  <!-- S path: starts top-center, curves right, crosses center-left, curves right to bottom -->
+  <!-- Horizontal grid lines inside inner diamond -->
+  <line x1="173" y1="173" x2="339" y2="173" stroke="#8BB4D8" stroke-opacity="0.18" stroke-width="2"/>
+  <line x1="131" y1="215" x2="381" y2="215" stroke="#8BB4D8" stroke-opacity="0.18" stroke-width="2"/>
+  <line x1="90"  y1="256" x2="422" y2="256" stroke="#8BB4D8" stroke-opacity="0.15" stroke-width="2"/>
+  <line x1="131" y1="297" x2="381" y2="297" stroke="#8BB4D8" stroke-opacity="0.18" stroke-width="2"/>
+  <line x1="173" y1="339" x2="339" y2="339" stroke="#8BB4D8" stroke-opacity="0.18" stroke-width="2"/>
+
+  <!-- S-curve — glow layer -->
   <path
-    d="M 256,130
-       C 310,130 355,160 355,200
-       C 355,240 300,252 256,256
-       C 212,260 157,272 157,312
-       C 157,352 202,382 256,382"
-    stroke="#00e8f5"
-    stroke-width="22"
+    d="M 256,90 C 418,90 418,256 256,256 C 94,256 94,422 256,422"
+    stroke="#00ccee"
+    stroke-width="24"
     stroke-linecap="round"
     fill="none"
-    filter="url(#neonGlow)"
-    opacity="0.95"
+    filter="url(#sGlow)"
+    opacity="0.92"
   />
-  <!-- Inner bright core of S -->
+
+  <!-- S-curve — bright core -->
   <path
-    d="M 256,130
-       C 310,130 355,160 355,200
-       C 355,240 300,252 256,256
-       C 212,260 157,272 157,312
-       C 157,352 202,382 256,382"
-    stroke="#aaf8ff"
+    d="M 256,90 C 418,90 418,256 256,256 C 94,256 94,422 256,422"
+    stroke="#b8f4ff"
     stroke-width="6"
     stroke-linecap="round"
     fill="none"
-    opacity="0.90"
   />
 
-  <!-- Red connection dots (control points on the diamond corners) -->
-  <!-- Top of S -->
-  <circle cx="256" cy="130" r="9" fill="#e83a3a" filter="url(#redGlow)"/>
-  <!-- Top-right area -->
-  <circle cx="355" cy="200" r="7" fill="#e83a3a" filter="url(#redGlow)" opacity="0.85"/>
-  <!-- Center-left -->
-  <circle cx="157" cy="256" r="9" fill="#e83a3a" filter="url(#redGlow)"/>
-  <!-- Center (crossing point) -->
-  <circle cx="256" cy="256" r="8" fill="#c02828" filter="url(#redGlow)" opacity="0.90"/>
-  <!-- Center-right -->
-  <circle cx="355" cy="312" r="7" fill="#e83a3a" filter="url(#redGlow)" opacity="0.85"/>
-  <!-- Bottom of S -->
-  <circle cx="256" cy="382" r="9" fill="#e83a3a" filter="url(#redGlow)"/>
-
-  <!-- Small tangent lines near red dots (like in the original) -->
-  <line x1="345" y1="192" x2="365" y2="208" stroke="#cc3333" stroke-width="3" stroke-linecap="round" opacity="0.70"/>
-  <line x1="147" y1="304" x2="167" y2="320" stroke="#cc3333" stroke-width="3" stroke-linecap="round" opacity="0.70"/>
-
-  <!-- Cyan dots on the S curve (control handles) -->
-  <circle cx="310" cy="137" r="8" fill="#00e8f5" filter="url(#neonGlow)" opacity="0.90"/>
-  <circle cx="210" cy="375" r="8" fill="#00e8f5" filter="url(#neonGlow)" opacity="0.90"/>
-  <!-- Center S midpoint cyan -->
-  <circle cx="290" cy="210" r="6" fill="#00e8f5" opacity="0.70"/>
-
-  <!-- 4-pointed star sparkle — bottom right -->
-  <g transform="translate(430, 440)">
-    <path d="M0,-16 L3,-3 L16,0 L3,3 L0,16 L-3,3 L-16,0 L-3,-3 Z"
-      fill="white" opacity="0.85"/>
-  </g>
+  <!-- Orange anchor dots -->
+  <circle cx="256" cy="90"  r="16" fill="#E07840" filter="url(#dotGlow)"/>
+  <circle cx="256" cy="256" r="13" fill="#E07840" filter="url(#dotGlow)"/>
+  <circle cx="256" cy="422" r="16" fill="#E07840" filter="url(#dotGlow)"/>
 </svg>

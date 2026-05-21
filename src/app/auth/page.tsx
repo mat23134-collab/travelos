@@ -233,8 +233,7 @@ export default function AuthPage() {
         >
           {/* Brand mark */}
           <div className="text-center mb-8">
-            <BrandWordmark accent="#9e363a" className="text-2xl" />
-            <p className="text-white/35 text-sm mt-1">Your AI trip planner</p>
+            <BrandWordmark accent="#D4784A" className="text-xl" variant="full" />
           </div>
 
           {/* Tab switcher */}
