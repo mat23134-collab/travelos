@@ -9,6 +9,8 @@ import type { TripLanguage } from '@/lib/types';
 import { persistTripLanguagePref } from '@/lib/tripLanguagePref';
 import { TripLanguageGateModal } from '@/components/TripLanguageGateModal';
 import { BrandWordmark } from '@/components/BrandWordmark';
+import { DESTINATIONS } from '@/lib/destinations';
+import type { Destination } from '@/lib/destinations';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 // Night palette — deep lounge, not pitch black
@@ -19,13 +21,6 @@ const MUTED   = '#64748b';
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 
-const DESTINATIONS = [
-  { name: 'Rome',     country: 'Italy',   vibe: 'Eternal',  flag: '🇮🇹' },
-  { name: 'Paris',    country: 'France',  vibe: 'Luminous', flag: '🇫🇷' },
-  { name: 'London',   country: 'UK',      vibe: 'Electric', flag: '🇬🇧' },
-  { name: 'Athens',   country: 'Greece',  vibe: 'Ancient',  flag: '🇬🇷' },
-  { name: 'Budapest', country: 'Hungary', vibe: 'Opulent',  flag: '🇭🇺' },
-];
 
 const FEATURES = [
   { icon: '🧠', title: 'Claude AI Intelligence',   body: 'Analyzes your traveler DNA against live 2026 data to craft plans no generic builder can replicate.' },
@@ -47,7 +42,7 @@ function PostcardCard({
   index,
   onSelect,
 }: {
-  dest: (typeof DESTINATIONS)[0];
+  dest: Destination;
   index: number;
   onSelect: (name: string) => void;
 }) {
@@ -132,7 +127,7 @@ function PostcardCard({
           className="text-xs italic font-light tracking-wide mb-1"
           style={{ color: 'rgba(255,255,255,0.45)' }}
         >
-          {dest.vibe}
+          {dest.tagline}
         </div>
         <div
           className="font-black text-2xl text-white leading-tight"
