@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth-context';
 import { BrandWordmark } from '@/components/BrandWordmark';
 import { supabaseAuth } from '@/lib/supabase';
 import { normalizeUsername, validateUsernameShape } from '@/lib/username';
+import { loadAndClearPendingIntent } from '@/lib/pendingIntent';
 
 type Mode = 'login' | 'signup';
 type Gender = 'male' | 'female';
@@ -58,9 +59,16 @@ export default function AuthPage() {
     setBusy(false);
   };
 
-  // Already logged in → redirect to dashboard
+  // Already logged in → restore pending intent or go to dashboard
   useEffect(() => {
-    if (!loading && user) router.replace('/dashboard');
+    if (!loading && user) {
+      const intent = loadAndClearPendingIntent();
+      if (intent?.destination) {
+        router.replace(`/plan?destination=${encodeURIComponent(intent.destination)}`);
+      } else {
+        router.replace('/dashboard');
+      }
+    }
   }, [user, loading, router]);
 
   // Always enter this page in a clean state.
@@ -176,8 +184,13 @@ export default function AuthPage() {
     } else {
       await syncProfileFromSession();
       setBusy(false);
-      // Successful login → go to dashboard
-      router.push('/dashboard');
+      // Restore pending trip intent (destination chosen before auth round-trip)
+      const intent = loadAndClearPendingIntent();
+      if (intent?.destination) {
+        router.push(`/plan?destination=${encodeURIComponent(intent.destination)}`);
+      } else {
+        router.push('/dashboard');
+      }
     }
   };
 

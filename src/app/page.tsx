@@ -11,6 +11,7 @@ import { TripLanguageGateModal } from '@/components/TripLanguageGateModal';
 import { BrandWordmark } from '@/components/BrandWordmark';
 import { DESTINATIONS } from '@/lib/destinations';
 import type { Destination } from '@/lib/destinations';
+import { savePendingIntent } from '@/lib/pendingIntent';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 // Night palette — deep lounge, not pitch black
@@ -201,7 +202,11 @@ export default function HomePage() {
   const confirmTripLanguage = (lang: TripLanguage) => {
     persistTripLanguagePref(lang);
     setShowLangModal(false);
-    if (!user) { setShowAuthGate(true); return; }
+    if (!user) {
+      savePendingIntent({ destination: pendingDest ?? undefined });
+      setShowAuthGate(true);
+      return;
+    }
     if (pendingDest) {
       router.push(`/plan?destination=${encodeURIComponent(pendingDest)}`);
     } else {
