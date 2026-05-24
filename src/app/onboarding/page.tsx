@@ -18,7 +18,7 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
-import { Suspense, useEffect } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useOnboardingStore } from '@/state/onboardingStore';
 import { getStepBackground } from '@/lib/stepBackgrounds';
 import { readTripLanguagePref } from '@/lib/tripLanguagePref';
@@ -105,7 +105,7 @@ function OnboardingPageContent() {
     setDestination,
   } = useOnboardingStore();
 
-  const dir = 1; // always forward
+  const [dir, setDir] = useState(1);
 
   useEffect(() => {
     if (loading) return;
@@ -248,10 +248,10 @@ function OnboardingPageContent() {
               exit="exit"
               style={{ transformStyle: 'preserve-3d' }}
             >
-              {step === 0 && <DestinationStep onNext={nextStep} />}
-              {step === 1 && <DatesStep       onNext={nextStep}       onBack={prevStep} />}
-              {step === 2 && <LogisticsStep   onNext={nextStep}       onBack={prevStep} />}
-              {step === 3 && <HotelStep       onNext={handleComplete} onBack={prevStep} />}
+              {step === 0 && <DestinationStep onNext={() => { setDir(1); nextStep(); }} />}
+              {step === 1 && <DatesStep       onNext={() => { setDir(1); nextStep(); }}  onBack={() => { setDir(-1); prevStep(); }} />}
+              {step === 2 && <LogisticsStep   onNext={() => { setDir(1); nextStep(); }}  onBack={() => { setDir(-1); prevStep(); }} />}
+              {step === 3 && <HotelStep       onNext={handleComplete}                    onBack={() => { setDir(-1); prevStep(); }} />}
             </motion.div>
           </AnimatePresence>
         </div>

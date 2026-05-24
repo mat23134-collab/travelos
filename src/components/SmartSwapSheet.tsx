@@ -153,6 +153,7 @@ export function SmartSwapSheet({
             type="button"
             onClick={onClose}
             whileTap={{ scale: 0.88 }}
+            aria-label="Close Smart Swap"
             className="w-8 h-8 rounded-full flex items-center justify-center text-white/45 hover:text-white border border-white/12 bg-white/5 text-xs shrink-0"
           >
             ✕

@@ -116,6 +116,7 @@ function HotelDetailCube({
             type="button"
             onClick={onClose}
             whileTap={{ scale: 0.85 }}
+            aria-label="Close hotel details"
             className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold z-10"
             style={{ background: 'rgba(18,52,59,0.82)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.12)' }}
           >
@@ -1131,6 +1132,7 @@ function TripIntelligenceButton({ meta, ui }: { meta: NonNullable<Itinerary['_me
                   <motion.button
                     onClick={() => setOpen(false)}
                     whileTap={{ scale: 0.85 }}
+                    aria-label="Close Trip Intelligence"
                     className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-white/50 hover:bg-white/15 transition-colors text-xs"
                   >
                     ✕
@@ -1239,6 +1241,7 @@ function MobileMapOverlay({
             <motion.button
               onClick={onClose}
               whileTap={{ scale: 0.88, transition: { type: 'spring', stiffness: 600, damping: 18 } }}
+              aria-label="Close map"
               className="w-8 h-8 flex items-center justify-center rounded-full text-sm transition-colors"
               style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.55)' }}
               onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.14)')}

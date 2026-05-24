@@ -106,12 +106,8 @@ export function HotelStep({
     setErrMsg('');
     try {
       const q = `${manualQuery.trim()} ${destination || ''}`.trim();
-      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`;
-      const res = await fetch(url, {
-        headers: {
-          'Accept-Language': 'en',
-        },
-      });
+      const url = `/api/geocode?q=${encodeURIComponent(q)}`;
+      const res = await fetch(url);
       if (!res.ok) throw new Error('Could not search this hotel right now');
       const data: NominatimResult[] = await res.json();
       const first = data?.[0];
@@ -277,6 +273,7 @@ export function HotelStep({
               </div>
               <button
                 onClick={handleClear}
+                aria-label="Clear hotel selection"
                 className="shrink-0 text-xs transition-colors mt-0.5"
                 style={{ color: 'rgba(197,145,42,0.5)' }}
                 onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = '#c5912a')}

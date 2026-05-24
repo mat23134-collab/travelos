@@ -140,6 +140,7 @@ function CalendarRangePicker({
       <div className="flex items-center justify-between px-4 py-3.5 border-b" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
         <button
           onClick={prevMonth}
+          aria-label="Previous month"
           className="w-8 h-8 rounded-full flex items-center justify-center transition-colors text-sm"
           style={{ color: 'rgba(255,255,255,0.50)' }}
           onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
@@ -152,6 +153,7 @@ function CalendarRangePicker({
         </span>
         <button
           onClick={nextMonth}
+          aria-label="Next month"
           className="w-8 h-8 rounded-full flex items-center justify-center transition-colors text-sm"
           style={{ color: 'rgba(255,255,255,0.50)' }}
           onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}

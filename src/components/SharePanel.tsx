@@ -259,6 +259,7 @@ export function SharePanel({ itinerary, profile, itineraryDbId, accessToken: acc
                         type="button"
                         onClick={() => setOpen(false)}
                         whileTap={{ scale: 0.85 }}
+                        aria-label="Close share panel"
                         className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-white/50 hover:bg-white/15 transition-colors text-xs"
                       >
                         ✕

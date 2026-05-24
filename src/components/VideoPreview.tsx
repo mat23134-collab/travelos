@@ -26,6 +26,7 @@ export function VideoPreview({ videoUrl, activityName }: Props) {
         ) : (
           <button
             onClick={() => setPlaying(true)}
+            aria-label="Play video"
             className="w-full h-full relative flex items-center justify-center"
           >
             <div className="absolute inset-0 bg-gradient-to-br from-[#ff5a5f]/80 to-[#8b5cf6]/80" />

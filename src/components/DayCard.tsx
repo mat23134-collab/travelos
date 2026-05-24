@@ -494,6 +494,7 @@ function ActivityModal({
           <motion.button
             onClick={onClose}
             whileTap={{ scale: 0.85 }}
+            aria-label="Close activity details"
             className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold z-10"
             style={{ background: 'rgba(15,17,23,0.75)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.12)' }}
           >
@@ -881,6 +882,7 @@ function BentoTile({
                     onRefresh();
                   }}
                   disabled={refreshing}
+                  aria-label="Refresh activity"
                   whileTap={{ scale: 0.82 }}
                   animate={refreshing ? { rotate: 360 } : { rotate: 0 }}
                   transition={refreshing ? { duration: 0.7, repeat: Infinity, ease: 'linear' } : {}}

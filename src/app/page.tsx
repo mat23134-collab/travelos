@@ -119,6 +119,7 @@ function PostcardCard({
         onClick={(e) => { e.stopPropagation(); setLiked((l) => !l); }}
         whileTap={{ scale: 0.78 }}
         transition={{ type: 'spring', stiffness: 600, damping: 20 }}
+        aria-label={liked ? 'Remove from favourites' : 'Add to favourites'}
       >
         <span style={{ color: liked ? REDLINE : 'rgba(255,255,255,0.45)', fontSize: 13 }}>
           {liked ? '♥' : '♡'}
