@@ -3,13 +3,16 @@
 /**
  * Onboarding page — single-page progressive flow.
  *
- * Three sections reveal one after another as the user completes each:
+ * Five sections reveal one after another as the user completes each:
  *   1. Destination  — country → trip type → city/cities
  *   2. Dates        — calendar range + optional travel details
- *   3. Hotel        — optional anchor hotel (skip available)
+ *   3. Vibe         — who's traveling + pace (2 quick taps, auto-advances)
+ *   4. Preferences  — budget (required) + interests (optional multi-select)
+ *   5. Hotel        — optional anchor hotel (skip available)
  *
- * No page-to-page navigation. Each completed section collapses to a
- * summary bar with an Edit button. Clean spring-based reveals.
+ * Completed sections collapse to a summary bar with an Edit button.
+ * The floating "Generate My Itinerary" CTA appears once dates are set,
+ * so the user always has an escape hatch — more sections = better trip.
  */
 
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -29,23 +32,53 @@ const DatesSection = dynamic(
   () => import('./sections/DatesSection').then((m) => ({ default: m.DatesSection })),
   { ssr: false }
 );
+const VibeSection = dynamic(
+  () => import('./sections/VibeSection').then((m) => ({ default: m.VibeSection })),
+  { ssr: false }
+);
+const PreferencesSection = dynamic(
+  () => import('./sections/PreferencesSection').then((m) => ({ default: m.PreferencesSection })),
+  { ssr: false }
+);
 const HotelSection = dynamic(
   () => import('./sections/HotelSection').then((m) => ({ default: m.HotelSection })),
   { ssr: false }
 );
 
-// ── Phases ────────────────────────────────────────────────────────────────────
-// 'destination' → only section 1 shown
-// 'dates'       → section 1 completed, section 2 active
-// 'hotel'       → sections 1+2 completed, section 3 active
-type Phase = 'destination' | 'dates' | 'hotel';
+// ── Progress bar ──────────────────────────────────────────────────────────────
+//  step 0 = destination active   → 0 / 5 filled
+//  step 1 = dates active         → 1 / 5 filled
+//  step 2 = vibe active          → 2 / 5 filled
+//  step 3 = preferences active   → 3 / 5 filled
+//  step 4 = hotel active         → 4 / 5 filled
 
-// We store phase in session state using the Zustand step field:
-//   step 0 = destination, step 1 = dates, step 2 = hotel
-function phaseFromStep(step: number): Phase {
-  if (step >= 2) return 'hotel';
-  if (step >= 1) return 'dates';
-  return 'destination';
+const STEP_LABELS = ['Destination', 'Dates', 'Vibe', 'Style', 'Hotel'];
+const STEP_COLORS = ['#9e363a', '#4a7bde', '#7b6fcf', '#c5912a', '#2e9e74'];
+
+function ProgressBar({ step }: { step: number }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      {STEP_LABELS.map((label, i) => {
+        const done    = i < step;
+        const active  = i === step;
+        return (
+          <div key={label} className="relative flex flex-col items-center gap-1">
+            <div
+              className="rounded-full transition-all duration-500"
+              style={{
+                width:  active ? 22 : done ? 8 : 6,
+                height: 6,
+                background: done    ? STEP_COLORS[i]
+                           : active ? STEP_COLORS[i]
+                           : 'rgba(255,255,255,0.10)',
+                opacity: done ? 0.65 : 1,
+              }}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
@@ -56,20 +89,12 @@ function Skeleton() {
   );
 }
 
-// ── Progress dots ─────────────────────────────────────────────────────────────
-const DOT_COLORS = ['#9e363a', '#4a7bde', '#c5912a'];
-function ProgressDots({ phase }: { phase: Phase }) {
-  const idx = phase === 'hotel' ? 2 : phase === 'dates' ? 1 : 0;
+// ── Connector line ────────────────────────────────────────────────────────────
+function Connector({ from, to }: { from: string; to: string }) {
   return (
-    <div className="flex items-center gap-2">
-      {DOT_COLORS.map((color, i) => (
-        <div key={i} className="rounded-full transition-all duration-300"
-          style={{
-            width:  i === idx ? 20 : 6,
-            height: 6,
-            background: i === idx ? color : i < idx ? `${color}66` : 'rgba(255,255,255,0.12)',
-          }} />
-      ))}
+    <div className="flex justify-center my-4">
+      <div className="w-px h-6"
+        style={{ background: `linear-gradient(to bottom, ${from}, ${to})` }} />
     </div>
   );
 }
@@ -82,7 +107,7 @@ const sectionReveal = {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 function OnboardingPageContent() {
-  const router = useRouter();
+  const router       = useRouter();
   const searchParams = useSearchParams();
   const { user, loading } = useAuth();
 
@@ -90,14 +115,15 @@ function OnboardingPageContent() {
     step, destination, startDate, endDate,
     arrivalTime, departureTime, dailyStartTime,
     skipDay1, hotelAddress, hotelLat, hotelLng,
+    groupType, pace, budget, interests,
     nextStep, goToStep, reset, setDestination,
   } = useOnboardingStore();
 
-  const phase = phaseFromStep(step);
-
   // Refs for auto-scroll when new sections appear
-  const datesRef = useRef<HTMLDivElement>(null);
-  const hotelRef = useRef<HTMLDivElement>(null);
+  const datesRef       = useRef<HTMLDivElement>(null);
+  const vibeRef        = useRef<HTMLDivElement>(null);
+  const prefsRef       = useRef<HTMLDivElement>(null);
+  const hotelRef       = useRef<HTMLDivElement>(null);
 
   // Auth guard
   useEffect(() => {
@@ -110,7 +136,7 @@ function OnboardingPageContent() {
     const resume   = searchParams.get('resume') === '1';
     const seedDest = searchParams.get('destination')?.trim() ?? '';
 
-    if (resume) { goToStep(2); return; }
+    if (resume) { goToStep(4); return; }
     if (seedDest) { reset(); setDestination(seedDest); return; }
 
     const hasProgress = destination.trim().length > 0 || step > 0;
@@ -134,12 +160,22 @@ function OnboardingPageContent() {
   }
 
   function onDestinationComplete() {
-    nextStep(); // step 0 → 1 (destination → dates)
+    nextStep(); // 0 → 1
     scrollToRef(datesRef);
   }
 
   function onDatesComplete() {
-    nextStep(); // step 1 → 2 (dates → hotel)
+    nextStep(); // 1 → 2
+    scrollToRef(vibeRef);
+  }
+
+  function onVibeComplete() {
+    nextStep(); // 2 → 3
+    scrollToRef(prefsRef);
+  }
+
+  function onPrefsComplete() {
+    nextStep(); // 3 → 4
     scrollToRef(hotelRef);
   }
 
@@ -157,6 +193,12 @@ function OnboardingPageContent() {
       params.set('hotelLat', String(hotelLat));
       params.set('hotelLng', String(hotelLng));
     }
+    // New preference params — let plan page skip those questions
+    if (groupType)        params.set('groupType',  groupType);
+    if (pace)             params.set('pace',       pace);
+    if (budget)           params.set('budget',     budget);
+    if (interests.length) params.set('interests',  interests.join(','));
+
     const lang = readTripLanguagePref();
     if (lang === 'he' || lang === 'en') params.set('tripLang', lang);
     router.push(`/plan?${params.toString()}`);
@@ -180,12 +222,12 @@ function OnboardingPageContent() {
       </div>
 
       {/* Content column */}
-      <div className="relative z-10 max-w-xl mx-auto px-5 sm:px-8 py-8 pb-32">
+      <div className="relative z-10 max-w-xl mx-auto px-5 sm:px-8 py-8 pb-36">
 
         {/* Top bar */}
         <div className="flex items-center justify-between mb-10">
           <BrandWordmark accent="#9e363a" className="text-sm" />
-          <ProgressDots phase={phase} />
+          <ProgressBar step={step} />
         </div>
 
         {/* Page title */}
@@ -200,12 +242,7 @@ function OnboardingPageContent() {
         </div>
 
         {/* ── Section 1: Destination ─────────────────────────────────────── */}
-        <motion.div
-          variants={sectionReveal}
-          initial="hidden"
-          animate="visible"
-          className="mb-4"
-        >
+        <motion.div variants={sectionReveal} initial="hidden" animate="visible" className="mb-4">
           <Suspense fallback={<Skeleton />}>
             <DestinationSection
               isCompleted={step >= 1}
@@ -218,18 +255,9 @@ function OnboardingPageContent() {
         {/* ── Section 2: Dates ───────────────────────────────────────────── */}
         <AnimatePresence>
           {step >= 1 && (
-            <motion.div
-              ref={datesRef}
-              key="dates-section"
-              variants={sectionReveal}
-              initial="hidden"
-              animate="visible"
-              className="mt-4 mb-4"
-            >
-              {/* Connector line */}
-              <div className="flex justify-center mb-4">
-                <div className="w-px h-6" style={{ background: 'linear-gradient(to bottom, rgba(158,54,58,0.30), rgba(74,123,222,0.30))' }} />
-              </div>
+            <motion.div ref={datesRef} key="dates-section"
+              variants={sectionReveal} initial="hidden" animate="visible">
+              <Connector from="rgba(158,54,58,0.30)" to="rgba(74,123,222,0.30)" />
               <Suspense fallback={<Skeleton />}>
                 <DatesSection
                   isCompleted={step >= 2}
@@ -241,20 +269,46 @@ function OnboardingPageContent() {
           )}
         </AnimatePresence>
 
-        {/* ── Section 3: Hotel ───────────────────────────────────────────── */}
+        {/* ── Section 3: Vibe ────────────────────────────────────────────── */}
         <AnimatePresence>
           {step >= 2 && (
-            <motion.div
-              ref={hotelRef}
-              key="hotel-section"
-              variants={sectionReveal}
-              initial="hidden"
-              animate="visible"
-              className="mt-4"
-            >
-              <div className="flex justify-center mb-4">
-                <div className="w-px h-6" style={{ background: 'linear-gradient(to bottom, rgba(74,123,222,0.30), rgba(197,145,42,0.30))' }} />
-              </div>
+            <motion.div ref={vibeRef} key="vibe-section"
+              variants={sectionReveal} initial="hidden" animate="visible">
+              <Connector from="rgba(74,123,222,0.30)" to="rgba(123,111,207,0.30)" />
+              <Suspense fallback={<Skeleton />}>
+                <VibeSection
+                  isCompleted={step >= 3}
+                  onComplete={onVibeComplete}
+                  onEdit={() => goToStep(2)}
+                />
+              </Suspense>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── Section 4: Preferences ─────────────────────────────────────── */}
+        <AnimatePresence>
+          {step >= 3 && (
+            <motion.div ref={prefsRef} key="prefs-section"
+              variants={sectionReveal} initial="hidden" animate="visible">
+              <Connector from="rgba(123,111,207,0.30)" to="rgba(197,145,42,0.30)" />
+              <Suspense fallback={<Skeleton />}>
+                <PreferencesSection
+                  isCompleted={step >= 4}
+                  onComplete={onPrefsComplete}
+                  onEdit={() => goToStep(3)}
+                />
+              </Suspense>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── Section 5: Hotel ───────────────────────────────────────────── */}
+        <AnimatePresence>
+          {step >= 4 && (
+            <motion.div ref={hotelRef} key="hotel-section"
+              variants={sectionReveal} initial="hidden" animate="visible">
+              <Connector from="rgba(197,145,42,0.30)" to="rgba(46,158,116,0.30)" />
               <Suspense fallback={<Skeleton />}>
                 <HotelSection
                   isCompleted={false}
@@ -268,9 +322,9 @@ function OnboardingPageContent() {
         </AnimatePresence>
       </div>
 
-      {/* ── Floating CTA — appears once dates are set ──────────────────────── */}
+      {/* ── Floating CTA — appears once preferences are set ────────────────── */}
       <AnimatePresence>
-        {step >= 2 && (
+        {step >= 4 && (
           <motion.div
             key="floating-cta"
             initial={{ y: 80, opacity: 0 }}

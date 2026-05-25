@@ -47,6 +47,14 @@ export interface OnboardingState {
   hotelLat:     number | null;
   hotelLng:     number | null;
 
+  // Step 4: Vibe — who's traveling + pace
+  groupType: 'solo' | 'couple' | 'family' | 'group' | '';
+  pace:      'relaxed' | 'moderate' | 'intense' | '';
+
+  // Step 5: Preferences — interests + budget
+  interests: string[];
+  budget:    'budget' | 'mid-range' | 'luxury' | '';
+
   // ── Actions ──────────────────────────────────────────────────────────────
   setCountry:        (c: string) => void;
   setTripType:       (t: 'single' | 'multi') => void;
@@ -62,6 +70,11 @@ export interface OnboardingState {
   setDailyStartTime: (time: string) => void;
   setHotelLocation:  (address: string, lat: number, lng: number) => void;
   clearHotelLocation: () => void;
+  setGroupType:      (gt: 'solo' | 'couple' | 'family' | 'group') => void;
+  setPace:           (p: 'relaxed' | 'moderate' | 'intense') => void;
+  setBudget:         (b: 'budget' | 'mid-range' | 'luxury') => void;
+  setInterests:      (interests: string[]) => void;
+  toggleInterest:    (interest: string) => void;
   nextStep:  () => void;
   prevStep:  () => void;
   goToStep:  (n: number) => void;
@@ -82,6 +95,7 @@ const INITIAL: Omit<
   | 'setDestinationGeo'
   | 'setArrivalTime' | 'setDepartureTime' | 'setDailyStartTime'
   | 'setHotelLocation' | 'clearHotelLocation'
+  | 'setGroupType' | 'setPace' | 'setBudget' | 'setInterests' | 'toggleInterest'
   | 'nextStep' | 'prevStep' | 'goToStep' | 'reset'
 > = {
   step:           0,
@@ -100,6 +114,10 @@ const INITIAL: Omit<
   hotelLng:       null,
   destinationLat: null,
   destinationLng: null,
+  groupType:      '',
+  pace:           '',
+  interests:      [],
+  budget:         '',
 };
 
 export const useOnboardingStore = create<OnboardingState>()(
@@ -153,6 +171,16 @@ export const useOnboardingStore = create<OnboardingState>()(
       clearHotelLocation: () =>
         set({ hotelAddress: '', hotelLat: null, hotelLng: null }),
 
+      setGroupType: (gt) => set({ groupType: gt }),
+      setPace:      (p)  => set({ pace: p }),
+      setBudget:    (b)  => set({ budget: b }),
+      setInterests: (interests) => set({ interests }),
+      toggleInterest: (interest) => set((s) => ({
+        interests: s.interests.includes(interest)
+          ? s.interests.filter((i) => i !== interest)
+          : [...s.interests, interest],
+      })),
+
       nextStep: () => set((s) => ({ step: s.step + 1 })),
       prevStep: () => set((s) => ({ step: Math.max(0, s.step - 1) })),
       goToStep: (n) => set({ step: n }),
@@ -178,6 +206,10 @@ export const useOnboardingStore = create<OnboardingState>()(
         hotelAddress:   s.hotelAddress,
         hotelLat:       s.hotelLat,
         hotelLng:       s.hotelLng,
+        groupType:      s.groupType,
+        pace:           s.pace,
+        interests:      s.interests,
+        budget:         s.budget,
       }),
     },
   ),

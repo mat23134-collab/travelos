@@ -1223,6 +1223,13 @@ function PlanPage() {
     const preHotelLat = preHotelLatRaw != null ? Number(preHotelLatRaw) : null;
     const preHotelLng = preHotelLngRaw != null ? Number(preHotelLngRaw) : null;
 
+    // ── Onboarding preference params (skip those questions if pre-filled) ──
+    const preGroupType  = searchParams.get('groupType')  ?? '';
+    const prePace       = searchParams.get('pace')       ?? '';
+    const preBudget     = searchParams.get('budget')     ?? '';
+    const preInterestsRaw = searchParams.get('interests') ?? '';
+    const preInterests  = preInterestsRaw ? preInterestsRaw.split(',').filter(Boolean) : [];
+
     const tripLangParam = searchParams.get('tripLang');
     const prefLang = readTripLanguagePref();
     const initialTripLang: TravelerProfile['tripLanguage'] =
@@ -1239,15 +1246,19 @@ function PlanPage() {
       prefLang === 'en';
     setShowTripLangGate(!hasExplicitTripLang);
 
+    const validGroupTypes = ['solo', 'couple', 'family', 'group'];
+    const validPaces      = ['relaxed', 'moderate', 'intense'];
+    const validBudgets    = ['budget', 'mid-range', 'luxury'];
+
     setForm({
       groupSize: 2,
       familyParents: 2 as 1 | 2,
       familyKidsByAge: {} as FamilyKidsByAge,
       tripLanguage: initialTripLang,
-      interests: [],
+      interests:           preInterests.length ? preInterests : [],
       dietaryRestrictions: [],
-      mustHaveItems: [],
-      mustHaveOther: '',
+      mustHaveItems:       [],
+      mustHaveOther:       '',
       destination:    preDestination,
       startDate:      preStartDate,
       endDate:        preEndDate,
@@ -1259,6 +1270,10 @@ function PlanPage() {
       hotelAddress:   preHotelAddress,
       hotelLat:       Number.isFinite(preHotelLat) ? preHotelLat : null,
       hotelLng:       Number.isFinite(preHotelLng) ? preHotelLng : null,
+      // Pre-fill from onboarding — these skip their wizard steps below
+      groupType: validGroupTypes.includes(preGroupType) ? preGroupType : '',
+      pace:      validPaces.includes(prePace)           ? prePace      : '',
+      budget:    validBudgets.includes(preBudget)       ? preBudget    : '',
     });
     setPlanGateReady(true);
   }, [router, planSearchKey]);
@@ -1266,6 +1281,13 @@ function PlanPage() {
   const hasHotelAnchor =
     !!(form.hotelBooked as string)?.trim() ||
     (typeof form.hotelLat === 'number' && typeof form.hotelLng === 'number');
+
+  // Params pre-filled from the onboarding flow
+  const hasPreGroupType  = !!(form.groupType as string);
+  const hasPreBudget     = !!(form.budget as string);
+  const hasPrePace       = !!(form.pace as string);
+  const hasPreInterests  = ((form.interests as string[]) || []).length > 0;
+
   const activeQuestions = PLAN_QUESTIONS.filter((q) => {
     // groupSize slider: only shown for 'group' — solo/couple/family auto-derive it
     if (q.key === 'groupSize' && (form.groupType as string) !== 'group') return false;
@@ -1276,6 +1298,11 @@ function PlanPage() {
       q.key === 'hotelLocationPref' ||
       q.key === 'hotelAmenities'
     )) return false;
+    // Onboarding pre-fills: skip questions already answered
+    if (hasPreGroupType && (q.key === 'groupType' || q.key === 'groupSize')) return false;
+    if (hasPreBudget    &&  q.key === 'budget')    return false;
+    if (hasPrePace      &&  q.key === 'pace')      return false;
+    if (hasPreInterests &&  q.key === 'interests') return false;
     return true;
   });
   const question = activeQuestions[step];
