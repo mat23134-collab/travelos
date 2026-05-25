@@ -185,29 +185,14 @@ export function HotelSection({ isCompleted, onComplete, onSkip, onEdit }: Props)
         </p>
       </div>
 
-      {/* Actions */}
-      <div className="flex flex-col gap-3">
-        <motion.button
-          onClick={onComplete}
-          whileHover={{ scale: 1.02, y: -2 }}
-          whileTap={{ scale: 0.97 }}
-          className="w-full py-4 rounded-full text-sm font-black tracking-wide"
-          style={confirmed
-            ? { background: `linear-gradient(135deg, ${GOLD}, #d4a235)`, color: '#071629', boxShadow: `0 0 40px rgba(197,145,42,0.48), 0 8px 24px -4px rgba(197,145,42,0.35)` }
-            : { background: `linear-gradient(135deg, ${RED}, ${RED2})`, color: '#fff', boxShadow: `0 0 40px rgba(158,54,58,0.40), 0 8px 24px -4px rgba(158,54,58,0.28)` }
-          }
-        >
-          {confirmed ? '🏨 Build My Trip →' : 'Build My Trip →'}
-        </motion.button>
-
-        <button
-          onClick={onSkip}
-          className="text-xs text-center transition-colors hover-text-faint"
-          style={{ color: 'rgba(79,95,118,0.7)' }}
-        >
-          Skip — I'll add my hotel later
-        </button>
-      </div>
+      {/* Skip link — the floating CTA is the primary generate action */}
+      <button
+        onClick={onSkip}
+        className="text-xs text-center transition-colors hover-text-faint"
+        style={{ color: 'rgba(79,95,118,0.7)' }}
+      >
+        Skip — I'll add my hotel later
+      </button>
     </div>
   );
 }
