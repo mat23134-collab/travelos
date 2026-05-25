@@ -1179,6 +1179,7 @@ function PlanPage() {
   const [error, setError] = useState('');           // validation error (inline)
   const [genError, setGenError] = useState('');     // generation/timeout error (banner)
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [autoGeneratePending, setAutoGeneratePending] = useState(false);
   // SSE streaming state
   const [streamedPlaces, setStreamedPlaces] = useState<PlaceEvent[]>([]);
   const [streamedTips,   setStreamedTips]   = useState<string[]>([]);
@@ -1229,6 +1230,9 @@ function PlanPage() {
     const preBudget     = searchParams.get('budget')     ?? '';
     const preInterestsRaw = searchParams.get('interests') ?? '';
     const preInterests  = preInterestsRaw ? preInterestsRaw.split(',').filter(Boolean) : [];
+    const preAccommodation      = searchParams.get('accommodation')      ?? '';
+    const preHotelNightlyBudget = searchParams.get('hotelNightlyBudget') ?? '';
+    const autoGenerateFlag = searchParams.get('autoGenerate') === '1';
 
     const tripLangParam = searchParams.get('tripLang');
     const prefLang = readTripLanguagePref();
@@ -1246,9 +1250,11 @@ function PlanPage() {
       prefLang === 'en';
     setShowTripLangGate(!hasExplicitTripLang);
 
-    const validGroupTypes = ['solo', 'couple', 'family', 'group'];
-    const validPaces      = ['relaxed', 'moderate', 'intense'];
-    const validBudgets    = ['budget', 'mid-range', 'luxury'];
+    const validGroupTypes       = ['solo', 'couple', 'family', 'group'];
+    const validPaces            = ['relaxed', 'moderate', 'intense'];
+    const validBudgets          = ['budget', 'mid-range', 'luxury'];
+    const validAccommodations   = ['hostel', 'boutique-hotel', 'luxury-hotel', 'airbnb', 'resort'];
+    const validNightlyBudgets   = ['budget', 'mid', 'comfort', 'luxury'];
 
     setForm({
       groupSize: 2,
@@ -1271,22 +1277,42 @@ function PlanPage() {
       hotelLat:       Number.isFinite(preHotelLat) ? preHotelLat : null,
       hotelLng:       Number.isFinite(preHotelLng) ? preHotelLng : null,
       // Pre-fill from onboarding — these skip their wizard steps below
-      groupType: validGroupTypes.includes(preGroupType) ? preGroupType : '',
-      pace:      validPaces.includes(prePace)           ? prePace      : '',
-      budget:    validBudgets.includes(preBudget)       ? preBudget    : '',
+      groupType:         validGroupTypes.includes(preGroupType)             ? preGroupType             : '',
+      pace:              validPaces.includes(prePace)                       ? prePace                  : '',
+      budget:            validBudgets.includes(preBudget)                   ? preBudget                : '',
+      accommodation:     validAccommodations.includes(preAccommodation)     ? preAccommodation         : '',
+      hotelNightlyBudget: validNightlyBudgets.includes(preHotelNightlyBudget) ? preHotelNightlyBudget : '',
     });
     setPlanGateReady(true);
+
+    // When the full onboarding flow collected all data, auto-trigger generation
+    // so the user lands directly on the loading screen — no wizard at all.
+    if (autoGenerateFlag) setAutoGeneratePending(true);
   }, [router, planSearchKey]);
+
+  // Auto-generate: when the full onboarding collected all data, skip the wizard
+  // and call handleSubmit() directly once the form state is settled.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (autoGeneratePending && planGateReady && !isSubmitting) {
+      setAutoGeneratePending(false);
+      // Small delay so React finishes the render with the new form state
+      const tid = setTimeout(() => handleSubmit(), 80);
+      return () => clearTimeout(tid);
+    }
+  }, [autoGeneratePending, planGateReady, isSubmitting]); // handleSubmit excluded intentionally
 
   const hasHotelAnchor =
     !!(form.hotelBooked as string)?.trim() ||
     (typeof form.hotelLat === 'number' && typeof form.hotelLng === 'number');
 
   // Params pre-filled from the onboarding flow
-  const hasPreGroupType  = !!(form.groupType as string);
-  const hasPreBudget     = !!(form.budget as string);
-  const hasPrePace       = !!(form.pace as string);
-  const hasPreInterests  = ((form.interests as string[]) || []).length > 0;
+  const hasPreGroupType        = !!(form.groupType as string);
+  const hasPreBudget           = !!(form.budget as string);
+  const hasPrePace             = !!(form.pace as string);
+  const hasPreInterests        = ((form.interests as string[]) || []).length > 0;
+  const hasPreAccommodation    = !!(form.accommodation as string);
+  const hasPreNightlyBudget    = !!(form.hotelNightlyBudget as string);
 
   const activeQuestions = PLAN_QUESTIONS.filter((q) => {
     // groupSize slider: only shown for 'group' — solo/couple/family auto-derive it
@@ -1299,10 +1325,12 @@ function PlanPage() {
       q.key === 'hotelAmenities'
     )) return false;
     // Onboarding pre-fills: skip questions already answered
-    if (hasPreGroupType && (q.key === 'groupType' || q.key === 'groupSize')) return false;
-    if (hasPreBudget    &&  q.key === 'budget')    return false;
-    if (hasPrePace      &&  q.key === 'pace')      return false;
-    if (hasPreInterests &&  q.key === 'interests') return false;
+    if (hasPreGroupType     && (q.key === 'groupType' || q.key === 'groupSize')) return false;
+    if (hasPreBudget        &&  q.key === 'budget')           return false;
+    if (hasPrePace          &&  q.key === 'pace')             return false;
+    if (hasPreInterests     &&  q.key === 'interests')        return false;
+    if (hasPreAccommodation &&  q.key === 'accommodation')    return false;
+    if (hasPreNightlyBudget && (q.key === 'hotelNightlyBudget' || q.key === 'hotelLocationPref' || q.key === 'hotelAmenities')) return false;
     return true;
   });
   const question = activeQuestions[step];

@@ -47,6 +47,10 @@ export interface OnboardingState {
   hotelLat:     number | null;
   hotelLng:     number | null;
 
+  // Step 3b: Hotel preferences (when no hotel booked)
+  accommodation:      'hostel' | 'boutique-hotel' | 'luxury-hotel' | 'airbnb' | 'resort' | '';
+  hotelNightlyBudget: 'budget' | 'mid' | 'comfort' | 'luxury' | '';
+
   // Step 4: Vibe — who's traveling + pace
   groupType: 'solo' | 'couple' | 'family' | 'group' | '';
   pace:      'relaxed' | 'moderate' | 'intense' | '';
@@ -70,11 +74,13 @@ export interface OnboardingState {
   setDailyStartTime: (time: string) => void;
   setHotelLocation:  (address: string, lat: number, lng: number) => void;
   clearHotelLocation: () => void;
-  setGroupType:      (gt: 'solo' | 'couple' | 'family' | 'group') => void;
-  setPace:           (p: 'relaxed' | 'moderate' | 'intense') => void;
-  setBudget:         (b: 'budget' | 'mid-range' | 'luxury') => void;
-  setInterests:      (interests: string[]) => void;
-  toggleInterest:    (interest: string) => void;
+  setAccommodation:      (a: 'hostel' | 'boutique-hotel' | 'luxury-hotel' | 'airbnb' | 'resort') => void;
+  setHotelNightlyBudget: (b: 'budget' | 'mid' | 'comfort' | 'luxury') => void;
+  setGroupType:          (gt: 'solo' | 'couple' | 'family' | 'group') => void;
+  setPace:               (p: 'relaxed' | 'moderate' | 'intense') => void;
+  setBudget:             (b: 'budget' | 'mid-range' | 'luxury') => void;
+  setInterests:          (interests: string[]) => void;
+  toggleInterest:        (interest: string) => void;
   nextStep:  () => void;
   prevStep:  () => void;
   goToStep:  (n: number) => void;
@@ -95,6 +101,7 @@ const INITIAL: Omit<
   | 'setDestinationGeo'
   | 'setArrivalTime' | 'setDepartureTime' | 'setDailyStartTime'
   | 'setHotelLocation' | 'clearHotelLocation'
+  | 'setAccommodation' | 'setHotelNightlyBudget'
   | 'setGroupType' | 'setPace' | 'setBudget' | 'setInterests' | 'toggleInterest'
   | 'nextStep' | 'prevStep' | 'goToStep' | 'reset'
 > = {
@@ -114,10 +121,12 @@ const INITIAL: Omit<
   hotelLng:       null,
   destinationLat: null,
   destinationLng: null,
-  groupType:      '',
-  pace:           '',
-  interests:      [],
-  budget:         '',
+  accommodation:      '',
+  hotelNightlyBudget: '',
+  groupType:          '',
+  pace:               '',
+  interests:          [],
+  budget:             '',
 };
 
 export const useOnboardingStore = create<OnboardingState>()(
@@ -171,6 +180,8 @@ export const useOnboardingStore = create<OnboardingState>()(
       clearHotelLocation: () =>
         set({ hotelAddress: '', hotelLat: null, hotelLng: null }),
 
+      setAccommodation:      (a) => set({ accommodation: a }),
+      setHotelNightlyBudget: (b) => set({ hotelNightlyBudget: b }),
       setGroupType: (gt) => set({ groupType: gt }),
       setPace:      (p)  => set({ pace: p }),
       setBudget:    (b)  => set({ budget: b }),
@@ -206,10 +217,12 @@ export const useOnboardingStore = create<OnboardingState>()(
         hotelAddress:   s.hotelAddress,
         hotelLat:       s.hotelLat,
         hotelLng:       s.hotelLng,
-        groupType:      s.groupType,
-        pace:           s.pace,
-        interests:      s.interests,
-        budget:         s.budget,
+        accommodation:      s.accommodation,
+        hotelNightlyBudget: s.hotelNightlyBudget,
+        groupType:          s.groupType,
+        pace:               s.pace,
+        interests:          s.interests,
+        budget:             s.budget,
       }),
     },
   ),

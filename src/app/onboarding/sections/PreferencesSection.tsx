@@ -200,13 +200,14 @@ export function PreferencesSection({ isCompleted, onComplete, onEdit }: Props) {
         className="w-full py-3.5 rounded-full text-sm font-black tracking-wide transition-all disabled:opacity-35"
         style={{
           background: canContinue
-            ? `linear-gradient(135deg, ${GOLD}, #d4a235)`
-            : 'rgba(197,145,42,0.25)',
-          color: canContinue ? '#071629' : 'rgba(255,255,255,0.35)',
+            ? 'linear-gradient(135deg, #9e363a, #b5404a)'
+            : 'rgba(255,255,255,0.07)',
+          color: canContinue ? '#fff' : 'rgba(255,255,255,0.3)',
+          boxShadow: canContinue ? '0 0 48px rgba(158,54,58,0.48), 0 8px 24px -4px rgba(158,54,58,0.35)' : 'none',
           cursor: canContinue ? 'pointer' : 'default',
         }}
       >
-        {canContinue ? 'Continue →' : 'Pick a budget to continue'}
+        {canContinue ? 'Generate My Itinerary ✨' : 'Pick a budget to continue'}
       </motion.button>
     </div>
   );

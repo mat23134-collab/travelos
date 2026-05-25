@@ -1,22 +1,22 @@
 'use client';
 
 /**
- * Onboarding page — single-page progressive flow.
+ * Onboarding — slide wizard (most important → simplest).
  *
- * Five sections reveal one after another as the user completes each:
- *   1. Destination  — country → trip type → city/cities
- *   2. Dates        — calendar range + optional travel details
- *   3. Vibe         — who's traveling + pace (2 quick taps, auto-advances)
- *   4. Preferences  — budget (required) + interests (optional multi-select)
- *   5. Hotel        — optional anchor hotel (skip available)
+ * Step 0 · Destination   — country → trip type → city/cities
+ * Step 1 · Dates         — calendar range + optional travel times
+ * Step 2 · Accommodation — booked (search) or preferences (type + budget)
+ * Step 3 · Travel style  — who's coming + preferred pace
+ * Step 4 · Budget & vibe — daily spend + interests
+ *                          → "Generate My Itinerary" (only CTA)
  *
- * Completed sections collapse to a summary bar with an Edit button.
- * The floating "Generate My Itinerary" CTA appears once dates are set,
- * so the user always has an escape hatch — more sections = better trip.
+ * One section fills the viewport at a time; steps slide in from the right
+ * and exit to the left (reverse on back). A single progress bar sits at the
+ * top. Back arrow in the header. No duplicate action buttons anywhere.
  */
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useRef } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useOnboardingStore } from '@/state/onboardingStore';
@@ -24,12 +24,17 @@ import { readTripLanguagePref } from '@/lib/tripLanguagePref';
 import { useAuth } from '@/lib/auth-context';
 import { BrandWordmark } from '@/components/BrandWordmark';
 
+// ── Lazy-load heavy step components ──────────────────────────────────────────
 const DestinationSection = dynamic(
   () => import('./sections/DestinationSection').then((m) => ({ default: m.DestinationSection })),
   { ssr: false }
 );
 const DatesSection = dynamic(
   () => import('./sections/DatesSection').then((m) => ({ default: m.DatesSection })),
+  { ssr: false }
+);
+const SmartHotelStep = dynamic(
+  () => import('./sections/SmartHotelStep').then((m) => ({ default: m.SmartHotelStep })),
   { ssr: false }
 );
 const VibeSection = dynamic(
@@ -40,70 +45,66 @@ const PreferencesSection = dynamic(
   () => import('./sections/PreferencesSection').then((m) => ({ default: m.PreferencesSection })),
   { ssr: false }
 );
-const HotelSection = dynamic(
-  () => import('./sections/HotelSection').then((m) => ({ default: m.HotelSection })),
-  { ssr: false }
-);
+
+// ── Steps meta ────────────────────────────────────────────────────────────────
+const STEPS = [
+  { label: 'Destination', color: '#9e363a' },
+  { label: 'Dates',       color: '#4a7bde' },
+  { label: 'Stay',        color: '#c5912a' },
+  { label: 'Style',       color: '#7b6fcf' },
+  { label: 'Interests',   color: '#2e9e74' },
+] as const;
 
 // ── Progress bar ──────────────────────────────────────────────────────────────
-//  step 0 = destination active   → 0 / 5 filled
-//  step 1 = dates active         → 1 / 5 filled
-//  step 2 = vibe active          → 2 / 5 filled
-//  step 3 = preferences active   → 3 / 5 filled
-//  step 4 = hotel active         → 4 / 5 filled
-
-const STEP_LABELS = ['Destination', 'Dates', 'Vibe', 'Style', 'Hotel'];
-const STEP_COLORS = ['#9e363a', '#4a7bde', '#7b6fcf', '#c5912a', '#2e9e74'];
-
-function ProgressBar({ step }: { step: number }) {
+function ProgressBar({ step, total }: { step: number; total: number }) {
   return (
     <div className="flex items-center gap-1.5">
-      {STEP_LABELS.map((label, i) => {
-        const done    = i < step;
-        const active  = i === step;
+      {Array.from({ length: total }).map((_, i) => {
+        const done   = i < step;
+        const active = i === step;
         return (
-          <div key={label} className="relative flex flex-col items-center gap-1">
-            <div
-              className="rounded-full transition-all duration-500"
-              style={{
-                width:  active ? 22 : done ? 8 : 6,
-                height: 6,
-                background: done    ? STEP_COLORS[i]
-                           : active ? STEP_COLORS[i]
-                           : 'rgba(255,255,255,0.10)',
-                opacity: done ? 0.65 : 1,
-              }}
-            />
-          </div>
+          <div
+            key={i}
+            className="rounded-full transition-all duration-500"
+            style={{
+              height: 5,
+              width:  active ? 24 : done ? 8 : 6,
+              background: active
+                ? STEPS[i]?.color ?? '#fff'
+                : done
+                  ? (STEPS[i]?.color ?? '#fff') + '70'
+                  : 'rgba(255,255,255,0.10)',
+            }}
+          />
         );
       })}
     </div>
   );
 }
 
-// ── Skeleton ──────────────────────────────────────────────────────────────────
-function Skeleton() {
-  return (
-    <div className="h-48 animate-pulse rounded-2xl"
-      style={{ background: 'rgba(15,40,98,0.18)' }} />
-  );
-}
+// ── Slide animation ───────────────────────────────────────────────────────────
+const slide = {
+  enter:  (dir: number) => ({ x: dir > 0 ? '100%' : '-60%', opacity: 0 }),
+  center: {
+    x: 0, opacity: 1,
+    transition: { type: 'spring' as const, stiffness: 300, damping: 32, mass: 0.9 },
+  },
+  exit: (dir: number) => ({
+    x: dir > 0 ? '-40%' : '100%', opacity: 0,
+    transition: { duration: 0.22, ease: 'easeIn' as const },
+  }),
+};
 
-// ── Connector line ────────────────────────────────────────────────────────────
-function Connector({ from, to }: { from: string; to: string }) {
+// ── Skeleton ──────────────────────────────────────────────────────────────────
+function StepSkeleton() {
   return (
-    <div className="flex justify-center my-4">
-      <div className="w-px h-6"
-        style={{ background: `linear-gradient(to bottom, ${from}, ${to})` }} />
+    <div className="flex flex-col gap-4 animate-pulse">
+      <div className="h-8 w-48 rounded-xl" style={{ background: 'rgba(255,255,255,0.07)' }} />
+      <div className="h-4 w-64 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)' }} />
+      <div className="h-40 rounded-2xl mt-2" style={{ background: 'rgba(255,255,255,0.04)' }} />
     </div>
   );
 }
-
-// ── Section reveal animation ──────────────────────────────────────────────────
-const sectionReveal = {
-  hidden:  { opacity: 0, y: 28 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] } },
-};
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 function OnboardingPageContent() {
@@ -112,75 +113,74 @@ function OnboardingPageContent() {
   const { user, loading } = useAuth();
 
   const {
-    step, destination, startDate, endDate,
-    arrivalTime, departureTime, dailyStartTime,
-    skipDay1, hotelAddress, hotelLat, hotelLng,
+    destination, startDate, endDate,
+    arrivalTime, departureTime, dailyStartTime, skipDay1,
+    hotelAddress, hotelLat, hotelLng,
+    accommodation, hotelNightlyBudget,
     groupType, pace, budget, interests,
-    nextStep, goToStep, reset, setDestination,
+    step: storeStep, goToStep, reset, setDestination,
   } = useOnboardingStore();
 
-  // Refs for auto-scroll when new sections appear
-  const datesRef       = useRef<HTMLDivElement>(null);
-  const vibeRef        = useRef<HTMLDivElement>(null);
-  const prefsRef       = useRef<HTMLDivElement>(null);
-  const hotelRef       = useRef<HTMLDivElement>(null);
+  // Wizard step (0-4) — separate from store.step so back/forward doesn't
+  // clobber persisted completion state.
+  const [wizardStep, setWizardStep] = useState(0);
+  const [direction,  setDirection]  = useState(1); // 1=forward, -1=backward
 
   // Auth guard
   useEffect(() => {
     if (!loading && !user) router.replace('/auth');
   }, [loading, user, router]);
 
-  // Seed destination from query param (from landing page CTA)
+  // Seed destination / resume from query params
   useEffect(() => {
     if (!user) return;
     const resume   = searchParams.get('resume') === '1';
     const seedDest = searchParams.get('destination')?.trim() ?? '';
 
-    if (resume) { goToStep(4); return; }
-    if (seedDest) { reset(); setDestination(seedDest); return; }
-
-    const hasProgress = destination.trim().length > 0 || step > 0;
+    if (resume) {
+      // Re-enter at the appropriate step
+      const resumeAt = Math.min(storeStep, STEPS.length - 1);
+      setWizardStep(resumeAt);
+      return;
+    }
+    if (seedDest) {
+      reset();
+      setDestination(seedDest);
+      return;
+    }
+    const hasProgress = destination.trim().length > 0 || storeStep > 0;
     if (!hasProgress) reset();
-  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   if (loading || !user) {
     return (
       <main className="min-h-screen flex items-center justify-center px-8"
         style={{ backgroundColor: '#091f36' }}>
-        <Skeleton />
+        <StepSkeleton />
       </main>
     );
   }
 
-  // ── Navigation helpers ─────────────────────────────────────────────────────
-  function scrollToRef(ref: React.RefObject<HTMLDivElement | null>) {
-    setTimeout(() => {
-      ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 120);
+  // ── Navigation helpers ──────────────────────────────────────────────────────
+  function goNext() {
+    setDirection(1);
+    setWizardStep((s) => Math.min(s + 1, STEPS.length - 1));
+    // Keep store.step in sync (for resume)
+    goToStep(Math.min(wizardStep + 1, STEPS.length - 1));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  function goBack() {
+    setDirection(-1);
+    setWizardStep((s) => Math.max(s - 1, 0));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  function onDestinationComplete() {
-    nextStep(); // 0 → 1
-    scrollToRef(datesRef);
-  }
-
-  function onDatesComplete() {
-    nextStep(); // 1 → 2
-    scrollToRef(vibeRef);
-  }
-
-  function onVibeComplete() {
-    nextStep(); // 2 → 3
-    scrollToRef(prefsRef);
-  }
-
-  function onPrefsComplete() {
-    nextStep(); // 3 → 4
-    scrollToRef(hotelRef);
-  }
-
+  // ── Final action: generate trip ─────────────────────────────────────────────
   function handleGenerateTrip() {
     const params = new URLSearchParams();
+
+    // Core
     if (destination)    params.set('destination',    destination);
     if (startDate)      params.set('startDate',      startDate);
     if (endDate)        params.set('endDate',        endDate);
@@ -188,176 +188,154 @@ function OnboardingPageContent() {
     if (departureTime)  params.set('departureTime',  departureTime);
     if (dailyStartTime) params.set('dailyStartTime', dailyStartTime);
     if (skipDay1)       params.set('skipDay1',       '1');
-    if (hotelAddress)   params.set('hotelAddress',   hotelAddress);
+
+    // Hotel
+    if (hotelAddress) params.set('hotelAddress', hotelAddress);
     if (hotelLat != null && hotelLng != null) {
       params.set('hotelLat', String(hotelLat));
       params.set('hotelLng', String(hotelLng));
     }
-    // New preference params — let plan page skip those questions
+
+    // Accommodation preferences (if no hotel booked)
+    if (accommodation)      params.set('accommodation',      accommodation);
+    if (hotelNightlyBudget) params.set('hotelNightlyBudget', hotelNightlyBudget);
+
+    // Style + budget + interests
     if (groupType)        params.set('groupType',  groupType);
     if (pace)             params.set('pace',       pace);
     if (budget)           params.set('budget',     budget);
     if (interests.length) params.set('interests',  interests.join(','));
 
+    // Ask plan page to auto-generate (skip its own wizard)
+    params.set('autoGenerate', '1');
+
     const lang = readTripLanguagePref();
     if (lang === 'he' || lang === 'en') params.set('tripLang', lang);
+
     router.push(`/plan?${params.toString()}`);
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Render ──────────────────────────────────────────────────────────────────
+  const stepColor = STEPS[wizardStep]?.color ?? '#9e363a';
+
   return (
     <main
       className="min-h-screen relative"
       style={{
         backgroundColor: '#091f36',
-        backgroundImage: 'radial-gradient(ellipse 80% 60% at 50% -10%, rgba(158,54,58,0.14) 0%, transparent 60%)',
+        backgroundImage: `radial-gradient(ellipse 80% 60% at 50% -10%, ${stepColor}22 0%, transparent 60%)`,
+        transition: 'background-image 0.6s ease',
       }}
     >
-      {/* Ambient blobs */}
+      {/* Ambient blob */}
       <div className="fixed inset-0 pointer-events-none z-0" aria-hidden="true">
-        <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full blur-[140px] opacity-20"
-          style={{ background: 'radial-gradient(circle, rgba(158,54,58,0.28) 0%, transparent 70%)' }} />
-        <div className="absolute -bottom-32 -right-32 w-[460px] h-[460px] rounded-full blur-[130px] opacity-18"
-          style={{ background: 'radial-gradient(circle, rgba(15,40,98,0.50) 0%, transparent 70%)' }} />
+        <div className="absolute -top-32 -left-32 w-[460px] h-[460px] rounded-full blur-[140px] opacity-18"
+          style={{ background: `radial-gradient(circle, ${stepColor}44 0%, transparent 70%)`, transition: 'background 0.6s ease' }} />
       </div>
 
-      {/* Content column */}
-      <div className="relative z-10 max-w-xl mx-auto px-5 sm:px-8 py-8 pb-36">
-
-        {/* Top bar */}
-        <div className="flex items-center justify-between mb-10">
-          <BrandWordmark accent="#9e363a" className="text-sm" />
-          <ProgressBar step={step} />
+      {/* ── Header ──────────────────────────────────────────────────────────── */}
+      <div className="relative z-10 max-w-xl mx-auto px-5 sm:px-8 pt-8">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-3">
+            {/* Back arrow */}
+            <AnimatePresence>
+              {wizardStep > 0 && (
+                <motion.button
+                  key="back"
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -8 }}
+                  onClick={goBack}
+                  aria-label="Go back"
+                  className="w-8 h-8 rounded-full flex items-center justify-center hover-bg-subtle transition-colors"
+                  style={{ color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.10)' }}
+                >
+                  ‹
+                </motion.button>
+              )}
+            </AnimatePresence>
+            <BrandWordmark accent={stepColor} className="text-sm" />
+          </div>
+          <ProgressBar step={wizardStep} total={STEPS.length} />
         </div>
 
-        {/* Page title */}
-        <div className="mb-8">
-          <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-tight">
-            Build your<br />
-            <span style={{ color: '#9e363a' }}>perfect trip</span>
-          </h1>
-          <p className="mt-2 text-sm" style={{ color: 'rgba(255,255,255,0.38)' }}>
-            Answer a few questions — we'll do the rest.
-          </p>
-        </div>
-
-        {/* ── Section 1: Destination ─────────────────────────────────────── */}
-        <motion.div variants={sectionReveal} initial="hidden" animate="visible" className="mb-4">
-          <Suspense fallback={<Skeleton />}>
-            <DestinationSection
-              isCompleted={step >= 1}
-              onComplete={onDestinationComplete}
-              onEdit={() => goToStep(0)}
-            />
-          </Suspense>
-        </motion.div>
-
-        {/* ── Section 2: Dates ───────────────────────────────────────────── */}
-        <AnimatePresence>
-          {step >= 1 && (
-            <motion.div ref={datesRef} key="dates-section"
-              variants={sectionReveal} initial="hidden" animate="visible">
-              <Connector from="rgba(158,54,58,0.30)" to="rgba(74,123,222,0.30)" />
-              <Suspense fallback={<Skeleton />}>
-                <DatesSection
-                  isCompleted={step >= 2}
-                  onComplete={onDatesComplete}
-                  onEdit={() => goToStep(1)}
-                />
-              </Suspense>
-            </motion.div>
-          )}
+        {/* Step label */}
+        <AnimatePresence mode="wait">
+          <motion.p
+            key={wizardStep}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            className="text-[11px] font-bold uppercase tracking-widest mt-3 mb-8"
+            style={{ color: stepColor }}
+          >
+            Step {wizardStep + 1} of {STEPS.length} · {STEPS[wizardStep]?.label}
+          </motion.p>
         </AnimatePresence>
+      </div>
 
-        {/* ── Section 3: Vibe ────────────────────────────────────────────── */}
-        <AnimatePresence>
-          {step >= 2 && (
-            <motion.div ref={vibeRef} key="vibe-section"
-              variants={sectionReveal} initial="hidden" animate="visible">
-              <Connector from="rgba(74,123,222,0.30)" to="rgba(123,111,207,0.30)" />
-              <Suspense fallback={<Skeleton />}>
-                <VibeSection
-                  isCompleted={step >= 3}
-                  onComplete={onVibeComplete}
-                  onEdit={() => goToStep(2)}
-                />
-              </Suspense>
-            </motion.div>
-          )}
-        </AnimatePresence>
+      {/* ── Step content (slides) ────────────────────────────────────────────── */}
+      <div className="relative z-10 overflow-hidden">
+        <AnimatePresence custom={direction} mode="wait">
+          <motion.div
+            key={wizardStep}
+            custom={direction}
+            variants={slide}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            className="max-w-xl mx-auto px-5 sm:px-8 pb-20"
+          >
+            <Suspense fallback={<StepSkeleton />}>
 
-        {/* ── Section 4: Preferences ─────────────────────────────────────── */}
-        <AnimatePresence>
-          {step >= 3 && (
-            <motion.div ref={prefsRef} key="prefs-section"
-              variants={sectionReveal} initial="hidden" animate="visible">
-              <Connector from="rgba(123,111,207,0.30)" to="rgba(197,145,42,0.30)" />
-              <Suspense fallback={<Skeleton />}>
-                <PreferencesSection
-                  isCompleted={step >= 4}
-                  onComplete={onPrefsComplete}
-                  onEdit={() => goToStep(3)}
-                />
-              </Suspense>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* ── Section 5: Hotel ───────────────────────────────────────────── */}
-        <AnimatePresence>
-          {step >= 4 && (
-            <motion.div ref={hotelRef} key="hotel-section"
-              variants={sectionReveal} initial="hidden" animate="visible">
-              <Connector from="rgba(197,145,42,0.30)" to="rgba(46,158,116,0.30)" />
-              <Suspense fallback={<Skeleton />}>
-                <HotelSection
+              {/* Step 0: Destination */}
+              {wizardStep === 0 && (
+                <DestinationSection
                   isCompleted={false}
-                  onComplete={handleGenerateTrip}
-                  onSkip={handleGenerateTrip}
+                  onComplete={goNext}
                   onEdit={() => {}}
                 />
-              </Suspense>
-            </motion.div>
-          )}
+              )}
+
+              {/* Step 1: Dates */}
+              {wizardStep === 1 && (
+                <DatesSection
+                  isCompleted={false}
+                  onComplete={goNext}
+                  onEdit={() => {}}
+                />
+              )}
+
+              {/* Step 2: Accommodation */}
+              {wizardStep === 2 && (
+                <SmartHotelStep
+                  onComplete={goNext}
+                  onSkip={goNext}
+                />
+              )}
+
+              {/* Step 3: Travel style */}
+              {wizardStep === 3 && (
+                <VibeSection
+                  isCompleted={false}
+                  onComplete={goNext}
+                  onEdit={() => {}}
+                />
+              )}
+
+              {/* Step 4: Budget & interests → final generate */}
+              {wizardStep === 4 && (
+                <PreferencesSection
+                  isCompleted={false}
+                  onComplete={handleGenerateTrip}
+                  onEdit={() => {}}
+                />
+              )}
+
+            </Suspense>
+          </motion.div>
         </AnimatePresence>
       </div>
-
-      {/* ── Floating CTA — appears once preferences are set ────────────────── */}
-      <AnimatePresence>
-        {step >= 4 && (
-          <motion.div
-            key="floating-cta"
-            initial={{ y: 80, opacity: 0 }}
-            animate={{ y: 0, opacity: 1, transition: { type: 'spring', stiffness: 320, damping: 28 } }}
-            exit={{ y: 80, opacity: 0 }}
-            className="fixed bottom-0 left-0 right-0 z-20 px-5 pb-6 pt-4"
-            style={{
-              background: 'linear-gradient(to top, rgba(9,31,54,0.97) 60%, transparent)',
-              backdropFilter: 'blur(8px)',
-            }}
-          >
-            <div className="max-w-xl mx-auto">
-              <motion.button
-                onClick={handleGenerateTrip}
-                whileHover={{ scale: 1.02, y: -2 }}
-                whileTap={{ scale: 0.97 }}
-                className="w-full py-4 rounded-full text-sm font-black text-white tracking-wide"
-                style={{
-                  background: 'linear-gradient(135deg, #9e363a, #b5404a)',
-                  boxShadow: '0 0 48px rgba(158,54,58,0.50), 0 8px 24px -4px rgba(158,54,58,0.38)',
-                }}
-              >
-                Generate My Itinerary ✨
-              </motion.button>
-              <p className="text-center text-xs mt-2.5" style={{ color: 'rgba(255,255,255,0.28)' }}>
-                {destination && startDate && endDate
-                  ? `${destination} · ${new Date(startDate + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${new Date(endDate + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
-                  : 'AI-powered · takes ~20 seconds'}
-              </p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </main>
   );
 }
@@ -367,8 +345,10 @@ export default function OnboardingPage() {
     <Suspense fallback={
       <main className="min-h-screen flex items-center justify-center px-8"
         style={{ backgroundColor: '#091f36' }}>
-        <div className="h-48 animate-pulse rounded-2xl w-full max-w-xl"
-          style={{ background: 'rgba(15,40,98,0.18)' }} />
+        <div className="flex flex-col gap-4 w-full max-w-xl animate-pulse">
+          <div className="h-8 w-48 rounded-xl" style={{ background: 'rgba(255,255,255,0.07)' }} />
+          <div className="h-40 rounded-2xl mt-2" style={{ background: 'rgba(255,255,255,0.04)' }} />
+        </div>
       </main>
     }>
       <OnboardingPageContent />
