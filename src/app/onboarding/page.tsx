@@ -1,156 +1,149 @@
 'use client';
 
 /**
- * Onboarding page — 4-step pre-flight flow.
+ * Onboarding page — single-page progressive flow.
  *
- * Step 0 — DestinationStep : Where are you going?
- * Step 1 — DatesStep       : When are you traveling?
- * Step 2 — LogisticsStep   : Arrival + departure times (skipDay1 logic lives here)
- * Step 3 — HotelStep       : The Anchor — hotel center of gravity
+ * Three sections reveal one after another as the user completes each:
+ *   1. Destination  — country → trip type → city/cities
+ *   2. Dates        — calendar range + optional travel details
+ *   3. Hotel        — optional anchor hotel (skip available)
  *
- * On completion, pushes to /plan with all collected data as query params
- * so the plan page can pre-fill and skip re-asking the same questions.
- *
- * Transitions: Y-axis "cube flip" via Framer Motion.
- * Palette: Purple Shadow (#091f36) + per-step accents.
+ * No page-to-page navigation. Each completed section collapses to a
+ * summary bar with an Edit button. Clean spring-based reveals.
  */
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { AnimatePresence, motion } from 'framer-motion';
+import { Suspense, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
-import { Suspense, useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useOnboardingStore } from '@/state/onboardingStore';
-import { getStepBackground } from '@/lib/stepBackgrounds';
 import { readTripLanguagePref } from '@/lib/tripLanguagePref';
 import { useAuth } from '@/lib/auth-context';
 import { BrandWordmark } from '@/components/BrandWordmark';
 
-// All step components use R3F (useFrame) + tunnel-rat → must be ssr:false
-function StepSkeleton() {
+const DestinationSection = dynamic(
+  () => import('./sections/DestinationSection').then((m) => ({ default: m.DestinationSection })),
+  { ssr: false }
+);
+const DatesSection = dynamic(
+  () => import('./sections/DatesSection').then((m) => ({ default: m.DatesSection })),
+  { ssr: false }
+);
+const HotelSection = dynamic(
+  () => import('./sections/HotelSection').then((m) => ({ default: m.HotelSection })),
+  { ssr: false }
+);
+
+// ── Phases ────────────────────────────────────────────────────────────────────
+// 'destination' → only section 1 shown
+// 'dates'       → section 1 completed, section 2 active
+// 'hotel'       → sections 1+2 completed, section 3 active
+type Phase = 'destination' | 'dates' | 'hotel';
+
+// We store phase in session state using the Zustand step field:
+//   step 0 = destination, step 1 = dates, step 2 = hotel
+function phaseFromStep(step: number): Phase {
+  if (step >= 2) return 'hotel';
+  if (step >= 1) return 'dates';
+  return 'destination';
+}
+
+// ── Skeleton ──────────────────────────────────────────────────────────────────
+function Skeleton() {
   return (
-    <div
-      className="h-64 animate-pulse rounded-2xl"
-      style={{ background: 'rgba(15,40,98,0.18)' }}
-    />
+    <div className="h-48 animate-pulse rounded-2xl"
+      style={{ background: 'rgba(15,40,98,0.18)' }} />
   );
 }
 
-const DestinationStep = dynamic(
-  () => import('./steps/DestinationStep').then((m) => ({ default: m.DestinationStep })),
-  { ssr: false, loading: () => <StepSkeleton /> }
-);
-const DatesStep = dynamic(
-  () => import('./steps/DatesStep').then((m) => ({ default: m.DatesStep })),
-  { ssr: false, loading: () => <StepSkeleton /> }
-);
-const LogisticsStep = dynamic(
-  () => import('./steps/LogisticsStep').then((m) => ({ default: m.LogisticsStep })),
-  { ssr: false, loading: () => <StepSkeleton /> }
-);
-const HotelStep = dynamic(
-  () => import('./steps/HotelStep').then((m) => ({ default: m.HotelStep })),
-  { ssr: false, loading: () => <StepSkeleton /> }
-);
+// ── Progress dots ─────────────────────────────────────────────────────────────
+const DOT_COLORS = ['#9e363a', '#4a7bde', '#c5912a'];
+function ProgressDots({ phase }: { phase: Phase }) {
+  const idx = phase === 'hotel' ? 2 : phase === 'dates' ? 1 : 0;
+  return (
+    <div className="flex items-center gap-2">
+      {DOT_COLORS.map((color, i) => (
+        <div key={i} className="rounded-full transition-all duration-300"
+          style={{
+            width:  i === idx ? 20 : 6,
+            height: 6,
+            background: i === idx ? color : i < idx ? `${color}66` : 'rgba(255,255,255,0.12)',
+          }} />
+      ))}
+    </div>
+  );
+}
 
-// ── Cube-flip transition ──────────────────────────────────────────────────────
-
-const FLIP_VARIANTS = {
-  enter: (dir: number) => ({
-    rotateY: dir > 0 ? -90 : 90,
-    opacity: 0,
-    scale: 0.94,
-  }),
-  center: {
-    rotateY: 0,
-    opacity: 1,
-    scale: 1,
-    transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] },
-  },
-  exit: (dir: number) => ({
-    rotateY: dir > 0 ? 90 : -90,
-    opacity: 0,
-    scale: 0.94,
-    transition: { duration: 0.35, ease: [0.55, 0, 0.78, 0] },
-  }),
+// ── Section reveal animation ──────────────────────────────────────────────────
+const sectionReveal = {
+  hidden:  { opacity: 0, y: 28 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] } },
 };
 
-// ── Step dot accent colors ────────────────────────────────────────────────────
-// 0=Redline  1=Steel-blue  2=Redline  3=Gold
-const STEP_COLORS = ['#9e363a', '#4a7bde', '#9e363a', '#c5912a'];
-
-const TOTAL_STEPS = 4;
-
 // ── Page ──────────────────────────────────────────────────────────────────────
-
 function OnboardingPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading } = useAuth();
+
   const {
-    step,
-    destination,
-    startDate,
-    endDate,
-    arrivalTime,
-    departureTime,
-    dailyStartTime,
-    skipDay1,
-    hotelAddress,
-    hotelLat,
-    hotelLng,
-    nextStep,
-    prevStep,
-    goToStep,
-    reset,
-    setDestination,
+    step, destination, startDate, endDate,
+    arrivalTime, departureTime, dailyStartTime,
+    skipDay1, hotelAddress, hotelLat, hotelLng,
+    nextStep, goToStep, reset, setDestination,
   } = useOnboardingStore();
 
-  const [dir, setDir] = useState(1);
+  const phase = phaseFromStep(step);
 
+  // Refs for auto-scroll when new sections appear
+  const datesRef = useRef<HTMLDivElement>(null);
+  const hotelRef = useRef<HTMLDivElement>(null);
+
+  // Auth guard
   useEffect(() => {
-    if (loading) return;
-    if (!user) router.replace('/auth');
+    if (!loading && !user) router.replace('/auth');
   }, [loading, user, router]);
 
+  // Seed destination from query param (from landing page CTA)
   useEffect(() => {
     if (!user) return;
-    const resume  = searchParams.get('resume') === '1';
+    const resume   = searchParams.get('resume') === '1';
     const seedDest = searchParams.get('destination')?.trim() ?? '';
 
-    if (resume) {
-      // Returning from /plan wizard "Back" → jump to hotel step
-      goToStep(3);
-      return;
-    }
+    if (resume) { goToStep(2); return; }
+    if (seedDest) { reset(); setDestination(seedDest); return; }
 
-    if (seedDest) {
-      // Home page sent a specific destination → fresh start with that destination
-      reset();
-      setDestination(seedDest);
-      return;
-    }
-
-    // No special params: restore progress from localStorage (tab-switch / refresh safe).
-    // Only reset if there is genuinely nothing to restore (first-ever visit).
     const hasProgress = destination.trim().length > 0 || step > 0;
-    if (!hasProgress) {
-      reset();
-    }
-    // else: keep existing step + data — user just switched tabs or refreshed
-  }, [goToStep, reset, searchParams, user, setDestination, destination, step]);
+    if (!hasProgress) reset();
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading || !user) {
     return (
-      <main
-        className="min-h-screen flex items-center justify-center px-8"
-        style={{ backgroundColor: '#091f36' }}
-      >
-        <StepSkeleton />
+      <main className="min-h-screen flex items-center justify-center px-8"
+        style={{ backgroundColor: '#091f36' }}>
+        <Skeleton />
       </main>
     );
   }
 
-  const handleComplete = () => {
+  // ── Navigation helpers ─────────────────────────────────────────────────────
+  function scrollToRef(ref: React.RefObject<HTMLDivElement | null>) {
+    setTimeout(() => {
+      ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 120);
+  }
+
+  function onDestinationComplete() {
+    nextStep(); // step 0 → 1 (destination → dates)
+    scrollToRef(datesRef);
+  }
+
+  function onDatesComplete() {
+    nextStep(); // step 1 → 2 (dates → hotel)
+    scrollToRef(hotelRef);
+  }
+
+  function handleGenerateTrip() {
     const params = new URLSearchParams();
     if (destination)    params.set('destination',    destination);
     if (startDate)      params.set('startDate',      startDate);
@@ -164,132 +157,166 @@ function OnboardingPageContent() {
       params.set('hotelLat', String(hotelLat));
       params.set('hotelLng', String(hotelLng));
     }
-    const tripLangPref = readTripLanguagePref();
-    if (tripLangPref === 'he' || tripLangPref === 'en') {
-      params.set('tripLang', tripLangPref);
-    }
+    const lang = readTripLanguagePref();
+    if (lang === 'he' || lang === 'en') params.set('tripLang', lang);
     router.push(`/plan?${params.toString()}`);
-  };
+  }
 
-  // Gold flare on hotel step
-  const isHotelStep = step === 3;
-  const bg = getStepBackground(step, 0);
-
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <main
-      className="min-h-screen flex flex-col md:flex-row relative overflow-hidden"
+      className="min-h-screen relative"
       style={{
         backgroundColor: '#091f36',
-        backgroundImage: `linear-gradient(rgba(9,31,54,0.80), rgba(9,31,54,0.87)), url("${bg.imageUrl}")`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundAttachment: 'fixed',
+        backgroundImage: 'radial-gradient(ellipse 80% 60% at 50% -10%, rgba(158,54,58,0.14) 0%, transparent 60%)',
       }}
     >
-      {/* ── Ambient blobs ──────────────────────────────────────────────────── */}
+      {/* Ambient blobs */}
       <div className="fixed inset-0 pointer-events-none z-0" aria-hidden="true">
-        <div
-          className="absolute -top-32 -left-32 w-[550px] h-[550px] rounded-full blur-[140px] opacity-20"
-          style={{ background: 'radial-gradient(circle, rgba(158,54,58,0.30) 0%, transparent 70%)' }}
-        />
-        <div
-          className="absolute -bottom-32 -right-32 w-[500px] h-[500px] rounded-full blur-[130px] opacity-20"
-          style={{ background: 'radial-gradient(circle, rgba(15,40,98,0.55) 0%, transparent 70%)' }}
-        />
-        {isHotelStep && (
-          <div
-            className="absolute top-1/3 right-0 w-[400px] h-[400px] rounded-full blur-[120px] opacity-10"
-            style={{ background: 'radial-gradient(circle, rgba(197,145,42,0.40) 0%, transparent 70%)' }}
-          />
-        )}
+        <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full blur-[140px] opacity-20"
+          style={{ background: 'radial-gradient(circle, rgba(158,54,58,0.28) 0%, transparent 70%)' }} />
+        <div className="absolute -bottom-32 -right-32 w-[460px] h-[460px] rounded-full blur-[130px] opacity-18"
+          style={{ background: 'radial-gradient(circle, rgba(15,40,98,0.50) 0%, transparent 70%)' }} />
       </div>
 
-      {/* ── Left panel — step form ─────────────────────────────────────────── */}
-      <div className="relative z-10 flex flex-col justify-center w-full md:w-[440px] lg:w-[480px] min-h-screen px-8 sm:px-12 py-16 shrink-0">
+      {/* Content column */}
+      <div className="relative z-10 max-w-xl mx-auto px-5 sm:px-8 py-8 pb-32">
 
-        {/* Logo */}
-        <div className="absolute top-8 left-8">
-          <span className="text-sm text-white tracking-tight inline-block">
-            <BrandWordmark accent="#9e363a" className="text-sm" />
-          </span>
+        {/* Top bar */}
+        <div className="flex items-center justify-between mb-10">
+          <BrandWordmark accent="#9e363a" className="text-sm" />
+          <ProgressDots phase={phase} />
         </div>
 
-        {/* Progress dots */}
-        <div className="absolute top-8 right-8 flex items-center gap-2">
-          {Array.from({ length: TOTAL_STEPS }).map((_, i) => {
-            const color = STEP_COLORS[i];
-            return (
-              <div
-                key={i}
-                className="rounded-full transition-all duration-300"
-                style={{
-                  width:  i === step ? 20 : 6,
-                  height: 6,
-                  background: i === step
-                    ? color
-                    : i < step
-                      ? `${color}66`
-                      : 'rgba(255,255,255,0.12)',
-                }}
-              />
-            );
-          })}
+        {/* Page title */}
+        <div className="mb-8">
+          <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-tight">
+            Build your<br />
+            <span style={{ color: '#9e363a' }}>perfect trip</span>
+          </h1>
+          <p className="mt-2 text-sm" style={{ color: 'rgba(255,255,255,0.38)' }}>
+            Answer a few questions — we'll do the rest.
+          </p>
         </div>
 
-        {/* Animated step content */}
-        <div style={{ perspective: '1200px' }}>
-          <AnimatePresence mode="wait" custom={dir}>
+        {/* ── Section 1: Destination ─────────────────────────────────────── */}
+        <motion.div
+          variants={sectionReveal}
+          initial="hidden"
+          animate="visible"
+          className="mb-4"
+        >
+          <Suspense fallback={<Skeleton />}>
+            <DestinationSection
+              isCompleted={step >= 1}
+              onComplete={onDestinationComplete}
+              onEdit={() => goToStep(0)}
+            />
+          </Suspense>
+        </motion.div>
+
+        {/* ── Section 2: Dates ───────────────────────────────────────────── */}
+        <AnimatePresence>
+          {step >= 1 && (
             <motion.div
-              key={step}
-              custom={dir}
-              variants={FLIP_VARIANTS}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              style={{ transformStyle: 'preserve-3d' }}
+              ref={datesRef}
+              key="dates-section"
+              variants={sectionReveal}
+              initial="hidden"
+              animate="visible"
+              className="mt-4 mb-4"
             >
-              {step === 0 && <DestinationStep onNext={() => { setDir(1); nextStep(); }} />}
-              {step === 1 && <DatesStep       onNext={() => { setDir(1); nextStep(); }}  onBack={() => { setDir(-1); prevStep(); }} />}
-              {step === 2 && <LogisticsStep   onNext={() => { setDir(1); nextStep(); }}  onBack={() => { setDir(-1); prevStep(); }} />}
-              {step === 3 && <HotelStep       onNext={handleComplete}                    onBack={() => { setDir(-1); prevStep(); }} />}
+              {/* Connector line */}
+              <div className="flex justify-center mb-4">
+                <div className="w-px h-6" style={{ background: 'linear-gradient(to bottom, rgba(158,54,58,0.30), rgba(74,123,222,0.30))' }} />
+              </div>
+              <Suspense fallback={<Skeleton />}>
+                <DatesSection
+                  isCompleted={step >= 2}
+                  onComplete={onDatesComplete}
+                  onEdit={() => goToStep(1)}
+                />
+              </Suspense>
             </motion.div>
-          </AnimatePresence>
-        </div>
+          )}
+        </AnimatePresence>
 
-        {/* Skip link — only after destination + dates (required by /plan gate); skips logistics/hotel */}
-        {destination.trim().length >= 2 &&
-          /^\d{4}-\d{2}-\d{2}$/.test(startDate) &&
-          /^\d{4}-\d{2}-\d{2}$/.test(endDate) && (
-          <div className="absolute bottom-8 left-0 right-0 flex justify-center">
-            <button
-              type="button"
-              onClick={handleComplete}
-              className="text-xs transition-colors hover-text-faint"
-              style={{ color: 'rgba(79,95,118,0.7)' }}
+        {/* ── Section 3: Hotel ───────────────────────────────────────────── */}
+        <AnimatePresence>
+          {step >= 2 && (
+            <motion.div
+              ref={hotelRef}
+              key="hotel-section"
+              variants={sectionReveal}
+              initial="hidden"
+              animate="visible"
+              className="mt-4"
             >
-              Skip remaining setup — open planner
-            </button>
-          </div>
-        )}
+              <div className="flex justify-center mb-4">
+                <div className="w-px h-6" style={{ background: 'linear-gradient(to bottom, rgba(74,123,222,0.30), rgba(197,145,42,0.30))' }} />
+              </div>
+              <Suspense fallback={<Skeleton />}>
+                <HotelSection
+                  isCompleted={false}
+                  onComplete={handleGenerateTrip}
+                  onSkip={handleGenerateTrip}
+                  onEdit={() => {}}
+                />
+              </Suspense>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      <div className="hidden md:block flex-1" aria-hidden="true" />
+      {/* ── Floating CTA — appears once dates are set ──────────────────────── */}
+      <AnimatePresence>
+        {step >= 2 && (
+          <motion.div
+            key="floating-cta"
+            initial={{ y: 80, opacity: 0 }}
+            animate={{ y: 0, opacity: 1, transition: { type: 'spring', stiffness: 320, damping: 28 } }}
+            exit={{ y: 80, opacity: 0 }}
+            className="fixed bottom-0 left-0 right-0 z-20 px-5 pb-6 pt-4"
+            style={{
+              background: 'linear-gradient(to top, rgba(9,31,54,0.97) 60%, transparent)',
+              backdropFilter: 'blur(8px)',
+            }}
+          >
+            <div className="max-w-xl mx-auto">
+              <motion.button
+                onClick={handleGenerateTrip}
+                whileHover={{ scale: 1.02, y: -2 }}
+                whileTap={{ scale: 0.97 }}
+                className="w-full py-4 rounded-full text-sm font-black text-white tracking-wide"
+                style={{
+                  background: 'linear-gradient(135deg, #9e363a, #b5404a)',
+                  boxShadow: '0 0 48px rgba(158,54,58,0.50), 0 8px 24px -4px rgba(158,54,58,0.38)',
+                }}
+              >
+                Generate My Itinerary ✨
+              </motion.button>
+              <p className="text-center text-xs mt-2.5" style={{ color: 'rgba(255,255,255,0.28)' }}>
+                {destination && startDate && endDate
+                  ? `${destination} · ${new Date(startDate + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${new Date(endDate + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
+                  : 'AI-powered · takes ~20 seconds'}
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }
 
 export default function OnboardingPage() {
   return (
-    <Suspense
-      fallback={
-        <main
-          className="min-h-screen flex items-center justify-center px-8"
-          style={{ backgroundColor: '#091f36' }}
-        >
-          <StepSkeleton />
-        </main>
-      }
-    >
+    <Suspense fallback={
+      <main className="min-h-screen flex items-center justify-center px-8"
+        style={{ backgroundColor: '#091f36' }}>
+        <div className="h-48 animate-pulse rounded-2xl w-full max-w-xl"
+          style={{ background: 'rgba(15,40,98,0.18)' }} />
+      </main>
+    }>
       <OnboardingPageContent />
     </Suspense>
   );

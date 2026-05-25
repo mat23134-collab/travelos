@@ -12,11 +12,22 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+export interface TripCity {
+  name: string;
+  lat:  number;
+  lng:  number;
+}
+
 export interface OnboardingState {
   // Step index (0-based)
   step: number;
 
-  // Step 0: Destination
+  // Country + trip type (new progressive flow)
+  country:  string;                      // e.g. 'Italy'
+  tripType: 'single' | 'multi' | '';     // single-city or multi-city tour
+  cities:   TripCity[];                  // chosen cities (1 for single, n for multi)
+
+  // Step 0: Destination (first/only city — kept for plan page compat)
   destination: string;
   destinationLat: number | null;
   destinationLng: number | null;
@@ -37,6 +48,12 @@ export interface OnboardingState {
   hotelLng:     number | null;
 
   // ── Actions ──────────────────────────────────────────────────────────────
+  setCountry:        (c: string) => void;
+  setTripType:       (t: 'single' | 'multi') => void;
+  setCities:         (cities: TripCity[]) => void;
+  addCity:           (city: TripCity) => void;
+  removeCity:        (name: string) => void;
+
   setDestination:    (d: string) => void;
   setDestinationGeo: (d: string, lat: number | null, lng: number | null) => void;
   setDateRange:      (start: string, end: string) => void;
@@ -60,6 +77,7 @@ function isLateArrival(time: string): boolean {
 
 const INITIAL: Omit<
   OnboardingState,
+  | 'setCountry' | 'setTripType' | 'setCities' | 'addCity' | 'removeCity'
   | 'setDestination' | 'setDateRange'
   | 'setDestinationGeo'
   | 'setArrivalTime' | 'setDepartureTime' | 'setDailyStartTime'
@@ -67,6 +85,9 @@ const INITIAL: Omit<
   | 'nextStep' | 'prevStep' | 'goToStep' | 'reset'
 > = {
   step:           0,
+  country:        '',
+  tripType:       '',
+  cities:         [],
   destination:    '',
   startDate:      '',
   endDate:        '',
@@ -85,6 +106,34 @@ export const useOnboardingStore = create<OnboardingState>()(
   persist(
     (set) => ({
       ...INITIAL,
+
+      setCountry: (c) => set({ country: c, tripType: '', cities: [], destination: '', destinationLat: null, destinationLng: null }),
+      setTripType: (t) => set({ tripType: t, cities: [], destination: '', destinationLat: null, destinationLng: null }),
+      setCities: (cities) => set({
+        cities,
+        destination:    cities[0]?.name ?? '',
+        destinationLat: cities[0]?.lat  ?? null,
+        destinationLng: cities[0]?.lng  ?? null,
+      }),
+      addCity: (city) => set((s) => {
+        if (s.cities.find((c) => c.name === city.name)) return s;
+        const next = [...s.cities, city];
+        return {
+          cities:         next,
+          destination:    next[0].name,
+          destinationLat: next[0].lat,
+          destinationLng: next[0].lng,
+        };
+      }),
+      removeCity: (name) => set((s) => {
+        const next = s.cities.filter((c) => c.name !== name);
+        return {
+          cities:         next,
+          destination:    next[0]?.name ?? '',
+          destinationLat: next[0]?.lat  ?? null,
+          destinationLng: next[0]?.lng  ?? null,
+        };
+      }),
 
       setDestination: (d) => set({ destination: d, destinationLat: null, destinationLng: null }),
       setDestinationGeo: (d, lat, lng) => set({ destination: d, destinationLat: lat, destinationLng: lng }),
@@ -113,7 +162,10 @@ export const useOnboardingStore = create<OnboardingState>()(
     {
       name: 'travelos-onboarding',
       partialize: (s) => ({
-        step:           s.step,          // ← persist current step so tab-switch doesn't reset
+        step:           s.step,
+        country:        s.country,
+        tripType:       s.tripType,
+        cities:         s.cities,
         destination:    s.destination,
         destinationLat: s.destinationLat,
         destinationLng: s.destinationLng,
