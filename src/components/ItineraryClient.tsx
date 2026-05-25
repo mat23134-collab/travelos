@@ -261,10 +261,8 @@ function HotelDetailCube({
                         href={hotelOtaSearchUrl(row.id, hotel.name, destination, otaOpts)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="shrink-0 inline-flex items-center justify-center px-3 py-2 rounded-lg text-[11px] font-bold border transition-colors"
+                        className="shrink-0 inline-flex items-center justify-center px-3 py-2 rounded-lg text-[11px] font-bold border transition-colors hover-bg-surface"
                         style={{ color: 'white', borderColor: 'rgba(255,255,255,0.15)', background: 'transparent' }}
-                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.10)'; }}
-                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                       >
                         {ui.hotelOtaOpen}
                       </a>
@@ -1242,10 +1240,8 @@ function MobileMapOverlay({
               onClick={onClose}
               whileTap={{ scale: 0.88, transition: { type: 'spring', stiffness: 600, damping: 18 } }}
               aria-label="Close map"
-              className="w-8 h-8 flex items-center justify-center rounded-full text-sm transition-colors"
+              className="w-8 h-8 flex items-center justify-center rounded-full text-sm transition-colors hover-bg-card-h"
               style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.55)' }}
-              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.14)')}
-              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)')}
             >
               ✕
             </motion.button>
@@ -1592,10 +1588,8 @@ export function ItineraryClient({
               <motion.button
                 onClick={() => setViewMode('draft')}
                 whileTap={{ scale: 0.92, transition: { type: 'spring', stiffness: 600, damping: 18 } }}
-                className="text-xs font-medium px-3 py-2 rounded-lg border transition-colors"
+                className="text-xs font-medium px-3 py-2 rounded-lg border transition-colors hover-surface-text"
                 style={{ borderColor: 'rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.50)' }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)'; (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.80)'; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.50)'; }}
               >
                 {ui.draft}
               </motion.button>
@@ -1610,32 +1604,16 @@ export function ItineraryClient({
             {isAdmin && (
               <Link
                 href={`/explore/${encodeURIComponent(itinerary.destination)}`}
-                className="text-sm font-medium px-4 py-2 rounded-lg border transition-colors inline-flex items-center justify-center min-h-[40px]"
+                className="text-sm font-medium px-4 py-2 rounded-lg border transition-colors inline-flex items-center justify-center min-h-[40px] hover-share-btn"
                 style={{ borderColor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.78)', background: 'rgba(255,255,255,0.05)' }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.10)';
-                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(201,168,76,0.35)';
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)';
-                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.12)';
-                }}
               >
                 {ui.scoutPicks}
               </Link>
             )}
             <Link
               href="/onboarding"
-              className="text-sm font-medium px-4 py-2 rounded-lg border transition-colors inline-flex items-center justify-center min-h-[40px]"
+              className="text-sm font-medium px-4 py-2 rounded-lg border transition-colors inline-flex items-center justify-center min-h-[40px] hover-share-btn"
               style={{ borderColor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.78)', background: 'rgba(255,255,255,0.05)' }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.10)';
-                (e.currentTarget as HTMLElement).style.borderColor = 'rgba(201,168,76,0.35)';
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)';
-                (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.12)';
-              }}
             >
               {ui.newTrip}
             </Link>
@@ -1914,10 +1892,8 @@ export function ItineraryClient({
           >
             <Link
               href="/onboarding"
-              className="inline-flex items-center gap-2 px-8 py-3 rounded-xl text-white font-semibold text-sm transition-colors"
+              className="inline-flex items-center gap-2 px-8 py-3 rounded-xl text-white font-semibold text-sm transition-colors hover-bg-gold-warm"
               style={{ background: '#a89254', boxShadow: '0 6px 24px -4px rgba(201,168,76,0.38)' }}
-              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = '#b88455')}
-              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = '#a89254')}
             >
               {ui.planNewTripButton}
             </Link>

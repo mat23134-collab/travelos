@@ -517,9 +517,7 @@ export default function AuthPage() {
             {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
             <button
               onClick={() => switchMode(mode === 'login' ? 'signup' : 'login')}
-              className="font-semibold transition-colors" style={{ color: '#c05060' }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = '#9e363a')}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = '#c05060')}
+              className="font-semibold transition-colors hover-text-brand" style={{ color: '#c05060' }}
             >
               {mode === 'login' ? 'Sign up free' : 'Log in'}
             </button>

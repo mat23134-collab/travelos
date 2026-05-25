@@ -252,10 +252,8 @@ export function LogisticsStep({
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.97 }}
             transition={{ type: 'spring', stiffness: 400, damping: 24 }}
-            className="flex-1 py-4 rounded-full text-sm font-bold transition-colors"
+            className="flex-1 py-4 rounded-full text-sm font-bold transition-colors hover-text-white"
             style={{ color: '#4f5f76', border: `1.5px solid rgba(255,255,255,0.07)`, background: 'transparent' }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = '#ffffff')}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = '#4f5f76')}
           >
             ← Back
           </motion.button>

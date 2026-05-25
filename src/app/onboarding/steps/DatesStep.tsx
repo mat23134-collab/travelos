@@ -141,10 +141,8 @@ function CalendarRangePicker({
         <button
           onClick={prevMonth}
           aria-label="Previous month"
-          className="w-8 h-8 rounded-full flex items-center justify-center transition-colors text-sm"
+          className="w-8 h-8 rounded-full flex items-center justify-center transition-colors text-sm hover-bg-subtle"
           style={{ color: 'rgba(255,255,255,0.50)' }}
-          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
-          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
         >
           ‹
         </button>
@@ -154,10 +152,8 @@ function CalendarRangePicker({
         <button
           onClick={nextMonth}
           aria-label="Next month"
-          className="w-8 h-8 rounded-full flex items-center justify-center transition-colors text-sm"
+          className="w-8 h-8 rounded-full flex items-center justify-center transition-colors text-sm hover-bg-subtle"
           style={{ color: 'rgba(255,255,255,0.50)' }}
-          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
-          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
         >
           ›
         </button>
@@ -416,10 +412,8 @@ export function DatesStep({
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.97 }}
           transition={{ type: 'spring', stiffness: 400, damping: 24 }}
-          className="flex-1 py-4 rounded-full text-sm font-bold transition-colors"
+          className="flex-1 py-4 rounded-full text-sm font-bold transition-colors hover-text-white"
           style={{ color: '#4f5f76', border: `1.5px solid rgba(255,255,255,0.07)`, background: 'transparent' }}
-          onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#ffffff')}
-          onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = '#4f5f76')}
         >
           ← Back
         </motion.button>

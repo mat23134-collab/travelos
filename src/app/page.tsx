@@ -238,10 +238,8 @@ export default function HomePage() {
         <div className="flex items-center gap-5">
           <Link
             href="/onboarding"
-            className="hidden sm:block text-[11px] font-semibold uppercase tracking-[0.15em] transition-colors duration-200"
+            className="hidden sm:block text-[11px] font-semibold uppercase tracking-[0.15em] transition-colors duration-200 hover-text-white"
             style={{ color: 'rgba(255,255,255,0.40)' }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = '#fff')}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.40)')}
           >
             Plan a Trip
           </Link>
@@ -250,36 +248,20 @@ export default function HomePage() {
             user ? (
               <Link
                 href="/dashboard"
-                className="px-5 py-2.5 rounded-xl text-xs font-bold text-white transition-all duration-200"
+                className="px-5 py-2.5 rounded-xl text-xs font-bold text-white transition-all duration-200 hover-lift-sm-brand"
                 style={{ background: REDLINE, boxShadow: `0 0 22px rgba(158,54,58,0.40)` }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)';
-                  (e.currentTarget as HTMLElement).style.boxShadow = '0 0 36px rgba(158,54,58,0.58)';
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.transform = '';
-                  (e.currentTarget as HTMLElement).style.boxShadow = `0 0 22px rgba(158,54,58,0.40)`;
-                }}
               >
                 My Trips
               </Link>
             ) : (
               <Link
                 href="/auth"
-                className="px-5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200"
+                className="px-5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 hover-login-nav"
                 style={{
                   color: 'rgba(255,255,255,0.60)',
                   border: '1px solid rgba(255,255,255,0.12)',
                   backdropFilter: 'blur(8px)',
                   background: 'rgba(255,255,255,0.05)',
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.color = '#fff';
-                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(158,54,58,0.45)';
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.60)';
-                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.12)';
                 }}
               >
                 Log In
@@ -360,19 +342,11 @@ export default function HomePage() {
           >
             <Link
               href="/onboarding"
-              className="group inline-flex items-center gap-3 px-10 py-4 rounded-full font-bold text-sm text-white transition-all duration-200"
+              className="group inline-flex items-center gap-3 px-10 py-4 rounded-full font-bold text-sm text-white transition-all duration-200 hover-lift-brand"
               style={{
                 background: REDLINE,
                 boxShadow: `0 0 50px rgba(158,54,58,0.48), 0 4px 24px rgba(158,54,58,0.28)`,
                 letterSpacing: '-0.01em',
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLElement).style.transform = 'translateY(-3px) scale(1.025)';
-                (e.currentTarget as HTMLElement).style.boxShadow = '0 0 75px rgba(158,54,58,0.62), 0 8px 32px rgba(158,54,58,0.38)';
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLElement).style.transform = '';
-                (e.currentTarget as HTMLElement).style.boxShadow = `0 0 50px rgba(158,54,58,0.48), 0 4px 24px rgba(158,54,58,0.28)`;
               }}
               onClick={openPlanningLanguageStep}
             >
@@ -568,25 +542,11 @@ export default function HomePage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.08, type: 'spring', stiffness: 250, damping: 24 }}
-                className="p-8 rounded-3xl transition-all duration-300 cursor-default"
+                className="p-8 rounded-3xl transition-all duration-300 cursor-default hover-feature-card"
                 style={{
                   background: 'rgba(255,255,255,0.03)',
                   border: '1px solid rgba(255,255,255,0.06)',
                   boxShadow: '0 4px 24px rgba(0,0,0,0.22)',
-                }}
-                onMouseEnter={(e) => {
-                  const el = e.currentTarget as HTMLElement;
-                  el.style.background    = 'rgba(255,255,255,0.056)';
-                  el.style.borderColor   = 'rgba(158,54,58,0.24)';
-                  el.style.transform     = 'translateY(-5px)';
-                  el.style.boxShadow     = '0 24px 56px rgba(0,0,0,0.38)';
-                }}
-                onMouseLeave={(e) => {
-                  const el = e.currentTarget as HTMLElement;
-                  el.style.background  = 'rgba(255,255,255,0.03)';
-                  el.style.borderColor = 'rgba(255,255,255,0.06)';
-                  el.style.transform   = '';
-                  el.style.boxShadow   = '0 4px 24px rgba(0,0,0,0.22)';
                 }}
               >
                 <div className="text-3xl mb-5">{f.icon}</div>
@@ -634,23 +594,11 @@ export default function HomePage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.09, type: 'spring', stiffness: 240, damping: 22 }}
-                className="flex flex-col p-8 rounded-3xl transition-all duration-300"
+                className="flex flex-col p-8 rounded-3xl transition-all duration-300 hover-testimonial"
                 style={{
                   background: 'rgba(255,255,255,0.028)',
                   border: '1px solid rgba(255,255,255,0.06)',
                   boxShadow: '0 8px 32px rgba(0,0,0,0.28)',
-                }}
-                onMouseEnter={(e) => {
-                  const el = e.currentTarget as HTMLElement;
-                  el.style.transform   = 'translateY(-7px)';
-                  el.style.boxShadow   = '0 28px 64px rgba(0,0,0,0.44)';
-                  el.style.borderColor = 'rgba(158,54,58,0.20)';
-                }}
-                onMouseLeave={(e) => {
-                  const el = e.currentTarget as HTMLElement;
-                  el.style.transform   = '';
-                  el.style.boxShadow   = '0 8px 32px rgba(0,0,0,0.28)';
-                  el.style.borderColor = 'rgba(255,255,255,0.06)';
                 }}
               >
                 <div className="text-3xl mb-5">{t.emoji}</div>
@@ -717,19 +665,11 @@ export default function HomePage() {
 
           <Link
             href="/onboarding"
-            className="inline-flex items-center gap-3 px-12 py-5 rounded-full font-bold text-sm text-white transition-all duration-200"
+            className="inline-flex items-center gap-3 px-12 py-5 rounded-full font-bold text-sm text-white transition-all duration-200 hover-lift-brand-lg"
             style={{
               background: REDLINE,
               boxShadow: `0 0 65px rgba(158,54,58,0.44), 0 4px 28px rgba(158,54,58,0.28)`,
               letterSpacing: '-0.01em',
-            }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.transform = 'translateY(-3px) scale(1.03)';
-              (e.currentTarget as HTMLElement).style.boxShadow = '0 0 96px rgba(158,54,58,0.60), 0 8px 36px rgba(158,54,58,0.38)';
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLElement).style.transform = '';
-              (e.currentTarget as HTMLElement).style.boxShadow = `0 0 65px rgba(158,54,58,0.44), 0 4px 28px rgba(158,54,58,0.28)`;
             }}
             onClick={openPlanningLanguageStep}
           >
@@ -806,11 +746,9 @@ export default function HomePage() {
                 </Link>
                 <button
                   type="button"
-                  className="px-4 py-3 rounded-xl text-sm font-semibold text-white transition-colors"
+                  className="px-4 py-3 rounded-xl text-sm font-semibold text-white transition-colors hover-border-subtle"
                   style={{ border: '1px solid rgba(255,255,255,0.12)' }}
                   onClick={() => setShowAuthGate(false)}
-                  onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.28)')}
-                  onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.12)')}
                 >
                   Cancel
                 </button>

@@ -93,18 +93,8 @@ function SlotRow({ slot, activity, onRefresh, swapping, justSwapped, slotUi, ui 
             onClick={() => setPromptOpen((o) => !o)}
             disabled={swapping}
             title="Swap this activity"
-            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-all disabled:opacity-40"
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-all disabled:opacity-40 hover-swap-btn"
             style={{ borderColor: 'rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.45)' }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.borderColor = '#a89254';
-              (e.currentTarget as HTMLElement).style.color = '#c05060';
-              (e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.10)';
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.10)';
-              (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.45)';
-              (e.currentTarget as HTMLElement).style.background = 'transparent';
-            }}
           >
             {swapping
               ? <span className="w-3 h-3 rounded-full border border-t-[#a89254] border-[#a89254]/30 animate-spin" />
@@ -136,19 +126,15 @@ function SlotRow({ slot, activity, onRefresh, swapping, justSwapped, slotUi, ui 
           />
           <button
             onClick={handleQuickSwap}
-            className="text-xs px-3 py-2 rounded-lg text-white font-semibold transition-colors"
+            className="text-xs px-3 py-2 rounded-lg text-white font-semibold transition-colors hover-bg-gold"
             style={{ background: '#a89254' }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = '#b8a066')}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = '#a89254')}
           >
             {ui.draftGo}
           </button>
           <button
             onClick={() => setPromptOpen(false)}
-            className="text-xs px-2 py-2 rounded-lg border transition-colors"
+            className="text-xs px-2 py-2 rounded-lg border transition-colors hover-text-visible"
             style={{ borderColor: 'rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.38)' }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.70)')}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.38)')}
           >
             ✕
           </button>
@@ -294,16 +280,10 @@ export function DraftOverview({ itinerary, onUpdate, onFinalize, ui }: Props) {
               type="button"
               onClick={() => setTripStoryOpen(true)}
               disabled={!!swappingKey}
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl disabled:opacity-40 text-white font-semibold text-xs sm:text-sm transition-all border whitespace-nowrap"
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl disabled:opacity-40 text-white font-semibold text-xs sm:text-sm transition-all border whitespace-nowrap hover-bg-surface"
               style={{
                 borderColor: 'rgba(255,255,255,0.14)',
                 background: 'rgba(255,255,255,0.06)',
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.10)';
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)';
               }}
             >
               {ui.tripStoryButton}
@@ -311,13 +291,11 @@ export function DraftOverview({ itinerary, onUpdate, onFinalize, ui }: Props) {
             <button
               onClick={onFinalize}
               disabled={!!swappingKey}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl disabled:opacity-40 text-white font-semibold text-sm transition-all duration-150 hover:-translate-y-0.5 whitespace-nowrap"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl disabled:opacity-40 text-white font-semibold text-sm transition-all duration-150 hover:-translate-y-0.5 whitespace-nowrap hover-bg-gold"
               style={{
                 background: '#a89254',
                 boxShadow: '0 4px 16px -4px rgba(201,168,76,0.35)',
               }}
-              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = '#b8a066')}
-              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = '#a89254')}
             >
               {ui.looksGood}
             </button>
@@ -372,13 +350,11 @@ export function DraftOverview({ itinerary, onUpdate, onFinalize, ui }: Props) {
           <button
             onClick={onFinalize}
             disabled={!!swappingKey}
-            className="inline-flex items-center gap-2 px-8 py-3 rounded-xl disabled:opacity-40 text-white font-semibold transition-all duration-150 hover:-translate-y-0.5"
+            className="inline-flex items-center gap-2 px-8 py-3 rounded-xl disabled:opacity-40 text-white font-semibold transition-all duration-150 hover:-translate-y-0.5 hover-bg-gold"
             style={{
               background: '#a89254',
               boxShadow: '0 8px 28px -4px rgba(201,168,76,0.35)',
             }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = '#b8a066')}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = '#a89254')}
           >
             {ui.finalizeItinerary}
           </button>

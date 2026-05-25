@@ -188,19 +188,11 @@ export function SharePanel({ itinerary, profile, itineraryDbId, accessToken: acc
         onClick={() => setOpen(true)}
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.97, transition: { type: 'spring', stiffness: 600, damping: 18 } }}
-        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors"
+        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors hover-share-btn"
         style={{
           borderColor: 'rgba(255,255,255,0.12)',
           color: 'rgba(255,255,255,0.78)',
           background: 'rgba(255,255,255,0.05)',
-        }}
-        onMouseEnter={(e) => {
-          (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.10)';
-          (e.currentTarget as HTMLElement).style.borderColor = 'rgba(201,168,76,0.35)';
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)';
-          (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.12)';
         }}
       >
         {c.openButton}

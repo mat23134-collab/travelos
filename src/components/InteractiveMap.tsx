@@ -205,8 +205,7 @@ function PlacePopup({ place }: { place: MapPlace }) {
           borderTop: `1px solid ${c}22`,
           paddingTop: 4,
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; }}
-        onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.8'; }}
+        className="hover-opacity-full"
       >
         <svg width="9" height="9" viewBox="0 0 10 10" fill="none" style={{ flexShrink: 0 }}>
           <path d="M1 9L9 1M9 1H3M9 1V7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>

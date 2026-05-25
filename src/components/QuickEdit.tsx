@@ -135,16 +135,8 @@ export function QuickEdit({ itinerary, onUpdate }: Props) {
           </div>
           <button
             onClick={() => !loading && setOpen(false)}
-            className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+            className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover-close-btn"
             style={{ color: 'rgba(255,255,255,0.45)' }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)';
-              (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.85)';
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLElement).style.background = 'transparent';
-              (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.45)';
-            }}
             aria-label="Close"
           >
             ✕
@@ -162,19 +154,11 @@ export function QuickEdit({ itinerary, onUpdate }: Props) {
                 key={s}
                 type="button"
                 onClick={() => setMessage(s)}
-                className="text-xs px-3 py-1.5 rounded-full transition-all duration-150"
+                className="text-xs px-3 py-1.5 rounded-full transition-all duration-150 hover-chip-gold"
                 style={{
                   color: 'rgba(255,255,255,0.72)',
                   border: '1px solid rgba(255,255,255,0.12)',
                   background: 'rgba(255,255,255,0.04)',
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(201,168,76,0.45)';
-                  (e.currentTarget as HTMLElement).style.color = '#d4c8a8';
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.12)';
-                  (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.72)';
                 }}
               >
                 {s}

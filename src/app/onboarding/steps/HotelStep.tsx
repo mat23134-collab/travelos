@@ -274,10 +274,8 @@ export function HotelStep({
               <button
                 onClick={handleClear}
                 aria-label="Clear hotel selection"
-                className="shrink-0 text-xs transition-colors mt-0.5"
+                className="shrink-0 text-xs transition-colors mt-0.5 hover-text-gold"
                 style={{ color: 'rgba(197,145,42,0.5)' }}
-                onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = '#c5912a')}
-                onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = 'rgba(197,145,42,0.5)')}
               >
                 ✕
               </button>
@@ -348,14 +346,12 @@ export function HotelStep({
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.97 }}
             transition={{ type: 'spring', stiffness: 400, damping: 24 }}
-            className="w-full py-3 rounded-full text-sm font-bold transition-colors"
+            className="w-full py-3 rounded-full text-sm font-bold transition-colors hover-text-white"
             style={{
               color: '#4f5f76',
               border: `1.5px solid rgba(255,255,255,0.07)`,
               background: 'transparent',
             }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = '#ffffff')}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = '#4f5f76')}
           >
             ← Back
           </motion.button>

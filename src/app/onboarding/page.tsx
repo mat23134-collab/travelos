@@ -264,10 +264,8 @@ function OnboardingPageContent() {
             <button
               type="button"
               onClick={handleComplete}
-              className="text-xs transition-colors"
+              className="text-xs transition-colors hover-text-faint"
               style={{ color: 'rgba(79,95,118,0.7)' }}
-              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.45)')}
-              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = 'rgba(79,95,118,0.7)')}
             >
               Skip remaining setup — open planner
             </button>

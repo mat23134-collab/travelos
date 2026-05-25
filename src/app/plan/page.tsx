@@ -2006,20 +2006,10 @@ function PlanPage() {
                   onClick={handleBack}
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
-                  className="px-6 py-3 rounded-full border font-medium text-sm transition-colors"
+                  className="px-6 py-3 rounded-full border font-medium text-sm transition-colors hover-outline-btn"
                   style={{
                     borderColor: 'rgba(255,255,255,0.10)',
                     color: 'rgba(255,255,255,0.45)',
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.75)';
-                    (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.22)';
-                    (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)';
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.45)';
-                    (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.10)';
-                    (e.currentTarget as HTMLElement).style.background = 'transparent';
                   }}
                 >
                   {step === 0 ? '← Back to setup' : '← Back'}
@@ -2054,10 +2044,8 @@ function PlanPage() {
                 <div className="text-center mt-4">
                   <button
                     onClick={handleNext}
-                    className="text-sm transition-colors"
+                    className="text-sm transition-colors hover-text-visible"
                     style={{ color: 'rgba(255,255,255,0.30)' }}
-                    onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.55)')}
-                    onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.30)')}
                   >
                     Skip this question
                   </button>
