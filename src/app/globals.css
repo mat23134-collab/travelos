@@ -267,6 +267,74 @@ p { line-height: 1.65; }
 .mapboxgl-ctrl-icon { filter: invert(1) opacity(0.55); }
 .mapboxgl-ctrl-icon:hover { filter: invert(1) opacity(0.9); }
 
+/* ── Hover utility classes (replaces JS onMouseEnter/Leave) ────────────────── */
+/* Text */
+.hover-text-white:hover        { color: #ffffff !important; }
+.hover-text-faint:hover        { color: rgba(255,255,255,0.45) !important; }
+.hover-text-visible:hover      { color: rgba(255,255,255,0.55) !important; }
+.hover-text-brand:hover        { color: #9e363a !important; }
+.hover-text-brand-light:hover  { color: #c05060 !important; }
+.hover-text-gold:hover         { color: #c5912a !important; }
+
+/* Background */
+.hover-bg-subtle:hover         { background: rgba(255,255,255,0.08) !important; }
+.hover-bg-surface:hover        { background: rgba(255,255,255,0.10) !important; }
+.hover-bg-card-h:hover         { background: rgba(255,255,255,0.14) !important; }
+.hover-bg-gold:hover           { background: #b8a066 !important; }
+.hover-bg-gold-base:hover      { background: #a89254 !important; }
+
+/* Combined */
+.hover-surface-text:hover      { background: rgba(255,255,255,0.06) !important; color: rgba(255,255,255,0.80) !important; }
+
+/* Border */
+.hover-border-subtle:hover     { border-color: rgba(255,255,255,0.28) !important; }
+
+/* Opacity */
+.hover-opacity-full:hover      { opacity: 1 !important; }
+
+/* Nav links */
+.hover-login-nav:hover         { color: #ffffff !important; border-color: rgba(158,54,58,0.45) !important; }
+
+/* Lift + glow (brand buttons) */
+.hover-lift-brand:hover        { transform: translateY(-3px) scale(1.025); box-shadow: 0 0 75px rgba(158,54,58,0.62), 0 8px 32px rgba(158,54,58,0.38) !important; }
+.hover-lift-brand-lg:hover     { transform: translateY(-3px) scale(1.03);  box-shadow: 0 0 96px rgba(158,54,58,0.60), 0 8px 36px rgba(158,54,58,0.38) !important; }
+.hover-lift-sm-brand:hover     { transform: translateY(-1px); box-shadow: 0 0 36px rgba(158,54,58,0.58) !important; }
+
+/* Card lift (non-brand) */
+.hover-feature-card:hover      { background: rgba(255,255,255,0.056) !important; border-color: rgba(158,54,58,0.24) !important; transform: translateY(-5px); box-shadow: 0 24px 56px rgba(0,0,0,0.38) !important; }
+.hover-testimonial:hover       { transform: translateY(-7px); box-shadow: 0 28px 64px rgba(0,0,0,0.44) !important; border-color: rgba(158,54,58,0.20) !important; }
+
+/* Swap / action buttons */
+.hover-swap-btn:hover          { border-color: #a89254 !important; color: #c05060 !important; background: rgba(201,168,76,0.10) !important; }
+
+/* Close / icon buttons */
+.hover-close-btn:hover         { background: rgba(255,255,255,0.08) !important; color: rgba(255,255,255,0.85) !important; }
+
+/* Suggestion chips (gold accent on hover) */
+.hover-chip-gold:hover         { border-color: rgba(201,168,76,0.45) !important; color: #d4c8a8 !important; }
+
+/* Share / open button (bg + gold border) */
+.hover-share-btn:hover         { background: rgba(255,255,255,0.10) !important; border-color: rgba(201,168,76,0.35) !important; }
+
+/* Gold warm variant */
+.hover-bg-gold-warm:hover      { background: #b88455 !important; }
+
+/* Outline "Back" button */
+.hover-outline-btn:hover       { color: rgba(255,255,255,0.75) !important; border-color: rgba(255,255,255,0.22) !important; background: rgba(255,255,255,0.05) !important; }
+
+/* ── Reduced-motion ─────────────────────────────────────────────────────────── */
+/* Covers CSS transitions / keyframe animations for users who prefer less motion.
+   Framer Motion is handled separately via <MotionProvider reducedMotion="user">
+   in the root layout.                                                           */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration:       0.01ms !important;
+    animation-iteration-count: 1     !important;
+    transition-duration:      0.01ms !important;
+    scroll-behavior:          auto   !important;
+  }
+}
+
 /* ── Print ──────────────────────────────────────────────────────────────────── */
 @media print {
   nav, .print\:hidden, [data-print-hide] { display: none !important; }

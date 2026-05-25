@@ -3,6 +3,7 @@ import { Cormorant_Garamond, Inter } from 'next/font/google';
 import './globals.css';
 import { VersionStamp } from '@/components/VersionStamp';
 import { AuthProvider } from '@/lib/auth-context';
+import { MotionProvider } from '@/components/MotionProvider';
 import dynamic from 'next/dynamic';
 
 // CanvasShell uses WebGL — must be client-only (no SSR).
@@ -34,9 +35,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${inter.variable} ${brandSerif.variable} h-full`}>
       <body className="min-h-full antialiased">
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+        <MotionProvider>
+          <AuthProvider>
+            {children}
+          </AuthProvider>
+        </MotionProvider>
         <CanvasShell />
         <VersionStamp />
       </body>
