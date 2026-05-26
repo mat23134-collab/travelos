@@ -177,8 +177,6 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
   }
 
   const selectedCountry = COUNTRIES.find((c) => c.name === country);
-  const canConfirm = Boolean(country && tripType && cities.length > 0);
-
   const filtered = search
     ? COUNTRIES.filter((c) => c.name.toLowerCase().includes(search.toLowerCase()))
     : COUNTRIES;
@@ -440,33 +438,6 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
         )}
       </AnimatePresence>
 
-      {/* ── Confirm CTA ───────────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {canConfirm && (
-          <motion.div
-            key="confirm"
-            variants={reveal}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-          >
-            <motion.button
-              onClick={onComplete}
-              whileHover={{ scale: 1.02, y: -2 }}
-              whileTap={{ scale: 0.97 }}
-              className="w-full py-4 rounded-full text-sm font-black text-white tracking-wide"
-              style={{
-                background: `linear-gradient(135deg, ${RED}, ${RED2})`,
-                boxShadow: `0 0 40px rgba(158,54,58,0.42), 0 8px 24px -4px rgba(158,54,58,0.30)`,
-              }}
-            >
-              {tripType === 'multi' && cities.length > 1
-                ? `Plan ${cities.length}-city ${country} tour →`
-                : `Plan ${cities[0]?.name ?? country} →`}
-            </motion.button>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

@@ -14,7 +14,7 @@
 import { motion } from 'framer-motion';
 import { useOnboardingStore } from '@/state/onboardingStore';
 
-const GOLD  = '#c5912a';
+const GREEN = '#2e9e74';
 const MUTED = 'rgba(255,255,255,0.38)';
 
 const BUDGET_OPTIONS = [
@@ -71,11 +71,11 @@ export function PreferencesSection({ isCompleted, onComplete, onEdit }: Props) {
       <motion.div
         initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
         className="flex items-center justify-between px-5 py-3.5 rounded-2xl"
-        style={{ background: 'rgba(15,40,98,0.28)', border: '1px solid rgba(197,145,42,0.22)' }}
+        style={{ background: 'rgba(15,40,98,0.28)', border: '1px solid rgba(46,158,116,0.22)' }}
       >
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <span className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black text-white shrink-0"
-            style={{ background: GOLD }}>✓</span>
+            style={{ background: GREEN }}>✓</span>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-white truncate">
               {budgetOpt?.icon} {budgetOpt?.label}
@@ -98,15 +98,13 @@ export function PreferencesSection({ isCompleted, onComplete, onEdit }: Props) {
   }
 
   // ── Active form ────────────────────────────────────────────────────────────
-  const canContinue = !!budget;
-
   return (
     <div className="flex flex-col gap-6">
 
       {/* Header */}
       <div className="flex items-center gap-3">
         <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black text-white shrink-0"
-          style={{ background: GOLD }}>5</span>
+          style={{ background: GREEN }}>5</span>
         <div>
           <h2 className="text-xl font-black text-white tracking-tight">Your travel style</h2>
           <p className="text-xs mt-0.5" style={{ color: MUTED }}>
@@ -129,20 +127,20 @@ export function PreferencesSection({ isCompleted, onComplete, onEdit }: Props) {
               whileHover={{ scale: 1.01, x: 3 }}
               whileTap={{ scale: 0.98 }}
               animate={sel
-                ? { boxShadow: `0 0 0 2px ${GOLD}, 0 8px 28px -6px rgba(197,145,42,0.25)` }
+                ? { boxShadow: `0 0 0 2px ${GREEN}, 0 8px 28px -6px rgba(46,158,116,0.25)` }
                 : { boxShadow: 'none' }
               }
               transition={{ type: 'spring', stiffness: 400, damping: 24 }}
               className="flex items-center gap-4 px-4 py-3.5 rounded-xl border text-left transition-colors"
               style={sel
-                ? { borderColor: GOLD, background: 'rgba(197,145,42,0.10)' }
+                ? { borderColor: GREEN, background: 'rgba(46,158,116,0.10)' }
                 : { borderColor: 'rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }
               }
             >
               <span className="text-xl shrink-0 leading-none">{opt.icon}</span>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-bold leading-tight"
-                  style={{ color: sel ? '#d4a235' : 'rgba(255,255,255,0.9)' }}>
+                  style={{ color: sel ? '#3ec98a' : 'rgba(255,255,255,0.9)' }}>
                   {opt.label}
                 </div>
                 <div className="text-[11px] mt-0.5 leading-snug" style={{ color: MUTED }}>
@@ -151,7 +149,7 @@ export function PreferencesSection({ isCompleted, onComplete, onEdit }: Props) {
               </div>
               {sel && (
                 <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }}
-                  className="text-xs font-bold shrink-0" style={{ color: GOLD }}>✓</motion.span>
+                  className="text-xs font-bold shrink-0" style={{ color: GREEN }}>✓</motion.span>
               )}
             </motion.button>
           );
@@ -175,7 +173,7 @@ export function PreferencesSection({ isCompleted, onComplete, onEdit }: Props) {
                 whileTap={{ scale: 0.97 }}
                 className="flex items-center gap-2.5 px-3.5 py-3 rounded-xl border text-left transition-colors"
                 style={sel
-                  ? { borderColor: GOLD, background: 'rgba(197,145,42,0.10)', color: '#d4a235' }
+                  ? { borderColor: GREEN, background: 'rgba(46,158,116,0.10)', color: '#3ec98a' }
                   : { borderColor: 'rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)', color: 'rgba(255,255,255,0.7)' }
                 }
               >
@@ -183,7 +181,7 @@ export function PreferencesSection({ isCompleted, onComplete, onEdit }: Props) {
                 <span className="text-xs font-semibold leading-snug flex-1">{opt.label}</span>
                 {sel && (
                   <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }}
-                    className="text-[10px] font-black shrink-0" style={{ color: GOLD }}>✓</motion.span>
+                    className="text-[10px] font-black shrink-0" style={{ color: GREEN }}>✓</motion.span>
                 )}
               </motion.button>
             );
@@ -191,24 +189,6 @@ export function PreferencesSection({ isCompleted, onComplete, onEdit }: Props) {
         </div>
       </div>
 
-      {/* Continue */}
-      <motion.button
-        onClick={canContinue ? onComplete : undefined}
-        disabled={!canContinue}
-        whileHover={canContinue ? { scale: 1.02, y: -1 } : {}}
-        whileTap={canContinue ? { scale: 0.97 } : {}}
-        className="w-full py-3.5 rounded-full text-sm font-black tracking-wide transition-all disabled:opacity-35"
-        style={{
-          background: canContinue
-            ? 'linear-gradient(135deg, #9e363a, #b5404a)'
-            : 'rgba(255,255,255,0.07)',
-          color: canContinue ? '#fff' : 'rgba(255,255,255,0.3)',
-          boxShadow: canContinue ? '0 0 48px rgba(158,54,58,0.48), 0 8px 24px -4px rgba(158,54,58,0.35)' : 'none',
-          cursor: canContinue ? 'pointer' : 'default',
-        }}
-      >
-        {canContinue ? 'Generate My Itinerary ✨' : 'Pick a budget to continue'}
-      </motion.button>
     </div>
   );
 }

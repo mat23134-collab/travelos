@@ -11,9 +11,8 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useOnboardingStore } from '@/state/onboardingStore';
 
-const BLUE  = '#4a7bde';
-const GOLD  = '#c5912a';
-const MUTED = 'rgba(255,255,255,0.38)';
+const PURPLE = '#7b6fcf';
+const MUTED  = 'rgba(255,255,255,0.38)';
 
 const reveal = {
   hidden:  { opacity: 0, y: 14 },
@@ -63,11 +62,11 @@ export function VibeSection({ isCompleted, onComplete, onEdit }: Props) {
       <motion.div
         initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
         className="flex items-center justify-between px-5 py-3.5 rounded-2xl"
-        style={{ background: 'rgba(15,40,98,0.28)', border: '1px solid rgba(74,123,222,0.22)' }}
+        style={{ background: 'rgba(15,40,98,0.28)', border: '1px solid rgba(123,111,207,0.22)' }}
       >
         <div className="flex items-center gap-3">
           <span className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black text-white shrink-0"
-            style={{ background: BLUE }}>✓</span>
+            style={{ background: PURPLE }}>✓</span>
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-bold text-white">
               {groupOpt?.icon} {groupOpt?.label}
@@ -95,7 +94,7 @@ export function VibeSection({ isCompleted, onComplete, onEdit }: Props) {
       {/* Header */}
       <div className="flex items-center gap-3">
         <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black text-white shrink-0"
-          style={{ background: BLUE }}>4</span>
+          style={{ background: PURPLE }}>4</span>
         <div>
           <h2 className="text-xl font-black text-white tracking-tight">Who's coming?</h2>
           <p className="text-xs mt-0.5" style={{ color: MUTED }}>
@@ -115,13 +114,13 @@ export function VibeSection({ isCompleted, onComplete, onEdit }: Props) {
               whileHover={{ scale: 1.03, y: -2 }}
               whileTap={{ scale: 0.97 }}
               animate={sel
-                ? { boxShadow: `0 0 0 2px ${BLUE}, 0 10px 28px -6px rgba(74,123,222,0.28)` }
+                ? { boxShadow: `0 0 0 2px ${PURPLE}, 0 10px 28px -6px rgba(123,111,207,0.28)` }
                 : { boxShadow: 'none' }
               }
               transition={{ type: 'spring', stiffness: 400, damping: 24 }}
               className="relative p-4 rounded-2xl border text-left transition-colors"
               style={sel
-                ? { borderColor: BLUE, background: 'rgba(74,123,222,0.12)' }
+                ? { borderColor: PURPLE, background: 'rgba(123,111,207,0.12)' }
                 : { borderColor: 'rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)' }
               }
             >
@@ -129,13 +128,13 @@ export function VibeSection({ isCompleted, onComplete, onEdit }: Props) {
                 <motion.div initial={{ scale: 0, rotate: -15 }} animate={{ scale: 1, rotate: 0 }}
                   transition={{ type: 'spring', stiffness: 500, damping: 20 }}
                   className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full flex items-center justify-center"
-                  style={{ background: BLUE }}>
+                  style={{ background: PURPLE }}>
                   <span className="text-white text-[9px] font-bold">✓</span>
                 </motion.div>
               )}
               <div className="text-2xl mb-2 leading-none">{opt.icon}</div>
               <div className="text-sm font-bold leading-tight"
-                style={{ color: sel ? '#7fa8ed' : 'rgba(255,255,255,0.9)' }}>
+                style={{ color: sel ? '#b8b0f0' : 'rgba(255,255,255,0.9)' }}>
                 {opt.label}
               </div>
               <div className="text-[11px] mt-0.5" style={{ color: MUTED }}>{opt.sub}</div>
@@ -165,14 +164,14 @@ export function VibeSection({ isCompleted, onComplete, onEdit }: Props) {
                     whileTap={{ scale: 0.98 }}
                     className="flex items-center gap-3.5 px-4 py-3.5 rounded-xl border text-left transition-colors"
                     style={sel
-                      ? { borderColor: BLUE, background: 'rgba(74,123,222,0.10)' }
+                      ? { borderColor: PURPLE, background: 'rgba(123,111,207,0.10)' }
                       : { borderColor: 'rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }
                     }
                   >
                     <span className="text-xl shrink-0 leading-none">{opt.icon}</span>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-semibold leading-tight"
-                        style={{ color: sel ? '#7fa8ed' : 'rgba(255,255,255,0.9)' }}>
+                        style={{ color: sel ? '#b8b0f0' : 'rgba(255,255,255,0.9)' }}>
                         {opt.label}
                       </div>
                       <div className="text-[11px] mt-0.5 leading-snug" style={{ color: MUTED }}>
@@ -181,7 +180,7 @@ export function VibeSection({ isCompleted, onComplete, onEdit }: Props) {
                     </div>
                     {sel && (
                       <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }}
-                        className="text-xs font-bold shrink-0" style={{ color: BLUE }}>✓</motion.span>
+                        className="text-xs font-bold shrink-0" style={{ color: PURPLE }}>✓</motion.span>
                     )}
                   </motion.button>
                 );

@@ -97,13 +97,6 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
     setPath(p);
   }
 
-  // Can continue when:
-  // - booked path: hotel confirmed
-  // - choose path: at minimum accommodation type selected
-  const canContinue =
-    (path === 'booked' && status === 'found' && !!hotelAddress) ||
-    (path === 'choose' && !!accommodation);
-
   return (
     <div className="flex flex-col gap-6">
 
@@ -312,44 +305,6 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
         )}
       </AnimatePresence>
 
-      {/* ── Continue button ──────────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {path && (
-          <motion.div key="cta"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0, transition: { duration: 0.3 } }}
-            exit={{ opacity: 0 }}>
-            <motion.button
-              onClick={canContinue ? onComplete : undefined}
-              disabled={!canContinue}
-              whileHover={canContinue ? { scale: 1.02, y: -1 } : {}}
-              whileTap={canContinue ? { scale: 0.97 } : {}}
-              className="w-full py-4 rounded-full text-sm font-black tracking-wide disabled:opacity-35 transition-all"
-              style={{
-                background: canContinue
-                  ? 'linear-gradient(135deg, #9e363a, #b5404a)'
-                  : 'rgba(255,255,255,0.08)',
-                color: canContinue ? '#fff' : 'rgba(255,255,255,0.3)',
-                boxShadow: canContinue ? '0 0 40px rgba(158,54,58,0.38), 0 8px 24px -4px rgba(158,54,58,0.28)' : 'none',
-                cursor: canContinue ? 'pointer' : 'default',
-              }}
-            >
-              {path === 'booked'
-                ? status === 'found' ? 'Perfect — who\'s joining? →' : 'Find your hotel first'
-                : accommodation ? 'Set travel style →' : 'Pick your accommodation type'}
-            </motion.button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Skip link */}
-      <button
-        onClick={onSkip}
-        className="text-xs text-center transition-colors hover-text-faint"
-        style={{ color: 'rgba(79,95,118,0.65)' }}
-      >
-        Skip — decide on accommodation later
-      </button>
     </div>
   );
 }

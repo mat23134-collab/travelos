@@ -230,8 +230,6 @@ export function DatesSection({ isCompleted, onComplete, onEdit }: Props) {
 
   const [showDetails, setShowDetails] = useState(false);
   const duration = tripDuration(startDate, endDate);
-  const canConfirm = !!(startDate && endDate);
-
   // ── Completed summary bar ────────────────────────────────────────────────
   if (isCompleted) {
     return (
@@ -384,25 +382,6 @@ export function DatesSection({ isCompleted, onComplete, onEdit }: Props) {
         </AnimatePresence>
       </div>
 
-      {/* CTA */}
-      <AnimatePresence>
-        {canConfirm && (
-          <motion.div key="cta" variants={reveal} initial="hidden" animate="visible" exit="exit">
-            <motion.button
-              onClick={onComplete}
-              whileHover={{ scale: 1.02, y: -2 }}
-              whileTap={{ scale: 0.97 }}
-              className="w-full py-4 rounded-full text-sm font-black text-white tracking-wide"
-              style={{
-                background: `linear-gradient(135deg, ${RED}, ${RED2})`,
-                boxShadow: `0 0 40px rgba(158,54,58,0.42), 0 8px 24px -4px rgba(158,54,58,0.28)`,
-              }}
-            >
-              {duration ? `Confirm ${duration}-night trip →` : 'Confirm dates →'}
-            </motion.button>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

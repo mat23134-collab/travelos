@@ -16,13 +16,14 @@
  */
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useState, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useOnboardingStore } from '@/state/onboardingStore';
 import { readTripLanguagePref } from '@/lib/tripLanguagePref';
 import { useAuth } from '@/lib/auth-context';
 import { BrandWordmark } from '@/components/BrandWordmark';
+import { STEP_BACKGROUNDS, getStepBackground } from '@/lib/stepBackgrounds';
 
 // ── Lazy-load heavy step components ──────────────────────────────────────────
 const DestinationSection = dynamic(
@@ -113,6 +114,7 @@ function OnboardingPageContent() {
   const { user, loading } = useAuth();
 
   const {
+    country, tripType, cities,
     destination, startDate, endDate,
     arrivalTime, departureTime, dailyStartTime, skipDay1,
     hotelAddress, hotelLat, hotelLng,
@@ -125,6 +127,23 @@ function OnboardingPageContent() {
   // clobber persisted completion state.
   const [wizardStep, setWizardStep] = useState(0);
   const [direction,  setDirection]  = useState(1); // 1=forward, -1=backward
+
+  // ── Background image: match the chosen destination, fall back to rotating ──
+  const bgUrl = useMemo(() => {
+    for (const city of cities) {
+      const found = STEP_BACKGROUNDS.find(
+        (b) => b.city.toLowerCase() === city.name.toLowerCase()
+      );
+      if (found) return found.imageUrl;
+    }
+    if (country) {
+      const found = STEP_BACKGROUNDS.find(
+        (b) => b.country.toLowerCase() === country.toLowerCase()
+      );
+      if (found) return found.imageUrl;
+    }
+    return getStepBackground(wizardStep, 3).imageUrl;
+  }, [cities, country, wizardStep]);
 
   // Auth guard
   useEffect(() => {
@@ -176,6 +195,48 @@ function OnboardingPageContent() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  // ── Per-step validation (drives the sticky footer CTA) ─────────────────────
+  const nightCount = (startDate && endDate)
+    ? Math.round((new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000)
+    : null;
+
+  const stepState: { canContinue: boolean; label: string } = (() => {
+    switch (wizardStep) {
+      case 0:
+        if (!country)        return { canContinue: false, label: 'Pick a country' };
+        if (!tripType)       return { canContinue: false, label: 'Single or multi-city?' };
+        if (!cities.length)  return { canContinue: false, label: 'Select at least one city' };
+        return {
+          canContinue: true,
+          label: cities.length > 1
+            ? `Plan ${cities.length}-city tour →`
+            : `Plan ${cities[0]?.name ?? country} →`,
+        };
+      case 1:
+        if (!startDate || !endDate) return { canContinue: false, label: 'Pick your travel dates' };
+        return { canContinue: true, label: nightCount ? `${nightCount} nights · Continue →` : 'Continue →' };
+      case 2:
+        if (hotelAddress)  return { canContinue: true, label: 'Stay confirmed · Continue →' };
+        if (accommodation) return { canContinue: true, label: 'Preferences set · Continue →' };
+        return { canContinue: true, label: 'Skip hotel for now →' };
+      case 3:
+        if (!groupType) return { canContinue: false, label: "Who's coming?" };
+        if (!pace)      return { canContinue: false, label: 'Choose your pace' };
+        return { canContinue: true, label: 'Continue →' };
+      case 4:
+        if (!budget) return { canContinue: false, label: 'Pick a budget level' };
+        return { canContinue: true, label: 'Generate My Itinerary ✨' };
+      default:
+        return { canContinue: false, label: 'Continue' };
+    }
+  })();
+
+  function handleContinue() {
+    if (!stepState.canContinue) return;
+    if (wizardStep === STEPS.length - 1) handleGenerateTrip();
+    else goNext();
+  }
+
   // ── Final action: generate trip ─────────────────────────────────────────────
   function handleGenerateTrip() {
     const params = new URLSearchParams();
@@ -223,14 +284,26 @@ function OnboardingPageContent() {
       className="min-h-screen relative"
       style={{
         backgroundColor: '#091f36',
-        backgroundImage: `radial-gradient(ellipse 80% 60% at 50% -10%, ${stepColor}22 0%, transparent 60%)`,
-        transition: 'background-image 0.6s ease',
+        backgroundImage: `linear-gradient(rgba(9,31,54,0.76), rgba(9,31,54,0.91)), url("${bgUrl}")`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
       }}
     >
-      {/* Ambient blob */}
+      {/* Step-colour accent glow on top of photo */}
       <div className="fixed inset-0 pointer-events-none z-0" aria-hidden="true">
-        <div className="absolute -top-32 -left-32 w-[460px] h-[460px] rounded-full blur-[140px] opacity-18"
-          style={{ background: `radial-gradient(circle, ${stepColor}44 0%, transparent 70%)`, transition: 'background 0.6s ease' }} />
+        <div
+          className="absolute top-0 left-0 right-0 h-64 transition-all duration-700"
+          style={{
+            background: `radial-gradient(ellipse 80% 100% at 50% -10%, ${stepColor}30 0%, transparent 70%)`,
+          }}
+        />
+        <div
+          className="absolute bottom-0 left-0 right-0 h-48 transition-all duration-700"
+          style={{
+            background: `linear-gradient(to top, ${stepColor}15 0%, transparent 100%)`,
+          }}
+        />
       </div>
 
       {/* ── Header ──────────────────────────────────────────────────────────── */}
@@ -284,7 +357,7 @@ function OnboardingPageContent() {
             initial="enter"
             animate="center"
             exit="exit"
-            className="max-w-xl mx-auto px-5 sm:px-8 pb-20"
+            className="max-w-xl mx-auto px-5 sm:px-8 pb-40"
           >
             <Suspense fallback={<StepSkeleton />}>
 
@@ -335,6 +408,73 @@ function OnboardingPageContent() {
             </Suspense>
           </motion.div>
         </AnimatePresence>
+      </div>
+
+      {/* ── Sticky footer navigation ──────────────────────────────────────────── */}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-20"
+        style={{
+          background: 'linear-gradient(to top, rgba(9,31,54,0.98) 60%, transparent 100%)',
+          paddingTop: 36,
+        }}
+      >
+        <div className="max-w-xl mx-auto px-5 sm:px-8 pb-8 flex items-center gap-3">
+
+          {/* Back */}
+          <AnimatePresence>
+            {wizardStep > 0 && (
+              <motion.button
+                key="footer-back"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -10 }}
+                transition={{ duration: 0.2 }}
+                onClick={goBack}
+                className="flex items-center gap-1.5 px-5 py-3.5 rounded-full text-sm font-bold shrink-0 transition-colors"
+                style={{
+                  background: 'rgba(255,255,255,0.07)',
+                  border: '1px solid rgba(255,255,255,0.14)',
+                  color: 'rgba(255,255,255,0.75)',
+                }}
+              >
+                ‹ Back
+              </motion.button>
+            )}
+          </AnimatePresence>
+
+          {/* Continue / Generate */}
+          <AnimatePresence mode="wait">
+            <motion.button
+              key={`footer-cta-${wizardStep}`}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.18 }}
+              onClick={handleContinue}
+              whileHover={stepState.canContinue ? { scale: 1.02, y: -1 } : {}}
+              whileTap={stepState.canContinue ? { scale: 0.97 } : {}}
+              className="flex-1 py-3.5 rounded-full text-sm font-black tracking-wide transition-all"
+              style={{
+                background: stepState.canContinue
+                  ? wizardStep === STEPS.length - 1
+                    ? 'linear-gradient(135deg, #9e363a, #b5404a)'
+                    : stepColor
+                  : 'rgba(255,255,255,0.07)',
+                color: stepState.canContinue ? '#fff' : 'rgba(255,255,255,0.35)',
+                boxShadow: stepState.canContinue
+                  ? wizardStep === STEPS.length - 1
+                    ? '0 0 40px rgba(158,54,58,0.42), 0 8px 24px -4px rgba(158,54,58,0.28)'
+                    : `0 0 28px ${stepColor}60, 0 6px 18px -4px ${stepColor}50`
+                  : 'none',
+                opacity: stepState.canContinue ? 1 : 0.55,
+                cursor: stepState.canContinue ? 'pointer' : 'default',
+              }}
+            >
+              {stepState.label}
+            </motion.button>
+          </AnimatePresence>
+
+        </div>
       </div>
     </main>
   );
