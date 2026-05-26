@@ -64,6 +64,7 @@ function CountryCard({ country, selected, onClick }: {
 
   return (
     <motion.button
+      type="button"
       onClick={onClick}
       whileHover={{ scale: 1.03, y: -2 }}
       whileTap={{ scale: 0.96 }}
@@ -71,14 +72,15 @@ function CountryCard({ country, selected, onClick }: {
         ? { boxShadow: `0 0 0 2px ${RED}, 0 12px 32px rgba(158,54,58,0.30)` }
         : { boxShadow: '0 4px 20px rgba(0,0,0,0.35)' }}
       transition={{ type: 'spring', stiffness: 400, damping: 24 }}
-      className="relative aspect-[4/3] rounded-2xl overflow-hidden text-center transition-colors"
+      className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden text-center transition-colors block"
       style={{
         border: selected ? `2px solid ${RED}` : '2px solid rgba(255,255,255,0.08)',
       }}
     >
       <img
         src={photo}
-        alt=""
+        alt={country.name}
+        loading="lazy"
         className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 ease-out"
         style={{ transform: selected ? 'scale(1.05)' : 'scale(1)' }}
       />
@@ -289,9 +291,10 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
         {filtered.map((c, i) => (
           <motion.div
             key={c.code}
+            className="w-full min-w-0"
             initial={{ opacity: 0, scale: 0.92 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: i * 0.018, type: 'spring', stiffness: 360, damping: 26 }}
+            transition={{ delay: Math.min(i * 0.018, 0.35), type: 'spring', stiffness: 360, damping: 26 }}
           >
             <CountryCard
               country={c}
