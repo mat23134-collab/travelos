@@ -9,6 +9,11 @@ import { BrandWordmark } from '@/components/BrandWordmark';
 import { supabaseAuth } from '@/lib/supabase';
 import { normalizeUsername, validateUsernameShape } from '@/lib/username';
 import { loadAndClearPendingIntent } from '@/lib/pendingIntent';
+import {
+  buildLegalConsentRecord,
+  hasRequiredLegalConsent,
+  storeLegalConsent,
+} from '@/lib/legalConsent';
 
 type Mode = 'login' | 'signup';
 type Gender = 'male' | 'female';
@@ -31,6 +36,7 @@ export default function AuthPage() {
   const [error,    setError]    = useState('');
   const [busy,     setBusy]     = useState(false);
   const [success,  setSuccess]  = useState('');
+  const [legalAccepted, setLegalAccepted] = useState(false);
 
   const syncProfileFromSession = useCallback(async () => {
     const { data: { session } } = await supabaseAuth.auth.getSession();
@@ -57,6 +63,7 @@ export default function AuthPage() {
     setError('');
     setSuccess('');
     setBusy(false);
+    setLegalAccepted(hasRequiredLegalConsent());
   };
 
   // Already logged in → restore pending intent or go to dashboard
@@ -119,6 +126,10 @@ export default function AuthPage() {
       return;
     }
     if (mode === 'signup') {
+      if (!legalAccepted && !hasRequiredLegalConsent()) {
+        setError('Please accept the Terms, Privacy Policy, and required cookies to create an account.');
+        return;
+      }
       const uErr = validateUsernameShape(username);
       if (uErr) {
         setError(uErr);
@@ -150,6 +161,15 @@ export default function AuthPage() {
     setBusy(true);
     setError('');
     setSuccess('');
+    if (mode === 'signup' && !hasRequiredLegalConsent()) {
+      const consent = buildLegalConsentRecord({ preferencesCookies: true, analyticsCookies: false });
+      storeLegalConsent(consent);
+      fetch('/api/legal-consent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(consent),
+      }).catch(() => {});
+    }
     let authError: string | null = null;
     if (mode === 'login') {
       const result = await signIn(email.trim(), password);
@@ -474,6 +494,40 @@ export default function AuthPage() {
                 )}
               </AnimatePresence>
 
+              {mode === 'signup' && (
+                <label
+                  className="flex items-start gap-3 rounded-2xl border px-3.5 py-3 text-xs leading-relaxed"
+                  style={{
+                    borderColor: legalAccepted ? 'rgba(158,54,58,0.35)' : 'rgba(255,255,255,0.10)',
+                    background: legalAccepted ? 'rgba(158,54,58,0.08)' : 'rgba(255,255,255,0.035)',
+                    color: 'rgba(255,255,255,0.58)',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={legalAccepted}
+                    onChange={(e) => setLegalAccepted(e.target.checked)}
+                    className="mt-0.5"
+                    required={mode === 'signup'}
+                  />
+                  <span>
+                    I agree to the{' '}
+                    <Link href="/terms" className="underline underline-offset-2 text-white/80">
+                      Terms of Service
+                    </Link>
+                    , the{' '}
+                    <Link href="/privacy" className="underline underline-offset-2 text-white/80">
+                      Privacy Policy
+                    </Link>
+                    , the{' '}
+                    <Link href="/cookies" className="underline underline-offset-2 text-white/80">
+                      Cookie Policy
+                    </Link>
+                    , and required cookies/local storage.
+                  </span>
+                </label>
+              )}
+
               {/* Submit */}
               <motion.button
                 type="submit"
@@ -532,6 +586,10 @@ export default function AuthPage() {
           {' '}and{' '}
           <a href="/privacy" className="underline underline-offset-2 hover:text-white/60 transition-colors">
             Privacy Policy
+          </a>
+          {' '}and{' '}
+          <a href="/cookies" className="underline underline-offset-2 hover:text-white/60 transition-colors">
+            Cookie Policy
           </a>.
         </p>
       </motion.div>

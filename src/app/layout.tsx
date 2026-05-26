@@ -4,6 +4,7 @@ import './globals.css';
 import { VersionStamp } from '@/components/VersionStamp';
 import { AuthProvider } from '@/lib/auth-context';
 import { MotionProvider } from '@/components/MotionProvider';
+import { LegalConsentBanner } from '@/components/LegalConsentBanner';
 import dynamic from 'next/dynamic';
 
 // CanvasShell uses WebGL — must be client-only (no SSR).
@@ -38,6 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <MotionProvider>
           <AuthProvider>
             {children}
+            <LegalConsentBanner />
           </AuthProvider>
         </MotionProvider>
         <CanvasShell />

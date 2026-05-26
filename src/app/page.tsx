@@ -14,6 +14,7 @@ import type { Destination } from '@/lib/destinations';
 import { savePendingIntent } from '@/lib/pendingIntent';
 import { CinematicHeroBackground } from '@/components/CinematicHeroBackground';
 import { resolveBackgroundImage } from '@/lib/stepBackgrounds';
+import { hasRequiredLegalConsent, requestLegalConsent } from '@/lib/legalConsent';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 // Night palette — deep lounge, not pitch black
@@ -154,12 +155,20 @@ export default function HomePage() {
   const openPlanningLanguageStep = (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (loading) return;
     e.preventDefault();
+    if (!hasRequiredLegalConsent()) {
+      requestLegalConsent();
+      return;
+    }
     setPendingDest(null);
     setShowLangModal(true);
   };
 
   // Postcard click — pre-selects destination
   const handleDestinationSelect = (name: string) => {
+    if (!hasRequiredLegalConsent()) {
+      requestLegalConsent();
+      return;
+    }
     setPendingDest(name);
     setShowLangModal(true);
   };
@@ -205,6 +214,7 @@ export default function HomePage() {
             href="/onboarding"
             className="hidden sm:block text-[11px] font-semibold uppercase tracking-[0.15em] transition-colors duration-200 hover-text-white"
             style={{ color: 'rgba(255,255,255,0.40)' }}
+            onClick={openPlanningLanguageStep}
           >
             Plan a Trip
           </Link>
