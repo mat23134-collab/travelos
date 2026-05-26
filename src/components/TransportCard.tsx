@@ -345,35 +345,6 @@ export function TransportCard({
               >
                 {ui.transportTransitToCity} ↗
               </a>
-              <div
-                className="inline-flex flex-col sm:flex-row sm:items-center gap-1.5 justify-center px-4 py-3 rounded-xl text-sm font-semibold border"
-                style={{
-                  background: 'rgba(56,189,248,0.08)',
-                  borderColor: 'rgba(56,189,248,0.28)',
-                  color: 'rgba(186,230,253,0.95)',
-                }}
-              >
-                <span>{ui.transportRoutesPreview}</span>
-                <span className="text-xs font-normal opacity-90">
-                  {routeStatus === 'loading' && ui.transportRoutesLoading}
-                  {routeStatus === 'ok' && routeLabel}
-                  {routeStatus === 'err' && ui.transportRoutesUnavailable}
-                  {routeStatus === 'idle' && !hotelAnchor && '—'}
-                </span>
-              </div>
-              <a
-                href={ui.cityTransportGoogleRoutesDocUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center px-4 py-3 rounded-xl text-xs font-semibold border transition-colors"
-                style={{
-                  background: 'rgba(56,189,248,0.06)',
-                  borderColor: 'rgba(56,189,248,0.22)',
-                  color: 'rgba(186,230,253,0.88)',
-                }}
-              >
-                {ui.cityTransportGoogleRoutesDoc} ↗
-              </a>
             </div>
           </div>
         </div>
