@@ -42,6 +42,8 @@ export function SmartSwapSheet({
   const [alts, setAlts] = useState<SwapProposalAlternative[]>([]);
   const [localErr, setLocalErr] = useState('');
   const [applying, setApplying] = useState<number | null>(null);
+  const [customName, setCustomName] = useState('');
+  const [customApplying, setCustomApplying] = useState(false);
 
   useEffect(() => {
     setPortalEl(document.body);
@@ -53,6 +55,8 @@ export function SmartSwapSheet({
       setAlts([]);
       setLocalErr('');
       setApplying(null);
+      setCustomName('');
+      setCustomApplying(false);
       return;
     }
     let cancelled = false;
@@ -121,6 +125,27 @@ export function SmartSwapSheet({
       setLocalErr(dc.smartSwapError);
     } finally {
       setApplying(null);
+    }
+  };
+
+  const pickCustom = async () => {
+    const name = customName.trim();
+    if (!name || customApplying) return;
+    setCustomApplying(true);
+    try {
+      // Build a minimal Activity from the user's free-text input
+      const syntheticActivity = {
+        ...activity,
+        name,
+        description: '',
+        neighborhood: activity.neighborhood,
+      } as Activity;
+      await onCommit(syntheticActivity, `Custom selection: ${name}`);
+      onClose();
+    } catch {
+      setLocalErr(dc.smartSwapError);
+    } finally {
+      setCustomApplying(false);
     }
   };
 
@@ -222,6 +247,52 @@ export function SmartSwapSheet({
                   </motion.button>
                 </div>
               ))}
+
+              {/* ── Custom place entry ─────────────────────────────────────── */}
+              <div className="relative flex items-center gap-3 my-2">
+                <div className="flex-1 h-px bg-white/10" />
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-white/30 shrink-0">
+                  or enter your own
+                </span>
+                <div className="flex-1 h-px bg-white/10" />
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 space-y-3">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-white/35">
+                  Your Place
+                </p>
+                <input
+                  type="text"
+                  placeholder="Type a place name…"
+                  value={customName}
+                  onChange={(e) => setCustomName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') pickCustom();
+                  }}
+                  disabled={customApplying || applying !== null}
+                  className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder:text-white/25 outline-none disabled:opacity-40"
+                  style={{
+                    background: 'rgba(255,255,255,0.06)',
+                    border: '1px solid rgba(255,255,255,0.14)',
+                  }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(201,168,76,0.55)'; }}
+                  onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.14)'; }}
+                />
+                <motion.button
+                  type="button"
+                  disabled={!customName.trim() || customApplying || applying !== null}
+                  whileTap={{ scale: customName.trim() && !customApplying ? 0.97 : 1 }}
+                  onClick={pickCustom}
+                  className="w-full py-3 rounded-xl text-sm font-bold text-white disabled:opacity-40 transition-opacity"
+                  style={{
+                    background: 'rgba(201,168,76,0.20)',
+                    border: '1px solid rgba(201,168,76,0.35)',
+                    color: '#d4c8a8',
+                  }}
+                >
+                  {customApplying ? 'Applying…' : 'Use This Place ✓'}
+                </motion.button>
+              </div>
             </div>
           )}
         </div>

@@ -560,21 +560,21 @@ function PlaceTile({ data, onClick, isSelected, smartSwapLabel, onSmartSwap, dc 
 
           {/* Right: secondary icon buttons + primary CTA */}
           <div className="flex items-center gap-1.5">
-            {/* 🎲 Shuffle (was SWAP) — icon-only, 44 × 44 touch target */}
+            {/* SWAP — 44 × 44 touch target */}
             {data.smartSwap && onSmartSwap && smartSwapLabel && (
               <motion.button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onSmartSwap(); }}
                 whileTap={{ scale: 0.88 }}
-                aria-label={`Shuffle — find alternatives to ${data.name}`}
-                className="inline-flex items-center justify-center w-11 h-11 rounded-xl text-base shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+                aria-label={`SWAP — find alternatives to ${data.name}`}
+                className="inline-flex items-center justify-center w-11 h-11 rounded-xl shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 text-[11px] font-black tracking-wider"
                 style={{
                   background: 'rgba(201,168,76,0.15)',
                   border: '1px solid rgba(201,168,76,0.30)',
                   color: '#d4c8a8',
                 }}
               >
-                🎲
+                SWAP
               </motion.button>
             )}
 

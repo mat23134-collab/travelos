@@ -240,25 +240,50 @@ function activityToCard(
   };
 }
 
+// Maps meal slots to the activity-slot enum used by smartSwap
+const MEAL_TO_SLOT: Record<'breakfast' | 'lunch' | 'dinner', 'morning' | 'afternoon' | 'evening'> = {
+  breakfast: 'morning',
+  lunch:     'afternoon',
+  dinner:    'evening',
+};
+
 /** Convert an explicit DiningSpot into a PlaceCardData with meal badge. */
 function diningToCard(
   spot: DiningSpot,
   meal: 'breakfast' | 'lunch' | 'dinner',
   dayIdx: number,
   city?: string,
+  swapEligible?: boolean,
 ): PlaceCardData {
   const MEAL_EMOJI: Record<'breakfast' | 'lunch' | 'dinner', string> = {
     breakfast: '☕', lunch: '🍽️', dinner: '🌙',
   };
+  const spotName = spot.name ?? (meal === 'breakfast' ? 'Breakfast Spot' : meal === 'lunch' ? 'Lunch Spot' : 'Dinner Spot');
+  const spotDesc = [
+    spot.mustTry ? `Must try: ${spot.mustTry}` : '',
+    spot.cuisine ?? '',
+  ].filter(Boolean).join(' · ') || 'Local dining recommendation';
+
+  // Build a minimal synthetic Activity so SmartSwap can fetch food alternatives
+  const syntheticActivity: Activity = {
+    name:          spotName,
+    description:   spotDesc,
+    neighborhood:  spot.neighborhood,
+    latitude:      spot.latitude  != null ? Number(spot.latitude)  : undefined,
+    longitude:     spot.longitude != null ? Number(spot.longitude) : undefined,
+    estimatedCost: spot.priceRange,
+    tags:          spot.cuisine ? [spot.cuisine] : [],
+    vibeLabel:     'local-favorite',
+  } as Activity;
+
+  const slot = MEAL_TO_SLOT[meal];
+
   return {
     id:          `day${dayIdx}-${meal}-${(spot.name ?? 'dining').replace(/\s+/g, '-').toLowerCase()}`,
-    name:        spot.name ?? (meal === 'breakfast' ? 'Breakfast Spot' : meal === 'lunch' ? 'Lunch Spot' : 'Dinner Spot'),
+    name:        spotName,
     emoji:       MEAL_EMOJI[meal],
     vibeLabel:   'local-favorite',
-    description: [
-      spot.mustTry ? `Must try: ${spot.mustTry}` : '',
-      spot.cuisine ?? '',
-    ].filter(Boolean).join(' · ') || 'Local dining recommendation',
+    description: spotDesc,
     neighborhood: spot.neighborhood,
     city,
     category:    spot.cuisine,
@@ -269,6 +294,7 @@ function diningToCard(
     lng:         spot.longitude != null ? Number(spot.longitude) : undefined,
     mapsUrl:     buildMapsUrl(spot.name, spot.neighborhood, city, spot.latitude, spot.longitude),
     cubePhotoGenre: 'food',
+    smartSwap:   swapEligible ? { slot, dayIndex: dayIdx, activity: syntheticActivity } : undefined,
   };
 }
 
@@ -1128,21 +1154,21 @@ export function DayCard({
   const mealCards: Record<'breakfast' | 'lunch' | 'dinner', PlaceCardData | null> = {
     breakfast:
       day.breakfast
-        ? diningToCard(day.breakfast, 'breakfast', index, destination)
+        ? diningToCard(day.breakfast, 'breakfast', index, destination, swapEligible)
         : morningIsFood && day.morning
           ? activityToCard(day.morning,   'morning',   index, destination, 'breakfast', swapEligible)
           : null,
 
     lunch:
       day.lunch
-        ? diningToCard(day.lunch, 'lunch', index, destination)
+        ? diningToCard(day.lunch, 'lunch', index, destination, swapEligible)
         : afternoonIsFood && day.afternoon
           ? activityToCard(day.afternoon, 'afternoon', index, destination, 'lunch', swapEligible)
           : null,
 
     dinner:
       day.dinner
-        ? diningToCard(day.dinner, 'dinner', index, destination)
+        ? diningToCard(day.dinner, 'dinner', index, destination, swapEligible)
         : eveningIsFood && day.evening
           ? activityToCard(day.evening,   'evening',   index, destination, 'dinner', swapEligible)
           : null,
