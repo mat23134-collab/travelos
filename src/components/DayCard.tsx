@@ -294,7 +294,7 @@ function diningToCard(
     lng:         spot.longitude != null ? Number(spot.longitude) : undefined,
     mapsUrl:     buildMapsUrl(spot.name, spot.neighborhood, city, spot.latitude, spot.longitude),
     cubePhotoGenre: 'food',
-    smartSwap:   swapEligible ? { slot, dayIndex: dayIdx, activity: syntheticActivity } : undefined,
+    smartSwap:   swapEligible ? { slot, dayIndex: dayIdx, activity: syntheticActivity, diningField: meal } : undefined,
   };
 }
 
@@ -1099,7 +1099,7 @@ interface DayCardProps {
   /** Final itinerary — enables smart swap (two proposals) on place cards when set with onCommitActivitySwap */
   itinerary?: Itinerary | null;
   profile?: TravelerProfile | null;
-  onCommitActivitySwap?: (slot: Slot, activity: Activity, summary: string) => Promise<void>;
+  onCommitActivitySwap?: (slot: Slot, activity: Activity, summary: string, diningField?: 'breakfast' | 'lunch' | 'dinner') => Promise<void>;
   onNeighborhoodClick?: (neighborhood: string) => void;
   ui: ItineraryUiStrings;
 }

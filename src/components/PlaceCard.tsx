@@ -63,6 +63,8 @@ export interface PlaceCardData {
     slot: 'morning' | 'afternoon' | 'evening';
     dayIndex: number;
     activity: Activity;
+    /** Set when this card originated from a DiningSpot — commit must also clear this meal field. */
+    diningField?: 'breakfast' | 'lunch' | 'dinner';
   };
   /** Duration chip — e.g. "2–3 hours". Map from Activity.duration at callsite. */
   duration?: string;
@@ -79,7 +81,12 @@ export interface PlaceCardData {
 export type PlacesGridSmartSwap = {
   itinerary: Itinerary;
   profile: TravelerProfile | null;
-  onCommitSlot: (slot: 'morning' | 'afternoon' | 'evening', activity: Activity, summary: string) => Promise<void>;
+  onCommitSlot: (
+    slot: 'morning' | 'afternoon' | 'evening',
+    activity: Activity,
+    summary: string,
+    diningField?: 'breakfast' | 'lunch' | 'dinner',
+  ) => Promise<void>;
 };
 
 // ── Neon vibe color system ────────────────────────────────────────────────────
@@ -1005,7 +1012,7 @@ export function PlacesGrid({
               profile={smartSwap.profile}
               genreLabel={swapUi.dc.genreLabel[g] ?? g}
               onCommit={async (act, summary) => {
-                await smartSwap.onCommitSlot(meta.slot, act, summary);
+                await smartSwap.onCommitSlot(meta.slot, act, summary, meta.diningField);
               }}
               ui={swapUi.ui}
               dc={swapUi.dc}

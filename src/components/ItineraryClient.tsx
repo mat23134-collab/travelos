@@ -1505,6 +1505,7 @@ export function ItineraryClient({
     slot: 'morning' | 'afternoon' | 'evening',
     replacementActivity: Activity,
     proposalSummary: string,
+    diningField?: 'breakfast' | 'lunch' | 'dinner',
   ) => {
     const res = await fetch('/api/swap', {
       method: 'POST',
@@ -1521,9 +1522,16 @@ export function ItineraryClient({
     const data: SwapResult & { error?: string } = await res.json();
     if (!res.ok || data.error) throw new Error(data.error || 'Swap failed');
 
-    const updatedDays = itinerary.days.map((day, i) =>
-      i !== dayIndex ? day : { ...day, [slot]: data.activity }
-    );
+    const updatedDays = itinerary.days.map((day, i) => {
+      if (i !== dayIndex) return day;
+      const updatedDay = { ...day, [slot]: data.activity };
+      // When the swap originated from a DiningSpot card, also clear that field
+      // so the new activity wins — DiningSpot takes priority in mealCards otherwise.
+      if (diningField) {
+        (updatedDay as Record<string, unknown>)[diningField] = undefined;
+      }
+      return updatedDay;
+    });
     persistAndSet({ ...itinerary, days: updatedDays });
     setEditBanner(data.summary);
     setTimeout(() => setEditBanner(''), 5000);
@@ -1828,8 +1836,8 @@ export function ItineraryClient({
                 itinerary={itinerary}
                 profile={profile ?? null}
                 onSwapSlot={(slot, req) => handleSlotSwap(i, slot, req)}
-                onCommitActivitySwap={(slot, act, summary) =>
-                  handleCommitActivitySwap(i, slot, act, summary)
+                onCommitActivitySwap={(slot, act, summary, diningField) =>
+                  handleCommitActivitySwap(i, slot, act, summary, diningField)
                 }
                 onNeighborhoodClick={handleNeighborhoodClick}
               />
