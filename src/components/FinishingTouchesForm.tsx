@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { DIETARY_OPTIONS, getMustHavePicks } from '@/lib/finishingTouches';
+import { DIETARY_OPTIONS, getMustHaveGroups } from '@/lib/finishingTouches';
 
 const ACCENT = '#9e363a';
 const MUTED  = 'rgba(255,255,255,0.38)';
@@ -28,8 +28,8 @@ export function FinishingTouchesForm({
   onMustHaveOtherChange,
   stepBadge,
 }: Props) {
-  const mustHavePicks = getMustHavePicks(destination);
-  const hasCityPicks = !!destination && mustHavePicks.length > 0;
+  const mustHaveGroups = getMustHaveGroups(destination);
+  const hasCityPicks = mustHaveGroups.some((group) => group.items.length > 0);
 
   return (
     <div className="flex flex-col gap-6">
@@ -104,36 +104,61 @@ export function FinishingTouchesForm({
           <span style={{ color: 'rgba(255,255,255,0.18)' }}>(optional)</span>
         </p>
         {hasCityPicks && (
-          <div className="grid grid-cols-2 gap-2 mb-3">
-            {mustHavePicks.map((pick) => {
-              const sel = mustHaveItems.includes(pick.label);
-              return (
-                <motion.button
-                  key={pick.label}
-                  type="button"
-                  onClick={() => onToggleMustHave(pick.label)}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  animate={sel
-                    ? { boxShadow: `0 0 0 2px ${ACCENT}, 0 8px 28px -6px rgba(158,54,58,0.22)` }
-                    : { boxShadow: 'none' }
-                  }
-                  transition={{ type: 'spring', stiffness: 400, damping: 24 }}
-                  className="flex items-center gap-2.5 px-3.5 py-3 rounded-xl border text-left transition-colors"
-                  style={sel
-                    ? { borderColor: ACCENT, background: 'rgba(158,54,58,0.10)', color: '#e07078' }
-                    : { borderColor: 'rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)', color: 'rgba(255,255,255,0.7)' }
-                  }
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+            {mustHaveGroups.map((group) => (
+              <div
+                key={group.key}
+                className="rounded-2xl border p-2.5"
+                style={{
+                  borderColor: 'rgba(255,255,255,0.07)',
+                  background: 'rgba(255,255,255,0.025)',
+                }}
+              >
+                <p
+                  className="text-[10px] font-black uppercase tracking-widest px-1 pb-2"
+                  style={{ color: 'rgba(255,255,255,0.34)' }}
                 >
-                  <span className="text-base shrink-0 leading-none">{pick.icon}</span>
-                  <span className="text-xs font-semibold leading-snug flex-1">{pick.label}</span>
-                  {sel && (
-                    <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }}
-                      className="text-[10px] font-black shrink-0" style={{ color: ACCENT }}>✓</motion.span>
-                  )}
-                </motion.button>
-              );
-            })}
+                  {group.title}
+                </p>
+                <div className="grid gap-2">
+                  {group.items.map((pick) => {
+                    const sel = mustHaveItems.includes(pick.label);
+                    return (
+                      <motion.button
+                        key={pick.label}
+                        type="button"
+                        onClick={() => onToggleMustHave(pick.label)}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        animate={sel
+                          ? { boxShadow: `0 0 0 2px ${ACCENT}, 0 8px 28px -6px rgba(158,54,58,0.22)` }
+                          : { boxShadow: 'none' }
+                        }
+                        transition={{ type: 'spring', stiffness: 400, damping: 24 }}
+                        className="flex items-center gap-2.5 px-3.5 py-3 rounded-xl border text-left transition-colors"
+                        style={sel
+                          ? { borderColor: ACCENT, background: 'rgba(158,54,58,0.10)', color: '#e07078' }
+                          : { borderColor: 'rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)', color: 'rgba(255,255,255,0.7)' }
+                        }
+                      >
+                        <span className="text-base shrink-0 leading-none">{pick.icon}</span>
+                        <span className="text-xs font-semibold leading-snug flex-1">{pick.label}</span>
+                        {sel && (
+                          <motion.span
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            className="text-[10px] font-black shrink-0"
+                            style={{ color: ACCENT }}
+                          >
+                            ✓
+                          </motion.span>
+                        )}
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         )}
         <input

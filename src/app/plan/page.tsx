@@ -678,6 +678,7 @@ function PlanPage() {
   const [showTripLangGate, setShowTripLangGate] = useState(false);
   const [showFamilyKidsModal, setShowFamilyKidsModal] = useState(false);
   const groupTypeBeforeFamilyRef = useRef<GroupType>('couple');
+  const autoSubmitStartedRef = useRef(false);
 
   const searchParams = useSearchParams();
   const planSearchKey = useMemo(() => searchParams.toString(), [searchParams]);
@@ -687,6 +688,7 @@ function PlanPage() {
 
   useEffect(() => {
     setPlanGateReady(false);
+    autoSubmitStartedRef.current = false;
 
     const preDestination = searchParams.get('destination')?.trim() ?? '';
     const preStartDate = searchParams.get('startDate')?.trim() ?? '';
@@ -790,13 +792,15 @@ function PlanPage() {
   // and call handleSubmit() directly once the form state is settled.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (autoGeneratePending && planGateReady && !isSubmitting) {
+    if (autoGeneratePending && planGateReady && !isSubmitting && !showTripLangGate) {
+      if (autoSubmitStartedRef.current) return;
+      autoSubmitStartedRef.current = true;
       setAutoGeneratePending(false);
       // Small delay so React finishes the render with the new form state
       const tid = setTimeout(() => handleSubmit(), 80);
       return () => clearTimeout(tid);
     }
-  }, [autoGeneratePending, planGateReady, isSubmitting]); // handleSubmit excluded intentionally
+  }, [autoGeneratePending, planGateReady, isSubmitting, showTripLangGate]); // handleSubmit excluded intentionally
 
   const hasHotelAnchor =
     !!(form.hotelBooked as string)?.trim() ||
@@ -1089,6 +1093,17 @@ function PlanPage() {
       setIsSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    if (!planGateReady || isSubmitting || genError || showTripLangGate) return;
+    if (activeQuestions.length > 0 || autoSubmitStartedRef.current) return;
+
+    autoSubmitStartedRef.current = true;
+    const tid = setTimeout(() => handleSubmit(), 80);
+    return () => clearTimeout(tid);
+    // handleSubmit intentionally omitted: it is rebuilt from current form state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [planGateReady, isSubmitting, genError, showTripLangGate, activeQuestions.length]);
 
   if (isSubmitting) {
     return (

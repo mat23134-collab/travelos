@@ -66,9 +66,12 @@ export const GENERIC_PICK_GROUPS: PickCategory[] = [
   { key: 'popular', title: 'Most Popular (Touristy Too)', items: [{ icon: '📸', label: 'Most Photographed Spot' }, { icon: '🌃', label: 'Popular Nightlife Area' }] },
 ];
 
+export function getMustHaveGroups(destination: string): PickCategory[] {
+  return CITY_PICK_GROUPS[destination] ?? GENERIC_PICK_GROUPS;
+}
+
 export function getMustHavePicks(destination: string): PickItem[] {
-  const groups = CITY_PICK_GROUPS[destination] ?? GENERIC_PICK_GROUPS;
-  return groups.flatMap((g) => g.items);
+  return getMustHaveGroups(destination).flatMap((g) => g.items);
 }
 
 export function formatMustHave(items: string[], other: string): string {
