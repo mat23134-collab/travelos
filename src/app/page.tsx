@@ -12,6 +12,8 @@ import { BrandWordmark } from '@/components/BrandWordmark';
 import { DESTINATIONS } from '@/lib/destinations';
 import type { Destination } from '@/lib/destinations';
 import { savePendingIntent } from '@/lib/pendingIntent';
+import { CinematicHeroBackground } from '@/components/CinematicHeroBackground';
+import { resolveBackgroundImage } from '@/lib/stepBackgrounds';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 // Night palette — deep lounge, not pitch black
@@ -47,18 +49,8 @@ function PostcardCard({
   index: number;
   onSelect: (name: string) => void;
 }) {
-  const [photo,     setPhoto]     = useState<string | null>(null);
-  const [imgLoaded, setImgLoaded] = useState(false);
-  const [liked,     setLiked]     = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch(`/api/place-photo?name=${encodeURIComponent(dest.name)}&city=${encodeURIComponent(dest.name)}`)
-      .then((r) => r.json())
-      .then((d) => { if (!cancelled && d.photoUrl) setPhoto(d.photoUrl); })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [dest.name]);
+  const [liked, setLiked] = useState(false);
+  const photo = resolveBackgroundImage(dest.name, index, dest.country);
 
   return (
     <motion.div
@@ -76,23 +68,11 @@ function PostcardCard({
       }}
     >
       {/* Photo */}
-      {photo && (
-        <img
-          src={photo}
-          alt={dest.name}
-          className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.07]"
-          style={{ opacity: imgLoaded ? 1 : 0, transition: 'opacity 0.55s ease, transform 0.7s ease' }}
-          onLoad={() => setImgLoaded(true)}
-        />
-      )}
-
-      {/* Skeleton shimmer while photo loads */}
-      {!imgLoaded && (
-        <div
-          className="absolute inset-0 animate-pulse"
-          style={{ background: 'linear-gradient(135deg, rgba(15,40,98,0.35) 0%, rgba(11,18,32,0.7) 100%)' }}
-        />
-      )}
+      <img
+        src={photo}
+        alt={dest.name}
+        className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.07]"
+      />
 
       {/* Dark gradient overlay — always present for text readability */}
       <div
@@ -152,19 +132,6 @@ function PostcardCard({
   );
 }
 
-// ── Hero background — fetches a cinematic photo for Rome ─────────────────────
-
-function useHeroPhoto() {
-  const [url, setUrl] = useState<string | null>(null);
-  useEffect(() => {
-    fetch('/api/place-photo?name=Rome+Colosseum&city=Rome')
-      .then((r) => r.json())
-      .then((d) => { if (d.photoUrl) setUrl(d.photoUrl); })
-      .catch(() => {});
-  }, []);
-  return url;
-}
-
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
@@ -175,8 +142,6 @@ export default function HomePage() {
   const [showAuthGate,    setShowAuthGate]    = useState(false);
   const [scrolled,        setScrolled]        = useState(false);
   const [pendingDest,     setPendingDest]     = useState<string | null>(null);
-
-  const heroPhoto = useHeroPhoto();
 
   // Scroll-aware nav opacity
   useEffect(() => {
@@ -271,23 +236,9 @@ export default function HomePage() {
         </div>
       </motion.nav>
 
-      {/* ── Hero — fullscreen cinematic ────────────────────────────────────── */}
-      <section
-        className="relative min-h-screen flex items-center justify-center px-8 py-32 overflow-hidden"
-        style={{
-          backgroundImage: heroPhoto
-            ? `linear-gradient(to bottom, rgba(11,18,32,0.45) 0%, rgba(11,18,32,0.72) 55%, rgba(11,18,32,1) 100%), url('${heroPhoto}')`
-            : `linear-gradient(160deg, ${NIGHT} 0%, #0f2040 50%, ${NIGHT} 100%)`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center 35%',
-          backgroundAttachment: 'fixed',
-        }}
-      >
-        {/* Ambient Redline glow at bottom */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse 75% 45% at 50% 105%, rgba(158,54,58,0.10) 0%, transparent 65%)' }}
-        />
+      {/* ── Hero — cinematic video + destination stills ───────────────────── */}
+      <section className="relative min-h-screen flex items-center justify-center px-8 py-32 overflow-hidden">
+        <CinematicHeroBackground />
 
         <div className="relative z-10 max-w-3xl mx-auto text-center">
 
@@ -422,12 +373,15 @@ export default function HomePage() {
               </span>
             </div>
             <h2
-              className="font-black text-white"
-              style={{ fontSize: 'clamp(1.9rem, 4vw, 3rem)', letterSpacing: '-0.035em', maxWidth: 480 }}
+              className="font-black text-white mb-3"
+              style={{ fontSize: 'clamp(1.9rem, 4vw, 3rem)', letterSpacing: '-0.035em', maxWidth: 520 }}
             >
-              Your evening in{' '}
-              <span style={{ color: 'rgba(255,255,255,0.18)' }}>one of these.</span>
+              Live the trip{' '}
+              <span style={{ color: 'rgba(255,255,255,0.18)' }}>you imagined.</span>
             </h2>
+            <p className="text-sm max-w-md leading-relaxed" style={{ color: MUTED }}>
+              Pick a destination — each card is a real place, ready for your itinerary.
+            </p>
           </div>
 
           {/* 5 postcard cards — 3-col on lg, 2-col on sm */}

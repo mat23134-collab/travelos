@@ -1,4 +1,4 @@
-// UI Version: 2.1.0 - 2026-05-06T00:00:00Z (dark palette)
+﻿// UI Version: 2.1.0 - 2026-05-06T00:00:00Z (dark palette)
 'use client';
 
 import { useState, useCallback, useEffect, useRef, useMemo, Suspense } from 'react';
@@ -10,14 +10,15 @@ import { TravelerProfile, type TripLanguage, type GroupType, type FamilyKidsByAg
 import { sanitizeFamilyKids, totalFamilyKids } from '@/lib/familyKids';
 import { FamilyKidsModal } from '@/components/FamilyKidsModal';
 import { useAuth } from '@/lib/auth-context';
-import { getStepBackground } from '@/lib/stepBackgrounds';
+import { resolveBackgroundImage } from '@/lib/stepBackgrounds';
 import { readTripLanguagePref, persistTripLanguagePref } from '@/lib/tripLanguagePref';
 import { TripLanguageGateModal } from '@/components/TripLanguageGateModal';
 import { BrandWordmark } from '@/components/BrandWordmark';
+import { FinishingTouchesForm } from '@/components/FinishingTouchesForm';
 import { GENERATE_WALL_CLOCK_MS } from '@/lib/generateBudget';
 type FormData = Record<string, unknown>;
 
-// ── SSE streaming types ───────────────────────────────────────────────────────
+// ג”€ג”€ SSE streaming types ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 type PlaceEvent = {
   name: string; emoji: string; description: string;
   slot: string; day: number; vibeLabel: string;
@@ -26,10 +27,13 @@ type StatusEvent = { message: string; icon: string };
 
 const STORAGE_KEY = 'travelos_plan_draft';
 const PRE_ONBOARDING_KEYS = new Set(['destination', 'dates', 'tripTimes']);
+const LEGACY_FINISHING_KEYS = new Set(['dietaryRestrictions', 'mustHave']);
 /** tripLanguage is chosen on the home gate or /plan gate, not in this wizard */
-const PLAN_QUESTIONS = questions.filter((q) => !PRE_ONBOARDING_KEYS.has(q.key));
+const PLAN_QUESTIONS = questions.filter(
+  (q) => !PRE_ONBOARDING_KEYS.has(q.key) && !LEGACY_FINISHING_KEYS.has(q.key),
+);
 
-// ─── Animation variants ───────────────────────────────────────────────────────
+// ג”€ג”€ג”€ Animation variants ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 
 const slideVariants = {
   enter: (dir: number) => ({
@@ -66,18 +70,18 @@ const optionVariant = {
   },
 };
 
-// ─── Destination grid (Step 1 — ONLY valid UI for destination) ────────────────
+// ג”€ג”€ג”€ Destination grid (Step 1 ג€” ONLY valid UI for destination) ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 
 const FEATURED_DESTINATIONS = [
-  { name: 'Rome',       country: 'Italy',       flag: '🇮🇹', tagline: 'La Dolce Vita',            accent: '#f97316' },
-  { name: 'Paris',      country: 'France',      flag: '🇫🇷', tagline: 'City of Light',             accent: '#a855f7' },
-  { name: 'London',     country: 'UK',          flag: '🇬🇧', tagline: 'Iconic & Eclectic',        accent: '#3b82f6' },
-  { name: 'Athens',     country: 'Greece',      flag: '🇬🇷', tagline: 'Cradle of Civilization',  accent: '#10b981' },
-  { name: 'Budapest',   country: 'Hungary',     flag: '🇭🇺', tagline: 'Paris of the East',        accent: '#ec4899' },
-  { name: 'Vienna',     country: 'Austria',     flag: '🇦🇹', tagline: 'Imperial & Café Culture',  accent: '#eab308' },
-  { name: 'Amsterdam',  country: 'Netherlands', flag: '🇳🇱', tagline: 'Canals & Contrasts',       accent: '#06b6d4' },
-  { name: 'Sicily',     country: 'Italy',       flag: '🇮🇹', tagline: 'Sun, Sea & Ancient Ruins', accent: '#f59e0b' },
-  { name: 'Lima',       country: 'Peru',        flag: '🇵🇪', tagline: 'Gastronomic Capital',      accent: '#c084fc' },
+  { name: 'Rome',       country: 'Italy',       flag: 'נ‡®נ‡¹', tagline: 'La Dolce Vita',            accent: '#f97316' },
+  { name: 'Paris',      country: 'France',      flag: 'נ‡«נ‡·', tagline: 'City of Light',             accent: '#a855f7' },
+  { name: 'London',     country: 'UK',          flag: 'נ‡¬נ‡§', tagline: 'Iconic & Eclectic',        accent: '#3b82f6' },
+  { name: 'Athens',     country: 'Greece',      flag: 'נ‡¬נ‡·', tagline: 'Cradle of Civilization',  accent: '#10b981' },
+  { name: 'Budapest',   country: 'Hungary',     flag: 'נ‡­נ‡÷', tagline: 'Paris of the East',        accent: '#ec4899' },
+  { name: 'Vienna',     country: 'Austria',     flag: 'נ‡¦נ‡¹', tagline: 'Imperial & Cafֳ© Culture',  accent: '#eab308' },
+  { name: 'Amsterdam',  country: 'Netherlands', flag: 'נ‡³נ‡±', tagline: 'Canals & Contrasts',       accent: '#06b6d4' },
+  { name: 'Sicily',     country: 'Italy',       flag: 'נ‡®נ‡¹', tagline: 'Sun, Sea & Ancient Ruins', accent: '#f59e0b' },
+  { name: 'Lima',       country: 'Peru',        flag: 'נ‡µנ‡×', tagline: 'Gastronomic Capital',      accent: '#c084fc' },
 ];
 
 function DestinationGrid({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -126,7 +130,7 @@ function DestinationGrid({ value, onChange }: { value: string; onChange: (v: str
                 className="absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center shadow"
                 style={{ backgroundColor: dest.accent }}
               >
-                <span className="text-white text-xs font-bold leading-none">✓</span>
+                <span className="text-white text-xs font-bold leading-none">ג“</span>
               </motion.div>
             )}
 
@@ -150,49 +154,49 @@ function DestinationGrid({ value, onChange }: { value: string; onChange: (v: str
   );
 }
 
-// ─── Loading screen ───────────────────────────────────────────────────────────
+// ג”€ג”€ג”€ Loading screen ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 
 const LOADING_STEPS = [
-  { icon: '📱', label: 'Scanning 2026 travel trends…' },
-  { icon: '🍜', label: 'Cross-referencing local food blogs…' },
-  { icon: '🗺', label: 'Optimizing neighborhood clusters…' },
-  { icon: '✨', label: 'Vibe-checking the itinerary…' },
-  { icon: '💎', label: 'Filtering tourist traps. You deserve better.' },
+  { icon: 'נ“±', label: 'Scanning 2026 travel trendsג€¦' },
+  { icon: 'נ', label: 'Cross-referencing local food blogsג€¦' },
+  { icon: 'נ—÷', label: 'Optimizing neighborhood clustersג€¦' },
+  { icon: 'ג¨', label: 'Vibe-checking the itineraryג€¦' },
+  { icon: 'נ’', label: 'Filtering tourist traps. You deserve better.' },
 ];
 
-/** Soft target length for UX pacing (steps + progress bar — aligned with server budget). */
+/** Soft target length for UX pacing (steps + progress bar ג€” aligned with server budget). */
 const GENERATION_SOFT_TARGET_SEC = 90;
-/** Never show 100% in the UI while waiting on the server (avoids “stuck at 100%”). */
+/** Never show 100% in the UI while waiting on the server (avoids ג€stuck at 100%ג€). */
 const GENERATION_UI_MAX_PCT = 97;
 
 const GENERATION_TIMER_COPY = {
   en: {
     phase: (n: number, total: number) => `Step ${n} of ${total}`,
     progressLabel: 'Trip build',
-    footer: 'Typical build: 30s–2 min · AI-powered',
+    footer: 'Typical build: 30sג€“2 min ֲ· AI-powered',
     building: (dest: string) =>
       `Building your ${dest.trim() || 'trip'} itinerary`,
-    almostDone: 'Finalizing details on our servers…',
+    almostDone: 'Finalizing details on our serversג€¦',
   },
   he: {
-    phase: (n: number, total: number) => `שלב ${n} מתוך ${total}`,
-    progressLabel: 'התקדמות בניית הטיול',
-    footer: 'זמן טיפוסי: 30 שנ׳ עד 2 דק׳ · בינה מלאכותית',
+    phase: (n: number, total: number) => `׳©׳׳‘ ${n} ׳׳×׳•׳ ${total}`,
+    progressLabel: '׳”׳×׳§׳“׳׳•׳× ׳‘׳ ׳™׳™׳× ׳”׳˜׳™׳•׳',
+    footer: '׳–׳׳ ׳˜׳™׳₪׳•׳¡׳™: 30 ׳©׳ ׳³ ׳¢׳“ 2 ׳“׳§׳³ ֲ· ׳‘׳™׳ ׳” ׳׳׳׳›׳•׳×׳™׳×',
     building: (dest: string) =>
       dest.trim()
-        ? `בונים את המסלול ל${dest}`
-        : 'בונים את המסלול שלך',
-    almostDone: 'מסיימים פרטים בשרת…',
+        ? `׳‘׳•׳ ׳™׳ ׳׳× ׳”׳׳¡׳׳•׳ ׳${dest}`
+        : '׳‘׳•׳ ׳™׳ ׳׳× ׳”׳׳¡׳׳•׳ ׳©׳׳',
+    almostDone: '׳׳¡׳™׳™׳׳™׳ ׳₪׳¨׳˜׳™׳ ׳‘׳©׳¨׳×ג€¦',
   },
 } as const;
 
-// ─── Step 3 — Time-Aware inputs ───────────────────────────────────────────────
+// ג”€ג”€ג”€ Step 3 ג€” Time-Aware inputs ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 
 const DAILY_START_OPTIONS = [
-  { value: '07:00', label: 'Early Bird',    icon: '🌅', sub: 'Start at 7 am' },
-  { value: '08:30', label: 'Morning',       icon: '☀️',  sub: 'Start at 8:30 am' },
-  { value: '10:00', label: 'Mid-Morning',   icon: '🌤️', sub: 'Start at 10 am' },
-  { value: '11:30', label: 'Late Starter',  icon: '🛌', sub: 'Start at 11:30 am' },
+  { value: '07:00', label: 'Early Bird',    icon: 'נ…', sub: 'Start at 7 am' },
+  { value: '08:30', label: 'Morning',       icon: 'ג˜€ן¸',  sub: 'Start at 8:30 am' },
+  { value: '10:00', label: 'Mid-Morning',   icon: 'נ₪ן¸', sub: 'Start at 10 am' },
+  { value: '11:30', label: 'Late Starter',  icon: 'נ›', sub: 'Start at 11:30 am' },
 ];
 
 function TimeAwareStep({
@@ -252,7 +256,7 @@ function TimeAwareStep({
                     className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center"
                     style={{ backgroundColor: '#9e363a' }}
                   >
-                    <span className="text-white text-[9px] font-bold">✓</span>
+                    <span className="text-white text-[9px] font-bold">ג“</span>
                   </motion.div>
                 )}
                 <div className="text-2xl mb-1.5 leading-none">{opt.icon}</div>
@@ -277,7 +281,7 @@ function TimeAwareStep({
           }}
         >
           <label className="block text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#9e363a' }}>
-            🛬 Arrival time — Day 1
+            נ›¬ Arrival time ג€” Day 1
           </label>
           <p className="text-[10px] mb-3 leading-relaxed" style={{ color: 'rgba(255,255,255,0.38)' }}>
             We won't schedule activities before you land. Leave blank if arriving the night before.
@@ -306,7 +310,7 @@ function TimeAwareStep({
           }}
         >
           <label className="block text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#9e363a' }}>
-            🛫 Departure time — Last Day
+            נ›« Departure time ג€” Last Day
           </label>
           <p className="text-[10px] mb-3 leading-relaxed" style={{ color: 'rgba(255,255,255,0.38)' }}>
             We'll only plan activities that end before you need to leave. Leave blank if departing at night.
@@ -330,521 +334,8 @@ function TimeAwareStep({
   );
 }
 
-// ─── Step 9 — Dietary options ─────────────────────────────────────────────────
 
-const DIETARY_OPTIONS = [
-  { value: 'Vegetarian',  label: 'Vegetarian',  icon: '🥗' },
-  { value: 'Vegan',       label: 'Vegan',        icon: '🌱' },
-  { value: 'Kosher',      label: 'Kosher',        icon: '✡️' },
-  { value: 'Halal',       label: 'Halal',         icon: '☪️' },
-  { value: 'Gluten-Free', label: 'Gluten-Free',   icon: '🌾' },
-  { value: 'Dairy-Free',  label: 'Dairy-Free',    icon: '🥛' },
-];
-
-// ─── Step 10 — City-specific must-haves ───────────────────────────────────────
-
-type PickItem = { icon: string; label: string };
-type PickCategory = {
-  key: 'attractions' | 'restaurants' | 'historical' | 'popular';
-  title: string;
-  items: PickItem[];
-};
-
-const CITY_PICK_GROUPS: Record<string, PickCategory[]> = {
-  Rome: [
-    {
-      key: 'attractions',
-      title: 'Attractions',
-      items: [
-        { icon: '⛲', label: 'Trevi Fountain' },
-        { icon: '🗺️', label: 'Roman Forum' },
-      ],
-    },
-    {
-      key: 'restaurants',
-      title: 'Restaurants',
-      items: [
-        { icon: '🍝', label: 'Trastevere Pasta Spot' },
-        { icon: '🍕', label: 'Traditional Roman Pizzeria' },
-      ],
-    },
-    {
-      key: 'historical',
-      title: 'Historical',
-      items: [
-        { icon: '🏟️', label: 'Colosseum' },
-        { icon: '🏛️', label: 'Pantheon' },
-      ],
-    },
-    {
-      key: 'popular',
-      title: 'Most Popular (Touristy Too)',
-      items: [
-        { icon: '⛪', label: 'Vatican Museums' },
-        { icon: '🛍️', label: "Campo de' Fiori Market" },
-      ],
-    },
-  ],
-  Paris: [
-    {
-      key: 'attractions',
-      title: 'Attractions',
-      items: [
-        { icon: '🏘️', label: 'Montmartre Village' },
-        { icon: '🚶', label: 'Le Marais Walk' },
-      ],
-    },
-    {
-      key: 'restaurants',
-      title: 'Restaurants',
-      items: [
-        { icon: '🥐', label: 'Classic Parisian Bistro' },
-        { icon: '🧀', label: 'Cheese & Wine Dinner' },
-      ],
-    },
-    {
-      key: 'historical',
-      title: 'Historical',
-      items: [
-        { icon: '🖼️', label: 'Louvre Museum' },
-        { icon: '🎨', label: "Musée d'Orsay" },
-      ],
-    },
-    {
-      key: 'popular',
-      title: 'Most Popular (Touristy Too)',
-      items: [
-        { icon: '🗼', label: 'Eiffel Tower' },
-        { icon: '⛪', label: 'Notre-Dame Cathedral' },
-      ],
-    },
-  ],
-  London: [
-    {
-      key: 'attractions',
-      title: 'Attractions',
-      items: [
-        { icon: '🌿', label: 'Hyde Park' },
-        { icon: '🎡', label: 'London Eye' },
-      ],
-    },
-    {
-      key: 'restaurants',
-      title: 'Restaurants',
-      items: [
-        { icon: '🍞', label: 'Borough Market Tasting' },
-        { icon: '🍽️', label: 'Modern British Gastropub' },
-      ],
-    },
-    {
-      key: 'historical',
-      title: 'Historical',
-      items: [
-        { icon: '🏰', label: 'Tower of London' },
-        { icon: '🕰️', label: 'Big Ben & Parliament' },
-      ],
-    },
-    {
-      key: 'popular',
-      title: 'Most Popular (Touristy Too)',
-      items: [
-        { icon: '🏺', label: 'British Museum' },
-        { icon: '🚶', label: 'Covent Garden Walk' },
-      ],
-    },
-  ],
-  Athens: [
-    {
-      key: 'attractions',
-      title: 'Attractions',
-      items: [
-        { icon: '🌄', label: 'Lycabettus Hill View' },
-        { icon: '🌊', label: 'Cape Sounion Sunset' },
-      ],
-    },
-    {
-      key: 'restaurants',
-      title: 'Restaurants',
-      items: [
-        { icon: '🥙', label: 'Central Market Food Tour' },
-        { icon: '🍢', label: 'Traditional Souvlaki Stop' },
-      ],
-    },
-    {
-      key: 'historical',
-      title: 'Historical',
-      items: [
-        { icon: '🏛️', label: 'Acropolis' },
-        { icon: '🏺', label: 'National Archaeology Museum' },
-      ],
-    },
-    {
-      key: 'popular',
-      title: 'Most Popular (Touristy Too)',
-      items: [
-        { icon: '🛍️', label: 'Monastiraki Flea Market' },
-        { icon: '🚶', label: 'Plaka Old Town Walk' },
-      ],
-    },
-  ],
-  Budapest: [
-    {
-      key: 'attractions',
-      title: 'Attractions',
-      items: [
-        { icon: '🌉', label: 'Chain Bridge Walk' },
-        { icon: '🛁', label: 'Széchenyi Thermal Baths' },
-      ],
-    },
-    {
-      key: 'restaurants',
-      title: 'Restaurants',
-      items: [
-        { icon: '🍲', label: 'Goulash Restaurant' },
-        { icon: '🥐', label: 'Great Market Hall' },
-      ],
-    },
-    {
-      key: 'historical',
-      title: 'Historical',
-      items: [
-        { icon: '🏰', label: 'Buda Castle' },
-        { icon: '🏛️', label: 'Hungarian Parliament' },
-      ],
-    },
-    {
-      key: 'popular',
-      title: 'Most Popular (Touristy Too)',
-      items: [
-        { icon: '🍺', label: 'Ruin Bar Night Out' },
-        { icon: '🚋', label: 'Danube Promenade' },
-      ],
-    },
-  ],
-  Vienna: [
-    {
-      key: 'attractions',
-      title: 'Attractions',
-      items: [
-        { icon: '🏰', label: 'Schönbrunn Palace' },
-        { icon: '🎨', label: 'MuseumsQuartier' },
-      ],
-    },
-    {
-      key: 'restaurants',
-      title: 'Restaurants',
-      items: [
-        { icon: '☕', label: 'Classic Viennese Café' },
-        { icon: '🥨', label: 'Naschmarkt Food Walk' },
-      ],
-    },
-    {
-      key: 'historical',
-      title: 'Historical',
-      items: [
-        { icon: '⛪', label: 'St. Stephen\'s Cathedral' },
-        { icon: '🏛️', label: 'Hofburg Palace' },
-      ],
-    },
-    {
-      key: 'popular',
-      title: 'Most Popular (Touristy Too)',
-      items: [
-        { icon: '🎡', label: 'Prater Giant Ferris Wheel' },
-        { icon: '🖼️', label: 'Belvedere Palace' },
-      ],
-    },
-  ],
-  Amsterdam: [
-    {
-      key: 'attractions',
-      title: 'Attractions',
-      items: [
-        { icon: '🛶', label: 'Canal Ring Walk' },
-        { icon: '🏘️', label: 'Jordaan Streets' },
-      ],
-    },
-    {
-      key: 'restaurants',
-      title: 'Restaurants',
-      items: [
-        { icon: '🧇', label: 'Stroopwafel & Markets' },
-        { icon: '🍛', label: 'Indonesian Rijsttafel Dinner' },
-      ],
-    },
-    {
-      key: 'historical',
-      title: 'Historical',
-      items: [
-        { icon: '📔', label: 'Anne Frank House' },
-        { icon: '🖼️', label: 'Rijksmuseum' },
-      ],
-    },
-    {
-      key: 'popular',
-      title: 'Most Popular (Touristy Too)',
-      items: [
-        { icon: '🎨', label: 'Van Gogh Museum' },
-        { icon: '📍', label: 'Dam Square & Royal Palace' },
-      ],
-    },
-  ],
-};
-
-const GENERIC_PICK_GROUPS: PickCategory[] = [
-  {
-    key: 'attractions',
-    title: 'Attractions',
-    items: [
-      { icon: '🌿', label: 'Parks & Nature' },
-      { icon: '🛍️', label: 'Local Markets' },
-    ],
-  },
-  {
-    key: 'restaurants',
-    title: 'Restaurants',
-    items: [
-      { icon: '🍽️', label: 'Food Tours' },
-      { icon: '🥘', label: 'Local Signature Restaurant' },
-    ],
-  },
-  {
-    key: 'historical',
-    title: 'Historical',
-    items: [
-      { icon: '🏛️', label: 'Museums' },
-      { icon: '🏰', label: 'Historic Sites' },
-    ],
-  },
-  {
-    key: 'popular',
-    title: 'Most Popular (Touristy Too)',
-    items: [
-      { icon: '📸', label: 'Most Photographed Spot' },
-      { icon: '🌃', label: 'Popular Nightlife Area' },
-    ],
-  },
-];
-
-// ─── DietaryCubes — Step 9 ────────────────────────────────────────────────────
-
-function DietaryCubes({
-  selected,
-  onToggle,
-}: {
-  selected: string[];
-  onToggle: (value: string) => void;
-}) {
-  return (
-    <motion.div
-      className="grid grid-cols-2 sm:grid-cols-3 gap-3"
-      variants={staggerContainer}
-      initial="hidden"
-      animate="show"
-    >
-      {DIETARY_OPTIONS.map((opt) => {
-        const sel = selected.includes(opt.value);
-        return (
-          <motion.button
-            key={opt.value}
-            variants={optionVariant}
-            onClick={() => onToggle(opt.value)}
-            whileHover={{ scale: 1.06, y: -3 }}
-            whileTap={{ scale: 0.94 }}
-            animate={
-              sel
-                ? { boxShadow: '0 0 0 2px #9e363a, 0 8px 24px -4px rgba(158,54,58,0.22)' }
-                : { boxShadow: '0 4px 16px rgba(0,0,0,0.28)' }
-            }
-            transition={{ type: 'spring', stiffness: 450, damping: 22 }}
-            className="relative p-4 rounded-2xl border text-center transition-colors"
-            style={
-              sel
-                ? { borderColor: '#9e363a', background: 'rgba(158,54,58,0.14)' }
-                : { borderColor: 'rgba(255,255,255,0.10)', background: 'rgba(15,40,98,0.22)' }
-            }
-          >
-            {sel && (
-              <motion.div
-                initial={{ scale: 0, rotate: -15 }}
-                animate={{ scale: 1, rotate: 0 }}
-                transition={{ type: 'spring', stiffness: 500, damping: 20 }}
-                className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: '#9e363a' }}
-              >
-                <span className="text-white text-[9px] font-bold">✓</span>
-              </motion.div>
-            )}
-            <div className="text-2xl mb-2 leading-none">{opt.icon}</div>
-            <div className="text-xs font-semibold leading-tight" style={{ color: sel ? '#c05060' : 'rgba(255,255,255,0.75)' }}>
-              {opt.label}
-            </div>
-          </motion.button>
-        );
-      })}
-    </motion.div>
-  );
-}
-
-// ─── MustHaveCubes — Step 10 ──────────────────────────────────────────────────
-
-function MustHaveCubes({
-  destination,
-  selected,
-  customText,
-  onToggle,
-  onCustomChange,
-}: {
-  destination: string;
-  selected: string[];
-  customText: string;
-  onToggle: (label: string) => void;
-  onCustomChange: (text: string) => void;
-}) {
-  const pickGroups = CITY_PICK_GROUPS[destination] ?? GENERIC_PICK_GROUPS;
-  const otherSelected = selected.includes('Other');
-
-  return (
-    <div>
-      {destination && CITY_PICK_GROUPS[destination] && (
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#9e363a' }}>
-            Top picks for {destination}
-          </span>
-          <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
-        </div>
-      )}
-
-      <motion.div className="grid grid-cols-1 sm:grid-cols-2 gap-3" variants={staggerContainer} initial="hidden" animate="show">
-        {pickGroups.map((group) => (
-          <motion.div
-            key={group.key}
-            variants={optionVariant}
-            className="rounded-2xl border p-3"
-            style={{
-              borderColor: 'rgba(255,255,255,0.10)',
-              background: 'rgba(15,40,98,0.22)',
-            }}
-          >
-            <div className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: '#9e363a' }}>
-              {group.title}
-            </div>
-            <div className="grid grid-cols-1 gap-2">
-              {group.items.map((pick) => {
-                const sel = selected.includes(pick.label);
-                return (
-                  <motion.button
-                    key={pick.label}
-                    onClick={() => onToggle(pick.label)}
-                    whileHover={{ scale: 1.03, y: -2 }}
-                    whileTap={{ scale: 0.97 }}
-                    animate={
-                      sel
-                        ? { boxShadow: '0 0 0 2px #9e363a, 0 8px 24px -4px rgba(158,54,58,0.22)' }
-                        : { boxShadow: '0 4px 16px rgba(0,0,0,0.28)' }
-                    }
-                    transition={{ type: 'spring', stiffness: 450, damping: 22 }}
-                    className="relative p-3 rounded-xl border text-left transition-colors"
-                    style={
-                      sel
-                        ? { borderColor: '#9e363a', background: 'rgba(158,54,58,0.14)' }
-                        : { borderColor: 'rgba(255,255,255,0.10)', background: 'rgba(15,40,98,0.28)' }
-                    }
-                  >
-                    {sel && (
-                      <motion.div
-                        initial={{ scale: 0, rotate: -15 }}
-                        animate={{ scale: 1, rotate: 0 }}
-                        transition={{ type: 'spring', stiffness: 500, damping: 20 }}
-                        className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center"
-                        style={{ backgroundColor: '#9e363a' }}
-                      >
-                        <span className="text-white text-[9px] font-bold">✓</span>
-                      </motion.div>
-                    )}
-                    <div className="flex items-center gap-2">
-                      <div className="text-xl leading-none">{pick.icon}</div>
-                      <div className="text-xs font-semibold leading-snug" style={{ color: sel ? '#c05060' : 'rgba(255,255,255,0.78)' }}>
-                        {pick.label}
-                      </div>
-                    </div>
-                  </motion.button>
-                );
-              })}
-            </div>
-          </motion.div>
-        ))}
-      </motion.div>
-
-      {/* Other cube */}
-      <motion.button
-        variants={optionVariant}
-        onClick={() => onToggle('Other')}
-        whileHover={{ scale: 1.03, y: -2 }}
-        whileTap={{ scale: 0.97 }}
-        animate={
-          otherSelected
-            ? { boxShadow: '0 0 0 2px #9e363a, 0 8px 24px -4px rgba(158,54,58,0.22)' }
-            : { boxShadow: '0 4px 16px rgba(0,0,0,0.28)' }
-        }
-        transition={{ type: 'spring', stiffness: 450, damping: 22 }}
-        className="relative p-4 rounded-2xl border text-center transition-colors mt-3 w-full"
-        style={
-          otherSelected
-            ? { borderColor: '#9e363a', background: 'rgba(158,54,58,0.14)' }
-            : { borderColor: 'rgba(255,255,255,0.15)', borderStyle: 'dashed', background: 'rgba(15,40,98,0.14)' }
-        }
-      >
-        {otherSelected && (
-          <motion.div
-            initial={{ scale: 0, rotate: -15 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: 'spring', stiffness: 500, damping: 20 }}
-            className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center"
-            style={{ backgroundColor: '#9e363a' }}
-          >
-            <span className="text-white text-[9px] font-bold">✓</span>
-          </motion.div>
-        )}
-        <div className="text-2xl mb-2 leading-none">✏️</div>
-        <div className="text-xs font-semibold leading-tight" style={{ color: otherSelected ? '#c05060' : 'rgba(255,255,255,0.38)' }}>
-          Other…
-        </div>
-      </motion.button>
-
-      {/* Inline text input */}
-      <AnimatePresence>
-        {otherSelected && (
-          <motion.div
-            initial={{ opacity: 0, height: 0, marginTop: 0 }}
-            animate={{ opacity: 1, height: 'auto', marginTop: 12 }}
-            exit={{ opacity: 0, height: 0, marginTop: 0 }}
-            transition={{ type: 'spring', stiffness: 340, damping: 28 }}
-            className="overflow-hidden"
-          >
-            <input
-              type="text"
-              autoFocus
-              placeholder='e.g. "Sagrada Família", "Northern Lights", "Michelin star dinner"…'
-              value={customText}
-              onChange={(e) => onCustomChange(e.target.value)}
-              className="w-full px-5 py-4 rounded-2xl border focus:outline-none text-sm transition-all"
-              style={{
-                borderColor: 'rgba(158,54,58,0.45)',
-                background: 'rgba(158,54,58,0.10)',
-                color: 'white',
-              }}
-              onFocus={(e) => { e.currentTarget.style.borderColor = '#9e363a'; }}
-              onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(158,54,58,0.45)'; }}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-// ─── Live discovery panel (SSE-fed sidebar) ───────────────────────────────────
+// ג”€ג”€ג”€ Live discovery panel (SSE-fed sidebar) ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 
 function DiscoveryPanel({
   places,
@@ -877,14 +368,14 @@ function DiscoveryPanel({
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}
           className="py-8 text-center"
         >
-          <div className="text-3xl mb-2 opacity-40">🌍</div>
+          <div className="text-3xl mb-2 opacity-40">נ</div>
           <p className="text-xs" style={{ color: 'rgba(255,255,255,0.18)' }}>
-            Searching for hidden gems…
+            Searching for hidden gemsג€¦
           </p>
         </motion.div>
       )}
 
-      {/* Place cards — slide in from the right */}
+      {/* Place cards ג€” slide in from the right */}
       <AnimatePresence initial={false}>
         {places.map((place, i) => (
           <motion.div
@@ -902,7 +393,7 @@ function DiscoveryPanel({
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-bold text-white leading-tight truncate">{place.name}</p>
                 <p className="text-[10px] mt-0.5 capitalize" style={{ color: 'rgba(255,255,255,0.32)' }}>
-                  Day {place.day} · {place.slot}
+                  Day {place.day} ֲ· {place.slot}
                 </p>
               </div>
               {place.vibeLabel && place.vibeLabel !== 'dining' && (
@@ -918,7 +409,7 @@ function DiscoveryPanel({
         ))}
       </AnimatePresence>
 
-      {/* Tips — fade up */}
+      {/* Tips ג€” fade up */}
       <AnimatePresence>
         {tips.map((tip, i) => (
           <motion.div
@@ -930,7 +421,7 @@ function DiscoveryPanel({
             style={{ background: 'rgba(158,54,58,0.10)', border: '1px solid rgba(158,54,58,0.22)' }}
           >
             <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.55)' }}>
-              💡 {tip}
+              נ’¡ {tip}
             </p>
           </motion.div>
         ))}
@@ -939,7 +430,7 @@ function DiscoveryPanel({
   );
 }
 
-// ─── Loading screen ───────────────────────────────────────────────────────────
+// ג”€ג”€ג”€ Loading screen ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 
 function LoadingScreen({
   destination,
@@ -982,7 +473,7 @@ function LoadingScreen({
   );
 
   /**
-   * Progress %: mostly time-based (honest “how long you’ve been waiting”), lightly boosted by phase
+   * Progress %: mostly time-based (honest ג€how long youג€™ve been waitingג€), lightly boosted by phase
    * so the bar moves with phases but never hits 100% until navigation unmounts this screen.
    */
   const timeRatio = Math.min(1, elapsedSec / GENERATION_SOFT_TARGET_SEC);
@@ -1000,7 +491,7 @@ function LoadingScreen({
       <div className="noise absolute w-[320px] h-[320px] rounded-full blur-[100px] bottom-1/4 right-1/4 pointer-events-none"
         style={{ background: 'rgba(15,40,98,0.40)' }} />
 
-      {/* ── Left panel: spinner + steps ─────────────────────────────────── */}
+      {/* ג”€ג”€ Left panel: spinner + steps ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ */}
       <div className="relative z-10 flex flex-col items-center text-center w-full max-w-xs shrink-0 lg:py-20">
 
       <motion.div
@@ -1019,7 +510,7 @@ function LoadingScreen({
           animate={{ rotate: [0, -8, 8, -6, 6, 0] }}
           transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
         >
-          ⏳
+          ג³
           <motion.div
             className="absolute inset-x-2 bottom-2 h-1 rounded-full opacity-40"
             style={{ background: 'linear-gradient(90deg, transparent, #f5e6dc, transparent)' }}
@@ -1089,7 +580,7 @@ function LoadingScreen({
                 border: '1px solid rgba(158,54,58,0.30)',
               } : {}}
             >
-              <span className="text-base flex-shrink-0">{done ? '✓' : s.icon}</span>
+              <span className="text-base flex-shrink-0">{done ? 'ג“' : s.icon}</span>
               <span className={`text-xs flex-1 leading-snug ${
                 done ? 'text-white/35 line-through' :
                 active ? 'text-white font-medium' :
@@ -1129,7 +620,7 @@ function LoadingScreen({
       </AnimatePresence>
     </div> {/* end left panel */}
 
-    {/* ── Right panel: live discovery ───────────────────────────────────── */}
+    {/* ג”€ג”€ Right panel: live discovery ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ */}
     <motion.div
       className="relative z-10 w-full lg:w-72 xl:w-80 shrink-0 lg:py-20 max-h-[55vh] lg:max-h-[80vh] overflow-y-auto"
       initial={{ opacity: 0, x: 24 }}
@@ -1146,7 +637,7 @@ function LoadingScreen({
   );
 }
 
-// ─── Main page ────────────────────────────────────────────────────────────────
+// ג”€ג”€ג”€ Main page ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 
 export default function PlanPageWrapper() {
   return (
@@ -1224,7 +715,7 @@ function PlanPage() {
     const preHotelLat = preHotelLatRaw != null ? Number(preHotelLatRaw) : null;
     const preHotelLng = preHotelLngRaw != null ? Number(preHotelLngRaw) : null;
 
-    // ── Onboarding preference params (skip those questions if pre-filled) ──
+    // ג”€ג”€ Onboarding preference params (skip those questions if pre-filled) ג”€ג”€
     const preGroupType  = searchParams.get('groupType')  ?? '';
     const prePace       = searchParams.get('pace')       ?? '';
     const preBudget     = searchParams.get('budget')     ?? '';
@@ -1232,6 +723,11 @@ function PlanPage() {
     const preInterests  = preInterestsRaw ? preInterestsRaw.split(',').filter(Boolean) : [];
     const preAccommodation      = searchParams.get('accommodation')      ?? '';
     const preHotelNightlyBudget = searchParams.get('hotelNightlyBudget') ?? '';
+    const preDietaryRaw = searchParams.get('dietary') ?? '';
+    const preDietary = preDietaryRaw ? preDietaryRaw.split(',').filter(Boolean) : [];
+    const preMustHaveRaw = searchParams.get('mustHave') ?? '';
+    const preMustHave = preMustHaveRaw ? preMustHaveRaw.split(',').filter(Boolean) : [];
+    const preMustHaveOther = searchParams.get('mustHaveOther')?.trim() ?? '';
     const autoGenerateFlag = searchParams.get('autoGenerate') === '1';
 
     const tripLangParam = searchParams.get('tripLang');
@@ -1262,9 +758,9 @@ function PlanPage() {
       familyKidsByAge: {} as FamilyKidsByAge,
       tripLanguage: initialTripLang,
       interests:           preInterests.length ? preInterests : [],
-      dietaryRestrictions: [],
-      mustHaveItems:       [],
-      mustHaveOther:       '',
+      dietaryRestrictions: preDietary,
+      mustHaveItems:       preMustHave,
+      mustHaveOther:       preMustHaveOther,
       destination:    preDestination,
       startDate:      preStartDate,
       endDate:        preEndDate,
@@ -1276,7 +772,7 @@ function PlanPage() {
       hotelAddress:   preHotelAddress,
       hotelLat:       Number.isFinite(preHotelLat) ? preHotelLat : null,
       hotelLng:       Number.isFinite(preHotelLng) ? preHotelLng : null,
-      // Pre-fill from onboarding — these skip their wizard steps below
+      // Pre-fill from onboarding ג€” these skip their wizard steps below
       groupType:         validGroupTypes.includes(preGroupType)             ? preGroupType             : '',
       pace:              validPaces.includes(prePace)                       ? prePace                  : '',
       budget:            validBudgets.includes(preBudget)                   ? preBudget                : '',
@@ -1286,7 +782,7 @@ function PlanPage() {
     setPlanGateReady(true);
 
     // When the full onboarding flow collected all data, auto-trigger generation
-    // so the user lands directly on the loading screen — no wizard at all.
+    // so the user lands directly on the loading screen ג€” no wizard at all.
     if (autoGenerateFlag) setAutoGeneratePending(true);
   }, [router, planSearchKey]);
 
@@ -1314,8 +810,11 @@ function PlanPage() {
   const hasPreAccommodation    = !!(form.accommodation as string);
   const hasPreNightlyBudget    = !!(form.hotelNightlyBudget as string);
 
+  const autoGenerateFromOnboarding = searchParams.get('autoGenerate') === '1';
+
   const activeQuestions = PLAN_QUESTIONS.filter((q) => {
-    // groupSize slider: only shown for 'group' — solo/couple/family auto-derive it
+    if (autoGenerateFromOnboarding && q.key === 'finishingTouches') return false;
+    // groupSize slider: only shown for 'group' ג€” solo/couple/family auto-derive it
     if (q.key === 'groupSize' && (form.groupType as string) !== 'group') return false;
     // Hotel-refinement steps: skip when hotel already booked via onboarding
     if (hasHotelAnchor && (
@@ -1337,7 +836,12 @@ function PlanPage() {
   const planStepTotal = Math.max(1, activeQuestions.length);
   const planStepNumber = Math.min(step + 1, planStepTotal);
   const progress = (planStepNumber / planStepTotal) * 100;
-  const bg = getStepBackground(planStepNumber, 5);
+  const destinationName = (form.destination as string) || '';
+  const bgUrl = useMemo(
+    () => resolveBackgroundImage(destinationName, planStepNumber),
+    [destinationName, planStepNumber],
+  );
+  const photoOverlay = 'linear-gradient(rgba(9,31,54,0.76), rgba(9,31,54,0.91))';
 
   const destinationChosen = FEATURED_DESTINATIONS.some(
     (d) => d.name === (form.destination as string),
@@ -1395,7 +899,7 @@ function PlanPage() {
     setError('');
   }, []);
 
-  // Back-compat alias — interests is the original multi-select; keep the name
+  // Back-compat alias ג€” interests is the original multi-select; keep the name
   // so existing tests/utilities that referenced `toggleInterest` still resolve.
   const toggleInterest = useCallback((val: string) => {
     toggleMulti('interests', val);
@@ -1505,7 +1009,7 @@ function PlanPage() {
         if (gt === 'solo')   return 1;
         if (gt === 'couple') return 2;
         if (gt === 'family') return (form.groupSize as number) || 2; // set by handleFamilyKidsSave
-        return (form.groupSize as number) || 3; // group — from slider
+        return (form.groupSize as number) || 3; // group ג€” from slider
       })(),
       budget: (form.budget as TravelerProfile['budget']) || 'mid-range',
       pace: (form.pace as TravelerProfile['pace']) || 'moderate',
@@ -1576,8 +1080,8 @@ function PlanPage() {
         (err instanceof Error && err.name === 'AbortError');
       const msg = isAbort
           ? ((form.tripLanguage as TripLanguage) === 'he'
-            ? 'הבנייה ארכה יותר מדי — נסו שוב או בדקו את החיבור.'
-            : 'This is taking too long — please try again or check your connection.')
+            ? '׳”׳‘׳ ׳™׳™׳” ׳׳¨׳›׳” ׳™׳•׳×׳¨ ׳׳“׳™ ג€” ׳ ׳¡׳• ׳©׳•׳‘ ׳׳• ׳‘׳“׳§׳• ׳׳× ׳”׳—׳™׳‘׳•׳¨.'
+            : 'This is taking too long ג€” please try again or check your connection.')
           : err instanceof Error
             ? err.message
             : 'Something went wrong. Please try again.';
@@ -1609,14 +1113,190 @@ function PlanPage() {
     );
   }
 
+  if (!question) {
+    return (
+      <div
+        className="min-h-screen flex flex-col items-center justify-center px-6"
+        style={{ backgroundColor: '#091f36' }}
+      >
+        {genError ? (
+          <div className="max-w-md w-full rounded-2xl p-5 text-center"
+            style={{ background: 'rgba(158,54,58,0.14)', border: '1px solid rgba(158,54,58,0.40)' }}>
+            <p className="text-sm text-white mb-4">{genError}</p>
+            <button
+              type="button"
+              onClick={() => { setGenError(''); handleSubmit(); }}
+              className="px-6 py-3 rounded-full text-sm font-bold text-white"
+              style={{ background: 'linear-gradient(135deg, #9e363a, #b5404a)' }}
+            >
+              Try again →
+            </button>
+          </div>
+        ) : (
+          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.45)' }}>Preparing your trip…</p>
+        )}
+      </div>
+    );
+  }
+
+  const isFinishingStep = question.key === 'finishingTouches';
   const isLast = step === activeQuestions.length - 1;
+  const finishingAccent = '#9e363a';
+
+  // Finishing step — same shell as onboarding (photo bg + glow + sticky footer)
+  if (isFinishingStep) {
+    return (
+      <main
+        className="min-h-screen relative"
+        style={{
+          backgroundColor: '#091f36',
+          backgroundImage: `${photoOverlay}, url("${bgUrl}")`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundAttachment: 'fixed',
+        }}
+      >
+        <TripLanguageGateModal
+          open={showTripLangGate}
+          onSelect={handleTripLangGateSelect}
+          onCancel={() => router.push('/')}
+        />
+
+        <div className="fixed inset-0 pointer-events-none z-0" aria-hidden="true">
+          <div
+            className="absolute top-0 left-0 right-0 h-64 transition-all duration-700"
+            style={{
+              background: `radial-gradient(ellipse 80% 100% at 50% -10%, ${finishingAccent}30 0%, transparent 70%)`,
+            }}
+          />
+          <div
+            className="absolute bottom-0 left-0 right-0 h-48 transition-all duration-700"
+            style={{
+              background: `linear-gradient(to top, ${finishingAccent}15 0%, transparent 100%)`,
+            }}
+          />
+        </div>
+
+        <div className="relative z-10 max-w-xl mx-auto px-5 sm:px-8 pt-8">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <motion.button
+                onClick={handleBack}
+                aria-label="Go back"
+                className="w-8 h-8 rounded-full flex items-center justify-center hover-bg-subtle transition-colors"
+                style={{ color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.10)' }}
+              >
+                ‹
+              </motion.button>
+              <BrandWordmark accent={finishingAccent} className="text-sm" />
+            </div>
+            <div className="flex items-center gap-1.5">
+              {Array.from({ length: planStepTotal }).map((_, i) => (
+                <div
+                  key={i}
+                  className="rounded-full transition-all duration-500"
+                  style={{
+                    height: 5,
+                    width: i === step ? 24 : i < step ? 8 : 6,
+                    background: i === step
+                      ? finishingAccent
+                      : i < step
+                        ? `${finishingAccent}70`
+                        : 'rgba(255,255,255,0.10)',
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+          <p
+            className="text-[11px] font-bold uppercase tracking-widest mt-3 mb-8"
+            style={{ color: finishingAccent }}
+          >
+            Step {planStepNumber} of {planStepTotal} · Final details
+          </p>
+        </div>
+
+        <div className="relative z-10 max-w-xl mx-auto px-5 sm:px-8 pb-40">
+          {genError && (
+            <div
+              className="mb-6 rounded-2xl p-5"
+              style={{
+                background: 'rgba(158,54,58,0.14)',
+                border: '1px solid rgba(158,54,58,0.40)',
+              }}
+            >
+              <p className="text-sm text-white mb-3">{genError}</p>
+              <button
+                type="button"
+                onClick={() => { setGenError(''); handleSubmit(); }}
+                className="w-full py-2.5 rounded-xl text-sm font-bold text-white"
+                style={{ background: 'linear-gradient(135deg, #9e363a, #b5404a)' }}
+              >
+                Try again →
+              </button>
+            </div>
+          )}
+
+          <FinishingTouchesForm
+            destination={destinationName}
+            dietary={(form.dietaryRestrictions as string[]) || []}
+            mustHaveItems={(form.mustHaveItems as string[]) || []}
+            mustHaveOther={(form.mustHaveOther as string) || ''}
+            onToggleDietary={toggleDietary}
+            onToggleMustHave={toggleMustHave}
+            onMustHaveOtherChange={(text) => setValue('mustHaveOther', text)}
+            stepBadge={6}
+          />
+        </div>
+
+        <div
+          className="fixed bottom-0 left-0 right-0 z-20"
+          style={{
+            background: 'linear-gradient(to top, rgba(9,31,54,0.98) 60%, transparent 100%)',
+            paddingTop: 36,
+          }}
+        >
+          <div className="max-w-xl mx-auto px-5 sm:px-8 pb-8 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleBack}
+              className="flex items-center gap-1.5 px-5 py-3.5 rounded-full text-sm font-bold shrink-0 transition-colors"
+              style={{
+                background: 'rgba(255,255,255,0.07)',
+                border: '1px solid rgba(255,255,255,0.14)',
+                color: 'rgba(255,255,255,0.75)',
+              }}
+            >
+              ‹ Back
+            </button>
+            <motion.button
+              type="button"
+              onClick={handleNext}
+              whileHover={{ scale: 1.02, y: -1 }}
+              whileTap={{ scale: 0.97 }}
+              className="flex-1 py-3.5 rounded-full text-sm font-black tracking-wide text-white"
+              style={{
+                background: 'linear-gradient(135deg, #9e363a, #b5404a)',
+                boxShadow: '0 0 40px rgba(158,54,58,0.42), 0 8px 24px -4px rgba(158,54,58,0.28)',
+              }}
+            >
+              Generate My Itinerary ✨
+            </motion.button>
+          </div>
+          <p className="text-center text-xs pb-4" style={{ color: 'rgba(255,255,255,0.28)' }}>
+            All optional — skip with Generate if you&apos;re ready
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <div
       className="min-h-screen flex flex-col relative overflow-hidden"
       style={{
         backgroundColor: '#091f36',
-        backgroundImage: `linear-gradient(rgba(9,31,54,0.82), rgba(9,31,54,0.90)), url("${bg.imageUrl}")`,
+        backgroundImage: `${photoOverlay}, url("${bgUrl}")`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundAttachment: 'fixed',
@@ -1689,7 +1369,7 @@ function PlanPage() {
                 }}
               >
                 <div className="flex items-start gap-3">
-                  <span className="text-2xl flex-shrink-0 mt-0.5">⚠️</span>
+                  <span className="text-2xl flex-shrink-0 mt-0.5">ג ן¸</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-white mb-1">
                       Generation failed
@@ -1710,7 +1390,7 @@ function PlanPage() {
                     boxShadow: '0 4px 16px -4px rgba(158,54,58,0.50)',
                   }}
                 >
-                  Try again →
+                  Try again ג†’
                 </motion.button>
               </motion.div>
             )}
@@ -1741,29 +1421,31 @@ function PlanPage() {
               animate="center"
               exit="exit"
             >
-              {/* Question header */}
-              <div className="mb-7">
-                <motion.div
-                  initial={{ opacity: 0, x: -12 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.05 }}
-                  className="text-xs font-semibold uppercase tracking-widest mb-2"
-                  style={{ color: '#9e363a' }}
-                >
-                  Step {planStepNumber}
-                </motion.div>
-                <h2 className="text-2xl sm:text-3xl font-bold text-white leading-tight mb-2">
-                  {question.title}
-                </h2>
-                {question.subtitle && (
-                  <p className="text-base" style={{ color: 'rgba(255,255,255,0.50)' }}>{question.subtitle}</p>
-                )}
-              </div>
+              {/* Question header — finishing step uses its own onboarding-style header */}
+              {!isFinishingStep && (
+                <div className="mb-7">
+                  <motion.div
+                    initial={{ opacity: 0, x: -12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.05 }}
+                    className="text-xs font-semibold uppercase tracking-widest mb-2"
+                    style={{ color: '#9e363a' }}
+                  >
+                    Step {planStepNumber}
+                  </motion.div>
+                  <h2 className="text-2xl sm:text-3xl font-bold text-white leading-tight mb-2">
+                    {question.title}
+                  </h2>
+                  {question.subtitle && (
+                    <p className="text-base" style={{ color: 'rgba(255,255,255,0.50)' }}>{question.subtitle}</p>
+                  )}
+                </div>
+              )}
 
               {/* Input area */}
               <div className="mb-6">
 
-                {/* ── Step 1: destination cards ── */}
+                {/* ג”€ג”€ Step 1: destination cards ג”€ג”€ */}
                 {question.key === 'destination' && (
                   <DestinationGrid
                     value={(form.destination as string) || ''}
@@ -1771,7 +1453,7 @@ function PlanPage() {
                   />
                 )}
 
-                {/* ── Text (non-destination) ── */}
+                {/* ג”€ג”€ Text (non-destination) ג”€ג”€ */}
                 {question.type === 'text' && question.key !== 'destination' && (
                   <input
                     type="text"
@@ -1790,7 +1472,7 @@ function PlanPage() {
                   />
                 )}
 
-                {/* ── Date range ── */}
+                {/* ג”€ג”€ Date range ג”€ג”€ */}
                 {question.type === 'date-range' && (
                   <div className="grid grid-cols-2 gap-3">
                     {(['startDate', 'endDate'] as const).map((key, i) => (
@@ -1821,7 +1503,7 @@ function PlanPage() {
                   </div>
                 )}
 
-                {/* ── Time-Aware (Step 3) ── */}
+                {/* ג”€ג”€ Time-Aware (Step 3) ג”€ג”€ */}
                 {question.type === 'time-aware' && (
                   <TimeAwareStep
                     arrivalTime={(form.arrivalTime as string) || ''}
@@ -1833,7 +1515,7 @@ function PlanPage() {
                   />
                 )}
 
-                {/* ── Single select ── */}
+                {/* ג”€ג”€ Single select ג”€ג”€ */}
                 {question.type === 'select' && question.options && (
                   <motion.div
                     className="grid grid-cols-1 sm:grid-cols-2 gap-3"
@@ -1900,7 +1582,7 @@ function PlanPage() {
                                 className="ml-auto w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
                                 style={{ backgroundColor: '#9e363a' }}
                               >
-                                <span className="text-white text-[10px]">✓</span>
+                                <span className="text-white text-[10px]">ג“</span>
                               </motion.div>
                             )}
                           </div>
@@ -1910,7 +1592,7 @@ function PlanPage() {
                   </motion.div>
                 )}
 
-                {/* ── Multi-select ── */}
+                {/* ג”€ג”€ Multi-select ג”€ג”€ */}
                 {question.type === 'multi-select' && question.options && (
                   <motion.div
                     className="grid grid-cols-2 sm:grid-cols-4 gap-2.5"
@@ -1927,7 +1609,7 @@ function PlanPage() {
                           onClick={() => toggleMulti(
                             question.key,
                             opt.value,
-                            // City Center / Beach / Quiet / Transit — cap at 2
+                            // City Center / Beach / Quiet / Transit ג€” cap at 2
                             question.key === 'hotelLocationPref' ? 2 : undefined,
                           )}
                           whileHover={{ scale: 1.06, y: -3 }}
@@ -1955,7 +1637,7 @@ function PlanPage() {
                   </motion.div>
                 )}
 
-                {/* ── Slider ── */}
+                {/* ג”€ג”€ Slider ג”€ג”€ */}
                 {question.type === 'slider' && (
                   <motion.div
                     initial={{ opacity: 0, y: 12 }}
@@ -1997,29 +1679,20 @@ function PlanPage() {
                   </motion.div>
                 )}
 
-                {/* ── Step 9: Dietary Cubes ── */}
-                {question.key === 'dietaryRestrictions' && (
-                  <DietaryCubes
-                    selected={(form.dietaryRestrictions as string[]) || []}
-                    onToggle={toggleDietary}
-                  />
-                )}
-
-                {/* ── Step 10: Must-Have City Picks ── */}
-                {question.key === 'mustHave' && (
-                  <MustHaveCubes
+                {question.key === 'finishingTouches' && (
+                  <FinishingTouchesForm
                     destination={(form.destination as string) || ''}
-                    selected={(form.mustHaveItems as string[]) || []}
-                    customText={(form.mustHaveOther as string) || ''}
-                    onToggle={toggleMustHave}
-                    onCustomChange={(text) => setValue('mustHaveOther', text)}
+                    dietary={(form.dietaryRestrictions as string[]) || []}
+                    mustHaveItems={(form.mustHaveItems as string[]) || []}
+                    mustHaveOther={(form.mustHaveOther as string) || ''}
+                    onToggleDietary={toggleDietary}
+                    onToggleMustHave={toggleMustHave}
+                    onMustHaveOtherChange={(text) => setValue('mustHaveOther', text)}
                   />
                 )}
 
-                {/* ── Textarea ── */}
-                {question.type === 'textarea' &&
-                  question.key !== 'dietaryRestrictions' &&
-                  question.key !== 'mustHave' && (
+                {/* Textarea (generic) */}
+                {question.type === 'textarea' && question.key !== 'finishingTouches' && (
                   <textarea
                     placeholder={question.placeholder}
                     value={(form[question.key] as string) || ''}
@@ -2082,7 +1755,7 @@ function PlanPage() {
                   }}
                 >
                   <span className="relative z-10">
-                    {isLast ? 'Generate Itinerary ✨' : 'Continue →'}
+                    {isLast || isFinishingStep ? 'Generate Itinerary ✨' : 'Continue →'}
                   </span>
                   {!continueDisabled && (
                     <motion.div

@@ -36,3 +36,26 @@ export function getStepBackground(step: number, phaseOffset = 0): StepBackground
   return STEP_BACKGROUNDS[idx];
 }
 
+/** Match onboarding: prefer the chosen city, then country, then rotate fallback. */
+export function resolveBackgroundImage(
+  destination: string,
+  fallbackStep = 0,
+  country?: string,
+): string {
+  const dest = destination.trim();
+  if (dest) {
+    const cityMatch = STEP_BACKGROUNDS.find(
+      (b) => b.city.toLowerCase() === dest.toLowerCase(),
+    );
+    if (cityMatch) return cityMatch.imageUrl;
+  }
+  const countryName = (country ?? '').trim();
+  if (countryName) {
+    const countryMatch = STEP_BACKGROUNDS.find(
+      (b) => b.country.toLowerCase() === countryName.toLowerCase(),
+    );
+    if (countryMatch) return countryMatch.imageUrl;
+  }
+  return getStepBackground(fallbackStep, 3).imageUrl;
+}
+

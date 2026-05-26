@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * SmartHotelStep — Step 3 of the onboarding wizard.
+ * SmartHotelStep — Step 5 of the onboarding wizard.
  *
  * Two paths:
  *   A) "I have a hotel" → geocode search → confirm

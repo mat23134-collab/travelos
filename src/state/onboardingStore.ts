@@ -59,6 +59,11 @@ export interface OnboardingState {
   interests: string[];
   budget:    'budget' | 'mid-range' | 'luxury' | '';
 
+  // Step 6: Finishing touches — dietary + must-haves
+  dietaryRestrictions: string[];
+  mustHaveItems:       string[];
+  mustHaveOther:       string;
+
   // ── Actions ──────────────────────────────────────────────────────────────
   setCountry:        (c: string) => void;
   setTripType:       (t: 'single' | 'multi') => void;
@@ -81,6 +86,9 @@ export interface OnboardingState {
   setBudget:             (b: 'budget' | 'mid-range' | 'luxury') => void;
   setInterests:          (interests: string[]) => void;
   toggleInterest:        (interest: string) => void;
+  toggleDietary:         (value: string) => void;
+  toggleMustHave:        (label: string) => void;
+  setMustHaveOther:      (text: string) => void;
   nextStep:  () => void;
   prevStep:  () => void;
   goToStep:  (n: number) => void;
@@ -103,6 +111,7 @@ const INITIAL: Omit<
   | 'setHotelLocation' | 'clearHotelLocation'
   | 'setAccommodation' | 'setHotelNightlyBudget'
   | 'setGroupType' | 'setPace' | 'setBudget' | 'setInterests' | 'toggleInterest'
+  | 'toggleDietary' | 'toggleMustHave' | 'setMustHaveOther'
   | 'nextStep' | 'prevStep' | 'goToStep' | 'reset'
 > = {
   step:           0,
@@ -127,6 +136,9 @@ const INITIAL: Omit<
   pace:               '',
   interests:          [],
   budget:             '',
+  dietaryRestrictions: [],
+  mustHaveItems:       [],
+  mustHaveOther:       '',
 };
 
 export const useOnboardingStore = create<OnboardingState>()(
@@ -192,6 +204,20 @@ export const useOnboardingStore = create<OnboardingState>()(
           : [...s.interests, interest],
       })),
 
+      toggleDietary: (value) => set((s) => ({
+        dietaryRestrictions: s.dietaryRestrictions.includes(value)
+          ? s.dietaryRestrictions.filter((i) => i !== value)
+          : [...s.dietaryRestrictions, value],
+      })),
+
+      toggleMustHave: (label) => set((s) => ({
+        mustHaveItems: s.mustHaveItems.includes(label)
+          ? s.mustHaveItems.filter((i) => i !== label)
+          : [...s.mustHaveItems, label],
+      })),
+
+      setMustHaveOther: (text) => set({ mustHaveOther: text }),
+
       nextStep: () => set((s) => ({ step: s.step + 1 })),
       prevStep: () => set((s) => ({ step: Math.max(0, s.step - 1) })),
       goToStep: (n) => set({ step: n }),
@@ -223,6 +249,9 @@ export const useOnboardingStore = create<OnboardingState>()(
         pace:               s.pace,
         interests:          s.interests,
         budget:             s.budget,
+        dietaryRestrictions: s.dietaryRestrictions,
+        mustHaveItems:       s.mustHaveItems,
+        mustHaveOther:       s.mustHaveOther,
       }),
     },
   ),

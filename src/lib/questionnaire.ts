@@ -176,20 +176,13 @@ export const questions: Question[] = [
   },
   {
     id: 11,
-    key: 'dietaryRestrictions',
+    key: 'finishingTouches',
     type: 'textarea',
-    title: 'Any dietary preferences?',
-    subtitle: 'Select all that apply — we\'ll only suggest dining spots where you can eat well',
+    title: 'Final details',
+    subtitle: 'Optional refinements — dietary needs and absolute must-sees',
     required: false,
   },
-  {
-    id: 12,
-    key: 'mustHave',
-    type: 'textarea',
-    title: 'Any absolute must-haves?',
-    subtitle: 'Pick from our top suggestions for your destination — or add your own',
-    required: false,
-  },
+  // Legacy keys dietaryRestrictions + mustHave merged into finishingTouches (step 6 onboarding).
   // Question 13 (hotelBooked) removed — hotel selection is now handled
   // in the onboarding flow (HotelStep / The Anchor) before the user
   // reaches this questionnaire. No redundant re-asking.

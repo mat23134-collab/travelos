@@ -5,9 +5,10 @@
  *
  * Step 0 · Destination   — country → trip type → city/cities
  * Step 1 · Dates         — calendar range + optional travel times
- * Step 2 · Accommodation — booked (search) or preferences (type + budget)
+ * Step 2 · Budget & vibe — daily spend + interests
  * Step 3 · Travel style  — who's coming + preferred pace
- * Step 4 · Budget & vibe — daily spend + interests
+ * Step 4 · Accommodation — booked (search) or preferences (type + budget)
+ * Step 5 · Final details   — dietary + must-haves (optional)
  *                          → "Generate My Itinerary" (only CTA)
  *
  * One section fills the viewport at a time; steps slide in from the right
@@ -23,7 +24,7 @@ import { useOnboardingStore } from '@/state/onboardingStore';
 import { readTripLanguagePref } from '@/lib/tripLanguagePref';
 import { useAuth } from '@/lib/auth-context';
 import { BrandWordmark } from '@/components/BrandWordmark';
-import { STEP_BACKGROUNDS, getStepBackground } from '@/lib/stepBackgrounds';
+import { resolveBackgroundImage } from '@/lib/stepBackgrounds';
 
 // ── Lazy-load heavy step components ──────────────────────────────────────────
 const DestinationSection = dynamic(
@@ -46,14 +47,19 @@ const PreferencesSection = dynamic(
   () => import('./sections/PreferencesSection').then((m) => ({ default: m.PreferencesSection })),
   { ssr: false }
 );
+const FinishingTouchesSection = dynamic(
+  () => import('./sections/FinishingTouchesSection').then((m) => ({ default: m.FinishingTouchesSection })),
+  { ssr: false }
+);
 
 // ── Steps meta ────────────────────────────────────────────────────────────────
 const STEPS = [
   { label: 'Destination', color: '#9e363a' },
   { label: 'Dates',       color: '#4a7bde' },
-  { label: 'Stay',        color: '#c5912a' },
-  { label: 'Style',       color: '#7b6fcf' },
   { label: 'Interests',   color: '#2e9e74' },
+  { label: 'Style',       color: '#7b6fcf' },
+  { label: 'Stay',        color: '#c5912a' },
+  { label: 'Details',     color: '#9e363a' },
 ] as const;
 
 // ── Progress bar ──────────────────────────────────────────────────────────────
@@ -120,6 +126,7 @@ function OnboardingPageContent() {
     hotelAddress, hotelLat, hotelLng,
     accommodation, hotelNightlyBudget,
     groupType, pace, budget, interests,
+    dietaryRestrictions, mustHaveItems, mustHaveOther,
     step: storeStep, goToStep, reset, setDestination,
   } = useOnboardingStore();
 
@@ -130,20 +137,9 @@ function OnboardingPageContent() {
 
   // ── Background image: match the chosen destination, fall back to rotating ──
   const bgUrl = useMemo(() => {
-    for (const city of cities) {
-      const found = STEP_BACKGROUNDS.find(
-        (b) => b.city.toLowerCase() === city.name.toLowerCase()
-      );
-      if (found) return found.imageUrl;
-    }
-    if (country) {
-      const found = STEP_BACKGROUNDS.find(
-        (b) => b.country.toLowerCase() === country.toLowerCase()
-      );
-      if (found) return found.imageUrl;
-    }
-    return getStepBackground(wizardStep, 3).imageUrl;
-  }, [cities, country, wizardStep]);
+    if (cities.length) return resolveBackgroundImage(cities[0].name, wizardStep, country);
+    return resolveBackgroundImage(destination, wizardStep, country);
+  }, [cities, destination, country, wizardStep]);
 
   // Auth guard
   useEffect(() => {
@@ -216,15 +212,17 @@ function OnboardingPageContent() {
         if (!startDate || !endDate) return { canContinue: false, label: 'Pick your travel dates' };
         return { canContinue: true, label: nightCount ? `${nightCount} nights · Continue →` : 'Continue →' };
       case 2:
-        if (hotelAddress)  return { canContinue: true, label: 'Stay confirmed · Continue →' };
-        if (accommodation) return { canContinue: true, label: 'Preferences set · Continue →' };
-        return { canContinue: true, label: 'Skip hotel for now →' };
+        if (!budget) return { canContinue: false, label: 'Pick a budget level' };
+        return { canContinue: true, label: 'Next: travel style →' };
       case 3:
         if (!groupType) return { canContinue: false, label: "Who's coming?" };
         if (!pace)      return { canContinue: false, label: 'Choose your pace' };
-        return { canContinue: true, label: 'Continue →' };
+        return { canContinue: true, label: 'Next: where you stay →' };
       case 4:
-        if (!budget) return { canContinue: false, label: 'Pick a budget level' };
+        if (hotelAddress)  return { canContinue: true, label: 'Next: final details →' };
+        if (accommodation) return { canContinue: true, label: 'Next: final details →' };
+        return { canContinue: true, label: 'Next: final details →' };
+      case 5:
         return { canContinue: true, label: 'Generate My Itinerary ✨' };
       default:
         return { canContinue: false, label: 'Continue' };
@@ -266,6 +264,11 @@ function OnboardingPageContent() {
     if (pace)             params.set('pace',       pace);
     if (budget)           params.set('budget',     budget);
     if (interests.length) params.set('interests',  interests.join(','));
+
+    // Finishing touches
+    if (dietaryRestrictions.length) params.set('dietary', dietaryRestrictions.join(','));
+    if (mustHaveItems.length)       params.set('mustHave', mustHaveItems.join(','));
+    if (mustHaveOther.trim())       params.set('mustHaveOther', mustHaveOther.trim());
 
     // Ask plan page to auto-generate (skip its own wizard)
     params.set('autoGenerate', '1');
@@ -379,11 +382,12 @@ function OnboardingPageContent() {
                 />
               )}
 
-              {/* Step 2: Accommodation */}
+              {/* Step 2: Budget & interests */}
               {wizardStep === 2 && (
-                <SmartHotelStep
+                <PreferencesSection
+                  isCompleted={false}
                   onComplete={goNext}
-                  onSkip={goNext}
+                  onEdit={() => {}}
                 />
               )}
 
@@ -396,13 +400,17 @@ function OnboardingPageContent() {
                 />
               )}
 
-              {/* Step 4: Budget & interests → final generate */}
+              {/* Step 4: Accommodation */}
               {wizardStep === 4 && (
-                <PreferencesSection
-                  isCompleted={false}
-                  onComplete={handleGenerateTrip}
-                  onEdit={() => {}}
+                <SmartHotelStep
+                  onComplete={goNext}
+                  onSkip={goNext}
                 />
+              )}
+
+              {/* Step 5: Final details → generate */}
+              {wizardStep === 5 && (
+                <FinishingTouchesSection />
               )}
 
             </Suspense>

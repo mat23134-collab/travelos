@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * PreferencesSection — Section 5 of the progressive onboarding flow.
+ * PreferencesSection — Section 3 of the progressive onboarding flow.
  *
  * Two connected decisions collected in one focused screen:
  *   1. Budget level (3 options, required — unlocks the Continue button)
@@ -104,7 +104,7 @@ export function PreferencesSection({ isCompleted, onComplete, onEdit }: Props) {
       {/* Header */}
       <div className="flex items-center gap-3">
         <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black text-white shrink-0"
-          style={{ background: GREEN }}>5</span>
+          style={{ background: GREEN }}>3</span>
         <div>
           <h2 className="text-xl font-black text-white tracking-tight">Your travel style</h2>
           <p className="text-xs mt-0.5" style={{ color: MUTED }}>

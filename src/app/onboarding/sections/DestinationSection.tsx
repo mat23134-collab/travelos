@@ -15,6 +15,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { COUNTRIES, type Country, type TravelCity } from '@/lib/countries';
+import { getCountryImage } from '@/lib/travelImagery';
 import { useOnboardingStore } from '@/state/onboardingStore';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
@@ -59,29 +60,48 @@ function CountryCard({ country, selected, onClick }: {
   selected: boolean;
   onClick: () => void;
 }) {
+  const photo = getCountryImage(country.name);
+
   return (
     <motion.button
       onClick={onClick}
-      whileHover={{ scale: 1.04 }}
-      whileTap={{ scale: 0.94 }}
+      whileHover={{ scale: 1.03, y: -2 }}
+      whileTap={{ scale: 0.96 }}
       animate={selected
-        ? { boxShadow: `0 0 0 2px ${RED}, 0 8px 24px rgba(158,54,58,0.25)` }
-        : { boxShadow: '0 2px 10px rgba(0,0,0,0.22)' }}
+        ? { boxShadow: `0 0 0 2px ${RED}, 0 12px 32px rgba(158,54,58,0.30)` }
+        : { boxShadow: '0 4px 20px rgba(0,0,0,0.35)' }}
       transition={{ type: 'spring', stiffness: 400, damping: 24 }}
-      className="relative flex flex-col items-center gap-1.5 py-3.5 px-2 rounded-2xl text-center transition-colors"
+      className="relative aspect-[4/3] rounded-2xl overflow-hidden text-center transition-colors"
       style={{
-        background: selected ? 'rgba(158,54,58,0.16)' : 'rgba(15,40,98,0.24)',
-        border: selected ? `1.5px solid rgba(158,54,58,0.55)` : '1.5px solid rgba(255,255,255,0.07)',
+        border: selected ? `2px solid ${RED}` : '2px solid rgba(255,255,255,0.08)',
       }}
     >
+      <img
+        src={photo}
+        alt=""
+        className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 ease-out"
+        style={{ transform: selected ? 'scale(1.05)' : 'scale(1)' }}
+      />
+      <div
+        className="absolute inset-0"
+        style={{
+          background: selected
+            ? 'linear-gradient(to top, rgba(9,31,54,0.92) 0%, rgba(9,31,54,0.35) 55%, rgba(9,31,54,0.15) 100%)'
+            : 'linear-gradient(to top, rgba(9,31,54,0.88) 0%, rgba(9,31,54,0.40) 50%, rgba(9,31,54,0.20) 100%)',
+        }}
+      />
       {selected && (
         <span
-          className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black text-white"
+          className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black text-white z-10"
           style={{ background: RED }}
         >✓</span>
       )}
-      <span className="text-2xl leading-none">{country.flag}</span>
-      <span className="text-[11px] font-bold leading-tight text-white">{country.name}</span>
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 z-10 px-2">
+        <span className="text-2xl leading-none drop-shadow-lg">{country.flag}</span>
+        <span className="text-[12px] font-black leading-tight text-white tracking-tight drop-shadow-md">
+          {country.name}
+        </span>
+      </div>
     </motion.button>
   );
 }
@@ -260,10 +280,9 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
 
       {/* Country grid */}
       <div
-        className="grid gap-2.5 overflow-y-auto pr-1"
+        className="grid grid-cols-2 sm:grid-cols-3 gap-3 overflow-y-auto pr-1"
         style={{
-          gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))',
-          maxHeight: '240px',
+          maxHeight: '320px',
           scrollbarWidth: 'thin',
         }}
       >
