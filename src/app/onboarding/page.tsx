@@ -8,7 +8,8 @@
  * Step 2 · Budget & vibe — daily spend + interests
  * Step 3 · Travel style  — who's coming + preferred pace
  * Step 4 · Accommodation — booked (search) or preferences (type + budget)
- * Step 5 · Final details   — dietary + must-haves (optional)
+ * Step 5 · Dining       — dietary preferences (optional)
+ * Step 6 · Our picks    — recommendation categories + must-haves (optional)
  *                          → "Generate My Itinerary" (only CTA)
  *
  * One section fills the viewport at a time; steps slide in from the right
@@ -59,7 +60,8 @@ const STEPS = [
   { label: 'Interests',   color: '#2e9e74' },
   { label: 'Style',       color: '#7b6fcf' },
   { label: 'Stay',        color: '#c5912a' },
-  { label: 'Details',     color: '#9e363a' },
+  { label: 'Dining',      color: '#9e363a' },
+  { label: 'Our Picks',   color: '#9e363a' },
 ] as const;
 
 // ── Progress bar ──────────────────────────────────────────────────────────────
@@ -219,10 +221,12 @@ function OnboardingPageContent() {
         if (!pace)      return { canContinue: false, label: 'Choose your pace' };
         return { canContinue: true, label: 'Next: where you stay →' };
       case 4:
-        if (hotelAddress)  return { canContinue: true, label: 'Next: final details →' };
-        if (accommodation) return { canContinue: true, label: 'Next: final details →' };
-        return { canContinue: true, label: 'Next: final details →' };
+        if (hotelAddress)  return { canContinue: true, label: 'Next: dining rules →' };
+        if (accommodation) return { canContinue: true, label: 'Next: dining rules →' };
+        return { canContinue: true, label: 'Next: dining rules →' };
       case 5:
+        return { canContinue: true, label: 'Next: our recommendations →' };
+      case 6:
         return { canContinue: true, label: 'Generate My Itinerary ✨' };
       default:
         return { canContinue: false, label: 'Continue' };
@@ -408,9 +412,14 @@ function OnboardingPageContent() {
                 />
               )}
 
-              {/* Step 5: Final details → generate */}
+              {/* Step 5: Dietary preferences */}
               {wizardStep === 5 && (
-                <FinishingTouchesSection />
+                <FinishingTouchesSection mode="dietary" stepBadge={6} />
+              )}
+
+              {/* Step 6: Our recommendation categories → generate */}
+              {wizardStep === 6 && (
+                <FinishingTouchesSection mode="recommendations" stepBadge={7} />
               )}
 
             </Suspense>

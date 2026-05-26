@@ -3,7 +3,12 @@
 import { useOnboardingStore } from '@/state/onboardingStore';
 import { FinishingTouchesForm } from '@/components/FinishingTouchesForm';
 
-export function FinishingTouchesSection() {
+interface Props {
+  mode?: 'all' | 'dietary' | 'recommendations';
+  stepBadge?: number;
+}
+
+export function FinishingTouchesSection({ mode = 'all', stepBadge = 6 }: Props) {
   const {
     destination,
     dietaryRestrictions,
@@ -23,7 +28,8 @@ export function FinishingTouchesSection() {
       onToggleDietary={toggleDietary}
       onToggleMustHave={toggleMustHave}
       onMustHaveOtherChange={setMustHaveOther}
-      stepBadge={6}
+      mode={mode}
+      stepBadge={stepBadge}
     />
   );
 }

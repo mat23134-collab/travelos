@@ -157,11 +157,11 @@ function DestinationGrid({ value, onChange }: { value: string; onChange: (v: str
 // ג”€ג”€ג”€ Loading screen ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 
 const LOADING_STEPS = [
-  { icon: 'נ“±', label: 'Scanning 2026 travel trendsג€¦' },
-  { icon: 'נ', label: 'Cross-referencing local food blogsג€¦' },
-  { icon: 'נ—÷', label: 'Optimizing neighborhood clustersג€¦' },
-  { icon: 'ג¨', label: 'Vibe-checking the itineraryג€¦' },
-  { icon: 'נ’', label: 'Filtering tourist traps. You deserve better.' },
+  { icon: '📡', label: 'Scanning fresh travel signals' },
+  { icon: '🍜', label: 'Checking food blogs and local guides' },
+  { icon: '🗺️', label: 'Clustering days by neighborhood' },
+  { icon: '✨', label: 'Tuning the trip to your style' },
+  { icon: '💎', label: 'Filtering tourist traps and weak picks' },
 ];
 
 /** Soft target length for UX pacing (steps + progress bar ג€” aligned with server budget). */
@@ -173,20 +173,22 @@ const GENERATION_TIMER_COPY = {
   en: {
     phase: (n: number, total: number) => `Step ${n} of ${total}`,
     progressLabel: 'Trip build',
-    footer: 'Typical build: 30sג€“2 min ֲ· AI-powered',
+    elapsed: 'Elapsed',
+    footer: 'Typical build: 30s-2 min · AI-powered',
     building: (dest: string) =>
       `Building your ${dest.trim() || 'trip'} itinerary`,
-    almostDone: 'Finalizing details on our serversג€¦',
+    almostDone: 'Finalizing details on our servers...',
   },
   he: {
-    phase: (n: number, total: number) => `׳©׳׳‘ ${n} ׳׳×׳•׳ ${total}`,
-    progressLabel: '׳”׳×׳§׳“׳׳•׳× ׳‘׳ ׳™׳™׳× ׳”׳˜׳™׳•׳',
-    footer: '׳–׳׳ ׳˜׳™׳₪׳•׳¡׳™: 30 ׳©׳ ׳³ ׳¢׳“ 2 ׳“׳§׳³ ֲ· ׳‘׳™׳ ׳” ׳׳׳׳›׳•׳×׳™׳×',
+    phase: (n: number, total: number) => `שלב ${n} מתוך ${total}`,
+    progressLabel: 'התקדמות בניית הטיול',
+    elapsed: 'זמן שעבר',
+    footer: 'זמן טיפוסי: 30 שניות עד 2 דקות · AI',
     building: (dest: string) =>
       dest.trim()
-        ? `׳‘׳•׳ ׳™׳ ׳׳× ׳”׳׳¡׳׳•׳ ׳${dest}`
-        : '׳‘׳•׳ ׳™׳ ׳׳× ׳”׳׳¡׳׳•׳ ׳©׳׳',
-    almostDone: '׳׳¡׳™׳™׳׳™׳ ׳₪׳¨׳˜׳™׳ ׳‘׳©׳¨׳×ג€¦',
+        ? `בונים את המסלול ל${dest}`
+        : 'בונים את המסלול שלך',
+    almostDone: 'מסיימים פרטים בשרת...',
   },
 } as const;
 
@@ -481,11 +483,25 @@ function LoadingScreen({
   const blended = 0.62 * timeRatio + 0.38 * phaseRatio;
   const pct = Math.min(GENERATION_UI_MAX_PCT, Math.round(blended * 100));
   const showAlmostDone = activeStep >= LOADING_STEPS.length - 1;
+  const bgUrl = resolveBackgroundImage(destination, activeStep);
+  const elapsedLabel = `${Math.floor(elapsedSec / 60)}:${String(elapsedSec % 60).padStart(2, '0')}`;
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row items-center lg:items-start justify-center gap-10 lg:gap-16 px-6 lg:px-14 py-12 lg:py-0 relative overflow-hidden"
-      style={{ backgroundColor: '#091f36' }}>
-      {/* Ambient orbs */}
+      style={{
+        backgroundColor: '#091f36',
+        backgroundImage: `linear-gradient(rgba(9,31,54,0.72), rgba(9,31,54,0.94)), url("${bgUrl}")`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}>
+      {/* Ambient overlays */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            'radial-gradient(ellipse 70% 55% at 50% 10%, rgba(158,54,58,0.18), transparent 62%), linear-gradient(to top, rgba(9,31,54,0.98), transparent 45%)',
+        }}
+      />
       <div className="noise absolute w-[560px] h-[560px] rounded-full blur-[130px] top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
         style={{ background: 'rgba(158,54,58,0.12)' }} />
       <div className="noise absolute w-[320px] h-[320px] rounded-full blur-[100px] bottom-1/4 right-1/4 pointer-events-none"
@@ -525,9 +541,9 @@ function LoadingScreen({
       </div>
 
       <div
-        className="mb-7 px-5 py-4 rounded-2xl w-full max-w-sm border text-center"
+        className="mb-7 px-5 py-4 rounded-2xl w-full max-w-sm border text-center backdrop-blur-md"
         style={{
-          background: 'rgba(255,255,255,0.04)',
+          background: 'rgba(9,31,54,0.58)',
           borderColor: 'rgba(255,255,255,0.10)',
         }}
       >
@@ -535,8 +551,19 @@ function LoadingScreen({
           {tc.progressLabel}
         </div>
         <div className="font-extrabold text-white text-3xl sm:text-4xl tracking-tight tabular-nums">{pct}%</div>
-        <div className="text-xs mt-2 font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>
-          {tc.phase(activeStep + 1, LOADING_STEPS.length)}
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="rounded-xl py-2" style={{ background: 'rgba(255,255,255,0.05)' }}>
+            <div className="text-[9px] uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.32)' }}>
+              {tc.elapsed}
+            </div>
+            <div className="text-sm font-black text-white tabular-nums">{elapsedLabel}</div>
+          </div>
+          <div className="rounded-xl py-2" style={{ background: 'rgba(255,255,255,0.05)' }}>
+            <div className="text-[9px] uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.32)' }}>
+              Phase
+            </div>
+            <div className="text-sm font-black text-white">{activeStep + 1}/{LOADING_STEPS.length}</div>
+          </div>
         </div>
         {showAlmostDone && (
           <p className="text-[11px] mt-3 leading-snug" style={{ color: 'rgba(251,191,36,0.88)' }}>
@@ -560,7 +587,7 @@ function LoadingScreen({
         </AnimatePresence>
       </div>
 
-      <div className="flex flex-col gap-2 w-full max-w-xs mb-8">
+      <div className="flex flex-col gap-2 w-full max-w-xs mb-8" aria-live="polite">
         {LOADING_STEPS.map((s, i) => {
           const done = i < activeStep;
           const active = i === activeStep;
@@ -601,6 +628,18 @@ function LoadingScreen({
         />
       </div>
       <p className="text-white/20 text-[10px] tabular-nums leading-relaxed">{tc.footer}</p>
+
+      <div
+        className="mt-5 w-full max-w-xs rounded-2xl px-4 py-3 text-left border"
+        style={{ background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.08)' }}
+      >
+        <p className="text-[10px] uppercase tracking-widest mb-1" style={{ color: '#9e363a' }}>
+          Live build
+        </p>
+        <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.52)' }}>
+          We keep this screen honest: the timer is real, the bar slows before 100%, and the trip opens as soon as the itinerary is ready.
+        </p>
+      </div>
 
       {/* SSE live status pill */}
       <AnimatePresence mode="wait">

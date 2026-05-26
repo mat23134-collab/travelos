@@ -14,6 +14,7 @@ interface Props {
   onToggleDietary: (value: string) => void;
   onToggleMustHave: (label: string) => void;
   onMustHaveOtherChange: (text: string) => void;
+  mode?: 'all' | 'dietary' | 'recommendations';
   /** Show numbered step badge (onboarding section header) */
   stepBadge?: number;
 }
@@ -26,10 +27,27 @@ export function FinishingTouchesForm({
   onToggleDietary,
   onToggleMustHave,
   onMustHaveOtherChange,
+  mode = 'all',
   stepBadge,
 }: Props) {
   const mustHaveGroups = getMustHaveGroups(destination);
   const hasCityPicks = mustHaveGroups.some((group) => group.items.length > 0);
+  const showDietary = mode === 'all' || mode === 'dietary';
+  const showRecommendations = mode === 'all' || mode === 'recommendations';
+  const headerCopy = {
+    all: {
+      title: 'Final details',
+      body: 'Optional — sharpens dining picks and locks in must-sees',
+    },
+    dietary: {
+      title: 'Dining guardrails',
+      body: "Tell us what not to miss, and what food rules we can't break",
+    },
+    recommendations: {
+      title: 'Our recommendations',
+      body: 'Pick the kinds of places you want us to prioritize',
+    },
+  }[mode];
 
   return (
     <div className="flex flex-col gap-6">
@@ -43,23 +61,23 @@ export function FinishingTouchesForm({
             {stepBadge}
           </span>
           <div>
-            <h2 className="text-xl font-black text-white tracking-tight">Final details</h2>
+            <h2 className="text-xl font-black text-white tracking-tight">{headerCopy.title}</h2>
             <p className="text-xs mt-0.5" style={{ color: MUTED }}>
-              Optional — sharpens dining picks and locks in must-sees
+              {headerCopy.body}
             </p>
           </div>
         </div>
       ) : (
         <div>
-          <h2 className="text-xl font-black text-white tracking-tight">Final details</h2>
+          <h2 className="text-xl font-black text-white tracking-tight">{headerCopy.title}</h2>
           <p className="text-xs mt-0.5" style={{ color: MUTED }}>
-            Optional — sharpens dining picks and locks in must-sees
+            {headerCopy.body}
           </p>
         </div>
       )}
 
       {/* Dietary */}
-      <div className="flex flex-col gap-2">
+      {showDietary && <div className="flex flex-col gap-2">
         <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: MUTED }}>
           Dietary preferences{' '}
           <span style={{ color: 'rgba(255,255,255,0.20)' }}>(optional — pick any)</span>
@@ -95,12 +113,12 @@ export function FinishingTouchesForm({
             );
           })}
         </div>
-      </div>
+      </div>}
 
       {/* Must-haves */}
-      <div>
+      {showRecommendations && <div>
         <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: MUTED }}>
-          Must-haves for {destination || 'your trip'}{' '}
+          Our picks for {destination || 'your trip'}{' '}
           <span style={{ color: 'rgba(255,255,255,0.18)' }}>(optional)</span>
         </p>
         {hasCityPicks && (
@@ -180,7 +198,7 @@ export function FinishingTouchesForm({
             e.currentTarget.style.boxShadow = 'none';
           }}
         />
-      </div>
+      </div>}
     </div>
   );
 }
