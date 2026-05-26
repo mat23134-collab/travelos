@@ -64,6 +64,16 @@ export interface PlaceCardData {
     dayIndex: number;
     activity: Activity;
   };
+  /** Duration chip — e.g. "2–3 hours". Map from Activity.duration at callsite. */
+  duration?: string;
+  /** Walking / transit time from the previous stop — e.g. "12 min walk".
+   *  Map from Activity.transitFromPrevious at callsite. */
+  transitFromPrevious?: string;
+  /** One-line personalised reason this spot fits the traveler.
+   *  Map from Activity.whyThis at callsite. */
+  reason?: string;
+  // TODO: missing field — add `rating?: number` when backend provides aggregate ratings
+  // TODO: missing field — add `isOpenNow?: boolean` for real-time open/closed (beyond verificationStatus)
 }
 
 export type PlacesGridSmartSwap = {
@@ -186,6 +196,65 @@ function iconForHighlightTag(fragment: string): string {
 
 function humanizeHighlightTag(fragment: string): string {
   return fragment.replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+// ── Decision chips — compact, wrapping row of scannable key-facts ─────────────
+// Each chip is only rendered when its value is present (no empty chips).
+
+function DecisionChips({ data }: { data: PlaceCardData }) {
+  type Chip = { icon: string; label: string; title: string; highlight?: boolean };
+  const chips: Chip[] = [];
+
+  // Open / closed status derived from verificationStatus
+  if (data.verificationStatus === 'verified-open') {
+    chips.push({ icon: '🟢', label: 'Open now', title: 'Verified open', highlight: true });
+  } else if (data.verificationStatus === 'flagged-closed') {
+    chips.push({ icon: '🔴', label: 'Closed', title: 'Currently closed' });
+  } else if (data.verificationStatus === 'flagged-renovating') {
+    chips.push({ icon: '🚧', label: 'Renovating', title: 'Under renovation' });
+  }
+
+  // ⏱ Duration
+  if (data.duration) {
+    chips.push({ icon: '⏱', label: data.duration, title: `Duration: ${data.duration}` });
+  }
+
+  // TODO: missing field — ★ Rating chip goes here once backend supplies aggregate ratings
+
+  // 💰 Price / cost
+  if (data.estimatedCost) {
+    chips.push({ icon: '💰', label: data.estimatedCost, title: `Estimated cost: ${data.estimatedCost}` });
+  }
+
+  // 🚶 Transit from previous stop
+  if (data.transitFromPrevious) {
+    chips.push({ icon: '🚶', label: data.transitFromPrevious, title: `From previous stop: ${data.transitFromPrevious}` });
+  }
+
+  if (chips.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-1 mb-2.5" role="list" aria-label="Quick facts">
+      {chips.map((chip, i) => (
+        <span
+          key={i}
+          role="listitem"
+          title={chip.title}
+          className="inline-flex items-center gap-1 text-[10px] font-medium rounded-full px-2 py-0.5"
+          style={{
+            background: chip.highlight ? 'rgba(34,197,94,0.12)' : 'rgba(255,255,255,0.06)',
+            border: chip.highlight
+              ? '1px solid rgba(34,197,94,0.30)'
+              : '1px solid rgba(255,255,255,0.10)',
+            color: chip.highlight ? '#4ade80' : 'rgba(255,255,255,0.70)',
+          }}
+        >
+          <span aria-hidden="true">{chip.icon}</span>
+          <span>{chip.label}</span>
+        </span>
+      ))}
+    </div>
+  );
 }
 
 // ── Meal slot config (3-Meal Rule) ───────────────────────────────────────────
@@ -312,7 +381,7 @@ function PlacePhotoHeader({ data, height }: PhotoHeaderProps) {
         >
           <Image
             src={src!}
-            alt={data.name}
+            alt={`Photo of ${data.name}${data.neighborhood ? ` — ${data.neighborhood}` : data.city ? ` in ${data.city}` : ''}`}
             fill
             sizes="(max-width: 768px) 50vw, 400px"
             className="object-cover"
@@ -357,7 +426,7 @@ function PlacePhotoHeader({ data, height }: PhotoHeaderProps) {
           href={photo.creditUrl ?? '#'}
           target="_blank"
           rel="noopener noreferrer"
-          className="absolute bottom-1 right-2 z-[12] text-[8px] text-white/45 hover:text-white/75 transition-colors max-w-[55%] truncate"
+          className="absolute bottom-1 right-2 z-[12] text-[9px] text-white/55 hover:text-white/80 transition-colors max-w-[55%] truncate"
           onClick={(e) => e.stopPropagation()}
         >
           {photo.credit} / Unsplash
@@ -395,7 +464,7 @@ function PlaceTile({ data, onClick, isSelected, smartSwapLabel, onSmartSwap, dc 
     <motion.button
       layoutId={`pc-${data.id}`}
       onClick={onClick}
-      className="relative w-full text-left rounded-2xl overflow-hidden focus:outline-none flex flex-col"
+      className="relative w-full text-left rounded-2xl overflow-hidden flex flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-black/60"
       style={{
         background: `linear-gradient(162deg, ${vibe.bg} 0%, rgba(30,36,48,0.72) 48%, rgba(36,44,58,0.78) 100%)`,
         backdropFilter: 'blur(18px)',
@@ -449,22 +518,34 @@ function PlaceTile({ data, onClick, isSelected, smartSwapLabel, onSmartSwap, dc 
 
         {/* Neighborhood */}
         {data.neighborhood && (
-          <p className="text-[11px] text-white/50 mb-2 truncate flex items-center gap-1">
-            <MapPin size={9} className="flex-shrink-0 opacity-60" />
+          <p className="text-[11px] text-white/65 mb-2 truncate flex items-center gap-1">
+            <MapPin size={9} aria-hidden="true" className="flex-shrink-0 opacity-70" />
             {data.neighborhood}
           </p>
         )}
 
         {/* Description preview */}
-        <p className="text-[11px] text-white/60 leading-relaxed line-clamp-2 mb-3">
+        <p className="text-[11px] text-white/70 leading-relaxed line-clamp-2 mb-2">
           {data.description}
         </p>
 
-        {/* Footer — social pulse · maps shortcut · expand cue */}
-        <div className="flex items-center justify-between pt-2 border-t border-white/10">
+        {/* "Why for you" reason line */}
+        {data.reason && (
+          <p className="text-[11px] italic leading-snug mb-2 flex items-start gap-1" style={{ color: 'rgba(255,255,255,0.60)' }}>
+            <span aria-hidden="true" className="mt-px shrink-0">✦</span>
+            <span>{data.reason}</span>
+          </p>
+        )}
+
+        {/* Decision chips */}
+        <DecisionChips data={data} />
+
+        {/* Footer — social pulse · icon actions · primary CTA */}
+        <div className="flex items-center justify-between gap-2 pt-2 border-t border-white/10">
+          {/* Left: social pulse OR spacer */}
           {data.socialProofUrl ? (
             <span
-              className="inline-flex items-center gap-1.5 text-[10px] font-semibold"
+              className="inline-flex items-center gap-1.5 text-[10px] font-semibold shrink-0"
               style={{ color: vibe.text }}
             >
               <span
@@ -476,54 +557,56 @@ function PlaceTile({ data, onClick, isSelected, smartSwapLabel, onSmartSwap, dc 
           ) : (
             <span />
           )}
-          <div className="flex items-center gap-2">
+
+          {/* Right: secondary icon buttons + primary CTA */}
+          <div className="flex items-center gap-1.5">
+            {/* 🎲 Shuffle (was SWAP) — icon-only, 44 × 44 touch target */}
             {data.smartSwap && onSmartSwap && smartSwapLabel && (
               <motion.button
                 type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSmartSwap();
-                }}
-                whileTap={{ scale: 0.92 }}
-                className="text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg text-white shrink-0"
+                onClick={(e) => { e.stopPropagation(); onSmartSwap(); }}
+                whileTap={{ scale: 0.88 }}
+                aria-label={`Shuffle — find alternatives to ${data.name}`}
+                className="inline-flex items-center justify-center w-11 h-11 rounded-xl text-base shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
                 style={{
-                  background: 'rgba(201,168,76,0.5)',
-                  border: '1px solid rgba(255,255,255,0.18)',
-                  boxShadow: `0 0 12px ${vibe.glow}`,
+                  background: 'rgba(201,168,76,0.15)',
+                  border: '1px solid rgba(201,168,76,0.30)',
+                  color: '#d4c8a8',
                 }}
               >
-                {smartSwapLabel}
+                🎲
               </motion.button>
             )}
-            {/* Maps shortcut — only rendered when a URL is available */}
-            {(data.mapsUrl ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([data.name, data.city].filter(Boolean).join(' '))}`) && (
-              <a
-                href={data.mapsUrl ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([data.name, data.city].filter(Boolean).join(' '))}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="inline-flex items-center gap-1 text-[10px] font-semibold rounded-md px-1.5 py-0.5 transition-colors"
-                style={{
-                  color: 'rgba(255,255,255,0.38)',
-                  border: '1px solid rgba(255,255,255,0.10)',
-                  background: 'rgba(255,255,255,0.04)',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.color = vibe.text;
-                  e.currentTarget.style.borderColor = `${vibe.border}55`;
-                  e.currentTarget.style.background = `${vibe.bg}`;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = 'rgba(255,255,255,0.38)';
-                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)';
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
-                }}
-              >
-                <MapPin size={8} />
-                Maps
-              </a>
-            )}
-            <span className="text-[10px]" style={{ color: `${vibe.text}55` }}>tap →</span>
+
+            {/* 📍 Maps — icon-only link, 44 × 44 touch target */}
+            <a
+              href={data.mapsUrl ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([data.name, data.city].filter(Boolean).join(' '))}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              aria-label={`Open ${data.name} in Google Maps`}
+              className="inline-flex items-center justify-center w-11 h-11 rounded-xl transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+              style={{
+                color: 'rgba(255,255,255,0.50)',
+                border: '1px solid rgba(255,255,255,0.12)',
+                background: 'rgba(255,255,255,0.04)',
+              }}
+            >
+              <MapPin size={14} aria-hidden />
+            </a>
+
+            {/* "Explore →" primary CTA — decorative span (whole tile is the button) */}
+            <span
+              aria-hidden="true"
+              className="inline-flex items-center gap-0.5 text-[11px] font-bold rounded-xl px-3 py-1.5 pointer-events-none select-none"
+              style={{
+                color: vibe.text,
+                background: `${vibe.border}22`,
+                border: `1px solid ${vibe.border}44`,
+              }}
+            >
+              Explore&nbsp;→
+            </span>
           </div>
         </div>
       </div>
@@ -604,11 +687,12 @@ function PlaceModal({ data, onClose, swapUi, smartSwap, onTriggerSmartSwap }: Mo
           {/* Close — floats above the photo */}
           <motion.button
             onClick={onClose}
-            className="absolute top-3 right-3 z-20 w-8 h-8 rounded-full flex items-center justify-center"
+            aria-label="Close place details"
+            className="absolute top-3 right-3 z-20 w-11 h-11 rounded-full flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
             style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.18)' }}
             whileTap={{ scale: 0.82 }}
           >
-            <X size={13} className="text-white/75" />
+            <X size={14} className="text-white/80" aria-hidden />
           </motion.button>
 
           {/* Scrollable body */}
@@ -622,8 +706,8 @@ function PlaceModal({ data, onClose, swapUi, smartSwap, onTriggerSmartSwap }: Mo
                   {data.name}
                 </h2>
                 {data.neighborhood && (
-                  <p className="text-xs text-white/38 mt-0.5 flex items-center gap-1">
-                    <MapPin size={10} className="flex-shrink-0" />
+                  <p className="text-xs text-white/60 mt-0.5 flex items-center gap-1">
+                    <MapPin size={10} className="flex-shrink-0" aria-hidden />
                     {data.neighborhood}
                   </p>
                 )}
@@ -646,12 +730,12 @@ function PlaceModal({ data, onClose, swapUi, smartSwap, onTriggerSmartSwap }: Mo
               })()}
               <TripPill variant="vibe" vibeKey={data.vibeLabel} label={vibeLbl} size="md" />
               {data.category && (
-                <span className="text-[11px] px-2.5 py-1 rounded-full bg-white/6 border border-white/10 text-white/40 capitalize">
+                <span className="text-[11px] px-2.5 py-1 rounded-full bg-white/6 border border-white/10 text-white/60 capitalize">
                   {data.category}
                 </span>
               )}
               {data.estimatedCost && (
-                <span className="text-[11px] px-2.5 py-1 rounded-full bg-white/6 border border-white/10 text-white/40">
+                <span className="text-[11px] px-2.5 py-1 rounded-full bg-white/6 border border-white/10 text-white/60">
                   💳 {data.estimatedCost}
                 </span>
               )}
@@ -660,6 +744,20 @@ function PlaceModal({ data, onClose, swapUi, smartSwap, onTriggerSmartSwap }: Mo
                 verifiedAt={data.verifiedAt}
               />
             </div>
+
+            {/* "Why for you" reason line */}
+            {data.reason && (
+              <div
+                className="flex items-start gap-2.5 rounded-xl px-3.5 py-3 mb-4"
+                style={{
+                  background: `${vibe.border}18`,
+                  border: `1px solid ${vibe.border}30`,
+                }}
+              >
+                <span className="text-base leading-none mt-0.5 shrink-0" aria-hidden>✦</span>
+                <p className="text-sm italic text-white/80 leading-snug">{data.reason}</p>
+              </div>
+            )}
 
             {/* Full description */}
             <div
@@ -841,23 +939,30 @@ export function PlacesGrid({
   return (
     <LayoutGroup>
       <div className={`grid ${colClass} gap-3 ${className}`}>
-        {places.map((place) => (
-          <PlaceTile
+        {places.map((place, idx) => (
+          // Staggered fade/slide-in — wrapped in prefers-reduced-motion via globals.css + MotionProvider
+          <motion.div
             key={place.id}
-            data={place}
-            onClick={() => {
-              setSelectedId(place.id);
-              onSelect?.(place.id);
-            }}
-            isSelected={selectedId === place.id}
-            smartSwapLabel={swapUi?.dc.smartSwapButton}
-            dc={swapUi?.dc}
-            onSmartSwap={
-              smartSwap && swapUi && place.smartSwap
-                ? () => setSmartSwapPlaceId(place.id)
-                : undefined
-            }
-          />
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: idx * 0.05, duration: 0.32, ease: [0.25, 0, 0, 1] }}
+          >
+            <PlaceTile
+              data={place}
+              onClick={() => {
+                setSelectedId(place.id);
+                onSelect?.(place.id);
+              }}
+              isSelected={selectedId === place.id}
+              smartSwapLabel={swapUi?.dc.smartSwapButton}
+              dc={swapUi?.dc}
+              onSmartSwap={
+                smartSwap && swapUi && place.smartSwap
+                  ? () => setSmartSwapPlaceId(place.id)
+                  : undefined
+              }
+            />
+          </motion.div>
         ))}
       </div>
 

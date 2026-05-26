@@ -1,7 +1,9 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronDown } from 'lucide-react';
 import { PlacesGrid, PlaceCardData } from '@/components/PlaceCard';
 import { BrandWordmark } from '@/components/BrandWordmark';
 
@@ -31,6 +33,13 @@ const sectionVariants = {
 };
 
 export function ExploreClient({ city, sections, totalPlaces, isAdmin }: ExploreClientProps) {
+  // All sections start collapsed so the preview text sparks curiosity
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>(
+    () => Object.fromEntries(sections.map((s) => [s.key, false])),
+  );
+  const toggle = (key: string) =>
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+
   return (
     <div
       className="min-h-screen"
@@ -184,40 +193,119 @@ export function ExploreClient({ city, sections, totalPlaces, isAdmin }: ExploreC
             </div>
           )
         ) : (
-          <div className="flex flex-col gap-14">
-            {sections.map((section, i) => (
-              <motion.section
-                key={section.key}
-                variants={sectionVariants}
-                initial="hidden"
-                whileInView="show"
-                viewport={{ once: true, margin: '-48px' }}
-                transition={{ delay: i * 0.04 }}
-              >
-                <div className="flex items-center gap-3 mb-5">
-                  <span className="text-2xl leading-none">{section.icon}</span>
-                  <h2
-                    className="text-xl font-extrabold tracking-tight"
-                    style={{ color: section.accentColor }}
+          <div className="flex flex-col gap-8">
+            {sections.map((section, i) => {
+              const isOpen = openSections[section.key] ?? false;
+              const headerId  = `section-btn-${section.key}`;
+              const contentId = `section-content-${section.key}`;
+              return (
+                <motion.section
+                  key={section.key}
+                  variants={sectionVariants}
+                  initial="hidden"
+                  whileInView="show"
+                  viewport={{ once: true, margin: '-48px' }}
+                  transition={{ delay: i * 0.04 }}
+                >
+                  {/* ── Accordion header — keyboard-operable button ──────── */}
+                  <button
+                    id={headerId}
+                    type="button"
+                    aria-expanded={isOpen}
+                    aria-controls={contentId}
+                    onClick={() => toggle(section.key)}
+                    className="w-full flex items-center gap-3 rounded-xl px-3 py-3 -mx-3 transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
                   >
-                    {section.label}
-                  </h2>
-                  <span
-                    className="text-xs font-semibold px-2 py-0.5 rounded-full"
-                    style={{
-                      background: `${section.accentColor}15`,
-                      border: `1px solid ${section.accentColor}35`,
-                      color: `${section.accentColor}90`,
-                    }}
-                  >
-                    {section.places.length}
-                  </span>
-                  <div className="flex-1 h-px" style={{ background: `${section.accentColor}20` }} />
-                </div>
+                    {/* Icon — always shown (color alone never encodes category) */}
+                    <span className="text-2xl leading-none shrink-0" aria-hidden="true">
+                      {section.icon}
+                    </span>
 
-                <PlacesGrid places={section.places} columns={3} />
-              </motion.section>
-            ))}
+                    {/* Label */}
+                    <span
+                      className="text-xl font-extrabold tracking-tight shrink-0"
+                      style={{ color: section.accentColor }}
+                    >
+                      {section.label}
+                    </span>
+
+                    {/* Count badge */}
+                    <span
+                      className="text-xs font-semibold px-2 py-0.5 rounded-full shrink-0"
+                      style={{
+                        background: `${section.accentColor}15`,
+                        border: `1px solid ${section.accentColor}35`,
+                        color: `${section.accentColor}cc`,
+                      }}
+                    >
+                      {section.places.length} spots
+                    </span>
+
+                    {/* Collapsed preview: top-2 place names (spark curiosity) */}
+                    {!isOpen && section.places.length > 0 && (
+                      <span className="hidden sm:flex items-center gap-2 min-w-0 overflow-hidden">
+                        {section.places.slice(0, 2).map((p) => (
+                          <span
+                            key={p.id}
+                            className="text-xs truncate max-w-[96px]"
+                            style={{ color: 'rgba(255,255,255,0.42)' }}
+                          >
+                            {p.name}
+                          </span>
+                        ))}
+                        {section.places.length > 2 && (
+                          <span
+                            className="text-xs shrink-0"
+                            style={{ color: 'rgba(255,255,255,0.25)' }}
+                          >
+                            +{section.places.length - 2} more
+                          </span>
+                        )}
+                      </span>
+                    )}
+
+                    {/* Divider */}
+                    <div
+                      className="flex-1 h-px min-w-[16px]"
+                      style={{ background: `${section.accentColor}20` }}
+                    />
+
+                    {/* Chevron — rotates when open */}
+                    <ChevronDown
+                      size={18}
+                      aria-hidden="true"
+                      className="shrink-0 transition-transform duration-200"
+                      style={{
+                        color: section.accentColor,
+                        opacity: 0.75,
+                        transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                      }}
+                    />
+                  </button>
+
+                  {/* ── Collapsible content with height animation ────────── */}
+                  <AnimatePresence initial={false}>
+                    {isOpen && (
+                      <motion.div
+                        id={contentId}
+                        role="region"
+                        aria-labelledby={headerId}
+                        key="content"
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.28, ease: [0.25, 0, 0, 1] }}
+                        style={{ overflow: 'hidden' }}
+                      >
+                        <div className="pt-3">
+                          <PlacesGrid places={section.places} columns={3} />
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.section>
+              );
+            })}
           </div>
         )}
 

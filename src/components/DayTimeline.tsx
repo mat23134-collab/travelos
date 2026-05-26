@@ -94,15 +94,15 @@ export function DayTimeline({ day }: { day: DayPlan }) {
 
               {/* Neighborhood */}
               {activity.neighborhood && (
-                <div className="text-[11px] text-white/38 mt-0.5">
-                  📍 {activity.neighborhood}
+                <div className="text-[11px] text-white/60 mt-0.5">
+                  <span aria-hidden="true">📍</span> {activity.neighborhood}
                 </div>
               )}
 
               {/* Transit note */}
               {activity.transitFromPrevious && i > 0 && (
-                <div className="text-[10px] text-white/22 mt-1 flex items-center gap-1">
-                  <span>🚶</span>
+                <div className="text-[10px] text-white/50 mt-1 flex items-center gap-1">
+                  <span aria-hidden="true">🚶</span>
                   <span>{activity.transitFromPrevious} from previous</span>
                 </div>
               )}
