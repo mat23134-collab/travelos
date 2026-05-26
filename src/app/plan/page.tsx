@@ -16,6 +16,7 @@ import { TripLanguageGateModal } from '@/components/TripLanguageGateModal';
 import { BrandWordmark } from '@/components/BrandWordmark';
 import { FinishingTouchesForm } from '@/components/FinishingTouchesForm';
 import { GENERATE_WALL_CLOCK_MS } from '@/lib/generateBudget';
+import { useOnboardingStore } from '@/state/onboardingStore';
 type FormData = Record<string, unknown>;
 
 // ג”€ג”€ SSE streaming types ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
@@ -1199,6 +1200,9 @@ function PlanPage() {
         if (data.itinerary) {
           sessionStorage.setItem('travelos_itinerary', JSON.stringify(data.itinerary));
         }
+        // Trip generated successfully — wipe onboarding memory so the next
+        // trip starts completely fresh (no stale destination / dates / hotel).
+        useOnboardingStore.getState().reset();
         router.push('/itinerary/' + data.id);
         return;
       } finally {
