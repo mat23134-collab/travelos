@@ -44,8 +44,8 @@ export function FinishingTouchesForm({
       body: "Tell us what not to miss, and what food rules we can't break",
     },
     recommendations: {
-      title: 'Our recommendations',
-      body: 'Pick the kinds of places you want us to prioritize',
+      title: 'Specific places we recommend',
+      body: 'Pick real attractions, landmarks, restaurants, and food stops to build into the route',
     },
   }[mode];
 
@@ -117,9 +117,12 @@ export function FinishingTouchesForm({
 
       {/* Must-haves */}
       {showRecommendations && <div>
-        <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: MUTED }}>
+        <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: MUTED }}>
           Our picks for {destination || 'your trip'}{' '}
           <span style={{ color: 'rgba(255,255,255,0.18)' }}>(optional)</span>
+        </p>
+        <p className="text-xs mb-3 leading-relaxed" style={{ color: 'rgba(255,255,255,0.36)' }}>
+          Choose specific places you want us to build around. These names are sent directly into the itinerary prompt.
         </p>
         {hasCityPicks && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
@@ -153,14 +156,21 @@ export function FinishingTouchesForm({
                           : { boxShadow: 'none' }
                         }
                         transition={{ type: 'spring', stiffness: 400, damping: 24 }}
-                        className="flex items-center gap-2.5 px-3.5 py-3 rounded-xl border text-left transition-colors"
+                        className="flex items-start gap-2.5 px-3.5 py-3 rounded-xl border text-left transition-colors"
                         style={sel
                           ? { borderColor: ACCENT, background: 'rgba(158,54,58,0.10)', color: '#e07078' }
                           : { borderColor: 'rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)', color: 'rgba(255,255,255,0.7)' }
                         }
                       >
-                        <span className="text-base shrink-0 leading-none">{pick.icon}</span>
-                        <span className="text-xs font-semibold leading-snug flex-1">{pick.label}</span>
+                        <span className="text-base shrink-0 leading-none mt-0.5">{pick.icon}</span>
+                        <span className="flex-1 min-w-0">
+                          <span className="block text-xs font-bold leading-snug">{pick.label}</span>
+                          {(pick.area || pick.note) && (
+                            <span className="block text-[10px] leading-snug mt-0.5" style={{ color: sel ? 'rgba(255,190,195,0.72)' : 'rgba(255,255,255,0.34)' }}>
+                              {[pick.area, pick.note].filter(Boolean).join(' · ')}
+                            </span>
+                          )}
+                        </span>
                         {sel && (
                           <motion.span
                             initial={{ scale: 0 }}

@@ -678,6 +678,93 @@ function LoadingScreen({
 
 // ג”€ג”€ג”€ Main page ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 
+function AutoSubmitTripScreen({
+  destination,
+  onSubmit,
+  error,
+}: {
+  destination: string;
+  onSubmit: () => void;
+  error: string;
+}) {
+  useEffect(() => {
+    if (error) return;
+    const tid = setTimeout(onSubmit, 120);
+    return () => clearTimeout(tid);
+  }, [error, onSubmit]);
+
+  const bgUrl = resolveBackgroundImage(destination, 0);
+
+  return (
+    <main
+      className="min-h-screen flex items-center justify-center px-6 relative overflow-hidden"
+      style={{
+        backgroundColor: '#091f36',
+        backgroundImage: `linear-gradient(rgba(9,31,54,0.72), rgba(9,31,54,0.94)), url("${bgUrl}")`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+      aria-busy={!error}
+    >
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            'radial-gradient(ellipse 70% 55% at 50% 8%, rgba(158,54,58,0.18), transparent 62%), linear-gradient(to top, rgba(9,31,54,0.98), transparent 45%)',
+        }}
+      />
+      <div
+        className="relative z-10 max-w-sm w-full rounded-3xl border p-6 text-center backdrop-blur-md"
+        style={{
+          background: 'rgba(9,31,54,0.62)',
+          borderColor: 'rgba(255,255,255,0.12)',
+          boxShadow: '0 24px 80px rgba(0,0,0,0.42), 0 0 50px rgba(158,54,58,0.18)',
+        }}
+      >
+        {error ? (
+          <>
+            <p className="text-sm font-bold text-white mb-2">Trip generation did not start</p>
+            <p className="text-xs leading-relaxed mb-5" style={{ color: 'rgba(255,255,255,0.55)' }}>
+              {error}
+            </p>
+            <button
+              type="button"
+              onClick={onSubmit}
+              className="w-full rounded-full px-5 py-3 text-sm font-black text-white"
+              style={{ background: 'linear-gradient(135deg, #9e363a, #b5404a)' }}
+            >
+              Try building again →
+            </button>
+          </>
+        ) : (
+          <>
+            <motion.div
+              className="mx-auto mb-5 h-14 w-14 rounded-2xl flex items-center justify-center text-2xl"
+              style={{ background: 'rgba(158,54,58,0.16)', border: '1px solid rgba(158,54,58,0.30)' }}
+              animate={{ y: [0, -5, 0], rotate: [0, -3, 3, 0] }}
+              transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              🧭
+            </motion.div>
+            <p className="text-sm font-black text-white">Starting your trip build</p>
+            <p className="text-xs mt-2 leading-relaxed" style={{ color: 'rgba(255,255,255,0.55)' }}>
+              Preparing the AI request for {destination || 'your destination'}...
+            </p>
+            <div className="mt-5 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+              <motion.div
+                className="h-full w-1/2 rounded-full"
+                style={{ background: 'linear-gradient(90deg, #9e363a, #b5404a)' }}
+                animate={{ x: ['-110%', '230%'] }}
+                transition={{ duration: 1.3, repeat: Infinity, ease: 'easeInOut' }}
+              />
+            </div>
+          </>
+        )}
+      </div>
+    </main>
+  );
+}
+
 export default function PlanPageWrapper() {
   return (
     <Suspense fallback={null}>
@@ -1169,27 +1256,14 @@ function PlanPage() {
 
   if (!question) {
     return (
-      <div
-        className="min-h-screen flex flex-col items-center justify-center px-6"
-        style={{ backgroundColor: '#091f36' }}
-      >
-        {genError ? (
-          <div className="max-w-md w-full rounded-2xl p-5 text-center"
-            style={{ background: 'rgba(158,54,58,0.14)', border: '1px solid rgba(158,54,58,0.40)' }}>
-            <p className="text-sm text-white mb-4">{genError}</p>
-            <button
-              type="button"
-              onClick={() => { setGenError(''); handleSubmit(); }}
-              className="px-6 py-3 rounded-full text-sm font-bold text-white"
-              style={{ background: 'linear-gradient(135deg, #9e363a, #b5404a)' }}
-            >
-              Try again →
-            </button>
-          </div>
-        ) : (
-          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.45)' }}>Preparing your trip…</p>
-        )}
-      </div>
+      <AutoSubmitTripScreen
+        destination={(form.destination as string) || ''}
+        error={genError}
+        onSubmit={() => {
+          setGenError('');
+          handleSubmit();
+        }}
+      />
     );
   }
 
