@@ -19,6 +19,10 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { useOnboardingStore } from '@/state/onboardingStore';
+import type {
+  SoloDynamics, CoupleDynamics, GroupDynamics as GroupDyn,
+  GroupDynamicsPayload,
+} from '@/lib/types';
 
 const IVORY = '#f1ece3';
 const IVORY_DIM = 'rgba(241,236,227,0.55)';
@@ -43,6 +47,35 @@ const PACE_OPTIONS = [
   { value: 'intense',  label: 'Full Throttle',      sub: 'Maximize the hours — no wasted moments' },
 ] as const;
 
+// ── Dynamics (style of travel within the chosen group type) ──────────────────
+// Editorial voice: short serif noun + four-word sub. Family is intentionally
+// excluded — its dynamics are derived from the kids-ages composition.
+
+const SOLO_DYN: Array<{ value: SoloDynamics; label: string; sub: string }> = [
+  { value: 'digital-nomad', label: 'Nomad',    sub: 'Work-friendly cafés, slow afternoons' },
+  { value: 'deep-recharge', label: 'Recharge', sub: 'Quiet spaces, intentional solitude'    },
+  { value: 'adventure',     label: 'Seeker',   sub: 'Off-the-grid, edge-of-map'             },
+];
+
+const COUPLE_DYN: Array<{ value: CoupleDynamics; label: string; sub: string }> = [
+  { value: 'romantic',     label: 'Romantic',       sub: 'Candlelit dinners, quiet streets' },
+  { value: 'parent-child', label: 'Parent & Child', sub: 'One adult, one child'             },
+  { value: 'reconnecting', label: 'Reconnecting',   sub: 'Old chapters, new pages'          },
+];
+
+const GROUP_DYN: Array<{ value: GroupDyn; label: string; sub: string }> = [
+  { value: 'best-friends', label: 'Inner Circle',       sub: 'Old friends, inside jokes'    },
+  { value: 'mixed-ages',   label: 'Mixed Generations',  sub: 'Pace tuned to every age'      },
+  { value: 'work-crew',    label: 'The Crew',           sub: 'Polished, but unbuttoned'     },
+];
+
+function dynamicsForGroup(groupType: string) {
+  if (groupType === 'solo')   return SOLO_DYN;
+  if (groupType === 'couple') return COUPLE_DYN;
+  if (groupType === 'group')  return GROUP_DYN;
+  return [];
+}
+
 interface Props {
   isCompleted: boolean;
   onComplete:  () => void;
@@ -51,18 +84,25 @@ interface Props {
 
 export function VibeSection({ isCompleted, onEdit }: Props) {
   const {
-    groupType, pace,
+    groupType, groupDynamics, pace,
     familyAdults, familyChildAges, groupSize,
-    setGroupType, setPace,
+    setGroupType, setGroupDynamics, setPace,
     setFamilyAdults, setFamilyChildCount, setFamilyChildAge,
     setGroupSize,
   } = useOnboardingStore();
+
+  const dynamicsOptions = dynamicsForGroup(groupType);
+  const needsDynamics = dynamicsOptions.length > 0; // family skips
+  const dynamicsAnswered = !needsDynamics || groupDynamics !== null;
 
   // ── Completed summary bar ──────────────────────────────────────────────────
   if (isCompleted) {
     const groupOpt = GROUP_OPTIONS.find((g) => g.value === groupType);
     const paceOpt  = PACE_OPTIONS.find((p) => p.value === pace);
     const compositionLine = composeSummary(groupType, familyAdults, familyChildAges, groupSize);
+    const dynamicsOpt = groupDynamics
+      ? [...SOLO_DYN, ...COUPLE_DYN, ...GROUP_DYN].find((d) => d.value === groupDynamics.subType)
+      : null;
 
     return (
       <motion.div
@@ -81,6 +121,11 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
           {compositionLine && (
             <span className="text-xs tracking-wide" style={{ color: IVORY_DIM }}>
               · {compositionLine}
+            </span>
+          )}
+          {dynamicsOpt && (
+            <span className="text-xs tracking-wide" style={{ color: IVORY_DIM }}>
+              · {dynamicsOpt.label}
             </span>
           )}
           {paceOpt && (
@@ -275,9 +320,67 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
         )}
       </AnimatePresence>
 
+      {/* Dynamics — sub-persona within the chosen group type */}
+      <AnimatePresence mode="wait">
+        {needsDynamics && (
+          <motion.div
+            key={`dynamics-${groupType}`}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0, transition: { duration: 0.34, ease: [0.22, 1, 0.36, 1] } }}
+            exit={{ opacity: 0, y: -6, transition: { duration: 0.18 } }}
+          >
+            <p className="text-[11px] uppercase tracking-[0.22em] mb-3" style={{ color: IVORY_DIM }}>
+              {groupType === 'solo'  && 'Style of travel'}
+              {groupType === 'couple' && 'Style of travel'}
+              {groupType === 'group'  && 'Group vibe'}
+            </p>
+            <div className="flex flex-col gap-2">
+              {dynamicsOptions.map((opt) => {
+                const sel = groupDynamics?.subType === opt.value;
+                return (
+                  <motion.button
+                    key={opt.value}
+                    onClick={() => setGroupDynamics({ subType: opt.value as GroupDynamicsPayload['subType'] })}
+                    whileTap={{ scale: 0.99 }}
+                    transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                    className="flex items-center justify-between px-5 py-4 rounded-2xl text-left transition-colors"
+                    style={{
+                      background: sel ? SURFACE_SEL : SURFACE,
+                      border: sel ? BORDER_SEL : BORDER,
+                    }}
+                  >
+                    <div>
+                      <div
+                        className="font-serif text-[16px] leading-tight tracking-[-0.01em]"
+                        style={{ color: sel ? IVORY : 'rgba(241,236,227,0.88)' }}
+                      >
+                        {opt.label}
+                      </div>
+                      <div
+                        className="text-[11px] mt-1 tracking-wide"
+                        style={{ color: sel ? IVORY_DIM : IVORY_FAINT }}
+                      >
+                        {opt.sub}
+                      </div>
+                    </div>
+                    {sel && (
+                      <motion.span
+                        layoutId="vibe-dynamics-dot"
+                        className="w-1.5 h-1.5 rounded-full shrink-0 ml-3"
+                        style={{ background: ACCENT }}
+                      />
+                    )}
+                  </motion.button>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Pace — minimal vertical rail */}
       <AnimatePresence>
-        {groupType && (
+        {groupType && dynamicsAnswered && (
           <motion.div
             key="pace-section"
             initial={{ opacity: 0, y: 8 }}

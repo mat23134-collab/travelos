@@ -245,6 +245,9 @@ function OnboardingPageContent() {
         if (groupType === 'group' && (!groupSize || groupSize < 3)) {
           return { canContinue: false, label: 'Pick your group size' };
         }
+        // Dynamics required for everyone except Family (whose composition acts as its dynamics).
+        const needsDyn = groupType === 'solo' || groupType === 'couple' || groupType === 'group';
+        if (needsDyn && !groupDynamics) return { canContinue: false, label: 'Pick your style of travel' };
         if (!pace) return { canContinue: false, label: 'Choose your pace' };
         return { canContinue: true, label: 'Continue' };
       }
