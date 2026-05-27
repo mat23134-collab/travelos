@@ -25,6 +25,7 @@
     "react-map-gl": "^7.1.0",
     "three": "^0.184.0",
     "tunnel-rat": "^0.1.2",
+    "zod": "^4.4.3",
     "zustand": "^5.0.13"
   },
   "overrides": {

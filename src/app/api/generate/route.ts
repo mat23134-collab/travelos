@@ -11,6 +11,7 @@ import { classifyActivity } from '@/lib/activityGenre';
 import { resolveAuthenticatedTraveler } from '@/lib/resolveAuthUser';
 import { ensureTransportationForCity, persistTripSessionRow } from '@/lib/tripTransport';
 import { formatAvailableInventoryForSystemPrompt, getFilteredInventory } from '@/services/scoringEngine';
+import { buildFallbackItinerary, validateItineraryOrThrow, type GenerationProvider } from '@/services/itineraryFallback';
 import {
   GENERATE_PREFETCH_PER_BRANCH_MS,
   GENERATE_LLM_FETCH_MS,
@@ -471,42 +472,57 @@ export async function POST(req: NextRequest) {
     // ── Generate itinerary: Gemini first, Claude fallback ───────────────────────
     const userPrompt = buildUserPrompt(profile, classifiedResults, hotelContext);
 
-    let raw: string;
-    let provider: 'gemini' | 'claude';
+    let raw = '';
+    let provider: GenerationProvider = 'claude';
+    let isFallback = false;
+    let fallbackReason: unknown = null;
 
-    if (process.env.GEMINI_API_KEY?.trim()) {
-      try {
-        raw = await withRetry(() => callGemini(userPrompt, inventoryLockedSystemPrompt), GENERATE_LLM_MAX_ATTEMPTS);
-        provider = 'gemini';
-      } catch (geminiErr) {
-        console.warn(
-          '[generate] Gemini failed — falling back to Claude:',
-          geminiErr instanceof Error ? geminiErr.message : geminiErr,
-        );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let itinerary: any = null;
+    try {
+      if (process.env.GEMINI_API_KEY?.trim()) {
+        try {
+          raw = await withRetry(() => callGemini(userPrompt, inventoryLockedSystemPrompt), GENERATE_LLM_MAX_ATTEMPTS);
+          provider = 'gemini';
+        } catch (geminiErr) {
+          console.warn(
+            '[generate] Gemini failed — falling back to Claude:',
+            geminiErr instanceof Error ? geminiErr.message : geminiErr,
+          );
+          raw = await withRetry(() => callClaude(userPrompt, inventoryLockedSystemPrompt), GENERATE_LLM_MAX_ATTEMPTS);
+          provider = 'claude';
+        }
+      } else {
+        console.log('[generate] GEMINI_API_KEY not set — using Claude only');
         raw = await withRetry(() => callClaude(userPrompt, inventoryLockedSystemPrompt), GENERATE_LLM_MAX_ATTEMPTS);
         provider = 'claude';
       }
-    } else {
-      console.log('[generate] GEMINI_API_KEY not set — using Claude only');
-      raw = await withRetry(() => callClaude(userPrompt, inventoryLockedSystemPrompt), GENERATE_LLM_MAX_ATTEMPTS);
-      provider = 'claude';
-    }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let itinerary: any;
-    try {
-      itinerary = parseAIJson(raw);
-    } catch (parseErr) {
+      itinerary = validateItineraryOrThrow(parseAIJson(raw));
+    } catch (aiOrParseErr) {
+      fallbackReason = aiOrParseErr;
       if (provider === 'gemini') {
         console.warn(
-          '[generate] Gemini JSON parse failed — falling back to Claude:',
-          parseErr instanceof Error ? parseErr.message : parseErr,
+          '[generate] Gemini parse/validation failed — falling back to Claude:',
+          aiOrParseErr instanceof Error ? aiOrParseErr.message : aiOrParseErr,
         );
-        raw = await withRetry(() => callClaude(userPrompt, inventoryLockedSystemPrompt), GENERATE_LLM_MAX_ATTEMPTS);
-        provider = 'claude';
-        itinerary = parseAIJson(raw);
-      } else {
-        throw parseErr;
+        try {
+          raw = await withRetry(() => callClaude(userPrompt, inventoryLockedSystemPrompt), GENERATE_LLM_MAX_ATTEMPTS);
+          provider = 'claude';
+          itinerary = validateItineraryOrThrow(parseAIJson(raw));
+          fallbackReason = null;
+        } catch (claudeErr) {
+          console.warn('[generate] Claude parse/validation failed — using fallback itinerary:', claudeErr instanceof Error ? claudeErr.message : claudeErr);
+          provider = 'fallback';
+          isFallback = true;
+          fallbackReason = claudeErr;
+          itinerary = buildFallbackItinerary(profile, filteredInventory, claudeErr);
+        }
+      } else if (!itinerary) {
+        console.warn('[generate] AI failed — using fallback itinerary:', aiOrParseErr instanceof Error ? aiOrParseErr.message : aiOrParseErr);
+        provider = 'fallback';
+        isFallback = true;
+        itinerary = buildFallbackItinerary(profile, filteredInventory, aiOrParseErr);
       }
     }
 
@@ -592,6 +608,8 @@ export async function POST(req: NextRequest) {
       provider,
       jitVerified: jitChecked,
       jitFlagged,
+      isFallback,
+      ...(fallbackReason ? { fallbackReason: fallbackReason instanceof Error ? fallbackReason.message : String(fallbackReason) } : {}),
     };
 
     const dbWrite = createDbWriteClient();
@@ -998,7 +1016,7 @@ export async function POST(req: NextRequest) {
       console.warn('[generate] places sync background:', e instanceof Error ? e.message : e),
     );
 
-    return NextResponse.json({ id: itineraryDbId, itinerary });
+    return NextResponse.json({ id: itineraryDbId, itinerary, isFallback });
 
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

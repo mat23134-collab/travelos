@@ -25,6 +25,7 @@ import { classifyActivity } from '@/lib/activityGenre';
 import { resolveAuthenticatedTraveler } from '@/lib/resolveAuthUser';
 import { ensureTransportationForCity, persistTripSessionRow } from '@/lib/tripTransport';
 import { formatAvailableInventoryForSystemPrompt, getFilteredInventory } from '@/services/scoringEngine';
+import { buildFallbackItinerary, validateItineraryOrThrow, type GenerationProvider } from '@/services/itineraryFallback';
 import {
   GENERATE_PREFETCH_PER_BRANCH_MS,
   GENERATE_LLM_FETCH_MS,
@@ -38,7 +39,7 @@ export const dynamic = 'force-dynamic';
 export type SseStatus   = { type: 'status';   message: string; icon: string };
 export type SsePlace    = { type: 'place';    name: string; emoji: string; description: string; slot: string; day: number; vibeLabel: string };
 export type SseTip      = { type: 'tip';      text: string };
-export type SseComplete = { type: 'complete'; id: string; itinerary: unknown };
+export type SseComplete = { type: 'complete'; id: string; itinerary: unknown; isFallback?: boolean };
 export type SseError    = { type: 'error';    message: string };
 export type SseEvent    = SseStatus | SsePlace | SseTip | SseComplete | SseError;
 
@@ -312,8 +313,12 @@ async function runPipeline(
     try { await send({ type: 'status', message: `Crafting every detail for ${profile.destination}…`, icon: '✨' }); } catch { /* ignore */ }
   }, 12000);
 
-  let raw: string;
-  let provider: 'gemini' | 'claude';
+  let raw = '';
+  let provider: GenerationProvider = 'claude';
+  let isFallback = false;
+  let fallbackReason: unknown = null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let itinerary: any = null;
   try {
     if (process.env.GEMINI_API_KEY?.trim()) {
       try {
@@ -330,30 +335,49 @@ async function runPipeline(
       raw = await callClaude(userPrompt, inventoryLockedSystemPrompt, aiController.signal);
       provider = 'claude';
     }
+  } catch (llmErr) {
+    console.warn('[generate-stream] AI call failed — using fallback itinerary:', llmErr instanceof Error ? llmErr.message : llmErr);
+    provider = 'fallback';
+    isFallback = true;
+    fallbackReason = llmErr;
+    itinerary = buildFallbackItinerary(profile, filteredInventory, llmErr);
   } finally {
     clearTimeout(aiAbortTimer);
     if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
   }
 
   // ── Parse ──────────────────────────────────────────────────────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let itinerary: any;
-  try {
-    itinerary = parseAIJson(raw);
-  } catch (parseErr) {
-    if (provider === 'gemini' && !aiController.signal.aborted) {
-      console.warn('[generate-stream] Gemini JSON parse failed — fallback to Claude');
-      // Reuse a fresh controller for the one-shot retry (original may be aborted)
-      const retryController = new AbortController();
-      const retryTimer = setTimeout(() => retryController.abort(), 30_000);
-      try {
-        raw = await callClaude(userPrompt, inventoryLockedSystemPrompt, retryController.signal);
-      } finally {
-        clearTimeout(retryTimer);
+  if (!itinerary) {
+    try {
+      itinerary = validateItineraryOrThrow(parseAIJson(raw));
+    } catch (parseErr) {
+      fallbackReason = parseErr;
+      if (provider === 'gemini' && !aiController.signal.aborted) {
+        console.warn('[generate-stream] Gemini parse/validation failed — fallback to Claude');
+        // Reuse a fresh controller for the one-shot retry (original may be aborted)
+        const retryController = new AbortController();
+        const retryTimer = setTimeout(() => retryController.abort(), 30_000);
+        try {
+          raw = await callClaude(userPrompt, inventoryLockedSystemPrompt, retryController.signal);
+          provider = 'claude';
+          itinerary = validateItineraryOrThrow(parseAIJson(raw));
+          fallbackReason = null;
+        } catch (claudeErr) {
+          console.warn('[generate-stream] Claude parse/validation failed — using fallback itinerary:', claudeErr instanceof Error ? claudeErr.message : claudeErr);
+          provider = 'fallback';
+          isFallback = true;
+          fallbackReason = claudeErr;
+          itinerary = buildFallbackItinerary(profile, filteredInventory, claudeErr);
+        } finally {
+          clearTimeout(retryTimer);
+        }
+      } else {
+        console.warn('[generate-stream] AI parse/validation failed — using fallback itinerary:', parseErr instanceof Error ? parseErr.message : parseErr);
+        provider = 'fallback';
+        isFallback = true;
+        itinerary = buildFallbackItinerary(profile, filteredInventory, parseErr);
       }
-      provider = 'claude';
-      itinerary = parseAIJson(raw);
-    } else { throw parseErr; }
+    }
   }
 
   normalizeBasecampHotels(itinerary.basecamp);
@@ -378,6 +402,8 @@ async function runPipeline(
     trapsFiltered: classifiedResults.filter((r) => r.vibeScore === 'tourist-trap').length,
     contradictionsFound: classifiedResults.filter((r) => r.contradictionNote).length,
     provider, jitVerified: 0, jitFlagged: 0,
+    isFallback,
+    ...(fallbackReason ? { fallbackReason: fallbackReason instanceof Error ? fallbackReason.message : String(fallbackReason) } : {}),
   };
 
   // ── Kick off place streaming in background ─────────────────────────────────
@@ -471,7 +497,7 @@ async function runPipeline(
   // Fire `complete` as soon as we have the itinerary ID — don't wait for the
   // streaming panel to finish. The streaming IIFE continues in the background;
   // its send() calls silently no-op once the client disconnects.
-  await send({ type: 'complete', id: itineraryDbId, itinerary });
+  await send({ type: 'complete', id: itineraryDbId, itinerary, isFallback });
 
   // Drain the streaming promise so unhandled-rejection warnings don't fire
   streamingDone.catch(() => {});

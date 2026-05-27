@@ -1198,7 +1198,7 @@ function PlanPage() {
           throw new Error(parsed.error ?? `Server error ${res.status}: ${text.slice(0, 200)}`);
         }
 
-        const data = (await res.json()) as { id?: string; itinerary?: unknown; error?: string };
+        const data = (await res.json()) as { id?: string; itinerary?: unknown; error?: string; isFallback?: boolean };
         if (data.error || !data.id) {
           throw new Error(data.error ?? 'Generation failed');
         }
