@@ -461,7 +461,13 @@ function buildAnchorLogicBlock(profile: TravelerProfile): string {
   return `\nANCHOR LOGIC & PACING ENGINE (HARD CONSTRAINTS — override general rules where they conflict):\n${lines.join('\n')}\n`;
 }
 
-export function buildUserPrompt(profile: TravelerProfile, searchResults?: ClassifiedResult[], hotelContext?: string, internalPlaces?: string): string {
+export function buildUserPrompt(
+  profile: TravelerProfile,
+  searchResults?: ClassifiedResult[],
+  hotelContext?: string,
+  internalPlaces?: string,
+  transitContext?: string,
+): string {
   const days = profile.duration || calculateDays(profile.startDate, profile.endDate);
   const interestsList = profile.interests.length ? profile.interests.join(', ') : 'general sightseeing';
 
@@ -559,12 +565,17 @@ export function buildUserPrompt(profile: TravelerProfile, searchResults?: Classi
   const langBlock = tripOutputLanguageBlock(profile);
   const anchorBlock = buildAnchorLogicBlock(profile);
 
+  const transitResearchBlock = transitContext && transitContext.trim().length > 0
+    ? `\nLIVE TRANSIT RESEARCH (Exa snippets — ground every fare, app name, and URL in these sources; do NOT invent numbers):${transitContext}\n`
+    : '';
+
   const transportPricingBlock = `
 CITY_TRANSPORT_TRIP_DAYS: ${days}
 - Every cityTransport.options[] entry MUST include "dailyAverage" and "tripTotalEstimate" (strings, local currency).
 - cityTransport SHOULD include priceSingle, priceDayPass, priceWeekPass (honest bands), officialTicketsUrl (https or null), scoutTipPayment (easiest payment for visitors), and transportApp when a clear official app exists (store URLs only when real https links).
 - dailyAverage = realistic spend for ONE day using mainly that mode.
-- tripTotalEstimate = rough total for ALL ${days} trip days if that mode is the primary way to get around (prefix with ~, mention "${days} days").`;
+- tripTotalEstimate = rough total for ALL ${days} trip days if that mode is the primary way to get around (prefix with ~, mention "${days} days").
+- When LIVE TRANSIT RESEARCH snippets are provided below, fares, app names, and officialTicketsUrl MUST be grounded in those snippets — never fabricate URLs or precise prices.${transitResearchBlock}`;
 
   return `Generate a ${days}-day itinerary for this traveler:
 

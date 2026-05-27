@@ -10,6 +10,7 @@ import { normalizeBasecampHotels } from '@/lib/hotelNormalize';
 import { classifyActivity } from '@/lib/activityGenre';
 import { resolveAuthenticatedTraveler } from '@/lib/resolveAuthUser';
 import { ensureTransportationForCity, persistTripSessionRow } from '@/lib/tripTransport';
+import { gatherTransportExaSnippets } from '@/lib/transportExaIntel';
 import { formatAvailableInventoryForSystemPrompt, getFilteredInventory } from '@/services/scoringEngine';
 import { buildFallbackItinerary, validateItineraryOrThrow, type GenerationProvider } from '@/services/itineraryFallback';
 import {
@@ -408,7 +409,7 @@ export async function POST(req: NextRequest) {
     // ── All pre-AI I/O in parallel ──────────────────────────────────────────────
     // Scoring inventory (Supabase) + runChainOfThoughtSearch (Tavily/Exa)
     // + multi-provider accommodation router all fire simultaneously.
-    const [filteredInventory, classifiedResults, accommodationResult] = await Promise.all([
+    const [filteredInventory, classifiedResults, accommodationResult, transitContext] = await Promise.all([
       withPrefetchTimeout(
         getFilteredInventory({
           userTripChoices: {
@@ -439,13 +440,22 @@ export async function POST(req: NextRequest) {
         ? withPrefetchTimeout(
             searchAccommodations(travelerProfileToAccommodationInput(profile)).catch((err) => {
               console.warn('[generate] accommodation router failed (non-critical):', err);
-              return { provider: null, hotels: [], attempts: [], fallback: true };
+              return { provider: null, hotels: [], attempts: [], fallback: true } as Awaited<ReturnType<typeof searchAccommodations>>;
             }),
             GENERATE_PREFETCH_PER_BRANCH_MS,
             { provider: null, hotels: [], attempts: [], fallback: true } as Awaited<ReturnType<typeof searchAccommodations>>,
             'accommodation router prefetch',
           )
         : Promise.resolve({ provider: null, hotels: [], attempts: [], fallback: false } as Awaited<ReturnType<typeof searchAccommodations>>),
+      withPrefetchTimeout(
+        gatherTransportExaSnippets(profile.destination).catch((err) => {
+          console.warn('[generate] transit Exa snippets failed (non-critical):', err);
+          return '';
+        }),
+        GENERATE_PREFETCH_PER_BRANCH_MS,
+        '',
+        'transit Exa prefetch',
+      ),
     ]);
 
     const inventorySystemBlock = formatAvailableInventoryForSystemPrompt(filteredInventory);
@@ -470,7 +480,10 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Generate itinerary: Gemini first, Claude fallback ───────────────────────
-    const userPrompt = buildUserPrompt(profile, classifiedResults, hotelContext);
+    if (transitContext) {
+      console.log(`[generate] transit Exa intel: ${transitContext.length} chars injected into prompt`);
+    }
+    const userPrompt = buildUserPrompt(profile, classifiedResults, hotelContext, undefined, transitContext);
 
     let raw = '';
     let provider: GenerationProvider = 'claude';

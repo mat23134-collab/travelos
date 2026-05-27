@@ -24,6 +24,7 @@ import { normalizeBasecampHotels } from '@/lib/hotelNormalize';
 import { classifyActivity } from '@/lib/activityGenre';
 import { resolveAuthenticatedTraveler } from '@/lib/resolveAuthUser';
 import { ensureTransportationForCity, persistTripSessionRow } from '@/lib/tripTransport';
+import { gatherTransportExaSnippets } from '@/lib/transportExaIntel';
 import { formatAvailableInventoryForSystemPrompt, getFilteredInventory } from '@/services/scoringEngine';
 import { buildFallbackItinerary, validateItineraryOrThrow, type GenerationProvider } from '@/services/itineraryFallback';
 import {
@@ -242,7 +243,7 @@ async function runPipeline(
   // provider router all fire simultaneously — total wait = slowest branch.
   await send({ type: 'status', message: `Scouting ${profile.destination} for hidden gems…`, icon: '🔍' });
 
-  const [filteredInventory, classifiedResults, accommodationResult] = await Promise.all([
+  const [filteredInventory, classifiedResults, accommodationResult, transitContext] = await Promise.all([
     withPrefetchTimeout(
       getFilteredInventory({
         userTripChoices: {
@@ -273,13 +274,22 @@ async function runPipeline(
       ? withPrefetchTimeout(
           searchAccommodations(travelerProfileToAccommodationInput(profile)).catch((err) => {
             console.warn('[generate-stream] accommodation router failed (non-critical):', err);
-            return { provider: null, hotels: [], attempts: [], fallback: true };
+            return { provider: null, hotels: [], attempts: [], fallback: true } as Awaited<ReturnType<typeof searchAccommodations>>;
           }),
           GENERATE_PREFETCH_PER_BRANCH_MS,
           { provider: null, hotels: [], attempts: [], fallback: true } as Awaited<ReturnType<typeof searchAccommodations>>,
           'accommodation router prefetch',
         )
       : Promise.resolve({ provider: null, hotels: [], attempts: [], fallback: false } as Awaited<ReturnType<typeof searchAccommodations>>),
+    withPrefetchTimeout(
+      gatherTransportExaSnippets(profile.destination).catch((e) => {
+        console.warn('[generate-stream] transit Exa snippets failed (non-critical):', e);
+        return '';
+      }),
+      GENERATE_PREFETCH_PER_BRANCH_MS,
+      '',
+      'transit Exa prefetch',
+    ),
   ]);
 
   const inventorySystemBlock = formatAvailableInventoryForSystemPrompt(filteredInventory);
@@ -308,7 +318,10 @@ async function runPipeline(
   // ── AI generation ──────────────────────────────────────────────────────────
   await send({ type: 'status', message: `Building your ${profile.destination} itinerary…`, icon: '✈️' });
 
-  const userPrompt = buildUserPrompt(profile, classifiedResults, hotelContext);
+  if (transitContext) {
+    console.log(`[generate-stream] transit Exa intel: ${transitContext.length} chars injected into prompt`);
+  }
+  const userPrompt = buildUserPrompt(profile, classifiedResults, hotelContext, undefined, transitContext);
 
   // LLM HTTP budget (aligned with /api/generate + client abort on plan page).
   const aiController = new AbortController();
