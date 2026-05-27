@@ -53,6 +53,10 @@ const FinishingTouchesSection = dynamic(
   () => import('./sections/FinishingTouchesSection').then((m) => ({ default: m.FinishingTouchesSection })),
   { ssr: false }
 );
+const TopSightsSection = dynamic(
+  () => import('./sections/TopSightsSection').then((m) => ({ default: m.TopSightsSection })),
+  { ssr: false }
+);
 
 // ── Steps meta ────────────────────────────────────────────────────────────────
 const STEPS = [
@@ -258,8 +262,15 @@ function OnboardingPageContent() {
         return { canContinue: true, label: 'Next: dining rules →' };
       case 5:
         return { canContinue: true, label: 'Next: our recommendations →' };
-      case 6:
-        return { canContinue: true, label: 'Generate My Itinerary ✨' };
+      case 6: {
+        const picks = mustHaveItems.length;
+        const label = picks === 0
+          ? 'Skip & generate'
+          : picks === 1
+            ? 'Generate with 1 pick'
+            : `Generate with ${picks} picks`;
+        return { canContinue: true, label };
+      }
       default:
         return { canContinue: false, label: 'Continue' };
     }
@@ -459,9 +470,9 @@ function OnboardingPageContent() {
                 <FinishingTouchesSection mode="dietary" stepBadge={6} />
               )}
 
-              {/* Step 6: Our recommendation categories → generate */}
+              {/* Step 6: City-specific Top Sights → generate */}
               {wizardStep === 6 && (
-                <FinishingTouchesSection mode="recommendations" stepBadge={7} />
+                <TopSightsSection />
               )}
 
             </Suspense>
