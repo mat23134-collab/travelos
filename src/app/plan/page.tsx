@@ -131,7 +131,7 @@ function DestinationGrid({ value, onChange }: { value: string; onChange: (v: str
                 className="absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center shadow"
                 style={{ backgroundColor: dest.accent }}
               >
-                <span className="text-white text-xs font-bold leading-none">ג“</span>
+                <span className="text-white text-xs font-bold leading-none">✓</span>
               </motion.div>
             )}
 
@@ -259,7 +259,7 @@ function TimeAwareStep({
                     className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center"
                     style={{ backgroundColor: '#9e363a' }}
                   >
-                    <span className="text-white text-[9px] font-bold">ג“</span>
+                    <span className="text-white text-[9px] font-bold">✓</span>
                   </motion.div>
                 )}
                 <div className="text-2xl mb-1.5 leading-none">{opt.icon}</div>
@@ -371,9 +371,9 @@ function DiscoveryPanel({
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}
           className="py-8 text-center"
         >
-          <div className="text-3xl mb-2 opacity-40">נ</div>
+          <div className="text-3xl mb-2 opacity-40">🌍</div>
           <p className="text-xs" style={{ color: 'rgba(255,255,255,0.18)' }}>
-            Searching for hidden gemsג€¦
+            Searching for hidden gems…
           </p>
         </motion.div>
       )}
@@ -396,7 +396,7 @@ function DiscoveryPanel({
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-bold text-white leading-tight truncate">{place.name}</p>
                 <p className="text-[10px] mt-0.5 capitalize" style={{ color: 'rgba(255,255,255,0.32)' }}>
-                  Day {place.day} ֲ· {place.slot}
+                  Day {place.day} · {place.slot}
                 </p>
               </div>
               {place.vibeLabel && place.vibeLabel !== 'dining' && (
@@ -424,7 +424,7 @@ function DiscoveryPanel({
             style={{ background: 'rgba(158,54,58,0.10)', border: '1px solid rgba(158,54,58,0.22)' }}
           >
             <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.55)' }}>
-              נ’¡ {tip}
+              💡 {tip}
             </p>
           </motion.div>
         ))}
@@ -527,7 +527,7 @@ function LoadingScreen({
           animate={{ rotate: [0, -8, 8, -6, 6, 0] }}
           transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
         >
-          ג³
+          🧭
           <motion.div
             className="absolute inset-x-2 bottom-2 h-1 rounded-full opacity-40"
             style={{ background: 'linear-gradient(90deg, transparent, #f5e6dc, transparent)' }}
@@ -608,7 +608,7 @@ function LoadingScreen({
                 border: '1px solid rgba(158,54,58,0.30)',
               } : {}}
             >
-              <span className="text-base flex-shrink-0">{done ? 'ג“' : s.icon}</span>
+              <span className="text-base flex-shrink-0">{done ? '✓' : s.icon}</span>
               <span className={`text-xs flex-1 leading-snug ${
                 done ? 'text-white/35 line-through' :
                 active ? 'text-white font-medium' :
@@ -1714,7 +1714,7 @@ function PlanPage() {
                                 className="ml-auto w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
                                 style={{ backgroundColor: '#9e363a' }}
                               >
-                                <span className="text-white text-[10px]">ג“</span>
+                                <span className="text-white text-[10px]">✓</span>
                               </motion.div>
                             )}
                           </div>
