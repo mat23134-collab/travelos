@@ -38,15 +38,15 @@ export function DayTimeline({ day }: { day: DayPlan }) {
 
   return (
     <div className="relative py-1">
-      {/* Vertical connector line */}
+      {/* Vertical connector line — thinner, lower opacity */}
       <div
-        className="absolute left-[17px] top-6 bottom-6 w-px pointer-events-none"
+        className="absolute left-[17px] top-8 bottom-8 w-px pointer-events-none"
         style={{
-          background: 'linear-gradient(to bottom, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.06) 60%, transparent 100%)',
+          background: 'linear-gradient(to bottom, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 60%, transparent 100%)',
         }}
       />
 
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-3">
         {entries.map(({ slot, activity, slotIcon, slotColor }, i) => (
           <motion.div
             key={slot}
@@ -57,7 +57,7 @@ export function DayTimeline({ day }: { day: DayPlan }) {
           >
             {/* Dot / emoji bubble */}
             <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-base flex-shrink-0 z-10 relative"
+              className="w-8 h-8 rounded-full flex items-center justify-center text-base flex-shrink-0 z-10 relative mt-1"
               style={{
                 background: `${slotColor}18`,
                 border: `1px solid ${slotColor}35`,
@@ -67,8 +67,14 @@ export function DayTimeline({ day }: { day: DayPlan }) {
               {activity.category_emoji ?? slotIcon}
             </div>
 
-            {/* Content */}
-            <div className="flex-1 min-w-0 pt-0.5">
+            {/* Glass block content */}
+            <div
+              className="flex-1 min-w-0 rounded-2xl px-3 py-2.5"
+              style={{
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(255,255,255,0.05)',
+              }}
+            >
               {/* Time badge */}
               <span
                 className="inline-block text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md mb-1"
@@ -94,14 +100,14 @@ export function DayTimeline({ day }: { day: DayPlan }) {
 
               {/* Neighborhood */}
               {activity.neighborhood && (
-                <div className="text-[11px] text-white/60 mt-0.5">
+                <div className="text-[11px] text-white/55 mt-0.5">
                   <span aria-hidden="true">📍</span> {activity.neighborhood}
                 </div>
               )}
 
               {/* Transit note */}
               {activity.transitFromPrevious && i > 0 && (
-                <div className="text-[10px] text-white/50 mt-1 flex items-center gap-1">
+                <div className="text-[10px] text-white/40 mt-1 flex items-center gap-1">
                   <span aria-hidden="true">🚶</span>
                   <span>{activity.transitFromPrevious} from previous</span>
                 </div>
@@ -109,7 +115,7 @@ export function DayTimeline({ day }: { day: DayPlan }) {
 
               {/* Duration pill */}
               {activity.duration && (
-                <span className="inline-block text-[10px] text-white/30 mt-1">
+                <span className="inline-block text-[10px] text-white/30 mt-1.5">
                   ⏱ {activity.duration}
                 </span>
               )}

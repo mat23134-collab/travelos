@@ -1298,13 +1298,30 @@ export function DayCard({
     <div
       className="rounded-3xl overflow-hidden relative"
       style={{
-        background: 'rgba(13, 15, 20, 0.82)',
-        backdropFilter: 'blur(20px) saturate(160%)',
-        WebkitBackdropFilter: 'blur(20px) saturate(160%)',
-        border: '1px solid rgba(255,255,255,0.09)',
-        boxShadow: '0 8px 48px -12px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.06)',
+        background: 'rgba(11, 14, 20, 0.86)',
+        backdropFilter: 'blur(24px) saturate(170%)',
+        WebkitBackdropFilter: 'blur(24px) saturate(170%)',
+        border: '1px solid rgba(255,255,255,0.10)',
+        boxShadow: '0 12px 56px -12px rgba(0,0,0,0.80), inset 0 1px 0 rgba(255,255,255,0.07)',
       }}
     >
+      {/* Ambient teal glow — top-right */}
+      <div
+        className="absolute top-0 right-0 w-72 h-48 pointer-events-none"
+        style={{
+          background: 'radial-gradient(ellipse at 80% 10%, rgba(45,84,94,0.30) 0%, transparent 65%)',
+          filter: 'blur(1px)',
+        }}
+      />
+      {/* Ambient gold glow — bottom-left */}
+      <div
+        className="absolute bottom-0 left-0 w-56 h-40 pointer-events-none"
+        style={{
+          background: 'radial-gradient(ellipse at 20% 90%, rgba(168,146,84,0.12) 0%, transparent 60%)',
+          filter: 'blur(1px)',
+        }}
+      />
+
       {/* Card noise grain */}
       <div
         className="absolute inset-0 pointer-events-none opacity-[0.025] mix-blend-overlay"
@@ -1410,7 +1427,7 @@ export function DayCard({
             href={routeInfo.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-1.5 flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all hover:brightness-110 active:scale-[0.98]"
+            className="group flex items-center justify-center gap-1.5 flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all hover:brightness-115 hover:shadow-[0_0_32px_rgba(72,180,190,0.30)] active:scale-[0.98]"
             style={{
               background: 'linear-gradient(145deg, rgba(52,130,138,0.55) 0%, rgba(45,84,94,0.92) 42%, rgba(30,68,76,0.98) 100%)',
               border: '2px solid rgba(110, 198, 208, 0.75)',
@@ -1427,6 +1444,12 @@ export function DayCard({
             >
               {routeInfo.stopCount}
             </span>
+            <svg
+              width="10" height="10" viewBox="0 0 10 10" fill="none"
+              className="ml-0.5 transition-transform duration-200 group-hover:translate-x-0.5"
+            >
+              <path d="M2 5h6M5.5 2.5L8 5l-2.5 2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </a>
 
           {/* Copy Route Link — clipboard + toast */}
@@ -1478,7 +1501,11 @@ export function DayCard({
               <div className="px-4 pt-4">
                 <div
                   className="rounded-2xl px-4 py-3"
-                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}
+                  style={{
+                    background: 'rgba(201,168,76,0.03)',
+                    border: '1px solid rgba(255,255,255,0.07)',
+                    borderLeft: '2px solid rgba(201,168,76,0.35)',
+                  }}
                 >
                   <div className="flex items-center gap-1.5 mb-2.5">
                     <span className="text-sm leading-none">📋</span>
