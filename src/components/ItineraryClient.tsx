@@ -25,7 +25,8 @@ function cleanNightlyRate(raw: string | null | undefined): string | null {
 }
 import type { SwapResult } from '@/app/api/swap/route';
 import { useAuth } from '@/lib/auth-context';
-import { ITIN_RESULTS_PAGE_BG, ITIN_RESULTS_NOISE_DATA_URL, ITIN_PALETTE } from '@/lib/itineraryResultsPalette';
+import { ITIN_RESULTS_NOISE_DATA_URL, ITIN_PALETTE } from '@/lib/itineraryResultsPalette';
+import { STEP_BACKGROUNDS } from '@/lib/stepBackgrounds';
 import { BrandWordmark } from '@/components/BrandWordmark';
 import { TransportCard, hasTransportContent } from '@/components/TransportCard';
 import type { ItineraryMapLabels } from '@/components/ItineraryMap';
@@ -1311,6 +1312,18 @@ export function ItineraryClient({
     return itinerary.cityTransport ?? null;
   }, [liveTransportFromDb, itinerary.cityTransport]);
 
+  // ── Rotating background slideshow ────────────────────────────────────────────
+  // Start on the destination's photo if available; rotate every 8 s.
+  const [bgIdx, setBgIdx] = useState(() => {
+    const dest = (initialItinerary.destination ?? '').trim().toLowerCase();
+    const match = STEP_BACKGROUNDS.findIndex((b) => b.city.toLowerCase() === dest);
+    return match >= 0 ? match : 0;
+  });
+  useEffect(() => {
+    const t = setInterval(() => setBgIdx((i) => (i + 1) % STEP_BACKGROUNDS.length), 8000);
+    return () => clearInterval(t);
+  }, []);
+
   const scoutPostedRef = useRef(false);
 
   useEffect(() => {
@@ -1556,7 +1569,42 @@ export function ItineraryClient({
 
   // ── FINAL MODE ──────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen relative" style={{ background: ITIN_RESULTS_PAGE_BG }} dir={ui.dir} lang={ui.htmlLang}>
+    <div className="min-h-screen relative" dir={ui.dir} lang={ui.htmlLang}>
+
+      {/* ── Rotating travel photo background ──────────────────────────────── */}
+      {/* Layer 1: photo — crossfades every 8 s */}
+      <AnimatePresence initial={false}>
+        <motion.div
+          key={bgIdx}
+          aria-hidden
+          className="fixed inset-0 pointer-events-none"
+          style={{
+            zIndex: -2,
+            backgroundImage: `url("${STEP_BACKGROUNDS[bgIdx].imageUrl}")`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 2.2, ease: 'easeInOut' }}
+        />
+      </AnimatePresence>
+      {/* Layer 2: teal colour wash — preserves the page's deep-teal identity */}
+      <div
+        aria-hidden
+        className="fixed inset-0 pointer-events-none"
+        style={{
+          zIndex: -1,
+          background: [
+            'radial-gradient(ellipse 88% 72% at 10% 12%, rgba(56,124,132,0.38) 0%, transparent 58%)',
+            'radial-gradient(ellipse 75% 58% at 92% 78%, rgba(10,36,40,0.68) 0%, transparent 52%)',
+            'linear-gradient(170deg, rgba(18,52,59,0.85) 0%, rgba(26,77,87,0.80) 28%, rgba(47,101,112,0.74) 50%, rgba(35,77,86,0.80) 70%, rgba(22,62,69,0.84) 90%, rgba(18,52,59,0.88) 100%)',
+          ].join(', '),
+        }}
+      />
+
+      {/* Film grain on top of everything */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 z-0 opacity-[0.02]"
