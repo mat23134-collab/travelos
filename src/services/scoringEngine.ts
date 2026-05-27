@@ -45,8 +45,10 @@ export interface InventoryItem {
 export function formatAvailableInventoryForSystemPrompt(items: InventoryItem[]): string {
   if (items.length === 0) {
     return `
-AVAILABLE INVENTORY:
-- No tagged inventory rows were available for this request. Use the normal JSON schema and TravelOS expertise.
+INVENTORY HINT:
+- TravelOS has no cached inventory rows for this destination. Build every Activity and DiningSpot from your own expertise + the LIVE WEB INTELLIGENCE block (when provided).
+- Every venue MUST still be a real, named, Google-Maps-resolvable business.
+- Omit the inventory_id / inventory_source_table fields entirely when inventing fresh picks.
 `;
   }
 
@@ -72,18 +74,16 @@ AVAILABLE INVENTORY:
   });
 
   return `
-AVAILABLE INVENTORY (STRICT SOURCE OF TRUTH):
+CACHED INVENTORY (TravelOS warm cache — prefer these where they fit, but you are NOT limited to them):
 ${lines.join('\n')}
 
-INVENTORY LOCK (NON-NEGOTIABLE):
-- Build breakfast, lunch, dinner, morning, afternoon, and evening ONLY from AVAILABLE INVENTORY items above.
-- Do NOT invent or substitute any attraction, restaurant, cafe, bar, market, museum, hotel, or activity outside this inventory.
-- Every Activity and DiningSpot you select MUST preserve the exact inventory name and GPS coordinates.
-- Every selected Activity and DiningSpot MUST include these extra fields alongside the existing schema fields:
-  "inventory_id": the exact id value from AVAILABLE INVENTORY,
-  "inventory_source_table": "places" or "restaurants".
-- Keep the existing JSON response shape and all existing required fields unchanged. These inventory fields are additive only.
-- If a day needs fewer stops because inventory is limited, reuse the best-fitting inventory item rather than inventing a new place.
+INVENTORY HINT (soft preference, not a lock):
+- When an inventory item above is a strong fit for a slot's vibe/group/budget/pace, PREFER it — we already have verified GPS and photos for it.
+- When NO inventory item fits a slot well (or there simply aren't enough rows for the day plan), invent a fresh real venue from your TravelOS expertise + LIVE WEB INTELLIGENCE — DO NOT recycle the same inventory item across multiple days just to fill slots.
+- For an inventory pick: copy the exact "name", set "latitude"/"longitude" to the cached gps, and ADD two extra fields: "inventory_id" (the id above) and "inventory_source_table" ("places" or "restaurants").
+- For a fresh pick: produce a normal Activity/DiningSpot, OMIT inventory_id and inventory_source_table entirely. Coordinates MUST still be accurate 4-decimal GPS for the venue.
+- Hotels in basecamp.recommendations[] are NEVER limited by this inventory — they come from a separate hotel pool. Always generate basecamp normally per BASECAMP RULES.
+- Aim for variety across days: every day's morning/afternoon/evening should be a different venue. Reusing the same venue across days is forbidden unless explicitly themed (e.g. "return to the same market").
 `;
 }
 
