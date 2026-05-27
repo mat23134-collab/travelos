@@ -113,7 +113,7 @@ const INITIAL: Omit<
   | 'setArrivalTime' | 'setDepartureTime' | 'setDailyStartTime'
   | 'setHotelLocation' | 'clearHotelLocation'
   | 'setAccommodation' | 'setHotelNightlyBudget'
-  | 'setGroupType' | 'setPace' | 'setBudget' | 'setInterests' | 'toggleInterest'
+  | 'setGroupType' | 'setGroupDynamics' | 'setPace' | 'setBudget' | 'setInterests' | 'toggleInterest'
   | 'toggleDietary' | 'toggleMustHave' | 'setMustHaveOther'
   | 'nextStep' | 'prevStep' | 'goToStep' | 'reset'
 > = {
