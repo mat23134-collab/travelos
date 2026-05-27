@@ -6,6 +6,11 @@ import { SYSTEM_PROMPT, buildUserPrompt } from '@/lib/prompts';
 import { runChainOfThoughtSearch } from '@/lib/rag';
 import { supabase } from '@/lib/supabase';
 import { batchVerifyPlaces } from '@/lib/verification';
+import {
+  collectVenueSlots,
+  batchVerifyPlacesOnGoogle,
+  applyVerificationToItinerary,
+} from '@/lib/placeVerification';
 import { normalizeBasecampHotels } from '@/lib/hotelNormalize';
 import { classifyActivity } from '@/lib/activityGenre';
 import { resolveAuthenticatedTraveler } from '@/lib/resolveAuthUser';
@@ -611,6 +616,44 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // ── Google Places verification ──────────────────────────────────────────────
+    // Best-effort post-LLM enrichment: every named activity + dining spot is
+    // run through Google Places Text Search to confirm existence, snap GPS to
+    // the real venue location, fetch a photo CDN URL, and surface the official
+    // website when AI didn't have one. Silent no-op when GOOGLE_PLACES_API_KEY
+    // is absent.
+    let placesVerified = 0;
+    let placesGpsCorrected = 0;
+    let placesPhotosFilled = 0;
+    let placesWebsitesFilled = 0;
+    if (process.env.GOOGLE_PLACES_API_KEY) {
+      try {
+        const slots = collectVenueSlots(itinerary);
+        const cityForVerify = String(itinerary.destination || profile.destination || '').trim();
+        const keyFor = (s: { name: string }) => `${s.name}|${cityForVerify}`.toLowerCase();
+
+        const results = await batchVerifyPlacesOnGoogle(
+          slots.map((s) => ({ key: keyFor(s), name: s.name, city: cityForVerify })),
+          { concurrency: 6 },
+        );
+
+        const stats = applyVerificationToItinerary(itinerary, slots, results, keyFor);
+        placesVerified = stats.verified;
+        placesGpsCorrected = stats.gpsCorrected;
+        placesPhotosFilled = stats.photosFilled;
+        placesWebsitesFilled = stats.websitesFilled;
+        console.log(
+          `[generate] Places verify: ${placesVerified}/${slots.length} verified, ` +
+          `${placesGpsCorrected} GPS corrected, ${placesPhotosFilled} photos filled, ` +
+          `${placesWebsitesFilled} websites filled`,
+        );
+      } catch (err) {
+        console.warn('[generate] Places verify failed (non-critical):', err instanceof Error ? err.message : err);
+      }
+    } else {
+      console.log('[generate] Places verify: skipped (GOOGLE_PLACES_API_KEY not set)');
+    }
+
     // ── Metadata ────────────────────────────────────────────────────────────────
     itinerary._meta = {
       searchEnabled: classifiedResults.length > 0,
@@ -621,6 +664,10 @@ export async function POST(req: NextRequest) {
       provider,
       jitVerified: jitChecked,
       jitFlagged,
+      placesVerified,
+      placesGpsCorrected,
+      placesPhotosFilled,
+      placesWebsitesFilled,
       isFallback,
       ...(fallbackReason ? { fallbackReason: fallbackReason instanceof Error ? fallbackReason.message : String(fallbackReason) } : {}),
     };

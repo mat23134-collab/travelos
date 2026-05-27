@@ -20,6 +20,11 @@ import { SYSTEM_PROMPT, buildUserPrompt } from '@/lib/prompts';
 import { runChainOfThoughtSearch } from '@/lib/rag';
 import { supabase } from '@/lib/supabase';
 import { batchVerifyPlaces } from '@/lib/verification';
+import {
+  collectVenueSlots,
+  batchVerifyPlacesOnGoogle,
+  applyVerificationToItinerary,
+} from '@/lib/placeVerification';
 import { normalizeBasecampHotels } from '@/lib/hotelNormalize';
 import { classifyActivity } from '@/lib/activityGenre';
 import { resolveAuthenticatedTraveler } from '@/lib/resolveAuthUser';
@@ -413,6 +418,32 @@ async function runPipeline(
     }
   }
 
+  // ── Google Places verification (snap GPS + photo CDN URL + website) ────────
+  let placesVerified = 0, placesGpsCorrected = 0, placesPhotosFilled = 0, placesWebsitesFilled = 0;
+  if (process.env.GOOGLE_PLACES_API_KEY) {
+    try {
+      await send({ type: 'status', message: 'Verifying venues on Google Maps…', icon: '📍' });
+      const slots = collectVenueSlots(itinerary);
+      const cityForVerify = String(itinerary.destination || profile.destination || '').trim();
+      const keyFor = (s: { name: string }) => `${s.name}|${cityForVerify}`.toLowerCase();
+      const results = await batchVerifyPlacesOnGoogle(
+        slots.map((s) => ({ key: keyFor(s), name: s.name, city: cityForVerify })),
+        { concurrency: 6 },
+      );
+      const stats = applyVerificationToItinerary(itinerary, slots, results, keyFor);
+      placesVerified = stats.verified;
+      placesGpsCorrected = stats.gpsCorrected;
+      placesPhotosFilled = stats.photosFilled;
+      placesWebsitesFilled = stats.websitesFilled;
+      console.log(
+        `[generate-stream] Places verify: ${placesVerified}/${slots.length} verified, ` +
+        `${placesGpsCorrected} GPS corrected, ${placesPhotosFilled} photos filled, ${placesWebsitesFilled} websites filled`,
+      );
+    } catch (err) {
+      console.warn('[generate-stream] Places verify failed (non-critical):', err instanceof Error ? err.message : err);
+    }
+  }
+
   // ── Metadata (set early so main insert captures it) ────────────────────────
   // jit fields filled in later (background Exa); default to 0 for now
   itinerary._meta = {
@@ -421,6 +452,7 @@ async function runPipeline(
     trapsFiltered: classifiedResults.filter((r) => r.vibeScore === 'tourist-trap').length,
     contradictionsFound: classifiedResults.filter((r) => r.contradictionNote).length,
     provider, jitVerified: 0, jitFlagged: 0,
+    placesVerified, placesGpsCorrected, placesPhotosFilled, placesWebsitesFilled,
     isFallback,
     ...(fallbackReason ? { fallbackReason: fallbackReason instanceof Error ? fallbackReason.message : String(fallbackReason) } : {}),
   };
