@@ -33,11 +33,6 @@ const FEATURES = [
   { icon: '💰', title: 'Budget-Validated',         body: 'Every experience verified against your exact budget tier with current 2026 pricing.' },
 ];
 
-const TESTIMONIALS = [
-  { quote: 'We did Tokyo in 7 days with two toddlers and zero meltdowns. The family-optimized routing was genuinely brilliant.', author: 'Sara M.',  trip: 'Tokyo, Japan',       emoji: '🇯🇵' },
-  { quote: 'Three hours of tab-chaos replaced by one click. Caught the museum was under renovation — saved our whole trip.',      author: 'James K.', trip: 'Barcelona, Spain',    emoji: '🇪🇸' },
-  { quote: "Solo in Morocco, luxury budget. Found a riad most sites don't even list. Stayed two extra days because of it.",        author: 'Priya V.', trip: 'Marrakech, Morocco',  emoji: '🇲🇦' },
-];
 
 // ── Postcard card ─────────────────────────────────────────────────────────────
 
@@ -523,61 +518,6 @@ export default function HomePage() {
                 <p className="text-sm leading-relaxed" style={{ color: MUTED }}>
                   {f.body}
                 </p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Testimonials ──────────────────────────────────────────────────── */}
-      <section className="py-28 px-8 lg:px-16" style={{ backgroundColor: NIGHT_2 }}>
-        <div className="max-w-5xl mx-auto">
-
-          <div className="flex items-center gap-3 mb-5">
-            <span className="w-6 h-px" style={{ background: REDLINE }} />
-            <span
-              className="text-[10px] font-bold uppercase tracking-[0.24em]"
-              style={{ color: REDLINE }}
-            >
-              From Travelers
-            </span>
-          </div>
-
-          <h2
-            className="font-black text-white mb-16"
-            style={{ fontSize: 'clamp(1.9rem, 4vw, 3rem)', letterSpacing: '-0.035em' }}
-          >
-            Stories worth repeating.
-          </h2>
-
-          <div className="grid sm:grid-cols-3 gap-5">
-            {TESTIMONIALS.map((t, i) => (
-              <motion.div
-                key={t.author}
-                initial={{ opacity: 0, y: 32 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.09, type: 'spring', stiffness: 240, damping: 22 }}
-                className="flex flex-col p-8 rounded-3xl transition-all duration-300 hover-testimonial"
-                style={{
-                  background: 'rgba(255,255,255,0.028)',
-                  border: '1px solid rgba(255,255,255,0.06)',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.28)',
-                }}
-              >
-                <div className="text-3xl mb-5">{t.emoji}</div>
-                <p
-                  className="text-sm leading-relaxed mb-7 flex-1 italic"
-                  style={{ color: 'rgba(255,255,255,0.60)' }}
-                >
-                  &ldquo;{t.quote}&rdquo;
-                </p>
-                <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '1rem' }}>
-                  <div className="font-semibold text-sm text-white">{t.author}</div>
-                  <div className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.24)' }}>
-                    {t.trip}
-                  </div>
-                </div>
               </motion.div>
             ))}
           </div>
