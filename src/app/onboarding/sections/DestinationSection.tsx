@@ -197,6 +197,12 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
   }
 
   function handleCountrySelect(c: Country) {
+    if (country === c.name) {
+      setCountry('');
+      setSubStep('country');
+      return;
+    }
+
     setCountry(c.name);
     setSubStep('type');
     scrollTo(typePanelRef);
