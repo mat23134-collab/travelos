@@ -1538,9 +1538,8 @@ export function DayCard({
               .filter(([, places]) => places.length > 0)
               .map(([key, places]) => {
                 const cfg = GENRE_CONFIG[key];
-                // Food cube uses single-column layout so Breakfast/Lunch/Dinner
-                // stack vertically and meal badges read clearly in sequence.
-                const cols = key === 'food' ? (1 as const) : (2 as const);
+                // All genre cubes use 2-column grid for consistent side-by-side card layout.
+                const cols = 2 as const;
                 return (
                   <div key={key} className="px-4 pt-3">
                     <GenreCube
