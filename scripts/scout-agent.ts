@@ -1162,11 +1162,57 @@ async function resolveYoutubeVideoId(placeName: string, cityName: string, apiKey
   return null;
 }
 
+// ── Top-Picks bucketing (drives the Step 7 onboarding card) ──────────────────
+// Maps the agent's DB category to the curated Top Sights category, then
+// ranks by quality_score within each (city, top_pick_category) bucket.
+// Bar venues are intentionally skipped — Top Sights has only three buckets.
+
+type TopPickCategory = 'sightseeing' | 'history' | 'food';
+
+function placeCategoryToTopPick(category: string): TopPickCategory | null {
+  switch (category.toLowerCase()) {
+    case 'attraction':    return 'sightseeing';
+    case 'tourism_site':  return 'history';
+    case 'restaurant':
+    case 'cafe':
+    case 'market':        return 'food';
+    case 'bar':           return null;
+    default:              return null;
+  }
+}
+
+const TOP_PICKS_PER_CATEGORY = 15;
+
+/**
+ * Assigns popularity_rank to each place within its (city, top_pick_category)
+ * bucket, capped at TOP_PICKS_PER_CATEGORY. Mutates the array in place and
+ * returns a count summary for logging.
+ */
+function assignTopPickRanks(places: Place[]): { sightseeing: number; history: number; food: number } {
+  const buckets: Record<TopPickCategory, Place[]> = { sightseeing: [], history: [], food: [] };
+  for (const p of places) {
+    const top = placeCategoryToTopPick(p.category);
+    if (!top) continue;
+    buckets[top].push(p);
+  }
+  const counts = { sightseeing: 0, history: 0, food: 0 };
+  for (const key of ['sightseeing', 'history', 'food'] as const) {
+    // Higher quality_score first; null scores sink to the bottom.
+    buckets[key].sort((a, b) => (b.quality_score ?? 0) - (a.quality_score ?? 0));
+    buckets[key].slice(0, TOP_PICKS_PER_CATEGORY).forEach((p, idx) => {
+      (p as Place & { _top_pick_category?: TopPickCategory; _popularity_rank?: number })._top_pick_category = key;
+      (p as Place & { _top_pick_category?: TopPickCategory; _popularity_rank?: number })._popularity_rank   = idx + 1;
+      counts[key]++;
+    });
+  }
+  return counts;
+}
+
 // ── Supabase upsert (service-role key bypasses RLS) ───────────────────────────
 
 async function upsertPlaces(
   places: Place[],
-): Promise<{ inserted: number; skipped: number; errors: number; youtubeTagged: number }> {
+): Promise<{ inserted: number; skipped: number; errors: number; youtubeTagged: number; topPicks: { sightseeing: number; history: number; food: number } }> {
   const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').replace(/\/+$/, '');
   const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 
@@ -1190,7 +1236,12 @@ async function upsertPlaces(
     console.log('   ℹ️  YOUTUBE_API_KEY not set — youtube_video_id will be null on new rows');
   }
 
+  // Compute Top Picks ranks across this batch BEFORE inserts so we can write
+  // them in the same round trip as the rest of the columns.
+  const topPicks = assignTopPickRanks(places);
+
   for (const place of places) {
+    const meta = place as Place & { _top_pick_category?: TopPickCategory; _popularity_rank?: number };
     // Duplicate check: same name + city (case-insensitive)
     const { data: existing, error: selectErr } = await supabase
       .from('places')
@@ -1206,7 +1257,24 @@ async function upsertPlaces(
     }
 
     if (existing) {
-      console.log(`  ⏩ SKIP     ${place.category_emoji} ${place.name} (already in DB)`);
+      // Row already in DB — refresh its Top Picks fields when this run
+      // ranked it. Otherwise leave it untouched.
+      if (meta._top_pick_category && meta._popularity_rank) {
+        const { error: updErr } = await supabase
+          .from('places')
+          .update({
+            top_pick_category: meta._top_pick_category,
+            popularity_rank:   meta._popularity_rank,
+          })
+          .eq('id', (existing as { id: string }).id);
+        if (updErr) {
+          console.warn(`  ⚠️  Top-pick update skipped for "${place.name}": ${updErr.message}`);
+        } else {
+          console.log(`  ✏️  REFRESH  ${place.category_emoji} ${place.name.padEnd(36)} [${meta._top_pick_category} #${meta._popularity_rank}]`);
+        }
+      } else {
+        console.log(`  ⏩ SKIP     ${place.category_emoji} ${place.name} (already in DB)`);
+      }
       skipped++;
       continue;
     }
@@ -1233,7 +1301,10 @@ async function upsertPlaces(
       category_emoji:     place.category_emoji,
       social_proof_url:   place.social_proof_url,
       vibe_label:         place.vibe_label,
-      youtube_video_id: youtubeVideoId,
+      youtube_video_id:   youtubeVideoId,
+      // Top Picks metadata (only set when this place won a rank slot)
+      top_pick_category:  meta._top_pick_category ?? null,
+      popularity_rank:    meta._popularity_rank   ?? null,
     }]);
 
     if (insertErr) {
@@ -1242,14 +1313,17 @@ async function upsertPlaces(
     } else {
       if (youtubeVideoId) youtubeTagged++;
       const ytHint = youtubeVideoId ? ` 🎬 ${youtubeVideoId}` : '';
+      const topHint = meta._top_pick_category
+        ? ` ⭐ ${meta._top_pick_category} #${meta._popularity_rank}`
+        : '';
       console.log(
-        `  ✓ INSERTED ${place.category_emoji} ${place.name.padEnd(36)} [${place.vibe_label}]${ytHint}`,
+        `  ✓ INSERTED ${place.category_emoji} ${place.name.padEnd(36)} [${place.vibe_label}]${ytHint}${topHint}`,
       );
       inserted++;
     }
   }
 
-  return { inserted, skipped, errors, youtubeTagged };
+  return { inserted, skipped, errors, youtubeTagged, topPicks };
 }
 
 // ── Janitor: verify stale places ──────────────────────────────────────────────
@@ -1664,7 +1738,7 @@ async function main(): Promise<void> {
 
     // ── Phase 3: upsert to Supabase ──────────────────────────────────────────
     console.log('💾 Phase 3 — Upserting to Supabase `places` table…');
-    const { inserted, skipped, errors, youtubeTagged } = await upsertPlaces(places);
+    const { inserted, skipped, errors, youtubeTagged, topPicks } = await upsertPlaces(places);
 
     console.log('');
     console.log('✅ Scout complete!');
@@ -1672,9 +1746,14 @@ async function main(): Promise<void> {
     console.log(`   Skipped  : ${skipped}  (duplicates)`);
     console.log(`   Errors   : ${errors}`);
     if (youtubeTagged > 0) console.log(`   YouTube  : ${youtubeTagged} new row(s) with youtube_video_id`);
+    console.log(`   Top Picks: sightseeing=${topPicks.sightseeing}  history=${topPicks.history}  food=${topPicks.food}`);
     if (inserted > 0) {
       console.log(`\n   These ${inserted} places will now appear as VERIFIED INTERNAL DATA`);
       console.log(`   when any user requests an itinerary for ${city} 🗺️`);
+    }
+    const topTotal = topPicks.sightseeing + topPicks.history + topPicks.food;
+    if (topTotal > 0) {
+      console.log(`   ${topTotal} place(s) tagged for the Step 7 Top Sights card.`);
     }
     console.log('');
 
