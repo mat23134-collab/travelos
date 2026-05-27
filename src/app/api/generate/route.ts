@@ -18,6 +18,9 @@ import {
   GENERATE_LLM_MAX_ATTEMPTS,
 } from '@/lib/generateBudget';
 
+export const maxDuration = 300;
+export const dynamic = 'force-dynamic';
+
 // ── JSON instruction prepended to every system prompt ────────────────────────
 
 const JSON_PREAMBLE =

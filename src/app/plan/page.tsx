@@ -25,6 +25,12 @@ type PlaceEvent = {
   slot: string; day: number; vibeLabel: string;
 };
 type StatusEvent = { message: string; icon: string };
+type GenerateStreamEvent =
+  | ({ type: 'status' } & StatusEvent)
+  | ({ type: 'place' } & PlaceEvent)
+  | { type: 'tip'; text: string }
+  | { type: 'complete'; id: string; itinerary?: unknown; isFallback?: boolean }
+  | { type: 'error'; message: string };
 
 const STORAGE_KEY = 'travelos_plan_draft';
 const PRE_ONBOARDING_KEYS = new Set(['destination', 'dates', 'tripTimes']);
@@ -1181,10 +1187,10 @@ function PlanPage() {
       }
 
       const controller = new AbortController();
-      const genTimeoutMs = GENERATE_WALL_CLOCK_MS;
+      const genTimeoutMs = GENERATE_WALL_CLOCK_MS + 45_000;
       const timeoutId = setTimeout(() => controller.abort(), genTimeoutMs);
       try {
-        const res = await fetch('/api/generate', {
+        const res = await fetch('/api/generate-stream', {
           method: 'POST',
           headers,
           body: JSON.stringify({ ...profile, userId: user?.id ?? null }),
@@ -1198,18 +1204,53 @@ function PlanPage() {
           throw new Error(parsed.error ?? `Server error ${res.status}: ${text.slice(0, 200)}`);
         }
 
-        const data = (await res.json()) as { id?: string; itinerary?: unknown; error?: string; isFallback?: boolean };
-        if (data.error || !data.id) {
-          throw new Error(data.error ?? 'Generation failed');
+        if (!res.body) throw new Error('Generation stream did not start');
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          const chunks = buffer.split('\n\n');
+          buffer = chunks.pop() ?? '';
+
+          for (const chunk of chunks) {
+            const line = chunk.split('\n').find((part) => part.startsWith('data: '));
+            if (!line) continue;
+
+            const event = JSON.parse(line.slice(6)) as GenerateStreamEvent;
+            if (event.type === 'status') {
+              setStreamStatus({ message: event.message, icon: event.icon });
+            } else if (event.type === 'place') {
+              setStreamedPlaces((prev) => [...prev.slice(-9), {
+                name: event.name,
+                emoji: event.emoji,
+                description: event.description,
+                slot: event.slot,
+                day: event.day,
+                vibeLabel: event.vibeLabel,
+              }]);
+            } else if (event.type === 'tip') {
+              setStreamedTips((prev) => [...prev.slice(-5), event.text]);
+            } else if (event.type === 'error') {
+              throw new Error(event.message || 'Generation failed');
+            } else if (event.type === 'complete') {
+              if (!event.id) throw new Error('Generation completed without itinerary id');
+              if (event.itinerary) {
+                sessionStorage.setItem('travelos_itinerary', JSON.stringify(event.itinerary));
+              }
+              useOnboardingStore.getState().reset();
+              router.push('/itinerary/' + event.id);
+              return;
+            }
+          }
         }
-        if (data.itinerary) {
-          sessionStorage.setItem('travelos_itinerary', JSON.stringify(data.itinerary));
-        }
-        // Trip generated successfully — wipe onboarding memory so the next
-        // trip starts completely fresh (no stale destination / dates / hotel).
-        useOnboardingStore.getState().reset();
-        router.push('/itinerary/' + data.id);
-        return;
+
+        throw new Error('Generation stream ended before itinerary was ready');
       } finally {
         clearTimeout(timeoutId);
       }
