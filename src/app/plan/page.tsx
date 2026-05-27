@@ -6,7 +6,25 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { questions } from '@/lib/questionnaire';
-import { TravelerProfile, type TripLanguage, type GroupType, type FamilyKidsByAge, type GroupDynamicsPayload } from '@/lib/types';
+import { TravelerProfile, type TripLanguage, type GroupType, type FamilyKidsByAge, type FamilyChildAgeBand, type GroupDynamicsPayload } from '@/lib/types';
+
+// Convert per-child integer ages (from the redesigned VibeSection) into the
+// legacy FamilyKidsByAge band map. Kept here so the rest of the pipeline
+// (prompts, scoringEngine) doesn't have to change.
+function bucketAgesIntoBands(ages: number[]): FamilyKidsByAge {
+  const out: FamilyKidsByAge = {};
+  for (const a of ages) {
+    let band: FamilyChildAgeBand;
+    if (a < 3)       band = '0-3';
+    else if (a < 6)  band = '3-6';
+    else if (a < 9)  band = '6-9';
+    else if (a < 12) band = '9-12';
+    else if (a < 16) band = '12-16';
+    else             band = '16+';
+    out[band] = (out[band] ?? 0) + 1;
+  }
+  return out;
+}
 import { sanitizeFamilyKids, totalFamilyKids } from '@/lib/familyKids';
 import { FamilyKidsModal } from '@/components/FamilyKidsModal';
 import { useAuth } from '@/lib/auth-context';
@@ -812,6 +830,12 @@ function PlanPage() {
     // ג”€ג”€ Onboarding preference params (skip those questions if pre-filled) ג”€ג”€
     const preGroupType     = searchParams.get('groupType')     ?? '';
     const preGroupDynamics = searchParams.get('groupDynamics') ?? '';
+    const preFamilyAdults  = Number(searchParams.get('familyAdults') ?? '');
+    const preFamilyChildAgesRaw = searchParams.get('familyChildAges') ?? '';
+    const preFamilyChildAges = preFamilyChildAgesRaw
+      ? preFamilyChildAgesRaw.split(',').map((x) => Number(x)).filter((n) => Number.isFinite(n) && n >= 0 && n <= 17)
+      : [];
+    const preGroupSizeQ = Number(searchParams.get('groupSize') ?? '');
     const prePace          = searchParams.get('pace')          ?? '';
     const preBudget     = searchParams.get('budget')     ?? '';
     const preInterestsRaw = searchParams.get('interests') ?? '';
@@ -847,10 +871,28 @@ function PlanPage() {
     const validAccommodations   = ['hostel', 'boutique-hotel', 'luxury-hotel', 'airbnb', 'resort'];
     const validNightlyBudgets   = ['budget', 'mid', 'comfort', 'luxury'];
 
+    // Bucket per-child ages from the new VibeSection into the legacy band map
+    // so the rest of the pipeline (prompt builder, scoringEngine, etc.) keeps
+    // working without changes.
+    const preFamilyKidsByAge = bucketAgesIntoBands(preFamilyChildAges);
+
+    // Compute total group size for the profile. Onboarding's familyAdults +
+    // child count is the source of truth for "family", and groupSize for "group".
+    const preComputedGroupSize =
+      validGroupTypes.includes(preGroupType)
+        ? (preGroupType === 'family'
+            ? Math.max(1, (Number.isFinite(preFamilyAdults) ? preFamilyAdults : 2) + preFamilyChildAges.length)
+            : preGroupType === 'group'
+              ? (Number.isFinite(preGroupSizeQ) && preGroupSizeQ >= 3 ? preGroupSizeQ : 4)
+              : preGroupType === 'couple'
+                ? 2
+                : 1)
+        : 2;
+
     setForm({
-      groupSize: 2,
-      familyParents: 2 as 1 | 2,
-      familyKidsByAge: {} as FamilyKidsByAge,
+      groupSize: preComputedGroupSize,
+      familyParents: (Number.isFinite(preFamilyAdults) && preFamilyAdults === 1 ? 1 : 2) as 1 | 2,
+      familyKidsByAge: preFamilyKidsByAge as FamilyKidsByAge,
       tripLanguage: initialTripLang,
       interests:           preInterests.length ? preInterests : [],
       dietaryRestrictions: preDietary,

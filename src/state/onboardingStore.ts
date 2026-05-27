@@ -56,6 +56,11 @@ export interface OnboardingState {
   groupType:    'solo' | 'couple' | 'family' | 'group' | '';
   groupDynamics: GroupDynamicsPayload | null;
   pace:         'relaxed' | 'moderate' | 'intense' | '';
+  /** Family composition — only set when groupType==='family'. */
+  familyAdults:    number;          // 1 or 2
+  familyChildAges: number[];        // one entry per child, value 0-17
+  /** Total head count for "Group" trips (3+ friends). Only set when groupType==='group'. */
+  groupSize:       number;          // 3-12
 
   // Step 5: Preferences — interests + budget
   interests: string[];
@@ -86,6 +91,10 @@ export interface OnboardingState {
   setGroupType:          (gt: 'solo' | 'couple' | 'family' | 'group') => void;
   setGroupDynamics:      (d: GroupDynamicsPayload | null) => void;
   setPace:               (p: 'relaxed' | 'moderate' | 'intense') => void;
+  setFamilyAdults:       (n: number) => void;
+  setFamilyChildCount:   (n: number) => void;
+  setFamilyChildAge:     (index: number, age: number) => void;
+  setGroupSize:          (n: number) => void;
   setBudget:             (b: 'budget' | 'mid-range' | 'luxury') => void;
   setInterests:          (interests: string[]) => void;
   toggleInterest:        (interest: string) => void;
@@ -113,7 +122,9 @@ const INITIAL: Omit<
   | 'setArrivalTime' | 'setDepartureTime' | 'setDailyStartTime'
   | 'setHotelLocation' | 'clearHotelLocation'
   | 'setAccommodation' | 'setHotelNightlyBudget'
-  | 'setGroupType' | 'setGroupDynamics' | 'setPace' | 'setBudget' | 'setInterests' | 'toggleInterest'
+  | 'setGroupType' | 'setGroupDynamics' | 'setPace'
+  | 'setFamilyAdults' | 'setFamilyChildCount' | 'setFamilyChildAge' | 'setGroupSize'
+  | 'setBudget' | 'setInterests' | 'toggleInterest'
   | 'toggleDietary' | 'toggleMustHave' | 'setMustHaveOther'
   | 'nextStep' | 'prevStep' | 'goToStep' | 'reset'
 > = {
@@ -135,9 +146,12 @@ const INITIAL: Omit<
   destinationLng: null,
   accommodation:      '',
   hotelNightlyBudget: '',
-  groupType:     '',
-  groupDynamics: null,
-  pace:          '',
+  groupType:       '',
+  groupDynamics:   null,
+  pace:            '',
+  familyAdults:    2,
+  familyChildAges: [],
+  groupSize:       4,
   interests:          [],
   budget:             '',
   dietaryRestrictions: [],
@@ -198,9 +212,34 @@ export const useOnboardingStore = create<OnboardingState>()(
 
       setAccommodation:      (a) => set({ accommodation: a }),
       setHotelNightlyBudget: (b) => set({ hotelNightlyBudget: b }),
-      setGroupType:     (gt) => set({ groupType: gt, groupDynamics: null }),
-      setGroupDynamics: (d)  => set({ groupDynamics: d }),
-      setPace:          (p)  => set({ pace: p }),
+      setGroupType: (gt) => set({
+        groupType: gt,
+        groupDynamics: null,
+        // Reset composition fields whenever the group type changes.
+        familyAdults:    gt === 'family' ? 2 : 2,
+        familyChildAges: gt === 'family' ? [] : [],
+        groupSize:       gt === 'group'  ? 4 : 4,
+      }),
+      setGroupDynamics: (d) => set({ groupDynamics: d }),
+      setPace:          (p) => set({ pace: p }),
+      setFamilyAdults:  (n) => set({ familyAdults: Math.max(1, Math.min(2, Math.round(n))) }),
+      setFamilyChildCount: (n) => set((s) => {
+        const next = Math.max(0, Math.min(8, Math.round(n)));
+        const cur  = s.familyChildAges;
+        if (next === cur.length) return s;
+        if (next < cur.length)   return { familyChildAges: cur.slice(0, next) };
+        // Add new children with a sensible default age (6) so the dropdown has a starting value.
+        const padded = [...cur, ...Array.from({ length: next - cur.length }, () => 6)];
+        return { familyChildAges: padded };
+      }),
+      setFamilyChildAge: (index, age) => set((s) => {
+        if (index < 0 || index >= s.familyChildAges.length) return s;
+        const a = Math.max(0, Math.min(17, Math.round(age)));
+        const next = [...s.familyChildAges];
+        next[index] = a;
+        return { familyChildAges: next };
+      }),
+      setGroupSize: (n) => set({ groupSize: Math.max(3, Math.min(12, Math.round(n))) }),
       setBudget:    (b)  => set({ budget: b }),
       setInterests: (interests) => set({ interests }),
       toggleInterest: (interest) => set((s) => ({
@@ -252,6 +291,9 @@ export const useOnboardingStore = create<OnboardingState>()(
         hotelNightlyBudget: s.hotelNightlyBudget,
         groupType:          s.groupType,
         groupDynamics:      s.groupDynamics,
+        familyAdults:       s.familyAdults,
+        familyChildAges:    s.familyChildAges,
+        groupSize:          s.groupSize,
         pace:               s.pace,
         interests:          s.interests,
         budget:             s.budget,

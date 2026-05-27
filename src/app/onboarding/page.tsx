@@ -129,6 +129,7 @@ function OnboardingPageContent() {
     hotelAddress, hotelLat, hotelLng,
     accommodation, hotelNightlyBudget,
     groupType, groupDynamics, pace, budget, interests,
+    familyAdults, familyChildAges, groupSize,
     dietaryRestrictions, mustHaveItems, mustHaveOther,
     step: storeStep, goToStep, reset,
     setCountry, setTripType, setCities, setDestination,
@@ -238,10 +239,14 @@ function OnboardingPageContent() {
         return { canContinue: true, label: 'Next: travel style →' };
       case 3: {
         if (!groupType) return { canContinue: false, label: "Who's coming?" };
-        const needsDyn = groupType === 'solo' || groupType === 'couple' || groupType === 'group';
-        if (needsDyn && !groupDynamics) return { canContinue: false, label: 'Tell us more →' };
-        if (!pace)      return { canContinue: false, label: 'Choose your pace' };
-        return { canContinue: true, label: 'Next: where you stay →' };
+        if (groupType === 'family') {
+          if (!familyAdults || familyAdults < 1) return { canContinue: false, label: 'Add at least one adult' };
+        }
+        if (groupType === 'group' && (!groupSize || groupSize < 3)) {
+          return { canContinue: false, label: 'Pick your group size' };
+        }
+        if (!pace) return { canContinue: false, label: 'Choose your pace' };
+        return { canContinue: true, label: 'Continue' };
       }
       case 4:
         if (hotelAddress)  return { canContinue: true, label: 'Next: dining rules →' };
@@ -291,8 +296,17 @@ function OnboardingPageContent() {
     if (groupType)           params.set('groupType',     groupType);
     if (groupDynamics)       params.set('groupDynamics', groupDynamics.subType);
     if (pace)                params.set('pace',          pace);
-    if (budget)           params.set('budget',     budget);
-    if (interests.length) params.set('interests',  interests.join(','));
+    if (budget)              params.set('budget',        budget);
+    if (interests.length)    params.set('interests',     interests.join(','));
+
+    // Composition — Family / Group specifics
+    if (groupType === 'family') {
+      params.set('familyAdults', String(familyAdults));
+      if (familyChildAges.length) params.set('familyChildAges', familyChildAges.join(','));
+    }
+    if (groupType === 'group') {
+      params.set('groupSize', String(groupSize));
+    }
 
     // Finishing touches
     if (dietaryRestrictions.length) params.set('dietary', dietaryRestrictions.join(','));

@@ -1,65 +1,47 @@
 'use client';
 
 /**
- * VibeSection — Section 4 of the progressive onboarding flow.
+ * VibeSection — Step 3 of the progressive onboarding flow.
  *
- * Three fast decisions:
- *   1. Who's coming?     (group type — 2×2 grid)
- *   2. Dynamic sub-question (unique per group type — Solo / Couple / Group only)
- *   3. Pace              (appears after both above are answered, or after group type
- *                         for Family which has its own kids-age modal)
+ * Quiet-Luxury redesign (2026-05):
+ *   • Layered glass surfaces with soft, low-contrast shadows.
+ *   • Minimal selection state — a precise 1-px ivory border, no glow.
+ *   • Sharp typography pairing (serif headline + tight sans tracking).
+ *   • Conditional composition inputs:
+ *       Family → 1-2 Adults · 0-8 Children · Age 0-17 per child.
+ *       Group  → total head count 3-12.
+ *       Solo / Couple → no extra inputs.
+ *   • Pace tile-row uses the same minimal selection language.
  *
- * All selections auto-advance — no button needed.
+ * Advances are driven by the onboarding-page footer CTA — this section
+ * never auto-advances on selection.
  */
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { useOnboardingStore } from '@/state/onboardingStore';
-import type {
-  SoloDynamics, CoupleDynamics, FamilyDynamics, GroupDynamics,
-  GroupDynamicsPayload,
-} from '@/lib/types';
 
-const PURPLE = '#7b6fcf';
-const MUTED  = 'rgba(255,255,255,0.38)';
+const IVORY = '#f1ece3';
+const IVORY_DIM = 'rgba(241,236,227,0.55)';
+const IVORY_FAINT = 'rgba(241,236,227,0.32)';
+const ACCENT = '#c4a26a';          // muted warm gold — quiet luxury accent
+const ACCENT_SOFT = 'rgba(196,162,106,0.35)';
+const SURFACE = 'rgba(255,255,255,0.04)';
+const SURFACE_SEL = 'rgba(196,162,106,0.05)';
+const BORDER = '1px solid rgba(255,255,255,0.07)';
+const BORDER_SEL = `1px solid ${ACCENT}`;
 
-const reveal = {
-  hidden:  { opacity: 0, y: 14 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.38, ease: [0.22, 1, 0.36, 1] } },
-};
-
-// ── Group type ─────────────────────────────────────────────────────────────────
 const GROUP_OPTIONS = [
-  { value: 'solo',   label: 'Solo',   icon: '🧳', sub: 'Just me'        },
-  { value: 'couple', label: 'Couple', icon: '💑', sub: 'Two of us'       },
-  { value: 'family', label: 'Family', icon: '👨‍👩‍👧‍👦', sub: 'Kids in tow'    },
-  { value: 'group',  label: 'Group',  icon: '👥', sub: '3+ friends'      },
-];
+  { value: 'solo',   label: 'Solo',   sub: 'Just me'      },
+  { value: 'couple', label: 'Couple', sub: 'Two of us'    },
+  { value: 'family', label: 'Family', sub: 'Kids in tow'  },
+  { value: 'group',  label: 'Group',  sub: '3+ friends'   },
+] as const;
 
-// ── Sub-questions by group type ───────────────────────────────────────────────
-const SOLO_DYNAMICS: Array<{ value: SoloDynamics; label: string; icon: string; sub: string }> = [
-  { value: 'digital-nomad',  label: 'Digital Nomad',   icon: '💻', sub: 'Work + explore — need good wifi & cafés' },
-  { value: 'deep-recharge',  label: 'Deep Recharge',   icon: '🧘', sub: 'Slow down, museums, long dinners alone' },
-  { value: 'adventure',      label: 'Adventure Seeker', icon: '🏔️', sub: 'Maximize experiences, go off-script'   },
-];
-
-const COUPLE_DYNAMICS: Array<{ value: CoupleDynamics; label: string; icon: string; sub: string }> = [
-  { value: 'romantic',      label: 'Romantic Escape',  icon: '🌹', sub: 'Candlelit dinners, quiet corners, sunset views'   },
-  { value: 'parent-child',  label: 'Parent & Child',   icon: '👧', sub: 'One adult, one kid — balance fun for both'        },
-  { value: 'reconnecting',  label: 'Reconnecting',     icon: '✨', sub: 'Long-term couple rediscovering adventures together' },
-];
-
-const GROUP_DYNAMICS: Array<{ value: GroupDynamics; label: string; icon: string; sub: string }> = [
-  { value: 'best-friends', label: 'Best Friends',  icon: '🍺', sub: 'Shared history, inside jokes, skip the tourist stuff' },
-  { value: 'mixed-ages',   label: 'Mixed Ages',    icon: '👨‍👩‍👦', sub: 'Different energy levels — include everyone'          },
-  { value: 'work-crew',    label: 'Work Crew',     icon: '💼', sub: 'Colleagues bonding — professional but relaxed'        },
-];
-
-// ── Pace ───────────────────────────────────────────────────────────────────────
 const PACE_OPTIONS = [
-  { value: 'relaxed',  label: 'Slow & Intentional', icon: '🌊', sub: 'Max 2–3 stops/day, lots of breathing room' },
-  { value: 'moderate', label: 'Balanced Explorer',   icon: '🗺️', sub: 'Mix of activity and downtime'               },
-  { value: 'intense',  label: 'Full Throttle',       icon: '⚡', sub: 'Packed schedule — maximize every hour'       },
-];
+  { value: 'relaxed',  label: 'Slow & Intentional', sub: '2–3 stops a day, lots of breathing room' },
+  { value: 'moderate', label: 'Balanced Explorer',  sub: 'A measured mix of motion and pause'      },
+  { value: 'intense',  label: 'Full Throttle',      sub: 'Maximize the hours — no wasted moments' },
+] as const;
 
 interface Props {
   isCompleted: boolean;
@@ -68,58 +50,50 @@ interface Props {
 }
 
 export function VibeSection({ isCompleted, onEdit }: Props) {
-  const { groupType, groupDynamics, pace, setGroupType, setGroupDynamics, setPace } = useOnboardingStore();
-
-  // Family skips the sub-question (it has its own FamilyKidsModal further down)
-  const needsDynamics = groupType === 'solo' || groupType === 'couple' || groupType === 'group';
-  const dynamicsAnswered = !needsDynamics || groupDynamics !== null;
-
-  function handleGroupSelect(gt: string) {
-    setGroupType(gt as 'solo' | 'couple' | 'family' | 'group');
-  }
-
-  function handleDynamicsSelect(subType: GroupDynamicsPayload['subType']) {
-    setGroupDynamics({ subType });
-  }
-
-  function handlePaceSelect(p: string) {
-    setPace(p as 'relaxed' | 'moderate' | 'intense');
-  }
-
-  const groupOpt     = GROUP_OPTIONS.find((g) => g.value === groupType);
-  const paceOpt      = PACE_OPTIONS.find((p) => p.value === pace);
-  const dynamicsLabel = resolveDynamicsLabel(groupType, groupDynamics?.subType);
+  const {
+    groupType, pace,
+    familyAdults, familyChildAges, groupSize,
+    setGroupType, setPace,
+    setFamilyAdults, setFamilyChildCount, setFamilyChildAge,
+    setGroupSize,
+  } = useOnboardingStore();
 
   // ── Completed summary bar ──────────────────────────────────────────────────
   if (isCompleted) {
+    const groupOpt = GROUP_OPTIONS.find((g) => g.value === groupType);
+    const paceOpt  = PACE_OPTIONS.find((p) => p.value === pace);
+    const compositionLine = composeSummary(groupType, familyAdults, familyChildAges, groupSize);
+
     return (
       <motion.div
-        initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between px-5 py-3.5 rounded-2xl"
-        style={{ background: 'rgba(15,40,98,0.28)', border: '1px solid rgba(123,111,207,0.22)' }}
+        initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+        className="flex items-center justify-between px-6 py-4 rounded-2xl backdrop-blur-xl"
+        style={{
+          background: 'rgba(255,255,255,0.025)',
+          border: BORDER,
+          boxShadow: '0 1px 0 rgba(255,255,255,0.04) inset, 0 8px 24px -16px rgba(0,0,0,0.45)',
+        }}
       >
-        <div className="flex items-center gap-3">
-          <span className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black text-white shrink-0"
-            style={{ background: PURPLE }}>✓</span>
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-bold text-white">
-              {groupOpt?.icon} {groupOpt?.label}
+        <div className="flex items-baseline gap-3 flex-wrap">
+          <span className="font-serif text-base text-white tracking-tight" style={{ color: IVORY }}>
+            {groupOpt?.label}
+          </span>
+          {compositionLine && (
+            <span className="text-xs tracking-wide" style={{ color: IVORY_DIM }}>
+              · {compositionLine}
             </span>
-            {dynamicsLabel && (
-              <span className="text-xs" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                · {dynamicsLabel}
-              </span>
-            )}
-            {paceOpt && (
-              <span className="text-xs" style={{ color: MUTED }}>
-                · {paceOpt.icon} {paceOpt.label}
-              </span>
-            )}
-          </div>
+          )}
+          {paceOpt && (
+            <span className="text-xs tracking-wide" style={{ color: IVORY_DIM }}>
+              · {paceOpt.label}
+            </span>
+          )}
         </div>
-        <button onClick={onEdit}
-          className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors hover-bg-subtle shrink-0"
-          style={{ color: MUTED, border: '1px solid rgba(255,255,255,0.10)' }}>
+        <button
+          onClick={onEdit}
+          className="text-[11px] uppercase tracking-[0.18em] px-3 py-1.5 rounded-full transition-colors"
+          style={{ color: IVORY_DIM, border: '1px solid rgba(255,255,255,0.10)' }}
+        >
           Edit
         </button>
       </motion.div>
@@ -128,118 +102,190 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
 
   // ── Active form ────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col gap-5">
-
+    <div className="flex flex-col gap-7">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black text-white shrink-0"
-          style={{ background: PURPLE }}>4</span>
-        <div>
-          <h2 className="text-xl font-black text-white tracking-tight">Who's coming?</h2>
-          <p className="text-xs mt-0.5" style={{ color: MUTED }}>
-            Shapes restaurants, activities, and pacing
-          </p>
+      <div>
+        <h2
+          className="font-serif text-[28px] leading-[1.1] tracking-[-0.015em]"
+          style={{ color: IVORY, fontWeight: 400 }}
+        >
+          Who&apos;s coming with you?
+        </h2>
+        <p
+          className="mt-2 text-[13px] tracking-wide"
+          style={{ color: IVORY_DIM }}
+        >
+          A few quiet questions to shape the restaurants, pace, and venues we choose.
+        </p>
+      </div>
+
+      {/* Group type — glass card grid */}
+      <div
+        className="rounded-3xl p-3 backdrop-blur-2xl"
+        style={{
+          background: 'linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.015))',
+          border: BORDER,
+          boxShadow: '0 1px 0 rgba(255,255,255,0.06) inset, 0 20px 50px -30px rgba(0,0,0,0.6)',
+        }}
+      >
+        <div className="grid grid-cols-2 gap-2">
+          {GROUP_OPTIONS.map((opt) => {
+            const sel = groupType === opt.value;
+            return (
+              <motion.button
+                key={opt.value}
+                onClick={() => setGroupType(opt.value)}
+                whileTap={{ scale: 0.985 }}
+                transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                className="relative px-5 py-5 rounded-2xl text-left transition-colors"
+                style={{
+                  background: sel ? SURFACE_SEL : SURFACE,
+                  border: sel ? BORDER_SEL : BORDER,
+                }}
+              >
+                <div
+                  className="font-serif text-[19px] leading-none tracking-[-0.01em]"
+                  style={{ color: sel ? IVORY : 'rgba(241,236,227,0.88)' }}
+                >
+                  {opt.label}
+                </div>
+                <div
+                  className="mt-2 text-[11px] tracking-wide"
+                  style={{ color: sel ? IVORY_DIM : IVORY_FAINT }}
+                >
+                  {opt.sub}
+                </div>
+                {sel && (
+                  <motion.span
+                    layoutId="vibe-group-dot"
+                    className="absolute top-4 right-4 w-1.5 h-1.5 rounded-full"
+                    style={{ background: ACCENT }}
+                  />
+                )}
+              </motion.button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Group type — 2×2 grid */}
-      <div className="grid grid-cols-2 gap-3">
-        {GROUP_OPTIONS.map((opt) => {
-          const sel = groupType === opt.value;
-          return (
-            <motion.button
-              key={opt.value}
-              onClick={() => handleGroupSelect(opt.value)}
-              whileHover={{ scale: 1.03, y: -2 }}
-              whileTap={{ scale: 0.97 }}
-              animate={sel
-                ? { boxShadow: `0 0 0 2px ${PURPLE}, 0 10px 28px -6px rgba(123,111,207,0.28)` }
-                : { boxShadow: 'none' }
-              }
-              transition={{ type: 'spring', stiffness: 400, damping: 24 }}
-              className="relative p-4 rounded-2xl border text-left transition-colors"
-              style={sel
-                ? { borderColor: PURPLE, background: 'rgba(123,111,207,0.12)' }
-                : { borderColor: 'rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)' }
-              }
-            >
-              {sel && (
-                <motion.div initial={{ scale: 0, rotate: -15 }} animate={{ scale: 1, rotate: 0 }}
-                  transition={{ type: 'spring', stiffness: 500, damping: 20 }}
-                  className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full flex items-center justify-center"
-                  style={{ background: PURPLE }}>
-                  <span className="text-white text-[9px] font-bold">✓</span>
-                </motion.div>
-              )}
-              <div className="text-2xl mb-2 leading-none">{opt.icon}</div>
-              <div className="text-sm font-bold leading-tight"
-                style={{ color: sel ? '#b8b0f0' : 'rgba(255,255,255,0.9)' }}>
-                {opt.label}
-              </div>
-              <div className="text-[11px] mt-0.5" style={{ color: MUTED }}>{opt.sub}</div>
-            </motion.button>
-          );
-        })}
-      </div>
-
-      {/* Dynamic sub-question — reveals after group type, only for solo/couple/group */}
-      <AnimatePresence>
-        {groupType && groupType !== 'family' && (
-          <motion.div key={`dynamics-${groupType}`}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } }}
-            exit={{ opacity: 0, y: -8 }}>
-            <p className="text-xs font-semibold mb-3" style={{ color: 'rgba(255,255,255,0.55)' }}>
-              {groupType === 'solo'   && 'What kind of solo trip?'}
-              {groupType === 'couple' && 'What kind of couple trip?'}
-              {groupType === 'group'  && 'What\'s the group vibe?'}
+      {/* Conditional composition inputs */}
+      <AnimatePresence mode="wait">
+        {groupType === 'family' && (
+          <motion.div
+            key="family-inputs"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0, transition: { duration: 0.32, ease: [0.22, 1, 0.36, 1] } }}
+            exit={{ opacity: 0, y: -6, transition: { duration: 0.18 } }}
+            className="rounded-3xl p-6 backdrop-blur-2xl"
+            style={{
+              background: 'linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.015))',
+              border: BORDER,
+              boxShadow: '0 1px 0 rgba(255,255,255,0.06) inset, 0 20px 50px -30px rgba(0,0,0,0.6)',
+            }}
+          >
+            <p className="text-[11px] uppercase tracking-[0.22em] mb-5" style={{ color: IVORY_DIM }}>
+              Family composition
             </p>
-            <div className="flex flex-col gap-2">
-              {getDynamicsOptions(groupType).map((opt) => {
-                const sel = groupDynamics?.subType === opt.value;
-                return (
-                  <motion.button
-                    key={opt.value}
-                    onClick={() => handleDynamicsSelect(opt.value as GroupDynamicsPayload['subType'])}
-                    whileHover={{ scale: 1.01, x: 3 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="flex items-center gap-3.5 px-4 py-3.5 rounded-xl border text-left transition-colors"
-                    style={sel
-                      ? { borderColor: '#9b87e0', background: 'rgba(123,111,207,0.10)' }
-                      : { borderColor: 'rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }
-                    }
+
+            <div className="flex flex-col gap-5">
+              {/* Adults */}
+              <FieldRow label="Adults">
+                <QuietSelect
+                  value={String(familyAdults)}
+                  onChange={(v) => setFamilyAdults(Number(v))}
+                  options={[
+                    { value: '1', label: '1 adult'  },
+                    { value: '2', label: '2 adults' },
+                  ]}
+                />
+              </FieldRow>
+
+              {/* Children count */}
+              <FieldRow label="Children">
+                <QuietSelect
+                  value={String(familyChildAges.length)}
+                  onChange={(v) => setFamilyChildCount(Number(v))}
+                  options={Array.from({ length: 9 }, (_, i) => ({
+                    value: String(i),
+                    label: i === 0 ? 'No children' : i === 1 ? '1 child' : `${i} children`,
+                  }))}
+                />
+              </FieldRow>
+
+              {/* Per-child age dropdowns */}
+              <AnimatePresence>
+                {familyChildAges.length > 0 && (
+                  <motion.div
+                    key="child-ages"
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0, transition: { duration: 0.28 } }}
+                    exit={{ opacity: 0, y: -4, transition: { duration: 0.15 } }}
+                    className="pt-2 border-t flex flex-col gap-3"
+                    style={{ borderColor: 'rgba(255,255,255,0.06)' }}
                   >
-                    <span className="text-xl shrink-0 leading-none">{opt.icon}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold leading-tight"
-                        style={{ color: sel ? '#b8b0f0' : 'rgba(255,255,255,0.9)' }}>
-                        {opt.label}
-                      </div>
-                      <div className="text-[11px] mt-0.5 leading-snug" style={{ color: MUTED }}>
-                        {opt.sub}
-                      </div>
-                    </div>
-                    {sel && (
-                      <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }}
-                        className="text-xs font-bold shrink-0" style={{ color: PURPLE }}>✓</motion.span>
-                    )}
-                  </motion.button>
-                );
-              })}
+                    <p className="text-[11px] uppercase tracking-[0.22em] pt-3" style={{ color: IVORY_DIM }}>
+                      Children&apos;s ages
+                    </p>
+                    {familyChildAges.map((age, idx) => (
+                      <FieldRow key={idx} label={`Child ${idx + 1}`} compact>
+                        <QuietSelect
+                          value={String(age)}
+                          onChange={(v) => setFamilyChildAge(idx, Number(v))}
+                          options={Array.from({ length: 18 }, (_, n) => ({
+                            value: String(n),
+                            label: n === 0 ? 'Under 1' : n === 1 ? '1 year' : `${n} years`,
+                          }))}
+                        />
+                      </FieldRow>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
+          </motion.div>
+        )}
+
+        {groupType === 'group' && (
+          <motion.div
+            key="group-inputs"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0, transition: { duration: 0.32, ease: [0.22, 1, 0.36, 1] } }}
+            exit={{ opacity: 0, y: -6, transition: { duration: 0.18 } }}
+            className="rounded-3xl p-6 backdrop-blur-2xl"
+            style={{
+              background: 'linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.015))',
+              border: BORDER,
+              boxShadow: '0 1px 0 rgba(255,255,255,0.06) inset, 0 20px 50px -30px rgba(0,0,0,0.6)',
+            }}
+          >
+            <p className="text-[11px] uppercase tracking-[0.22em] mb-5" style={{ color: IVORY_DIM }}>
+              Group size
+            </p>
+            <FieldRow label="Total travelers">
+              <QuietSelect
+                value={String(groupSize)}
+                onChange={(v) => setGroupSize(Number(v))}
+                options={Array.from({ length: 10 }, (_, i) => {
+                  const n = i + 3;
+                  return { value: String(n), label: `${n} travelers` };
+                })}
+              />
+            </FieldRow>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Pace — reveals after dynamics answered (or immediately after Family is picked) */}
+      {/* Pace — minimal vertical rail */}
       <AnimatePresence>
-        {groupType && dynamicsAnswered && (
-          <motion.div key="pace-section"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } }}
-            exit={{ opacity: 0, y: -8 }}>
-            <p className="text-xs font-semibold mb-3" style={{ color: MUTED }}>
-              How do you like to travel?
+        {groupType && (
+          <motion.div
+            key="pace-section"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0, transition: { duration: 0.36, ease: [0.22, 1, 0.36, 1] } }}
+            exit={{ opacity: 0 }}
+          >
+            <p className="text-[11px] uppercase tracking-[0.22em] mb-3" style={{ color: IVORY_DIM }}>
+              Pace
             </p>
             <div className="flex flex-col gap-2">
               {PACE_OPTIONS.map((opt) => {
@@ -247,28 +293,35 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
                 return (
                   <motion.button
                     key={opt.value}
-                    onClick={() => handlePaceSelect(opt.value)}
-                    whileHover={{ scale: 1.01, x: 3 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="flex items-center gap-3.5 px-4 py-3.5 rounded-xl border text-left transition-colors"
-                    style={sel
-                      ? { borderColor: PURPLE, background: 'rgba(123,111,207,0.10)' }
-                      : { borderColor: 'rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }
-                    }
+                    onClick={() => setPace(opt.value)}
+                    whileTap={{ scale: 0.99 }}
+                    transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                    className="flex items-center justify-between px-5 py-4 rounded-2xl text-left transition-colors"
+                    style={{
+                      background: sel ? SURFACE_SEL : SURFACE,
+                      border: sel ? BORDER_SEL : BORDER,
+                    }}
                   >
-                    <span className="text-xl shrink-0 leading-none">{opt.icon}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold leading-tight"
-                        style={{ color: sel ? '#b8b0f0' : 'rgba(255,255,255,0.9)' }}>
+                    <div>
+                      <div
+                        className="font-serif text-[16px] leading-tight tracking-[-0.01em]"
+                        style={{ color: sel ? IVORY : 'rgba(241,236,227,0.88)' }}
+                      >
                         {opt.label}
                       </div>
-                      <div className="text-[11px] mt-0.5 leading-snug" style={{ color: MUTED }}>
+                      <div
+                        className="text-[11px] mt-1 tracking-wide"
+                        style={{ color: sel ? IVORY_DIM : IVORY_FAINT }}
+                      >
                         {opt.sub}
                       </div>
                     </div>
                     {sel && (
-                      <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }}
-                        className="text-xs font-bold shrink-0" style={{ color: PURPLE }}>✓</motion.span>
+                      <motion.span
+                        layoutId="vibe-pace-dot"
+                        className="w-1.5 h-1.5 rounded-full shrink-0 ml-3"
+                        style={{ background: ACCENT }}
+                      />
                     )}
                   </motion.button>
                 );
@@ -281,18 +334,82 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
   );
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
-function getDynamicsOptions(groupType: string) {
-  if (groupType === 'solo')   return SOLO_DYNAMICS;
-  if (groupType === 'couple') return COUPLE_DYNAMICS;
-  if (groupType === 'group')  return GROUP_DYNAMICS;
-  return [];
+function FieldRow({
+  label,
+  compact = false,
+  children,
+}: {
+  label: string;
+  compact?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={`flex items-center justify-between ${compact ? '' : ''}`}>
+      <label
+        className="text-[13px] tracking-wide"
+        style={{ color: compact ? IVORY_DIM : IVORY }}
+      >
+        {label}
+      </label>
+      {children}
+    </div>
+  );
 }
 
-function resolveDynamicsLabel(groupType: string, subType?: string): string | null {
-  if (!subType) return null;
-  const all = [...SOLO_DYNAMICS, ...COUPLE_DYNAMICS, ...GROUP_DYNAMICS];
-  const match = all.find((o) => o.value === subType);
-  return match ? `${match.icon} ${match.label}` : null;
+function QuietSelect({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: ReadonlyArray<{ value: string; label: string }>;
+}) {
+  return (
+    <div className="relative">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="appearance-none bg-transparent text-[13px] pr-7 pl-3 py-2 rounded-lg transition-colors cursor-pointer"
+        style={{
+          color: IVORY,
+          border: BORDER,
+          background: SURFACE,
+          minWidth: 160,
+        }}
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value} style={{ background: '#0d1623', color: IVORY }}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <span
+        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px]"
+        style={{ color: ACCENT_SOFT }}
+      >
+        ▾
+      </span>
+    </div>
+  );
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function composeSummary(
+  groupType: string,
+  familyAdults: number,
+  familyChildAges: number[],
+  groupSize: number,
+): string | null {
+  if (groupType === 'family') {
+    const adultsLabel = `${familyAdults} ${familyAdults === 1 ? 'adult' : 'adults'}`;
+    if (familyChildAges.length === 0) return adultsLabel;
+    const kidsLabel = `${familyChildAges.length} ${familyChildAges.length === 1 ? 'child' : 'children'}`;
+    return `${adultsLabel}, ${kidsLabel}`;
+  }
+  if (groupType === 'group') return `${groupSize} travelers`;
+  return null;
 }
