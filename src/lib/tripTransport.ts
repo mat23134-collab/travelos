@@ -42,7 +42,14 @@ export async function upsertTransportationGuide(
   };
   const { error } = await db.from('transportation').upsert(row, { onConflict: 'city_norm' });
   if (error) {
-    console.warn('[tripTransport] transportation upsert failed:', error.message);
+    const hint = (error as unknown as { hint?: string }).hint ?? '';
+    const code = (error as unknown as { code?: string }).code ?? '';
+    console.warn(
+      '[tripTransport] transportation upsert failed:',
+      error.message,
+      hint  ? `| hint: ${hint}` : '',
+      code  ? `| code: ${code}` : '',
+    );
   }
 }
 
@@ -117,18 +124,25 @@ export async function persistTripSessionRow(
       return;
     }
 
-    const msg = error.message ?? '';
-    console.warn('[tripTransport] trips upsert attempt', i + 1, 'error:', msg);
+    const msg  = error.message ?? '';
+    const hint = (error as unknown as { hint?: string }).hint ?? '';
+    const code = (error as unknown as { code?: string }).code ?? error.code ?? '';
+    console.warn(
+      '[tripTransport] trips upsert attempt', i + 1, 'error:', msg,
+      hint ? `| hint: ${hint}` : '',
+      code ? `| code: ${code}` : '',
+    );
 
     // Unique violation (23505) — row already exists, update it instead
-    if (error.code === '23505' || msg.includes('duplicate key') || msg.includes('unique')) {
+    if (code === '23505' || msg.includes('duplicate key') || msg.includes('unique')) {
       const { id: _id, itinerary_id: _iid, ...updateFields } = row as Record<string, unknown>;
       const { error: updErr } = await db
         .from('trips')
         .update(updateFields)
         .eq('itinerary_id', args.itineraryId);
       if (updErr) {
-        console.warn('[tripTransport] trips update fallback failed:', updErr.message);
+        const updHint = (updErr as unknown as { hint?: string }).hint ?? '';
+        console.warn('[tripTransport] trips update fallback failed:', updErr.message, updHint ? `| hint: ${updHint}` : '');
       } else {
         console.log('[tripTransport] trips row updated (fallback) for itinerary:', args.itineraryId);
       }
@@ -138,7 +152,7 @@ export async function persistTripSessionRow(
     // Missing column — strip and retry
     const missing = msg.match(/Could not find the '([^']+)' column/)?.[1];
     if (!missing || !(missing in row)) {
-      console.warn('[tripTransport] trips upsert skipped (unrecoverable):', msg);
+      console.warn('[tripTransport] trips upsert skipped (unrecoverable):', msg, hint ? `| hint: ${hint}` : '');
       return;
     }
     delete row[missing];

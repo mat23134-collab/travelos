@@ -14,7 +14,7 @@ import {
 
 async function persistConsent(record: LegalConsentRecord, accessToken?: string | null) {
   try {
-    await fetch('/api/legal-consent', {
+    const res = await fetch('/api/legal-consent', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -22,8 +22,13 @@ async function persistConsent(record: LegalConsentRecord, accessToken?: string |
       },
       body: JSON.stringify(record),
     });
-  } catch {
-    // Local consent still gates UX. Server persistence is retried on auth/next accept.
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      console.error('[legal-consent] server rejected consent:', res.status, body.error ?? '');
+    }
+  } catch (err) {
+    // Network error — local consent still gates UX; retried on next page load / auth.
+    console.warn('[legal-consent] network error persisting consent:', err instanceof Error ? err.message : err);
   }
 }
 

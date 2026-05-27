@@ -67,7 +67,17 @@ export async function POST(req: NextRequest) {
   });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const hint    = (error as unknown as { hint?: string }).hint ?? '';
+    const code    = (error as unknown as { code?: string }).code ?? '';
+    const details = (error as unknown as { details?: string }).details ?? '';
+    console.error(
+      '[legal-consent] insert failed:',
+      error.message,
+      hint    ? `| hint: ${hint}`       : '',
+      code    ? `| code: ${code}`       : '',
+      details ? `| details: ${details}` : '',
+    );
+    return NextResponse.json({ error: error.message, hint, code }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });

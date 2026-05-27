@@ -697,12 +697,32 @@ export async function POST(req: NextRequest) {
       for (let i = 0; i < 6; i++) {
         const { error: anchorErr } = await dbWrite.from('hotel_anchors').insert(row);
         if (!anchorErr) break;
-        const dropped = dropMissingColumnFromRow(row, anchorErr.message ?? '');
-        if (dropped) {
+
+        const msg  = anchorErr.message ?? '';
+        const hint = (anchorErr as { hint?: string }).hint ?? '';
+        const code = (anchorErr as { code?: string }).code ?? '';
+
+        // Missing column in schema → strip and retry
+        if (dropMissingColumnFromRow(row, msg)) {
           console.warn('[generate] hotel_anchors retry without missing column');
           continue;
         }
-        console.warn('[generate] hotel_anchors insert skipped (non-critical):', anchorErr.message);
+
+        // NOT NULL violation (23502) on lat/lng — null out the offending coordinate
+        // and retry. The migration makes lat/lng nullable, but a legacy schema may not.
+        if (code === '23502' && (msg.includes('lat') || msg.includes('lng'))) {
+          row.lat = 0;
+          row.lng = 0;
+          console.warn('[generate] hotel_anchors lat/lng NOT NULL — using 0,0 as fallback');
+          continue;
+        }
+
+        console.warn(
+          '[generate] hotel_anchors insert failed (non-critical):',
+          msg,
+          hint ? `hint: ${hint}` : '',
+          code ? `code: ${code}` : '',
+        );
         break;
       }
     }
@@ -748,7 +768,10 @@ export async function POST(req: NextRequest) {
 
     const destCity = String(itinerary.destination || profile.destination || '').trim();
     if (destCity) {
-      void (async () => {
+      // ── trips row: await inline so it completes before the response is sent.
+      // The void IIFE pattern previously caused serverless functions to kill
+      // this write before it finished (lambda terminates with the HTTP response).
+      try {
         await persistTripSessionRow(dbWrite, {
           itineraryId: itineraryDbId,
           userId,
@@ -757,8 +780,16 @@ export async function POST(req: NextRequest) {
           startDate: profile.startDate ?? null,
           endDate: profile.endDate ?? null,
         });
-        await ensureTransportationForCity(dbWrite, destCity, profile.duration);
-      })();
+      } catch (tripErr) {
+        // Non-critical: itinerary is already saved; log but don't block.
+        console.error('[generate] trips row failed (non-critical):', tripErr instanceof Error ? tripErr.message : tripErr);
+      }
+
+      // ── transportation scout: intentionally fire-and-forget (can take 10-30 s).
+      // It will be populated on the NEXT read if this background task is killed.
+      void ensureTransportationForCity(dbWrite, destCity, profile.duration).catch((e) => {
+        console.warn('[generate] transportation scout failed (non-critical):', e instanceof Error ? e.message : e);
+      });
     }
 
     // ── Optional: write tags column (non-critical — column may not exist yet) ───

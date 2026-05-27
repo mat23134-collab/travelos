@@ -518,8 +518,17 @@ async function runPipeline(
     for (let i = 0; i < 6; i++) {
       const { error: ae } = await dbWrite.from('hotel_anchors').insert(row);
       if (!ae) break;
-      if (dropMissingColumn(row, ae.message ?? '')) { console.warn('[generate-stream] hotel_anchors retry'); continue; }
-      console.warn('[generate-stream] hotel_anchors skipped:', ae.message); break;
+      const msg  = ae.message ?? '';
+      const hint = (ae as unknown as { hint?: string }).hint ?? '';
+      const code = (ae as unknown as { code?: string }).code ?? '';
+      if (dropMissingColumn(row, msg)) { console.warn('[generate-stream] hotel_anchors retry without missing column'); continue; }
+      // NOT NULL violation on lat/lng — schema may not have nullable coords yet
+      if (code === '23502' && (msg.includes('lat') || msg.includes('lng'))) {
+        row.lat = 0; row.lng = 0;
+        console.warn('[generate-stream] hotel_anchors lat/lng NOT NULL — using 0,0 fallback'); continue;
+      }
+      console.warn('[generate-stream] hotel_anchors insert failed:', msg, hint ? `| hint: ${hint}` : '', code ? `| code: ${code}` : '');
+      break;
     }
   }
 
@@ -544,7 +553,8 @@ async function runPipeline(
 
   const destCity = String(itinerary.destination || profile.destination || '').trim();
   if (destCity) {
-    void (async () => {
+    // trips row: await inline — void IIFE was killed by serverless before completing
+    try {
       await persistTripSessionRow(dbWrite, {
         itineraryId: itineraryDbId,
         userId,
@@ -553,8 +563,13 @@ async function runPipeline(
         startDate: profile.startDate ?? null,
         endDate: profile.endDate ?? null,
       });
-      await ensureTransportationForCity(dbWrite, destCity, profile.duration);
-    })();
+    } catch (tripErr) {
+      console.error('[generate-stream] trips row failed (non-critical):', tripErr instanceof Error ? tripErr.message : tripErr);
+    }
+    // Transportation scout: intentionally fire-and-forget (can take 10-30 s)
+    void ensureTransportationForCity(dbWrite, destCity, profile.duration).catch((e) => {
+      console.warn('[generate-stream] transportation scout failed (non-critical):', e instanceof Error ? e.message : e);
+    });
   }
 
   // ── Interest tags ──────────────────────────────────────────────────────────
