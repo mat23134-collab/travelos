@@ -5,12 +5,12 @@ import { TravelerProfile, ClassifiedResult, type Activity, type DiningSpot } fro
 import { SYSTEM_PROMPT, buildUserPrompt } from '@/lib/prompts';
 import { runChainOfThoughtSearch, searchWeb } from '@/lib/rag';
 import { supabase } from '@/lib/supabase';
-import { queryPlacesForCity, formatPlacesForPrompt } from '@/lib/places';
 import { batchVerifyPlaces } from '@/lib/verification';
 import { normalizeBasecampHotels } from '@/lib/hotelNormalize';
 import { classifyActivity } from '@/lib/activityGenre';
 import { resolveAuthenticatedTraveler } from '@/lib/resolveAuthUser';
 import { ensureTransportationForCity, persistTripSessionRow } from '@/lib/tripTransport';
+import { formatAvailableInventoryForSystemPrompt, getFilteredInventory } from '@/services/scoringEngine';
 import {
   GENERATE_PREFETCH_PER_BRANCH_MS,
   GENERATE_LLM_FETCH_MS,
@@ -289,7 +289,7 @@ type GeminiGenerateBody = {
   promptFeedback?: { blockReason?: string };
 };
 
-async function callGemini(userPrompt: string): Promise<string> {
+async function callGemini(userPrompt: string, systemPrompt: string): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY is not set');
@@ -300,7 +300,7 @@ async function callGemini(userPrompt: string): Promise<string> {
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelName)}` +
     `:generateContent?key=${encodeURIComponent(apiKey)}`;
 
-  const systemText = JSON_PREAMBLE + SYSTEM_PROMPT;
+  const systemText = JSON_PREAMBLE + systemPrompt;
   console.log(`[generate] Gemini ${modelName} — key prefix: ${apiKey.slice(0, 8)}`);
 
   const ac = new AbortController();
@@ -358,7 +358,7 @@ async function callGemini(userPrompt: string): Promise<string> {
 
 // ── Claude call (fallback) ───────────────────────────────────────────────────
 
-async function callClaude(userPrompt: string): Promise<string> {
+async function callClaude(userPrompt: string, systemPrompt: string): Promise<string> {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error('ANTHROPIC_API_KEY is not set — add it to Railway Variables');
   }
@@ -371,7 +371,7 @@ async function callClaude(userPrompt: string): Promise<string> {
     {
       model: modelName,
       max_tokens: 16000,
-      system: JSON_PREAMBLE + SYSTEM_PROMPT,
+      system: JSON_PREAMBLE + systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],
     },
     { timeout: GENERATE_LLM_FETCH_MS },
@@ -397,9 +397,8 @@ export async function POST(req: NextRequest) {
     }
 
     // ── All pre-AI I/O in parallel ──────────────────────────────────────────────
-    // queryPlacesForCity (Supabase) + runChainOfThoughtSearch (Tavily/Exa)
-    // + hotel searchWeb all fire simultaneously — total wait = slowest of
-    // the three, not the sum. Saves ~20-30s vs the prior sequential version.
+    // Scoring inventory (Supabase) + runChainOfThoughtSearch (Tavily/Exa)
+    // + hotel searchWeb all fire simultaneously — total wait = slowest branch.
     const hotelQuery = !profile.hotelBooked?.trim()
       ? (() => {
           const accommodation = profile.accommodation?.replace(/-/g, ' ') ?? 'boutique hotel';
@@ -416,15 +415,26 @@ export async function POST(req: NextRequest) {
         })()
       : null;
 
-    const [scoutedPlaces, classifiedResults, rawHotelResults] = await Promise.all([
+    const [filteredInventory, classifiedResults, rawHotelResults] = await Promise.all([
       withPrefetchTimeout(
-        queryPlacesForCity(profile.destination).catch((err) => {
-          console.warn('[generate] Hybrid RAG query failed (non-critical):', err);
-          return [] as Awaited<ReturnType<typeof queryPlacesForCity>>;
+        getFilteredInventory({
+          userTripChoices: {
+            destination: profile.destination,
+            group_type: profile.groupType,
+            budget: profile.budget,
+            pace: profile.pace,
+            interests: profile.interests,
+            dietary_restrictions: profile.dietaryRestrictions,
+            must_have: profile.mustHave,
+          },
+          groupDynamics: profile.groupDynamics ?? null,
+        }).catch((err) => {
+          console.warn('[generate] scoring inventory query failed (non-critical):', err);
+          return [] as Awaited<ReturnType<typeof getFilteredInventory>>;
         }),
         GENERATE_PREFETCH_PER_BRANCH_MS,
-        [] as Awaited<ReturnType<typeof queryPlacesForCity>>,
-        'places prefetch',
+        [] as Awaited<ReturnType<typeof getFilteredInventory>>,
+        'inventory scoring prefetch',
       ),
       withPrefetchTimeout(
         runChainOfThoughtSearch(profile).catch(() => [] as ClassifiedResult[]),
@@ -442,12 +452,12 @@ export async function POST(req: NextRequest) {
         : Promise.resolve([]),
     ]);
 
-    let internalPlaces: string | undefined;
-    if (scoutedPlaces.length > 0) {
-      internalPlaces = formatPlacesForPrompt(scoutedPlaces);
-      console.log(`[generate] Hybrid RAG: injecting ${scoutedPlaces.length} scouted places for ${profile.destination}`);
+    const inventorySystemBlock = formatAvailableInventoryForSystemPrompt(filteredInventory);
+    const inventoryLockedSystemPrompt = `${SYSTEM_PROMPT}\n${inventorySystemBlock}`;
+    if (filteredInventory.length > 0) {
+      console.log(`[generate] inventory lock: injecting ${filteredInventory.length} scored items for ${profile.destination}`);
     } else {
-      console.log(`[generate] Hybrid RAG: no pre-scouted places found for ${profile.destination}`);
+      console.log(`[generate] inventory lock: no scored inventory found for ${profile.destination}`);
     }
 
     let hotelContext: string | undefined;
@@ -459,26 +469,26 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Generate itinerary: Gemini first, Claude fallback ───────────────────────
-    const userPrompt = buildUserPrompt(profile, classifiedResults, hotelContext, internalPlaces);
+    const userPrompt = buildUserPrompt(profile, classifiedResults, hotelContext);
 
     let raw: string;
     let provider: 'gemini' | 'claude';
 
     if (process.env.GEMINI_API_KEY?.trim()) {
       try {
-        raw = await withRetry(() => callGemini(userPrompt), GENERATE_LLM_MAX_ATTEMPTS);
+        raw = await withRetry(() => callGemini(userPrompt, inventoryLockedSystemPrompt), GENERATE_LLM_MAX_ATTEMPTS);
         provider = 'gemini';
       } catch (geminiErr) {
         console.warn(
           '[generate] Gemini failed — falling back to Claude:',
           geminiErr instanceof Error ? geminiErr.message : geminiErr,
         );
-        raw = await withRetry(() => callClaude(userPrompt), GENERATE_LLM_MAX_ATTEMPTS);
+        raw = await withRetry(() => callClaude(userPrompt, inventoryLockedSystemPrompt), GENERATE_LLM_MAX_ATTEMPTS);
         provider = 'claude';
       }
     } else {
       console.log('[generate] GEMINI_API_KEY not set — using Claude only');
-      raw = await withRetry(() => callClaude(userPrompt), GENERATE_LLM_MAX_ATTEMPTS);
+      raw = await withRetry(() => callClaude(userPrompt, inventoryLockedSystemPrompt), GENERATE_LLM_MAX_ATTEMPTS);
       provider = 'claude';
     }
 
@@ -492,7 +502,7 @@ export async function POST(req: NextRequest) {
           '[generate] Gemini JSON parse failed — falling back to Claude:',
           parseErr instanceof Error ? parseErr.message : parseErr,
         );
-        raw = await withRetry(() => callClaude(userPrompt), GENERATE_LLM_MAX_ATTEMPTS);
+        raw = await withRetry(() => callClaude(userPrompt, inventoryLockedSystemPrompt), GENERATE_LLM_MAX_ATTEMPTS);
         provider = 'claude';
         itinerary = parseAIJson(raw);
       } else {

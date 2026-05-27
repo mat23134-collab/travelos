@@ -42,6 +42,51 @@ export interface InventoryItem {
   scoreReasons: string[];
 }
 
+export function formatAvailableInventoryForSystemPrompt(items: InventoryItem[]): string {
+  if (items.length === 0) {
+    return `
+AVAILABLE INVENTORY:
+- No tagged inventory rows were available for this request. Use the normal JSON schema and TravelOS expertise.
+`;
+  }
+
+  const lines = items.slice(0, MAX_RESULTS).map((item, index) => {
+    const id = item.id ?? `${item.source_table}:${item.name}`.replace(/\s+/g, '-').toLowerCase();
+    const tags = [
+      item.vibe.length ? `vibe=[${item.vibe.join(', ')}]` : '',
+      item.group_suitability.length ? `group=[${item.group_suitability.join(', ')}]` : '',
+      item.culinary_focus.length ? `culinary=[${item.culinary_focus.join(', ')}]` : '',
+    ].filter(Boolean).join(' ');
+
+    return [
+      `[I${index + 1}] id=${id}`,
+      `source=${item.source_table}`,
+      `name="${item.name}"`,
+      item.category ? `category=${item.category}` : '',
+      item.city ? `city="${item.city}"` : '',
+      item.lat != null && item.lng != null ? `gps=${item.lat},${item.lng}` : '',
+      item.vibe_label ? `vibeLabel=${item.vibe_label}` : '',
+      tags,
+      item.description ? `description="${item.description.slice(0, 180).replace(/"/g, "'")}"` : '',
+    ].filter(Boolean).join(' | ');
+  });
+
+  return `
+AVAILABLE INVENTORY (STRICT SOURCE OF TRUTH):
+${lines.join('\n')}
+
+INVENTORY LOCK (NON-NEGOTIABLE):
+- Build breakfast, lunch, dinner, morning, afternoon, and evening ONLY from AVAILABLE INVENTORY items above.
+- Do NOT invent or substitute any attraction, restaurant, cafe, bar, market, museum, hotel, or activity outside this inventory.
+- Every Activity and DiningSpot you select MUST preserve the exact inventory name and GPS coordinates.
+- Every selected Activity and DiningSpot MUST include these extra fields alongside the existing schema fields:
+  "inventory_id": the exact id value from AVAILABLE INVENTORY,
+  "inventory_source_table": "places" or "restaurants".
+- Keep the existing JSON response shape and all existing required fields unchanged. These inventory fields are additive only.
+- If a day needs fewer stops because inventory is limited, reuse the best-fitting inventory item rather than inventing a new place.
+`;
+}
+
 type RawInventoryRow = {
   id?: string | number | null;
   name?: string | null;

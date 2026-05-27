@@ -172,6 +172,9 @@ export interface Activity {
   // Relational DB (populated after Supabase insert)
   item_id?: string;        // UUID from itinerary_items row — enables targeted row-level swaps
   website_url?: string;    // official website URL (from Claude or Google Places)
+  // Recommendation-engine provenance (optional, additive JSON field)
+  inventory_id?: string;
+  inventory_source_table?: 'places' | 'restaurants';
 }
 
 export interface DiningSpot {
@@ -186,6 +189,9 @@ export interface DiningSpot {
   // Relational DB (populated after Supabase insert)
   item_id?: string;     // UUID from itinerary_items row
   website_url?: string; // official website URL
+  // Recommendation-engine provenance (optional, additive JSON field)
+  inventory_id?: string;
+  inventory_source_table?: 'places' | 'restaurants';
 }
 
 export interface WebInsight {

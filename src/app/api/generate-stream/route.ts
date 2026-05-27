@@ -19,12 +19,12 @@ import { TravelerProfile, ClassifiedResult, type Activity, type DiningSpot } fro
 import { SYSTEM_PROMPT, buildUserPrompt } from '@/lib/prompts';
 import { runChainOfThoughtSearch, searchWeb } from '@/lib/rag';
 import { supabase } from '@/lib/supabase';
-import { queryPlacesForCity, formatPlacesForPrompt } from '@/lib/places';
 import { batchVerifyPlaces } from '@/lib/verification';
 import { normalizeBasecampHotels } from '@/lib/hotelNormalize';
 import { classifyActivity } from '@/lib/activityGenre';
 import { resolveAuthenticatedTraveler } from '@/lib/resolveAuthUser';
 import { ensureTransportationForCity, persistTripSessionRow } from '@/lib/tripTransport';
+import { formatAvailableInventoryForSystemPrompt, getFilteredInventory } from '@/services/scoringEngine';
 import {
   GENERATE_PREFETCH_PER_BRANCH_MS,
   GENERATE_LLM_FETCH_MS,
@@ -172,7 +172,7 @@ async function persistNewPlaces(itineraryObj: Record<string, unknown>, cityRaw: 
 
 type GeminiBody = { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> }; finishReason?: string }>; promptFeedback?: { blockReason?: string } };
 
-async function callGemini(userPrompt: string, signal?: AbortSignal): Promise<string> {
+async function callGemini(userPrompt: string, systemPrompt: string, signal?: AbortSignal): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) throw new Error('GEMINI_API_KEY is not set');
   const model = process.env.GEMINI_MODEL ?? 'gemini-3-flash-preview';
@@ -183,7 +183,7 @@ async function callGemini(userPrompt: string, signal?: AbortSignal): Promise<str
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      systemInstruction: { parts: [{ text: JSON_PREAMBLE + SYSTEM_PROMPT }] },
+      systemInstruction: { parts: [{ text: JSON_PREAMBLE + systemPrompt }] },
       contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
       generationConfig: { temperature: 0.35, maxOutputTokens: maxTokens, responseMimeType: 'application/json' },
     }),
@@ -201,13 +201,13 @@ async function callGemini(userPrompt: string, signal?: AbortSignal): Promise<str
   return raw;
 }
 
-async function callClaude(userPrompt: string, signal?: AbortSignal): Promise<string> {
+async function callClaude(userPrompt: string, systemPrompt: string, signal?: AbortSignal): Promise<string> {
   if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not set');
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
   console.log(`[generate-stream] Claude ${model}`);
   const message = await client.messages.create(
-    { model, max_tokens: 16000, system: JSON_PREAMBLE + SYSTEM_PROMPT, messages: [{ role: 'user', content: userPrompt }] },
+    { model, max_tokens: 16000, system: JSON_PREAMBLE + systemPrompt, messages: [{ role: 'user', content: userPrompt }] },
     { ...(signal ? { signal } : {}), timeout: GENERATE_LLM_FETCH_MS },
   );
   const block = message.content[0];
@@ -243,19 +243,30 @@ async function runPipeline(
     : null;
 
   // ── All pre-AI I/O in parallel ────────────────────────────────────────────
-  // scouted places (Supabase) + chain-of-thought web search + hotel search
-  // all fire simultaneously — total wait = slowest of the three, not the sum.
+  // scored inventory (Supabase) + chain-of-thought web search + hotel search
+  // all fire simultaneously — total wait = slowest branch.
   await send({ type: 'status', message: `Scouting ${profile.destination} for hidden gems…`, icon: '🔍' });
 
-  const [scoutedPlaces, classifiedResults, rawHotelResults] = await Promise.all([
+  const [filteredInventory, classifiedResults, rawHotelResults] = await Promise.all([
     withPrefetchTimeout(
-      queryPlacesForCity(profile.destination).catch((e) => {
-        console.warn('[generate-stream] Hybrid RAG failed (non-critical):', e);
-        return [] as Awaited<ReturnType<typeof queryPlacesForCity>>;
+      getFilteredInventory({
+        userTripChoices: {
+          destination: profile.destination,
+          group_type: profile.groupType,
+          budget: profile.budget,
+          pace: profile.pace,
+          interests: profile.interests,
+          dietary_restrictions: profile.dietaryRestrictions,
+          must_have: profile.mustHave,
+        },
+        groupDynamics: profile.groupDynamics ?? null,
+      }).catch((e) => {
+        console.warn('[generate-stream] scoring inventory failed (non-critical):', e);
+        return [] as Awaited<ReturnType<typeof getFilteredInventory>>;
       }),
       GENERATE_PREFETCH_PER_BRANCH_MS,
-      [] as Awaited<ReturnType<typeof queryPlacesForCity>>,
-      'places prefetch',
+      [] as Awaited<ReturnType<typeof getFilteredInventory>>,
+      'inventory scoring prefetch',
     ),
     withPrefetchTimeout(
       runChainOfThoughtSearch(profile).catch(() => [] as ClassifiedResult[]),
@@ -273,11 +284,9 @@ async function runPipeline(
       : Promise.resolve([]),
   ]);
 
-  let internalPlaces: string | undefined;
-  if (scoutedPlaces.length > 0) {
-    internalPlaces = formatPlacesForPrompt(scoutedPlaces);
-    console.log(`[generate-stream] Hybrid RAG: ${scoutedPlaces.length} scouted places`);
-  }
+  const inventorySystemBlock = formatAvailableInventoryForSystemPrompt(filteredInventory);
+  const inventoryLockedSystemPrompt = `${SYSTEM_PROMPT}\n${inventorySystemBlock}`;
+  console.log(`[generate-stream] inventory lock: ${filteredInventory.length} scored items`);
 
   if (classifiedResults.length > 0) {
     await send({ type: 'status', message: `Analyzed ${classifiedResults.length} insider sources`, icon: '📚' });
@@ -292,7 +301,7 @@ async function runPipeline(
   // ── AI generation ──────────────────────────────────────────────────────────
   await send({ type: 'status', message: `Building your ${profile.destination} itinerary…`, icon: '✈️' });
 
-  const userPrompt = buildUserPrompt(profile, classifiedResults, hotelContext, internalPlaces);
+  const userPrompt = buildUserPrompt(profile, classifiedResults, hotelContext);
 
   // LLM HTTP budget (aligned with /api/generate + client abort on plan page).
   const aiController = new AbortController();
@@ -308,17 +317,17 @@ async function runPipeline(
   try {
     if (process.env.GEMINI_API_KEY?.trim()) {
       try {
-        raw = await callGemini(userPrompt, aiController.signal);
+        raw = await callGemini(userPrompt, inventoryLockedSystemPrompt, aiController.signal);
         provider = 'gemini';
       } catch (geminiErr) {
         // If the shared budget already expired, surface a clear timeout error
         if (aiController.signal.aborted) throw new Error('Itinerary generation timed out. Please try again.');
         console.warn('[generate-stream] Gemini failed — falling back to Claude:', geminiErr instanceof Error ? geminiErr.message : geminiErr);
-        raw = await callClaude(userPrompt, aiController.signal);
+        raw = await callClaude(userPrompt, inventoryLockedSystemPrompt, aiController.signal);
         provider = 'claude';
       }
     } else {
-      raw = await callClaude(userPrompt, aiController.signal);
+      raw = await callClaude(userPrompt, inventoryLockedSystemPrompt, aiController.signal);
       provider = 'claude';
     }
   } finally {
@@ -338,7 +347,7 @@ async function runPipeline(
       const retryController = new AbortController();
       const retryTimer = setTimeout(() => retryController.abort(), 30_000);
       try {
-        raw = await callClaude(userPrompt, retryController.signal);
+        raw = await callClaude(userPrompt, inventoryLockedSystemPrompt, retryController.signal);
       } finally {
         clearTimeout(retryTimer);
       }
