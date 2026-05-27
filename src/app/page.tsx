@@ -11,6 +11,7 @@ import { TripLanguageGateModal } from '@/components/TripLanguageGateModal';
 import { BrandWordmark } from '@/components/BrandWordmark';
 import { DESTINATIONS } from '@/lib/destinations';
 import type { Destination } from '@/lib/destinations';
+import { COUNTRIES } from '@/lib/countries';
 import { savePendingIntent } from '@/lib/pendingIntent';
 import { CinematicHeroBackground } from '@/components/CinematicHeroBackground';
 import { resolveBackgroundImage } from '@/lib/stepBackgrounds';
@@ -22,6 +23,16 @@ const NIGHT   = '#0b1220';
 const NIGHT_2 = '#0f1929';
 const REDLINE = '#9e363a';
 const MUTED   = '#64748b';
+
+function buildOnboardingHref(dest: Destination): string {
+  const country = COUNTRIES.find((c) => c.cities.some((city) => city.name === dest.name));
+  const params = new URLSearchParams({
+    destination: dest.name,
+    city: dest.name,
+    country: country?.name ?? dest.country,
+  });
+  return `/onboarding?${params.toString()}`;
+}
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 
@@ -43,7 +54,7 @@ function PostcardCard({
 }: {
   dest: Destination;
   index: number;
-  onSelect: (name: string) => void;
+  onSelect: (destination: Destination) => void;
 }) {
   const [liked, setLiked] = useState(false);
   const photo = resolveBackgroundImage(dest.name, index, dest.country);
@@ -55,7 +66,7 @@ function PostcardCard({
       viewport={{ once: true }}
       transition={{ delay: index * 0.09, type: 'spring', stiffness: 240, damping: 22 }}
       whileHover={{ y: -12, boxShadow: '0 40px 80px rgba(0,0,0,0.6)' }}
-      onClick={() => onSelect(dest.name)}
+      onClick={() => onSelect(dest)}
       className="group relative rounded-3xl overflow-hidden cursor-pointer select-none"
       style={{
         height: 340,
@@ -137,7 +148,7 @@ export default function HomePage() {
   const [showLangModal,   setShowLangModal]   = useState(false);
   const [showAuthGate,    setShowAuthGate]    = useState(false);
   const [scrolled,        setScrolled]        = useState(false);
-  const [pendingDest,     setPendingDest]     = useState<string | null>(null);
+  const [pendingDest,     setPendingDest]     = useState<Destination | null>(null);
 
   // Scroll-aware nav opacity
   useEffect(() => {
@@ -159,12 +170,12 @@ export default function HomePage() {
   };
 
   // Postcard click — pre-selects destination
-  const handleDestinationSelect = (name: string) => {
+  const handleDestinationSelect = (destination: Destination) => {
     if (!hasRequiredLegalConsent()) {
       requestLegalConsent();
       return;
     }
-    setPendingDest(name);
+    setPendingDest(destination);
     setShowLangModal(true);
   };
 
@@ -172,12 +183,12 @@ export default function HomePage() {
     persistTripLanguagePref(lang);
     setShowLangModal(false);
     if (!user) {
-      savePendingIntent({ destination: pendingDest ?? undefined });
+      savePendingIntent({ destination: pendingDest?.name });
       setShowAuthGate(true);
       return;
     }
     if (pendingDest) {
-      router.push(`/plan?destination=${encodeURIComponent(pendingDest)}`);
+      router.push(buildOnboardingHref(pendingDest));
     } else {
       router.push('/onboarding');
     }

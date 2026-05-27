@@ -71,7 +71,7 @@ export default function AuthPage() {
     if (!loading && user) {
       const intent = loadAndClearPendingIntent();
       if (intent?.destination) {
-        router.replace(`/plan?destination=${encodeURIComponent(intent.destination)}`);
+        router.replace(`/onboarding?destination=${encodeURIComponent(intent.destination)}`);
       } else {
         router.replace('/dashboard');
       }
@@ -207,7 +207,7 @@ export default function AuthPage() {
       // Restore pending trip intent (destination chosen before auth round-trip)
       const intent = loadAndClearPendingIntent();
       if (intent?.destination) {
-        router.push(`/plan?destination=${encodeURIComponent(intent.destination)}`);
+        router.push(`/onboarding?destination=${encodeURIComponent(intent.destination)}`);
       } else {
         router.push('/dashboard');
       }

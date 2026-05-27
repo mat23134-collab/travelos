@@ -26,6 +26,7 @@ import { readTripLanguagePref } from '@/lib/tripLanguagePref';
 import { useAuth } from '@/lib/auth-context';
 import { BrandWordmark } from '@/components/BrandWordmark';
 import { resolveBackgroundImage } from '@/lib/stepBackgrounds';
+import { COUNTRIES } from '@/lib/countries';
 
 // ── Lazy-load heavy step components ──────────────────────────────────────────
 const DestinationSection = dynamic(
@@ -129,7 +130,8 @@ function OnboardingPageContent() {
     accommodation, hotelNightlyBudget,
     groupType, groupDynamics, pace, budget, interests,
     dietaryRestrictions, mustHaveItems, mustHaveOther,
-    step: storeStep, goToStep, reset, setDestination,
+    step: storeStep, goToStep, reset,
+    setCountry, setTripType, setCities, setDestination,
   } = useOnboardingStore();
 
   // Wizard step (0-4) — separate from store.step so back/forward doesn't
@@ -153,6 +155,8 @@ function OnboardingPageContent() {
     if (!user) return;
     const resume   = searchParams.get('resume') === '1';
     const seedDest = searchParams.get('destination')?.trim() ?? '';
+    const seedCity = searchParams.get('city')?.trim() || seedDest;
+    const seedCountry = searchParams.get('country')?.trim() ?? '';
 
     if (resume) {
       // Re-enter at the appropriate step
@@ -162,7 +166,23 @@ function OnboardingPageContent() {
     }
     if (seedDest) {
       reset();
-      setDestination(seedDest);
+      const matchedCountry = COUNTRIES.find((c) =>
+        c.name.toLowerCase() === seedCountry.toLowerCase() ||
+        c.cities.some((city) => city.name.toLowerCase() === seedCity.toLowerCase()),
+      );
+      const matchedCity = matchedCountry?.cities.find(
+        (city) => city.name.toLowerCase() === seedCity.toLowerCase(),
+      );
+
+      if (matchedCountry && matchedCity) {
+        setCountry(matchedCountry.name);
+        setTripType('single');
+        setCities([matchedCity]);
+        goToStep(1);
+        setWizardStep(1);
+      } else {
+        setDestination(seedDest);
+      }
       return;
     }
     const hasProgress = destination.trim().length > 0 || storeStep > 0;
