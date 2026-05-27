@@ -109,6 +109,21 @@ test('falls back from Booking 429 to Priceline and returns normalized hotels', a
   assert.equal(result.hotels[0]?.name, 'Priceline Grand Vienna');
 });
 
+test('returns null provider when every RapidAPI fails AND Exa fallback is skipped', async () => {
+  const fetchImpl: typeof fetch = async () => {
+    throw new Error('provider unreachable');
+  };
+  const result = await searchAccommodations(
+    baseInput,
+    { env, fetchImpl, timeoutMs: 500, skipExaFallback: true },
+  );
+  assert.equal(result.provider, null);
+  assert.equal(result.hotels.length, 0);
+  assert.equal(result.webContext, undefined);
+  assert.equal(result.attempts.length, 4);
+  assert.ok(result.attempts.every((a) => !a.ok));
+});
+
 test('cascades through empty and failed providers to Expedia', async () => {
   const hosts: string[] = [];
   const fetchImpl: typeof fetch = async (url) => {

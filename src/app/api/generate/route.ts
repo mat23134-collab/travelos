@@ -462,6 +462,11 @@ export async function POST(req: NextRequest) {
       console.log(
         `[generate] accommodation provider=${accommodationResult.provider ?? 'none'} hotels=${accommodationResult.hotels.length}`,
       );
+    } else if (accommodationResult.webContext) {
+      hotelContext = accommodationResult.webContext;
+      console.log(
+        `[generate] accommodation provider=exa (web fallback) — ${accommodationResult.webContext.length} chars of editorial research`,
+      );
     }
 
     // ── Generate itinerary: Gemini first, Claude fallback ───────────────────────

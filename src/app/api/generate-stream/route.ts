@@ -297,6 +297,12 @@ async function runPipeline(
     console.log(
       `[generate-stream] accommodation provider=${accommodationResult.provider ?? 'none'} hotels=${accommodationResult.hotels.length}`,
     );
+  } else if (accommodationResult.webContext) {
+    await send({ type: 'status', message: 'Mining editorial hotel guides…', icon: '🏨' });
+    hotelContext = accommodationResult.webContext;
+    console.log(
+      `[generate-stream] accommodation provider=exa (web fallback) — ${accommodationResult.webContext.length} chars`,
+    );
   }
 
   // ── AI generation ──────────────────────────────────────────────────────────

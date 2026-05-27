@@ -1,6 +1,9 @@
 import type { AccommodationType, BudgetLevel, HotelNightlyBudget, TravelerProfile } from '@/lib/types';
+import { searchExaOnly } from '@/lib/rag';
 
 export type AccommodationProviderId = 'booking' | 'priceline' | 'expedia' | 'airbnb';
+/** Includes the synthetic 'exa' web-fallback provider used when no live API returned hotels. */
+export type AccommodationProviderIdOrExa = AccommodationProviderId | 'exa';
 
 export type AccommodationEnv = Partial<Record<
   | 'RAPIDAPI_KEY'
@@ -48,9 +51,17 @@ export interface AccommodationSearchInput {
 }
 
 export interface AccommodationSearchResult {
-  provider: AccommodationProviderId | null;
+  /** Wins-the-race provider id, including the synthetic 'exa' web fallback. null = nothing succeeded. */
+  provider: AccommodationProviderIdOrExa | null;
+  /** Structured hotel rows from a RapidAPI provider. Empty when only the Exa web fallback ran. */
   hotels: Hotel[];
-  attempts: Array<{ provider: AccommodationProviderId; ok: boolean; reason?: string }>;
+  /**
+   * Plain-text hotel research snippets (Exa fallback) that the LLM can mine to invent
+   * named recommendations when no live inventory is available. Populated only when
+   * provider === 'exa'.
+   */
+  webContext?: string;
+  attempts: Array<{ provider: AccommodationProviderIdOrExa; ok: boolean; reason?: string }>;
   fallback: boolean;
 }
 
@@ -291,6 +302,8 @@ type SearchOptions = {
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
   providerOrder?: AccommodationProviderId[];
+  /** Skip the Exa web fallback after all RapidAPI providers fail (used in tests). */
+  skipExaFallback?: boolean;
 };
 
 export async function searchAccommodations(
@@ -315,7 +328,79 @@ export async function searchAccommodations(
     }
   }
 
+  // ── Exa web fallback ────────────────────────────────────────────────────────
+  // All RapidAPI providers exhausted (or unconfigured). Mine Exa for hotel
+  // research snippets so the LLM can still invent grounded recommendations.
+  if (!options.skipExaFallback) {
+    try {
+      const webContext = await searchHotelsViaExa(input);
+      if (webContext && webContext.trim().length > 0) {
+        attempts.push({ provider: 'exa', ok: true });
+        console.log('[accommodation] Exa web fallback returned hotel research snippets');
+        return { provider: 'exa', hotels: [], webContext, attempts, fallback: true };
+      }
+      attempts.push({ provider: 'exa', ok: false, reason: 'no snippets returned' });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      attempts.push({ provider: 'exa', ok: false, reason });
+      console.warn(`[accommodation] Exa fallback failed: ${reason}`);
+    }
+  }
+
   return { provider: null, hotels: [], attempts, fallback: true };
+}
+
+// ─── Exa web fallback for hotel research ──────────────────────────────────────
+
+/**
+ * When live hotel APIs are unavailable, mine Exa for editorial / blog roundups
+ * of hotels in the destination. The output is a plain-text block ready to be
+ * passed to the LLM as HOTEL_SEARCH_DATA — the existing prompt already knows
+ * how to extract names, neighborhoods, and indicative price bands from it.
+ *
+ * Exa "neural" search is well suited to this: it surfaces editorial sources
+ * like CN Traveler, Time Out, Lonely Planet, and Booking.com curated roundups.
+ */
+export async function searchHotelsViaExa(input: AccommodationSearchInput): Promise<string> {
+  const dest = input.destination?.trim();
+  if (!dest) return '';
+
+  const accommodation = String(input.accommodation ?? '').replace(/-/g, ' ').trim() || 'boutique hotel';
+  const dates =
+    input.startDate?.slice(0, 10) && input.endDate?.slice(0, 10)
+      ? `${input.startDate.slice(0, 10)} to ${input.endDate.slice(0, 10)}`
+      : '';
+  const budgetWord =
+    input.hotelNightlyBudget === 'luxury' ? 'luxury' :
+    input.hotelNightlyBudget === 'comfort' ? 'upscale' :
+    input.hotelNightlyBudget === 'mid'     ? 'mid-range' :
+    input.hotelNightlyBudget === 'budget'  ? 'budget' :
+    input.budget === 'luxury' ? 'luxury' :
+    input.budget === 'budget' ? 'budget' : '';
+
+  const baseQuery = [
+    'best', budgetWord, accommodation, 'in', dest,
+    dates ? `for ${dates}` : '',
+    'editorial review neighborhood guide 2026',
+  ].filter(Boolean).join(' ');
+
+  const results = await searchExaOnly(baseQuery, 6);
+  if (results.length === 0) return '';
+
+  const lines = results.map((r, i) => {
+    const snippet = r.snippet?.slice(0, 420).replace(/\s+/g, ' ').trim() ?? '';
+    return `[H${i + 1}] ${r.title} (${r.url})\n${snippet}`;
+  });
+
+  return [
+    `# Hotel research snippets (Exa web fallback — live inventory APIs unavailable)`,
+    `# Destination: ${dest}${dates ? ` · Dates: ${dates}` : ''}${budgetWord ? ` · Tier: ${budgetWord}` : ''}`,
+    `# Mine these editorial sources to surface named, real hotels with neighborhood`,
+    `# context. Set otaPriceCompare nightly rates to null with "verify live" note —`,
+    `# we did NOT query live OTA inventory for these snippets.`,
+    '',
+    lines.join('\n\n'),
+  ].join('\n');
 }
 
 export function buildAccommodationContext(hotels: Hotel[]): string {
