@@ -30,6 +30,7 @@ import { classifyActivity } from '@/lib/activityGenre';
 import { resolveAuthenticatedTraveler } from '@/lib/resolveAuthUser';
 import { ensureTransportationForCity, persistTripSessionRow } from '@/lib/tripTransport';
 import { gatherTransportExaSnippets } from '@/lib/transportExaIntel';
+import { persistVenuesToCache } from '@/lib/venueCache';
 import { formatAvailableInventoryForSystemPrompt, getFilteredInventory } from '@/services/scoringEngine';
 import { buildFallbackItinerary, validateItineraryOrThrow, type GenerationProvider } from '@/services/itineraryFallback';
 import {
@@ -116,69 +117,8 @@ function createDbWriteClient() {
   return supabase;
 }
 
-type PlaceSeed = {
-  city: string; name: string; category: string; description: string;
-  lat: number; lng: number; category_emoji: string;
-  social_proof_url: string | null; vibe_label: string;
-};
-
-function activityToPlaceSeed(city: string, activity: Activity, slot: 'morning' | 'afternoon' | 'evening'): PlaceSeed | null {
-  const name = typeof activity.name === 'string' ? activity.name.trim() : '';
-  const lat = Number(activity.latitude), lng = Number(activity.longitude);
-  if (!name || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-  const genre = classifyActivity(activity);
-  const category = genre === 'food' ? 'restaurant' : genre === 'shopping' ? 'market' : genre === 'nightlife' ? 'bar' : 'attraction';
-  const desc = ((typeof activity.description === 'string' && activity.description) || (typeof activity.whyThis === 'string' && activity.whyThis) || `Suggested ${slot} ${category} in ${city}`).slice(0, 500);
-  return { city, name, category, description: desc, lat, lng, category_emoji: typeof activity.category_emoji === 'string' ? activity.category_emoji : '📍', social_proof_url: null, vibe_label: typeof activity.vibeLabel === 'string' ? activity.vibeLabel : 'local-favorite' };
-}
-
-function diningToPlaceSeed(city: string, spot: DiningSpot, meal: 'breakfast' | 'lunch' | 'dinner'): PlaceSeed | null {
-  const name = typeof spot.name === 'string' ? spot.name.trim() : '';
-  const lat = Number(spot.latitude), lng = Number(spot.longitude);
-  if (!name || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-  const cuisine = typeof spot.cuisine === 'string' ? spot.cuisine.trim() : '';
-  const mustTry = typeof spot.mustTry  === 'string' ? spot.mustTry.trim()  : '';
-  const description = [mustTry && `Must try: ${mustTry}`, cuisine && `Cuisine: ${cuisine}`].filter(Boolean).join(' · ') || `Recommended ${meal} spot in ${city}`;
-  return { city, name, category: meal === 'breakfast' ? 'cafe' : 'restaurant', description: description.slice(0, 500), lat, lng, category_emoji: meal === 'breakfast' ? '☕' : meal === 'lunch' ? '🍽️' : '🌙', social_proof_url: null, vibe_label: 'local-favorite' };
-}
-
-function collectPlaceSeeds(itineraryObj: Record<string, unknown>, city: string): PlaceSeed[] {
-  const days = Array.isArray(itineraryObj.days) ? itineraryObj.days : [];
-  const seeds: PlaceSeed[] = [];
-  for (const d of days) {
-    const day = (d ?? {}) as Record<string, unknown>;
-    for (const slot of ['morning', 'afternoon', 'evening'] as const) {
-      const act = day[slot];
-      if (act && typeof act === 'object') { const s = activityToPlaceSeed(city, act as Activity, slot); if (s) seeds.push(s); }
-    }
-    for (const meal of ['breakfast', 'lunch', 'dinner'] as const) {
-      const spot = day[meal];
-      if (spot && typeof spot === 'object') { const s = diningToPlaceSeed(city, spot as DiningSpot, meal); if (s) seeds.push(s); }
-    }
-  }
-  const seen = new Set<string>();
-  return seeds.filter((s) => { const k = `${s.city.toLowerCase()}__${s.name.toLowerCase()}`; if (seen.has(k)) return false; seen.add(k); return true; });
-}
-
-async function persistNewPlaces(itineraryObj: Record<string, unknown>, cityRaw: string): Promise<void> {
-  const city = cityRaw.trim();
-  if (!city) return;
-  const seeds = collectPlaceSeeds(itineraryObj, city);
-  if (seeds.length === 0) return;
-  const url = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').replace(/\/+$/, '');
-  const key  = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
-  const client = url && key ? createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } }) : supabase;
-  let inserted = 0, skipped = 0;
-  for (const seed of seeds) {
-    const { data: ex, error: se } = await client.from('places').select('id').ilike('name', seed.name).ilike('city', seed.city).maybeSingle();
-    if (se) { console.warn(`[generate-stream] places select skipped "${seed.name}":`, se.message); continue; }
-    if (ex) { skipped++; continue; }
-    const { error: ie } = await client.from('places').insert(seed);
-    if (ie) { console.warn(`[generate-stream] places insert skipped "${seed.name}":`, ie.message); continue; }
-    inserted++;
-  }
-  console.log(`[generate-stream] places sync: inserted ${inserted}, skipped ${skipped}`);
-}
+// Seed builders + warm-cache write live in src/lib/venueCache.ts.
+// Use persistVenuesToCache(client, itinerary, city, profile, 'generate-stream').
 
 // ── LLM calls ─────────────────────────────────────────────────────────────────
 
@@ -760,10 +700,19 @@ async function runPipeline(
   const { error: finalErr } = await dbWrite.from('itineraries').update({ itinerary_json: { ...itinerary, _profile: profile, hotel_info: hotelInfo } }).eq('id', itineraryDbId);
   if (finalErr) console.warn('[generate-stream] final blob update failed (non-critical):', finalErr.message);
 
-  // Best-effort: do not block background completion on places sync.
-  void persistNewPlaces(itinerary as Record<string, unknown>, profile.destination ?? '').catch((e) =>
-    console.warn('[generate-stream] places sync background:', e instanceof Error ? e.message : e),
-  );
+  // Warm-cache write — await so the background lambda waits for the upsert
+  // before exiting. One batch upsert is ~200-400 ms.
+  try {
+    await persistVenuesToCache(
+      dbWrite,
+      itinerary as Record<string, unknown>,
+      profile.destination ?? '',
+      profile,
+      'generate-stream',
+    );
+  } catch (e) {
+    console.warn('[generate-stream] places sync failed (non-critical):', e instanceof Error ? e.message : e);
+  }
 
   console.log('[generate-stream] background tasks done for id:', itineraryDbId);
 }
