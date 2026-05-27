@@ -515,19 +515,24 @@ async function runPipeline(
     hotelRows.push({ itinerary_id: itineraryDbId, user_id: userId, hotel_name: rec.name, address: rec.neighborhood ?? null, lat: profile.hotelLat ?? null, lng: profile.hotelLng ?? null, source: 'recommended', is_selected: false });
   }
   for (const row of hotelRows) {
+    console.log('⏳ hotel_anchors (stream) — inserting:', JSON.stringify({ hotel_name: row.hotel_name, source: row.source, lat: row.lat, lng: row.lng }));
     for (let i = 0; i < 6; i++) {
       const { error: ae } = await dbWrite.from('hotel_anchors').insert(row);
-      if (!ae) break;
-      const msg  = ae.message ?? '';
-      const hint = (ae as unknown as { hint?: string }).hint ?? '';
-      const code = (ae as unknown as { code?: string }).code ?? '';
-      if (dropMissingColumn(row, msg)) { console.warn('[generate-stream] hotel_anchors retry without missing column'); continue; }
-      // NOT NULL violation on lat/lng — schema may not have nullable coords yet
+      if (!ae) { console.log('✅ HOTEL_ANCHORS ROW SAVED (stream):', row.hotel_name); break; }
+      const e = ae as unknown as { message?: string; details?: string; hint?: string; code?: string };
+      console.log(`❌ SUPABASE ERROR DETECTED IN HOTEL_ANCHORS (stream, attempt ${i + 1}):`);
+      console.log('  Message:', e.message);
+      console.log('  Details:', e.details);
+      console.log('  Hint:   ', e.hint);
+      console.log('  Code:   ', e.code);
+      console.log('  Row:    ', JSON.stringify(row, null, 2));
+      const msg = e.message ?? '', code = e.code ?? '';
+      if (dropMissingColumn(row, msg)) { console.log('  → retrying without missing column'); continue; }
       if (code === '23502' && (msg.includes('lat') || msg.includes('lng'))) {
         row.lat = 0; row.lng = 0;
-        console.warn('[generate-stream] hotel_anchors lat/lng NOT NULL — using 0,0 fallback'); continue;
+        console.log('  → lat/lng NOT NULL — retrying with 0,0'); continue;
       }
-      console.warn('[generate-stream] hotel_anchors insert failed:', msg, hint ? `| hint: ${hint}` : '', code ? `| code: ${code}` : '');
+      console.log('  → unrecoverable — skipping this row');
       break;
     }
   }
@@ -549,7 +554,16 @@ async function runPipeline(
     dietary_restrictions: profile.dietaryRestrictions ?? '', must_have: profile.mustHave ?? '',
   };
   const { error: tcErr } = await dbWrite.from('user_trip_choices').upsert(tcRow, { onConflict: 'itinerary_id' });
-  if (tcErr) console.warn('[generate-stream] user_trip_choices skipped:', tcErr.message);
+  if (tcErr) {
+    const e = tcErr as unknown as { message?: string; details?: string; hint?: string; code?: string };
+    console.log('❌ SUPABASE ERROR DETECTED IN USER_TRIP_CHOICES (stream):');
+    console.log('  Message:', e.message);
+    console.log('  Details:', e.details);
+    console.log('  Hint:   ', e.hint);
+    console.log('  Code:   ', e.code);
+  } else {
+    console.log('✅ user_trip_choices upsert OK (stream)');
+  }
 
   const destCity = String(itinerary.destination || profile.destination || '').trim();
   if (destCity) {

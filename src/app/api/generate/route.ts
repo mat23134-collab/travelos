@@ -694,35 +694,40 @@ export async function POST(req: NextRequest) {
       });
     }
     for (const row of hotelAnchorRows) {
+      console.log('⏳ hotel_anchors — inserting row:', JSON.stringify({ hotel_name: row.hotel_name, source: row.source, lat: row.lat, lng: row.lng }));
       for (let i = 0; i < 6; i++) {
         const { error: anchorErr } = await dbWrite.from('hotel_anchors').insert(row);
-        if (!anchorErr) break;
+        if (!anchorErr) {
+          console.log('✅ HOTEL_ANCHORS ROW SAVED:', row.hotel_name, '(source:', row.source + ')');
+          break;
+        }
 
-        const msg  = anchorErr.message ?? '';
-        const hint = (anchorErr as { hint?: string }).hint ?? '';
-        const code = (anchorErr as { code?: string }).code ?? '';
+        const e = anchorErr as unknown as { message?: string; details?: string; hint?: string; code?: string };
+        console.log(`❌ SUPABASE ERROR DETECTED IN HOTEL_ANCHORS (attempt ${i + 1}):`);
+        console.log('  Message:', e.message);
+        console.log('  Details:', e.details);
+        console.log('  Hint:   ', e.hint);
+        console.log('  Code:   ', e.code);
+        console.log('  Row:    ', JSON.stringify(row, null, 2));
+
+        const msg  = e.message ?? '';
+        const code = e.code ?? '';
 
         // Missing column in schema → strip and retry
         if (dropMissingColumnFromRow(row, msg)) {
-          console.warn('[generate] hotel_anchors retry without missing column');
+          console.log('  → retrying without missing column');
           continue;
         }
 
-        // NOT NULL violation (23502) on lat/lng — null out the offending coordinate
-        // and retry. The migration makes lat/lng nullable, but a legacy schema may not.
+        // NOT NULL violation (23502) on lat/lng
         if (code === '23502' && (msg.includes('lat') || msg.includes('lng'))) {
           row.lat = 0;
           row.lng = 0;
-          console.warn('[generate] hotel_anchors lat/lng NOT NULL — using 0,0 as fallback');
+          console.log('  → lat/lng NOT NULL violation — retrying with 0,0');
           continue;
         }
 
-        console.warn(
-          '[generate] hotel_anchors insert failed (non-critical):',
-          msg,
-          hint ? `hint: ${hint}` : '',
-          code ? `code: ${code}` : '',
-        );
+        console.log('  → unrecoverable — skipping this row');
         break;
       }
     }
@@ -763,7 +768,14 @@ export async function POST(req: NextRequest) {
       .from('user_trip_choices')
       .upsert(tripChoiceRow, { onConflict: 'itinerary_id' });
     if (tripChoicesErr) {
-      console.warn('[generate] user_trip_choices upsert skipped (non-critical):', tripChoicesErr.message);
+      const e = tripChoicesErr as unknown as { message?: string; details?: string; hint?: string; code?: string };
+      console.log('❌ SUPABASE ERROR DETECTED IN USER_TRIP_CHOICES:');
+      console.log('  Message:', e.message);
+      console.log('  Details:', e.details);
+      console.log('  Hint:   ', e.hint);
+      console.log('  Code:   ', e.code);
+    } else {
+      console.log('✅ user_trip_choices upsert OK');
     }
 
     const destCity = String(itinerary.destination || profile.destination || '').trim();

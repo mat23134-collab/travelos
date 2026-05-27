@@ -42,14 +42,14 @@ export async function upsertTransportationGuide(
   };
   const { error } = await db.from('transportation').upsert(row, { onConflict: 'city_norm' });
   if (error) {
-    const hint = (error as unknown as { hint?: string }).hint ?? '';
-    const code = (error as unknown as { code?: string }).code ?? '';
-    console.warn(
-      '[tripTransport] transportation upsert failed:',
-      error.message,
-      hint  ? `| hint: ${hint}` : '',
-      code  ? `| code: ${code}` : '',
-    );
+    const e = error as unknown as { message?: string; details?: string; hint?: string; code?: string };
+    console.log('❌ SUPABASE ERROR DETECTED IN TRANSPORTATION:');
+    console.log('  Message:', e.message);
+    console.log('  Details:', e.details);
+    console.log('  Hint:   ', e.hint);
+    console.log('  Code:   ', e.code);
+  } else {
+    console.log('✅ transportation upsert OK for city:', city_name);
   }
 }
 
@@ -68,21 +68,29 @@ export async function ensureTransportationForCity(
   const key = normalizeCityKey(city);
   const { data: existing, error: selErr } = await db.from('transportation').select('id').eq('city_norm', key).maybeSingle();
   if (selErr) {
-    console.warn('[tripTransport] ensureTransportation select:', selErr.message);
+    const e = selErr as unknown as { message?: string; details?: string; hint?: string; code?: string };
+    console.log('❌ SUPABASE ERROR DETECTED IN TRANSPORTATION (select check):');
+    console.log('  Message:', e.message);
+    console.log('  Details:', e.details);
+    console.log('  Hint:   ', e.hint);
+    console.log('  Code:   ', e.code);
     return;
   }
-  if (existing) return;
+  if (existing) {
+    console.log('ℹ️  transportation already exists for city:', city, '— skipping scout');
+    return;
+  }
 
+  console.log('🔍 transportation missing for city:', city, '— running scout agent…');
   try {
     const guide = await runTransportScoutAgent(city, { tripDays });
     if (!guide || !hasTransportContent(guide)) {
-      console.warn('[tripTransport] scout returned empty guide for', city);
+      console.warn('⚠️  scout returned empty guide for', city);
       return;
     }
     await upsertTransportationGuide(db, city, guide);
-    console.log('[tripTransport] transportation populated for', city);
   } catch (e) {
-    console.warn('[tripTransport] scout failed (non-critical):', e instanceof Error ? e.message : e);
+    console.warn('⚠️  transportation scout failed (non-critical):', e instanceof Error ? e.message : e);
   }
 }
 
@@ -110,6 +118,8 @@ export async function persistTripSessionRow(
     updated_at: new Date().toISOString(),
   };
 
+  console.log('⏳ persistTripSessionRow — attempting upsert for itinerary:', args.itineraryId, 'city:', city_name);
+
   // Strategy: try upsert first; on unique violation fall back to UPDATE;
   // on missing-column errors strip the column and retry.
   for (let i = 0; i < 8; i++) {
@@ -120,31 +130,38 @@ export async function persistTripSessionRow(
       : await db.from('trips').insert(row);
 
     if (!error) {
-      console.log('[tripTransport] trips row saved for itinerary:', args.itineraryId);
+      console.log('✅ TRIPS ROW SAVED — itinerary:', args.itineraryId);
       return;
     }
 
-    const msg  = error.message ?? '';
-    const hint = (error as unknown as { hint?: string }).hint ?? '';
-    const code = (error as unknown as { code?: string }).code ?? error.code ?? '';
-    console.warn(
-      '[tripTransport] trips upsert attempt', i + 1, 'error:', msg,
-      hint ? `| hint: ${hint}` : '',
-      code ? `| code: ${code}` : '',
-    );
+    const e = error as unknown as { message?: string; details?: string; hint?: string; code?: string };
+    console.log(`❌ SUPABASE ERROR DETECTED IN TRIPS (attempt ${i + 1}):`);
+    console.log('  Message:', e.message);
+    console.log('  Details:', e.details);
+    console.log('  Hint:   ', e.hint);
+    console.log('  Code:   ', e.code);
+    console.log('  Row being inserted:', JSON.stringify(row, null, 2));
+
+    const msg  = e.message ?? '';
+    const code = e.code ?? '';
 
     // Unique violation (23505) — row already exists, update it instead
     if (code === '23505' || msg.includes('duplicate key') || msg.includes('unique')) {
+      console.log('  → unique violation — falling back to UPDATE');
       const { id: _id, itinerary_id: _iid, ...updateFields } = row as Record<string, unknown>;
       const { error: updErr } = await db
         .from('trips')
         .update(updateFields)
         .eq('itinerary_id', args.itineraryId);
       if (updErr) {
-        const updHint = (updErr as unknown as { hint?: string }).hint ?? '';
-        console.warn('[tripTransport] trips update fallback failed:', updErr.message, updHint ? `| hint: ${updHint}` : '');
+        const ue = updErr as unknown as { message?: string; details?: string; hint?: string; code?: string };
+        console.log('❌ SUPABASE ERROR DETECTED IN TRIPS (update fallback):');
+        console.log('  Message:', ue.message);
+        console.log('  Details:', ue.details);
+        console.log('  Hint:   ', ue.hint);
+        console.log('  Code:   ', ue.code);
       } else {
-        console.log('[tripTransport] trips row updated (fallback) for itinerary:', args.itineraryId);
+        console.log('✅ TRIPS ROW UPDATED (fallback) — itinerary:', args.itineraryId);
       }
       return;
     }
@@ -152,10 +169,10 @@ export async function persistTripSessionRow(
     // Missing column — strip and retry
     const missing = msg.match(/Could not find the '([^']+)' column/)?.[1];
     if (!missing || !(missing in row)) {
-      console.warn('[tripTransport] trips upsert skipped (unrecoverable):', msg, hint ? `| hint: ${hint}` : '');
+      console.log('  → unrecoverable error — aborting trips write');
       return;
     }
     delete row[missing];
-    console.warn('[tripTransport] trips upsert retry without column:', missing);
+    console.log('  → retrying without missing column:', missing);
   }
 }
