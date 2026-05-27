@@ -8,6 +8,15 @@ export type HotelOtaLinkOpts = {
   adults?: number;
 };
 
+export type MergedOtaRow = {
+  id: OtaId;
+  label: string;
+  indicativeNightly: string | null;
+  note: string | null;
+  /** true = the AI returned a row for this OTA; false = not mentioned at all */
+  hasData: boolean;
+};
+
 function adultsParam(adults?: number): number {
   return adults && adults > 0 ? adults : 2;
 }
@@ -32,9 +41,11 @@ export function expediaHotelSearchUrl(
   destination: string,
   opts?: HotelOtaLinkOpts,
 ): string {
-  // Expedia expects dates as MM/DD/YYYY (not ISO), and the query goes in `destination`
+  // Expedia date filters work on Hotel-Search, but `destination` alone often
+  // resolves to a city. `keyword` keeps the hotel name in the lodging search.
   const params = new URLSearchParams();
-  params.set('destination', `${hotelName}, ${destination}`);
+  params.set('destination', destination);
+  params.set('keyword', hotelName);
   const ci = opts?.checkIn?.slice(0, 10);
   const co = opts?.checkOut?.slice(0, 10);
   if (ci && /^\d{4}-\d{2}-\d{2}$/.test(ci)) {
@@ -101,15 +112,21 @@ export function isSoldOut(note: string | null | undefined): boolean {
   );
 }
 
+export function isOtaSoldOut(row: Pick<MergedOtaRow, 'indicativeNightly' | 'note' | 'hasData'>): boolean {
+  const nightly = row.indicativeNightly?.trim().toLowerCase() ?? '';
+  return (
+    isSoldOut(row.note) ||
+    isSoldOut(nightly) ||
+    (row.hasData && !nightly)
+  );
+}
+
+export function hasBookableOtaRate(row: Pick<MergedOtaRow, 'indicativeNightly' | 'note' | 'hasData'>): boolean {
+  return row.hasData && Boolean(row.indicativeNightly?.trim()) && !isOtaSoldOut(row);
+}
+
 /** Merge model rows with canonical Booking → Expedia → Airbnb order for the UI. */
-export function mergeHotelOtaRows(rows: OtaPriceCompareRow[] | null | undefined): Array<{
-  id: OtaId;
-  label: string;
-  indicativeNightly: string | null;
-  note: string | null;
-  /** true = the AI returned a row for this OTA; false = not mentioned at all */
-  hasData: boolean;
-}> {
+export function mergeHotelOtaRows(rows: OtaPriceCompareRow[] | null | undefined): MergedOtaRow[] {
   const hit = new Map<OtaId, OtaPriceCompareRow>();
   for (const r of rows ?? []) {
     const id = matchOtaId(r.source);

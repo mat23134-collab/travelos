@@ -49,6 +49,19 @@ function pickNum(obj: Record<string, unknown>, ...keys: string[]): number | unde
   return undefined;
 }
 
+function pickBool(obj: Record<string, unknown>, ...keys: string[]): boolean | null {
+  for (const k of keys) {
+    const v = obj[k];
+    if (typeof v === 'boolean') return v;
+    if (typeof v === 'string') {
+      const normalized = v.trim().toLowerCase();
+      if (['true', 'yes', 'available'].includes(normalized)) return true;
+      if (['false', 'no', 'sold out', 'sold-out', 'unavailable'].includes(normalized)) return false;
+    }
+  }
+  return null;
+}
+
 /** Normalize Claude/GPT drift between camelCase and snake_case when parsing itinerary JSON. */
 export function normalizeHotelRecommendation(raw: unknown): HotelRecommendation | null {
   if (!raw || typeof raw !== 'object') return null;
@@ -85,6 +98,7 @@ export function normalizeHotelRecommendation(raw: unknown): HotelRecommendation 
   const ratingStars = pickNum(r, 'ratingStars', 'rating_stars');
   const latitude = pickNum(r, 'latitude', 'lat');
   const longitude = pickNum(r, 'longitude', 'lng', 'lon');
+  const availability = pickBool(r, 'availability', 'isAvailable', 'is_available');
 
   return {
     name,
@@ -103,6 +117,7 @@ export function normalizeHotelRecommendation(raw: unknown): HotelRecommendation 
     reviewCountHint,
     latitude: latitude ?? null,
     longitude: longitude ?? null,
+    availability,
   };
 }
 

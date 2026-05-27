@@ -273,18 +273,19 @@ CRITICAL: Return ONLY a valid JSON object — no markdown fences, no prose. Stru
         "neighborhoodInsight": "max 15 words strategic advantage",
         "websiteUrl": "https://official-hotel-site.example OR null — NEVER invent",
         "estimatedPriceRangeTripDates": "Indicative nightly band for TRIP_HOTEL_DATES e.g. €260–€420/night (indicative — verify)",
-        "availabilitySummary": "For TRIP_HOTEL_DATES: realistic likelihood (NOT live inventory) — e.g. usually bookable / peak demand — book early / major event weekend — scarce",
+        "availabilitySummary": "For TRIP_HOTEL_DATES: availability status from HOTEL_SEARCH_DATA. If no rooms are found, write SOLD OUT for those dates.",
         "fitSummary": "Exactly 2 sentences: (1) what this hotel/property is in plain language (2) why it matches THIS group's budget, pace, interests, and neighborhood strategy",
         "otaPriceCompare": [
-          { "source": "Booking.com", "indicativeNightly": "€265–€310/night OR null if unknown", "note": "Ground ONLY if HOTEL_SEARCH_DATA cites it; else null + verify live" },
-          { "source": "Expedia", "indicativeNightly": null, "note": "Same honesty rule as Booking" },
+          { "source": "Booking.com", "indicativeNightly": "€265–€310/night OR null when SOLD OUT/unknown", "note": "If no rooms are available, write exactly SOLD OUT for these dates. Otherwise cite availability evidence." },
+          { "source": "Expedia", "indicativeNightly": "€265–€310/night OR null when SOLD OUT/unknown", "note": "If no rooms are available, write exactly SOLD OUT for these dates. Otherwise cite availability evidence." },
           { "source": "Airbnb", "indicativeNightly": null, "note": "Often apartments near hotel zone — compare listing types; honesty rule" }
         ],
         "ratingStars": 4.6,
         "ratingSource": "Google Maps aggregate OR named roundup cited from HOTEL_SEARCH_DATA — NEVER invent platform IDs",
         "reviewCountHint": "~800 reviews OR null when unknown",
         "latitude": 51.5074,
-        "longitude": -0.1278
+        "longitude": -0.1278,
+        "availability": true
       }
     ]
   }
@@ -298,15 +299,16 @@ BASECAMP RULES (critical):
   • transitNearHotel: 2–4 objects naming REAL modes/lines/stations plausible for this city & district; modeLabel + lineOrRoute stay English map-style; walkMinutes optional; never invent exact timetables
   • signatureMove: ONE sentence — a memorable insider "move" from the hotel (cheap breakfast cluster, post-dinner liqueur walk, shortcut to a view, best bakery run) max 22 words
 - If no hotel: set basecamp.type="recommendations", omit booked{}, provide exactly 3 hotel recommendations in recommendations[] based on HOTEL_SEARCH_DATA (if available) or expertise. Each must include ALL keys shown in the sample recommendations[] object:
-  • DATE-FIRST FILTER: When TRIP_HOTEL_DATES is present, ONLY recommend properties that are typically bookable on those nights for this destination class (avoid recommending sold-out-only fiction). Say honestly in availabilitySummary if peak season / events usually tighten inventory — NEVER claim you verified live rooms.
+  • DATE-FIRST AVAILABILITY FILTER: When TRIP_HOTEL_DATES is present, recommend hotels ONLY when HOTEL_SEARCH_DATA gives evidence of availability or a nightly rate for those exact dates. If a property appears sold out/no rooms/no availability, set availability=false, write SOLD OUT in availabilitySummary, and mark Booking.com/Expedia note as exactly SOLD OUT for these dates. Prefer replacing sold-out properties with available alternatives.
   • Core fields (mandatory): name, neighborhood, neighborhoodVibe (2–3 words), whyItFits (max 12 words), priceRange (e.g. "$$"), neighborhoodInsight (max 15 words strategic advantage)
   • fitSummary: mandatory — exactly 2 sentences (see sample)
-  • otaPriceCompare: mandatory — exactly 3 rows in this fixed order: Booking.com, Expedia, Airbnb. indicativeNightly MUST be null unless HOTEL_SEARCH_DATA (or clearly cited snippet figures) supports a numeric band; NEVER invent platform-specific prices. note may say "verify live on site" when unsure.
+  • otaPriceCompare: mandatory — exactly 3 rows in this fixed order: Booking.com, Expedia, Airbnb. Booking.com and Expedia MUST include a numeric indicativeNightly only when HOTEL_SEARCH_DATA indicates rooms/rates for TRIP_HOTEL_DATES. If no rooms are available, indicativeNightly=null and note="SOLD OUT for these dates". Do not label unknown availability as available.
   • websiteUrl: ONLY when an obvious official hotel domain appears in HOTEL_SEARCH_DATA URLs/snippets — otherwise null (never fabricate)
   • estimatedPriceRangeTripDates: MUST reference TRIP_HOTEL_DATES from the user prompt when present; phrase explicitly as indicative guidance (not a live fare quote)
   • availabilitySummary: MUST explicitly reference the user's trip nights when TRIP_HOTEL_DATES exists — typical booking pressure / seasonality for THOSE dates (not generic year-round fluff)
   • ratingStars / ratingSource / reviewCountHint: include ONLY when grounded by HOTEL_SEARCH_DATA or other cited roundup tone — omit/null instead of guessing
   • latitude / longitude: best-effort accurate GPS for the property when confident — otherwise null
+  • availability: true ONLY when Booking.com or Expedia rows have a nightly rate / available-room evidence for TRIP_HOTEL_DATES. false when sold out. null when unknown.
 
 PACE RULES:
 - relaxed: morning + evening activity slots only (omit afternoon key); ALWAYS include breakfast, lunch, dinner DiningSpots; evening SHOULD be a relaxed bar or wine spot
@@ -474,7 +476,7 @@ export function buildUserPrompt(profile: TravelerProfile, searchResults?: Classi
     !profile.hotelBooked?.trim() && profile.startDate && profile.endDate
       ? `\nTRIP_HOTEL_DATES: ${profile.startDate.slice(0, 10)} → ${profile.endDate.slice(0, 10)}`
       + `\nestimatedPriceRangeTripDates MUST cite these exact dates and explicitly note pricing is indicative (TravelOS does not query live OTA inventory automatically)`
-      + `\nPick hotels realistic for those nights; fill otaPriceCompare honestly from HOTEL_SEARCH_DATA snippets when figures appear — otherwise null nightly rates with short verify-live notes`
+      + `\nPick hotels with availability evidence for those nights first. If HOTEL_SEARCH_DATA shows no rooms/no availability, mark SOLD OUT and prefer a different available hotel. Never present sold-out hotels as normal options.`
       : '';
 
   const hotelBlock = profile.hotelBooked?.trim()

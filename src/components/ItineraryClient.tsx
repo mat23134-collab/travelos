@@ -15,7 +15,7 @@ import { DraftOverview } from '@/components/DraftOverview';
 import { TrendingTicker } from '@/components/TrendingTicker';
 import { TripStoryCube } from '@/components/TripStoryCube';
 import { itineraryUi, type ItineraryUiStrings } from '@/lib/tripUiCopy';
-import { hotelOtaSearchUrl, mergeHotelOtaRows, isSoldOut, type HotelOtaLinkOpts } from '@/lib/hotelOtaLinks';
+import { hotelOtaSearchUrl, mergeHotelOtaRows, isOtaSoldOut, hasBookableOtaRate, type HotelOtaLinkOpts } from '@/lib/hotelOtaLinks';
 
 /** Strip trailing "/night" variants the AI sometimes appends to indicativeNightly
  *  so we don't double-up when we add our own "· /night (est.)" suffix. */
@@ -60,11 +60,9 @@ function activeOtaRowsForHotel(hotel: HotelRecommendation) {
   );
 }
 
-/** At least one channel with date-available inventory: official site OR Booking/Expedia not sold out. */
+/** At least one OTA channel with date-available inventory. Official site alone is not enough. */
 function hasAnyBookableChannel(hotel: HotelRecommendation): boolean {
-  const officialAvailable = Boolean(hotel.websiteUrl?.trim());
-  const otaAvailable = activeOtaRowsForHotel(hotel).some((r) => r.hasData && !isSoldOut(r.note));
-  return officialAvailable || otaAvailable;
+  return activeOtaRowsForHotel(hotel).some(hasBookableOtaRate);
 }
 
 function HotelDetailCube({
@@ -221,7 +219,7 @@ function HotelDetailCube({
             </p>
             <ul className="divide-y divide-white/8">
               {otaRows.filter((r) => r.hasData).map((row) => {
-                const soldOut = isSoldOut(row.note);
+                const soldOut = isOtaSoldOut(row);
                 const nightly = cleanNightlyRate(row.indicativeNightly);
                 return (
                   <li key={row.id} className="px-3 py-2.5 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
@@ -455,7 +453,7 @@ function TosPopoverPortal({
           {/* Per-OTA nightly price rows — only OTAs the AI returned data for */}
           <div className="px-3 py-3 flex flex-col gap-1.5">
             {otaRows.filter((r) => r.hasData).map((row) => {
-              const soldOut = isSoldOut(row.note);
+              const soldOut = isOtaSoldOut(row);
               return (
                 <div
                   key={row.id}
@@ -544,7 +542,7 @@ function HotelCard({
 
   // Prefer the first OTA row with a price; fall back to the AI-generated band
   const perNightStr: string | null =
-    otaRows.find((r) => r.indicativeNightly)?.indicativeNightly ??
+    otaRows.find(hasBookableOtaRate)?.indicativeNightly ??
     hotel.estimatedPriceRangeTripDates ??
     null;
 
@@ -739,7 +737,7 @@ function HotelCard({
           >
             <div className="flex items-center gap-1.5 flex-wrap">
               {activeOtaRows.map((row) => {
-                const soldOut    = isSoldOut(row.note);
+                const soldOut    = isOtaSoldOut(row);
                 const theme      = OTA_THEME[row.id] ?? OTA_THEME.booking;
                 const icon       = OTA_ICON[row.id]?.(9) ?? null;
                 const shortLabel = row.label.replace('.com', '').replace('booking', 'Booking').split('.')[0];
