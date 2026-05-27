@@ -245,7 +245,8 @@ function OnboardingPageContent() {
       }
       case 4:
         if (hotelAddress)  return { canContinue: true, label: 'Next: dining rules →' };
-        if (accommodation) return { canContinue: true, label: 'Next: dining rules →' };
+        if (accommodation && !hotelNightlyBudget) return { canContinue: false, label: 'Pick nightly budget' };
+        if (accommodation && hotelNightlyBudget) return { canContinue: true, label: 'Next: dining rules →' };
         return { canContinue: true, label: 'Next: dining rules →' };
       case 5:
         return { canContinue: true, label: 'Next: our recommendations →' };

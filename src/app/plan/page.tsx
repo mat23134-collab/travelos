@@ -946,7 +946,7 @@ function PlanPage() {
   const autoGenerateFromOnboarding = searchParams.get('autoGenerate') === '1';
 
   const activeQuestions = PLAN_QUESTIONS.filter((q) => {
-    if (autoGenerateFromOnboarding && q.key === 'finishingTouches') return false;
+    if (autoGenerateFromOnboarding) return false;
     // groupSize slider: only shown for 'group' ג€” solo/couple/family auto-derive it
     if (q.key === 'groupSize' && (form.groupType as string) !== 'group') return false;
     // Hotel-refinement steps: skip when hotel already booked via onboarding
