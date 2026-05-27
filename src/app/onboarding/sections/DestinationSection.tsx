@@ -116,6 +116,7 @@ function CityChip({ city, country, selected, onToggle }: {
   onToggle: () => void;
 }) {
   const photo = getCityImage(city.name, country);
+  const fallbackPhoto = getCountryImage(country);
 
   return (
     <motion.button
@@ -135,6 +136,11 @@ function CityChip({ city, country, selected, onToggle }: {
         src={photo}
         alt={city.name}
         loading="lazy"
+        onError={(event) => {
+          if (event.currentTarget.src !== fallbackPhoto) {
+            event.currentTarget.src = fallbackPhoto;
+          }
+        }}
         className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-out"
         style={{ transform: selected ? 'scale(1.06)' : 'scale(1)' }}
       />

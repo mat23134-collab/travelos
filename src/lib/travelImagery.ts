@@ -72,6 +72,6 @@ export function getCityImage(cityName: string, countryName?: string): string {
   );
   if (cityOnly) return cityOnly.imageUrl;
 
-  const query = [city, countryKey || country, 'travel city'].filter(Boolean).join(',');
-  return `https://source.unsplash.com/900x620/?${encodeURIComponent(query)}`;
+  if (countryKey) return getCountryImage(countryKey);
+  return DEFAULT_HERO;
 }
