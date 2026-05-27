@@ -54,3 +54,24 @@ export function getCountryImage(countryName: string): string {
   if (EXTRA_COUNTRY_HERO[key]) return EXTRA_COUNTRY_HERO[key];
   return DEFAULT_HERO;
 }
+
+export function getCityImage(cityName: string, countryName?: string): string {
+  const city = cityName.trim();
+  const country = countryName?.trim() ?? '';
+  const countryKey = COUNTRY_ALIASES[country] ?? country;
+
+  const exactCity = STEP_BACKGROUNDS.find(
+    (b) =>
+      b.city.toLowerCase() === city.toLowerCase() &&
+      (!countryKey || b.country.toLowerCase() === countryKey.toLowerCase()),
+  );
+  if (exactCity) return exactCity.imageUrl;
+
+  const cityOnly = STEP_BACKGROUNDS.find(
+    (b) => b.city.toLowerCase() === city.toLowerCase(),
+  );
+  if (cityOnly) return cityOnly.imageUrl;
+
+  const query = [city, countryKey || country, 'travel city'].filter(Boolean).join(',');
+  return `https://source.unsplash.com/900x620/?${encodeURIComponent(query)}`;
+}

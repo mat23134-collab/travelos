@@ -15,7 +15,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { COUNTRIES, type Country, type TravelCity } from '@/lib/countries';
-import { getCountryImage } from '@/lib/travelImagery';
+import { getCityImage, getCountryImage } from '@/lib/travelImagery';
 import { useOnboardingStore } from '@/state/onboardingStore';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
@@ -109,27 +109,54 @@ function CountryCard({ country, selected, onClick }: {
 }
 
 // ── City chip ─────────────────────────────────────────────────────────────────
-function CityChip({ city, selected, onToggle }: {
+function CityChip({ city, country, selected, onToggle }: {
   city: TravelCity;
+  country: string;
   selected: boolean;
   onToggle: () => void;
 }) {
+  const photo = getCityImage(city.name, country);
+
   return (
     <motion.button
+      type="button"
       onClick={onToggle}
-      whileHover={{ scale: 1.04 }}
+      whileHover={{ scale: 1.03, y: -2 }}
       whileTap={{ scale: 0.94 }}
       animate={selected
-        ? { boxShadow: `0 0 0 1.5px ${RED}` }
-        : { boxShadow: 'none' }}
-      className="px-3.5 py-2 rounded-xl text-[12px] font-semibold transition-colors"
+        ? { boxShadow: `0 0 0 2px ${RED}, 0 10px 24px rgba(158,54,58,0.26)` }
+        : { boxShadow: '0 5px 18px rgba(0,0,0,0.24)' }}
+      className="relative min-h-[76px] overflow-hidden rounded-2xl text-left transition-colors"
       style={{
-        background: selected ? `rgba(158,54,58,0.20)` : 'rgba(255,255,255,0.07)',
-        border: selected ? `1.5px solid rgba(158,54,58,0.55)` : '1.5px solid rgba(255,255,255,0.10)',
-        color: selected ? '#ff9fa3' : 'rgba(255,255,255,0.72)',
+        border: selected ? `1.5px solid rgba(158,54,58,0.65)` : '1.5px solid rgba(255,255,255,0.10)',
       }}
     >
-      {city.name}
+      <img
+        src={photo}
+        alt={city.name}
+        loading="lazy"
+        className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-out"
+        style={{ transform: selected ? 'scale(1.06)' : 'scale(1)' }}
+      />
+      <div
+        className="absolute inset-0"
+        style={{
+          background: selected
+            ? 'linear-gradient(to top, rgba(9,31,54,0.92) 0%, rgba(158,54,58,0.36) 58%, rgba(9,31,54,0.14) 100%)'
+            : 'linear-gradient(to top, rgba(9,31,54,0.88) 0%, rgba(9,31,54,0.40) 56%, rgba(9,31,54,0.16) 100%)',
+        }}
+      />
+      {selected && (
+        <span
+          className="absolute right-2 top-2 z-10 flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-black text-white"
+          style={{ background: RED }}
+        >
+          ✓
+        </span>
+      )}
+      <span className="relative z-10 flex h-full min-h-[76px] items-end px-3 pb-2.5 text-[12px] font-black leading-tight text-white drop-shadow-md">
+        {city.name}
+      </span>
     </motion.button>
   );
 }
@@ -379,11 +406,12 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
               <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: MUTED }}>
                 Popular in {country}
               </p>
-              <div className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
                 {selectedCountry.cities.map((city) => (
                   <CityChip
                     key={city.name}
                     city={city}
+                    country={country}
                     selected={!!cities.find((c) => c.name === city.name)}
                     onToggle={() => handleCityToggle(city)}
                   />
