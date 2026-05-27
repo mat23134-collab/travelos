@@ -3,13 +3,21 @@
 /**
  * VibeSection — Section 4 of the progressive onboarding flow.
  *
- * Two fast decisions: who's traveling (group type) and preferred pace.
- * Pace options reveal instantly after a group type is tapped.
- * Both selections auto-advance the flow — no button needed.
+ * Three fast decisions:
+ *   1. Who's coming?     (group type — 2×2 grid)
+ *   2. Dynamic sub-question (unique per group type — Solo / Couple / Group only)
+ *   3. Pace              (appears after both above are answered, or after group type
+ *                         for Family which has its own kids-age modal)
+ *
+ * All selections auto-advance — no button needed.
  */
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { useOnboardingStore } from '@/state/onboardingStore';
+import type {
+  SoloDynamics, CoupleDynamics, FamilyDynamics, GroupDynamics,
+  GroupDynamicsPayload,
+} from '@/lib/types';
 
 const PURPLE = '#7b6fcf';
 const MUTED  = 'rgba(255,255,255,0.38)';
@@ -19,6 +27,7 @@ const reveal = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.38, ease: [0.22, 1, 0.36, 1] } },
 };
 
+// ── Group type ─────────────────────────────────────────────────────────────────
 const GROUP_OPTIONS = [
   { value: 'solo',   label: 'Solo',   icon: '🧳', sub: 'Just me'        },
   { value: 'couple', label: 'Couple', icon: '💑', sub: 'Two of us'       },
@@ -26,6 +35,26 @@ const GROUP_OPTIONS = [
   { value: 'group',  label: 'Group',  icon: '👥', sub: '3+ friends'      },
 ];
 
+// ── Sub-questions by group type ───────────────────────────────────────────────
+const SOLO_DYNAMICS: Array<{ value: SoloDynamics; label: string; icon: string; sub: string }> = [
+  { value: 'digital-nomad',  label: 'Digital Nomad',   icon: '💻', sub: 'Work + explore — need good wifi & cafés' },
+  { value: 'deep-recharge',  label: 'Deep Recharge',   icon: '🧘', sub: 'Slow down, museums, long dinners alone' },
+  { value: 'adventure',      label: 'Adventure Seeker', icon: '🏔️', sub: 'Maximize experiences, go off-script'   },
+];
+
+const COUPLE_DYNAMICS: Array<{ value: CoupleDynamics; label: string; icon: string; sub: string }> = [
+  { value: 'romantic',      label: 'Romantic Escape',  icon: '🌹', sub: 'Candlelit dinners, quiet corners, sunset views'   },
+  { value: 'parent-child',  label: 'Parent & Child',   icon: '👧', sub: 'One adult, one kid — balance fun for both'        },
+  { value: 'reconnecting',  label: 'Reconnecting',     icon: '✨', sub: 'Long-term couple rediscovering adventures together' },
+];
+
+const GROUP_DYNAMICS: Array<{ value: GroupDynamics; label: string; icon: string; sub: string }> = [
+  { value: 'best-friends', label: 'Best Friends',  icon: '🍺', sub: 'Shared history, inside jokes, skip the tourist stuff' },
+  { value: 'mixed-ages',   label: 'Mixed Ages',    icon: '👨‍👩‍👦', sub: 'Different energy levels — include everyone'          },
+  { value: 'work-crew',    label: 'Work Crew',     icon: '💼', sub: 'Colleagues bonding — professional but relaxed'        },
+];
+
+// ── Pace ───────────────────────────────────────────────────────────────────────
 const PACE_OPTIONS = [
   { value: 'relaxed',  label: 'Slow & Intentional', icon: '🌊', sub: 'Max 2–3 stops/day, lots of breathing room' },
   { value: 'moderate', label: 'Balanced Explorer',   icon: '🗺️', sub: 'Mix of activity and downtime'               },
@@ -39,22 +68,32 @@ interface Props {
 }
 
 export function VibeSection({ isCompleted, onComplete, onEdit }: Props) {
-  const { groupType, pace, setGroupType, setPace } = useOnboardingStore();
+  const { groupType, groupDynamics, pace, setGroupType, setGroupDynamics, setPace } = useOnboardingStore();
+
+  // Family skips the sub-question (it has its own FamilyKidsModal further down)
+  const needsDynamics = groupType === 'solo' || groupType === 'couple' || groupType === 'group';
+  const dynamicsAnswered = !needsDynamics || groupDynamics !== null;
 
   function handleGroupSelect(gt: string) {
     setGroupType(gt as 'solo' | 'couple' | 'family' | 'group');
-    // If pace already chosen, auto-advance immediately
+    // Family skips sub-question: if pace already set, advance immediately
+    if (gt === 'family' && pace) setTimeout(() => onComplete(), 300);
+  }
+
+  function handleDynamicsSelect(subType: GroupDynamicsPayload['subType']) {
+    setGroupDynamics({ subType });
+    // If pace already chosen, auto-advance
     if (pace) setTimeout(() => onComplete(), 300);
   }
 
   function handlePaceSelect(p: string) {
     setPace(p as 'relaxed' | 'moderate' | 'intense');
-    // Auto-advance after the selection animation registers
     setTimeout(() => onComplete(), 350);
   }
 
-  const groupOpt = GROUP_OPTIONS.find((g) => g.value === groupType);
-  const paceOpt  = PACE_OPTIONS.find((p) => p.value === pace);
+  const groupOpt     = GROUP_OPTIONS.find((g) => g.value === groupType);
+  const paceOpt      = PACE_OPTIONS.find((p) => p.value === pace);
+  const dynamicsLabel = resolveDynamicsLabel(groupType, groupDynamics?.subType);
 
   // ── Completed summary bar ──────────────────────────────────────────────────
   if (isCompleted) {
@@ -71,6 +110,11 @@ export function VibeSection({ isCompleted, onComplete, onEdit }: Props) {
             <span className="text-sm font-bold text-white">
               {groupOpt?.icon} {groupOpt?.label}
             </span>
+            {dynamicsLabel && (
+              <span className="text-xs" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                · {dynamicsLabel}
+              </span>
+            )}
             {paceOpt && (
               <span className="text-xs" style={{ color: MUTED }}>
                 · {paceOpt.icon} {paceOpt.label}
@@ -98,7 +142,7 @@ export function VibeSection({ isCompleted, onComplete, onEdit }: Props) {
         <div>
           <h2 className="text-xl font-black text-white tracking-tight">Who's coming?</h2>
           <p className="text-xs mt-0.5" style={{ color: MUTED }}>
-            Shapes restaurants, activities, and pacing — two quick taps
+            Shapes restaurants, activities, and pacing
           </p>
         </div>
       </div>
@@ -143,9 +187,58 @@ export function VibeSection({ isCompleted, onComplete, onEdit }: Props) {
         })}
       </div>
 
-      {/* Pace — reveals after group type selected */}
+      {/* Dynamic sub-question — reveals after group type, only for solo/couple/group */}
       <AnimatePresence>
-        {groupType && (
+        {groupType && groupType !== 'family' && (
+          <motion.div key={`dynamics-${groupType}`}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } }}
+            exit={{ opacity: 0, y: -8 }}>
+            <p className="text-xs font-semibold mb-3" style={{ color: 'rgba(255,255,255,0.55)' }}>
+              {groupType === 'solo'   && 'What kind of solo trip?'}
+              {groupType === 'couple' && 'What kind of couple trip?'}
+              {groupType === 'group'  && 'What\'s the group vibe?'}
+            </p>
+            <div className="flex flex-col gap-2">
+              {getDynamicsOptions(groupType).map((opt) => {
+                const sel = groupDynamics?.subType === opt.value;
+                return (
+                  <motion.button
+                    key={opt.value}
+                    onClick={() => handleDynamicsSelect(opt.value as GroupDynamicsPayload['subType'])}
+                    whileHover={{ scale: 1.01, x: 3 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="flex items-center gap-3.5 px-4 py-3.5 rounded-xl border text-left transition-colors"
+                    style={sel
+                      ? { borderColor: '#9b87e0', background: 'rgba(123,111,207,0.10)' }
+                      : { borderColor: 'rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }
+                    }
+                  >
+                    <span className="text-xl shrink-0 leading-none">{opt.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold leading-tight"
+                        style={{ color: sel ? '#b8b0f0' : 'rgba(255,255,255,0.9)' }}>
+                        {opt.label}
+                      </div>
+                      <div className="text-[11px] mt-0.5 leading-snug" style={{ color: MUTED }}>
+                        {opt.sub}
+                      </div>
+                    </div>
+                    {sel && (
+                      <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }}
+                        className="text-xs font-bold shrink-0" style={{ color: PURPLE }}>✓</motion.span>
+                    )}
+                  </motion.button>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Pace — reveals after dynamics answered (or immediately after Family is picked) */}
+      <AnimatePresence>
+        {groupType && dynamicsAnswered && (
           <motion.div key="pace-section"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } }}
@@ -191,4 +284,20 @@ export function VibeSection({ isCompleted, onComplete, onEdit }: Props) {
       </AnimatePresence>
     </div>
   );
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+function getDynamicsOptions(groupType: string) {
+  if (groupType === 'solo')   return SOLO_DYNAMICS;
+  if (groupType === 'couple') return COUPLE_DYNAMICS;
+  if (groupType === 'group')  return GROUP_DYNAMICS;
+  return [];
+}
+
+function resolveDynamicsLabel(groupType: string, subType?: string): string | null {
+  if (!subType) return null;
+  const all = [...SOLO_DYNAMICS, ...COUPLE_DYNAMICS, ...GROUP_DYNAMICS];
+  const match = all.find((o) => o.value === subType);
+  return match ? `${match.icon} ${match.label}` : null;
 }

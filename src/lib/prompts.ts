@@ -1,4 +1,4 @@
-import { TravelerProfile, ClassifiedResult, Itinerary, Activity } from './types';
+import { TravelerProfile, ClassifiedResult, Itinerary, Activity, type GroupDynamicsPayload } from './types';
 import { formatFamilyKidsForPrompt } from './familyKids';
 import { classifyActivity, ACTIVITY_GENRE_LABEL_EN } from './activityGenre';
 
@@ -377,6 +377,88 @@ BILINGUAL OUTPUT RULES (mandatory):
 `;
 }
 
+// ─── Anchor Logic — hard constraints from group dynamics ──────────────────────
+
+function buildAnchorLogicBlock(profile: TravelerProfile): string {
+  const { groupDynamics, groupType, pace } = profile;
+  const sub = groupDynamics?.subType;
+  if (!sub && groupType !== 'family') return '';
+
+  const lines: string[] = [];
+
+  // ── Solo ────────────────────────────────────────────────────────────────────
+  if (sub === 'digital-nomad') {
+    lines.push(
+      'ANCHOR — DIGITAL NOMAD: At least 1 café per day must be verified for reliable WiFi (mention in description). Morning slot should start at a co-working café or work-friendly neighbourhood. Avoid loud nightlife for evening unless pace=intense.',
+    );
+  }
+  if (sub === 'deep-recharge') {
+    lines.push(
+      'ANCHOR — DEEP RECHARGE: Prioritise tranquil museums, thermal baths, quiet parks, and long slow meals. Omit nightclubs. Evening MUST be a wine bar, jazz venue, or a quiet neighbourhood stroll — nothing loud. Reduce daily stops by 1 vs typical pace.',
+    );
+  }
+  if (sub === 'adventure') {
+    lines.push(
+      'ANCHOR — ADVENTURE SEEKER: Maximise off-beat and off-script picks. At least 1 hidden-gem activity per day. Evening can include live music, local dive bars, or spontaneous neighbourhood discovery. OK to push distances slightly further.',
+    );
+  }
+
+  // ── Couple ──────────────────────────────────────────────────────────────────
+  if (sub === 'romantic') {
+    lines.push(
+      'ANCHOR — ROMANTIC ESCAPE: Every dinner MUST be a sit-down restaurant with intimate ambience (candles / view / quiet setting) — never street food for dinner. Evening activity MUST be a romantic bar, rooftop, or sunset viewpoint. Morning should start with a café in a picturesque neighbourhood. Avoid large group activities and noisy food halls.',
+    );
+  }
+  if (sub === 'parent-child') {
+    lines.push(
+      'ANCHOR — PARENT & CHILD: One adult, one child. Activities MUST be interactive and accessible. Evening MUST end by 20:30 (no late-night venues). Include at least 1 kid-friendly activity and 1 afternoon break/rest slot in the theme note. Omit bars and nightlife entirely.',
+    );
+  }
+  if (sub === 'reconnecting') {
+    lines.push(
+      'ANCHOR — RECONNECTING COUPLE: Balance discovery with slow moments — include a morning walk, a shared cooking class or cultural experience, and an unhurried dinner. Evening should be a scenic bar or rooftop where conversation flows. Avoid rushed pace or over-packed days.',
+    );
+  }
+
+  // ── Group ───────────────────────────────────────────────────────────────────
+  if (sub === 'best-friends') {
+    lines.push(
+      'ANCHOR — BEST FRIENDS GROUP: Evening MUST include a lively bar, craft beer pub, or shared nightlife experience. At least 1 street food or communal dining lunch. Lean into hidden-gem local bars and away from tourist hotspots. OK to include slightly edgier activities.',
+    );
+  }
+  if (sub === 'mixed-ages') {
+    lines.push(
+      'ANCHOR — MIXED AGES GROUP: Every activity MUST be accessible to all ages (no extreme sports or strenuous hikes). Include 1 classic/must-see landmark that all generations enjoy. Dinner MUST be a restaurant with a varied menu. Evening should end by 22:00.',
+    );
+  }
+  if (sub === 'work-crew') {
+    lines.push(
+      'ANCHOR — WORK CREW: Activities should be interesting but not polarising (avoid political or controversial sites). Dinner MUST be a bookable restaurant suitable for professional dining — no street-food-only meals for dinner. Evening should be a rooftop bar or upscale cocktail venue — sophisticated but fun.',
+    );
+  }
+
+  // ── Family (derived dynamics from age mix) ─────────────────────────────────
+  if (groupType === 'family') {
+    const kids = formatFamilyKidsForPrompt(profile.familyKidsByAge ?? null);
+    if (kids?.includes('0-3') || kids?.includes('3-6')) {
+      lines.push(
+        'PACING ENGINE — YOUNG KIDS (under 6): Maximum 2 activities before lunch. Insert an explicit 90-min afternoon rest/nap window in the transportTip. All venues must have stroller access and baby-change facilities if possible. Evening MUST end by 19:30. No late-night activities.',
+      );
+    } else if (kids?.includes('6-9') || kids?.includes('9-12')) {
+      lines.push(
+        'PACING ENGINE — SCHOOL-AGE KIDS (6-12): Include at least 1 interactive/hands-on activity per day (science museum, workshop, market treasure hunt). Evening can extend to 20:30. Lunch must be a kid-friendly restaurant with familiar options alongside local dishes.',
+      );
+    } else if (kids?.includes('12-16') || kids?.includes('16+')) {
+      lines.push(
+        'PACING ENGINE — TEENS (12+): Teens can handle a full moderate pace. Include at least 1 "cool" activity teens can engage with (street art tour, music venue, skateable plaza, food market). Evening can go until 22:00 if pace=moderate or intense.',
+      );
+    }
+  }
+
+  if (lines.length === 0) return '';
+  return `\nANCHOR LOGIC & PACING ENGINE (HARD CONSTRAINTS — override general rules where they conflict):\n${lines.join('\n')}\n`;
+}
+
 export function buildUserPrompt(profile: TravelerProfile, searchResults?: ClassifiedResult[], hotelContext?: string, internalPlaces?: string): string {
   const days = profile.duration || calculateDays(profile.startDate, profile.endDate);
   const interestsList = profile.interests.length ? profile.interests.join(', ') : 'general sightseeing';
@@ -473,6 +555,7 @@ export function buildUserPrompt(profile: TravelerProfile, searchResults?: Classi
     : '';
 
   const langBlock = tripOutputLanguageBlock(profile);
+  const anchorBlock = buildAnchorLogicBlock(profile);
 
   const transportPricingBlock = `
 CITY_TRANSPORT_TRIP_DAYS: ${days}
@@ -485,7 +568,7 @@ CITY_TRANSPORT_TRIP_DAYS: ${days}
 
 DESTINATION: ${profile.destination}
 DATES: ${profile.startDate || 'flexible'} → ${profile.endDate || 'flexible'} (${days} days)
-GROUP: ${profile.groupType}, ${profile.groupSize} person(s)${
+GROUP: ${profile.groupType}${profile.groupDynamics ? ` [${profile.groupDynamics.subType}]` : ''}, ${profile.groupSize} person(s)${
     profile.groupType === 'family'
       ? (() => {
           const line = formatFamilyKidsForPrompt(profile.familyKidsByAge ?? null);
@@ -503,7 +586,7 @@ ${hotelBlock}${hotelPrefBlock}${timeBlock}${langBlock}${transportPricingBlock}
 
 VIBE TARGETING:
 ${vibeDirective}
-${tagScoutBlock}${internalPlacesBlock}${ragBlock}
+${tagScoutBlock}${anchorBlock}${internalPlacesBlock}${ragBlock}
 FINAL INSTRUCTIONS:
 - Every activity MUST have startTime, endTime, bestTimeToVisit, and transitFromPrevious
 - Every activity MUST have latitude, longitude (accurate GPS, 4 dp), time_slot, and category_emoji
@@ -522,18 +605,53 @@ FINAL INSTRUCTIONS:
 // ─── Vibe directive builder ───────────────────────────────────────────────────
 
 function buildVibeDirective(profile: TravelerProfile): string {
-  const { groupType, interests } = profile;
+  const { groupType, groupDynamics, interests } = profile;
+  const sub = groupDynamics?.subType;
 
-  if (groupType === 'solo' || groupType === 'group') {
+  if (groupType === 'solo') {
+    if (sub === 'digital-nomad') {
+      return `- PRIORITIZE: cafés with confirmed WiFi, co-working-friendly neighbourhoods, solo-friendly restaurants with counter seating
+- DEPRIORITIZE: loud tourist-trap areas and large group tours
+- Interests: ${interests.slice(0, 3).join(', ')} — lean into the productive-explorer mindset`;
+    }
+    if (sub === 'deep-recharge') {
+      return `- PRIORITIZE: peaceful museums, thermal baths, botanical gardens, wine bars with quiet corners
+- DEPRIORITIZE: clubs, large crowds, anything requiring group participation
+- Interests: ${interests.slice(0, 3).join(', ')} — prioritise slow, intentional, restorative experiences`;
+    }
+    if (sub === 'adventure') {
+      return `- PRIORITIZE: hidden-gem and viral-trend activities that feel discovered, not packaged; off-beat routes
+- DEPRIORITIZE: guided tours, tourist-trap areas, anything "most visited"
+- Interests: ${interests.slice(0, 3).join(', ')} — lean into subculture and local scene`;
+    }
+    // Solo default
     return `- PRIORITIZE: hidden-gem and viral-trend activities that feel discovered, not packaged
 - DEPRIORITIZE: guided tours, tourist-trap areas, anything "most visited"
 - Interests signal: ${interests.slice(0, 3).join(', ')} — lean into subculture and local scene`;
   }
+
   if (groupType === 'couple') {
+    if (sub === 'romantic') {
+      return `- PRIORITIZE: intimate hidden-gem restaurants with ambience, sunset viewpoints, quiet neighbourhood walks
+- DEPRIORITIZE: loud tourist-trap areas, noisy food halls, large group tours
+- Focus on candlelit dinners, private moments, and picturesque streets`;
+    }
+    if (sub === 'parent-child') {
+      return `- PRIORITIZE: interactive, accessible venues suitable for one adult and one child; hands-on activities
+- DEPRIORITIZE: long walks without rest points, venues with no children's menu, late-night bars
+- Include a mix of adult-interesting and child-engaging stops`;
+    }
+    if (sub === 'reconnecting') {
+      return `- PRIORITIZE: unhurried local-favorite spots — neighbourhood walks, shared food experiences, scenic evening drinks
+- DEPRIORITIZE: overcrowded tourist spots and rushed schedules
+- Focus on creating space for conversation and shared discovery`;
+    }
+    // Couple default
     return `- PRIORITIZE: hidden-gem and local-favorite spots — romantic, intimate, not crowded
 - DEPRIORITIZE: loud tourist-trap areas and large group tours
 - Focus on neighbourhood walks, local markets, intimate dining`;
   }
+
   if (groupType === 'family') {
     const kids = formatFamilyKidsForPrompt(profile.familyKidsByAge ?? null);
     const agesHint = kids
@@ -543,6 +661,29 @@ function buildVibeDirective(profile: TravelerProfile): string {
 - INCLUDE: at least one classic / must-see landmark (families want that too)${agesHint}
 - DEPRIORITIZE: viral-trend spots that are too crowded or hipster-only`;
   }
+
+  if (groupType === 'group') {
+    if (sub === 'best-friends') {
+      return `- PRIORITIZE: local dive bars, craft beer spots, group-friendly street food, hidden-gem nightlife
+- DEPRIORITIZE: overly formal dining, solo-experience museums, tourist-trap areas
+- Interests: ${interests.slice(0, 3).join(', ')} — lean into shared experiences and spontaneity`;
+    }
+    if (sub === 'mixed-ages') {
+      return `- PRIORITIZE: classic/local-favorite accessible spots that all ages enjoy; variety in activity types
+- DEPRIORITIZE: extreme activities, overly hipster venues, anything very strenuous
+- Include at least 1 landmark and 1 relaxed neighbourhood experience per day`;
+    }
+    if (sub === 'work-crew') {
+      return `- PRIORITIZE: interesting and conversation-worthy venues — upscale cocktail bars, landmark restaurants, city viewpoints
+- DEPRIORITIZE: politically charged sites, very crowded tourist traps, anything too casual or too formal
+- Focus on memorable shared moments that work in a professional-social context`;
+    }
+    // Group default
+    return `- PRIORITIZE: hidden-gem and viral-trend activities that feel discovered, not packaged
+- DEPRIORITIZE: guided tours, tourist-trap areas, anything "most visited"
+- Interests signal: ${interests.slice(0, 3).join(', ')} — lean into subculture and local scene`;
+  }
+
   return `- Balance hidden-gem discoveries with reliable classic picks
 - Avoid tourist traps; include at least one truly local spot per day`;
 }

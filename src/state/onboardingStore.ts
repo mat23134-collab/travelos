@@ -11,6 +11,7 @@
  */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { GroupDynamicsPayload } from '@/lib/types';
 
 export interface TripCity {
   name: string;
@@ -52,8 +53,9 @@ export interface OnboardingState {
   hotelNightlyBudget: 'budget' | 'mid' | 'comfort' | 'luxury' | '';
 
   // Step 4: Vibe — who's traveling + pace
-  groupType: 'solo' | 'couple' | 'family' | 'group' | '';
-  pace:      'relaxed' | 'moderate' | 'intense' | '';
+  groupType:    'solo' | 'couple' | 'family' | 'group' | '';
+  groupDynamics: GroupDynamicsPayload | null;
+  pace:         'relaxed' | 'moderate' | 'intense' | '';
 
   // Step 5: Preferences — interests + budget
   interests: string[];
@@ -82,6 +84,7 @@ export interface OnboardingState {
   setAccommodation:      (a: 'hostel' | 'boutique-hotel' | 'luxury-hotel' | 'airbnb' | 'resort') => void;
   setHotelNightlyBudget: (b: 'budget' | 'mid' | 'comfort' | 'luxury') => void;
   setGroupType:          (gt: 'solo' | 'couple' | 'family' | 'group') => void;
+  setGroupDynamics:      (d: GroupDynamicsPayload | null) => void;
   setPace:               (p: 'relaxed' | 'moderate' | 'intense') => void;
   setBudget:             (b: 'budget' | 'mid-range' | 'luxury') => void;
   setInterests:          (interests: string[]) => void;
@@ -132,8 +135,9 @@ const INITIAL: Omit<
   destinationLng: null,
   accommodation:      '',
   hotelNightlyBudget: '',
-  groupType:          '',
-  pace:               '',
+  groupType:     '',
+  groupDynamics: null,
+  pace:          '',
   interests:          [],
   budget:             '',
   dietaryRestrictions: [],
@@ -194,8 +198,9 @@ export const useOnboardingStore = create<OnboardingState>()(
 
       setAccommodation:      (a) => set({ accommodation: a }),
       setHotelNightlyBudget: (b) => set({ hotelNightlyBudget: b }),
-      setGroupType: (gt) => set({ groupType: gt }),
-      setPace:      (p)  => set({ pace: p }),
+      setGroupType:     (gt) => set({ groupType: gt, groupDynamics: null }),
+      setGroupDynamics: (d)  => set({ groupDynamics: d }),
+      setPace:          (p)  => set({ pace: p }),
       setBudget:    (b)  => set({ budget: b }),
       setInterests: (interests) => set({ interests }),
       toggleInterest: (interest) => set((s) => ({
@@ -246,6 +251,7 @@ export const useOnboardingStore = create<OnboardingState>()(
         accommodation:      s.accommodation,
         hotelNightlyBudget: s.hotelNightlyBudget,
         groupType:          s.groupType,
+        groupDynamics:      s.groupDynamics,
         pace:               s.pace,
         interests:          s.interests,
         budget:             s.budget,

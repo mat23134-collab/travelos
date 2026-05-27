@@ -150,22 +150,52 @@ export function detectContradictions(results: ClassifiedResult[]): ClassifiedRes
 
 // ─── Chain-of-thought query builder ──────────────────────────────────────────
 
+// ─── Group dynamics → OSINT search hints ─────────────────────────────────────
+
+const GROUP_DYNAMICS_QUERIES: Record<string, string[]> = {
+  // Solo
+  'digital-nomad':  ['co-working café wifi reliable', 'digital nomad hub community'],
+  'deep-recharge':  ['slow travel solo peaceful museum spa', 'tranquil hidden neighbourhood'],
+  'adventure':      ['solo traveller off-beat adventure extreme', 'backpacker route 2026'],
+  // Couple
+  'romantic':       ['romantic couple intimate dinner sunset view', 'anniversary hidden gem restaurant'],
+  'parent-child':   ['adult kid parent child trip accessible fun', 'one adult one child travel'],
+  'reconnecting':   ['couple reconnecting slow travel meaningful experiences', 'second honeymoon itinerary'],
+  // Group
+  'best-friends':   ['friends group trip local bar nightlife', 'group dining shared experience budget'],
+  'mixed-ages':     ['mixed age group travel inclusive accessible pace', 'multi-generation group tips'],
+  'work-crew':      ['corporate group outing team building activity', 'professional group dining venue'],
+  // Family (derived)
+  'young-kids':     ['toddler baby family travel stroller friendly', 'family with young children under 5'],
+  'teens':          ['teenagers teen travel activities cool', 'family teens adventure itinerary'],
+};
+
 export function buildChainOfThoughtQueries(profile: TravelerProfile): { phase1: string[]; phase2: string[] } {
-  const { destination, interests, budget, groupType, pace } = profile;
+  const { destination, interests, budget, groupType, pace, groupDynamics } = profile;
   const topInterest = interests[0] ?? 'culture';
   const secondInterest = interests[1] ?? 'food';
+
+  // Inject dynamics-specific OSINT keywords if available
+  const dynamicHints = groupDynamics?.subType
+    ? (GROUP_DYNAMICS_QUERIES[groupDynamics.subType] ?? [])
+    : [];
+  const dynamicsQuery = dynamicHints.length > 0
+    ? `${destination} ${dynamicHints[0]} 2025 2026`
+    : null;
 
   return {
     // Phase 1: broad trend research — what's NEW and current
     phase1: [
       `${destination} travel 2026 what's new emerging neighborhood local trends`,
       `${destination} best ${topInterest} spots hidden underrated locals recommend 2025 2026`,
+      ...(dynamicsQuery ? [dynamicsQuery] : []),
     ],
     // Phase 2: deep blog mining + group/budget-specific tips
     phase2: [
       `${destination} ${secondInterest} blog review authentic local guide 2025 2026`,
       `${destination} ${groupType} ${budget} budget travel tips insider advice 2026`,
       `${destination} avoid tourist traps vs must-visit genuine experiences ${pace} pace`,
+      ...(dynamicHints[1] ? [`${destination} ${dynamicHints[1]} guide tips`] : []),
     ],
   };
 }

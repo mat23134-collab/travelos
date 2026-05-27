@@ -1,5 +1,17 @@
 export type GroupType = 'solo' | 'couple' | 'family' | 'group';
 
+// ─── Group Dynamics (sub-segment within each group type) ──────────────────────
+
+export type SoloDynamics   = 'digital-nomad' | 'deep-recharge' | 'adventure';
+export type CoupleDynamics = 'romantic' | 'parent-child' | 'reconnecting';
+export type FamilyDynamics = 'young-kids' | 'mixed-ages' | 'teens';
+export type GroupDynamics  = 'best-friends' | 'mixed-ages' | 'work-crew';
+
+/** Narrow sub-persona collected after the user picks a group type. */
+export interface GroupDynamicsPayload {
+  subType: SoloDynamics | CoupleDynamics | FamilyDynamics | GroupDynamics;
+}
+
 /** Counts of children per age band (only used when groupType is family). */
 export type FamilyChildAgeBand = '0-3' | '3-6' | '6-9' | '9-12' | '12-16' | '16+';
 export type FamilyKidsByAge = Partial<Record<FamilyChildAgeBand, number>>;
@@ -95,6 +107,8 @@ export interface TravelerProfile {
   destination: string;
   /** Preferred language for explanations on the itinerary page (beta: Hebrew). Venue names stay English. */
   tripLanguage?: TripLanguage;
+  /** Sub-persona within the chosen group type — drives Anchor Logic & scout queries. */
+  groupDynamics?: GroupDynamicsPayload | null;
   startDate: string;
   endDate: string;
   duration: number;

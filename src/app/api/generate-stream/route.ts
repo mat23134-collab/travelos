@@ -546,6 +546,7 @@ async function runPipeline(
     trip_times: { dailyStartTime: profile.dailyStartTime ?? null, arrivalTime: profile.arrivalTime ?? null, departureTime: profile.departureTime ?? null, skipDay1: !!profile.skipDay1 },
     hotel_anchor: { hotelBooked: profile.hotelBooked ?? null, hotelAddress: profile.hotelAddress ?? null, hotelLat: profile.hotelLat ?? null, hotelLng: profile.hotelLng ?? null },
     group_type: profile.groupType ?? null, group_size: profile.groupSize ?? null,
+    group_dynamics: profile.groupDynamics ?? null,
     budget: profile.budget ?? null, pace: profile.pace ?? null,
     interests: profile.interests ?? [], accommodation: profile.accommodation ?? null,
     hotel_nightly_budget: profile.hotelNightlyBudget ?? null,

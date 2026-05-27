@@ -127,7 +127,7 @@ function OnboardingPageContent() {
     arrivalTime, departureTime, dailyStartTime, skipDay1,
     hotelAddress, hotelLat, hotelLng,
     accommodation, hotelNightlyBudget,
-    groupType, pace, budget, interests,
+    groupType, groupDynamics, pace, budget, interests,
     dietaryRestrictions, mustHaveItems, mustHaveOther,
     step: storeStep, goToStep, reset, setDestination,
   } = useOnboardingStore();
@@ -216,10 +216,13 @@ function OnboardingPageContent() {
       case 2:
         if (!budget) return { canContinue: false, label: 'Pick a budget level' };
         return { canContinue: true, label: 'Next: travel style →' };
-      case 3:
+      case 3: {
         if (!groupType) return { canContinue: false, label: "Who's coming?" };
+        const needsDyn = groupType === 'solo' || groupType === 'couple' || groupType === 'group';
+        if (needsDyn && !groupDynamics) return { canContinue: false, label: 'Tell us more →' };
         if (!pace)      return { canContinue: false, label: 'Choose your pace' };
         return { canContinue: true, label: 'Next: where you stay →' };
+      }
       case 4:
         if (hotelAddress)  return { canContinue: true, label: 'Next: dining rules →' };
         if (accommodation) return { canContinue: true, label: 'Next: dining rules →' };
@@ -264,8 +267,9 @@ function OnboardingPageContent() {
     if (hotelNightlyBudget) params.set('hotelNightlyBudget', hotelNightlyBudget);
 
     // Style + budget + interests
-    if (groupType)        params.set('groupType',  groupType);
-    if (pace)             params.set('pace',       pace);
+    if (groupType)           params.set('groupType',     groupType);
+    if (groupDynamics)       params.set('groupDynamics', groupDynamics.subType);
+    if (pace)                params.set('pace',          pace);
     if (budget)           params.set('budget',     budget);
     if (interests.length) params.set('interests',  interests.join(','));
 

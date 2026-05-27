@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { questions } from '@/lib/questionnaire';
-import { TravelerProfile, type TripLanguage, type GroupType, type FamilyKidsByAge } from '@/lib/types';
+import { TravelerProfile, type TripLanguage, type GroupType, type FamilyKidsByAge, type GroupDynamicsPayload } from '@/lib/types';
 import { sanitizeFamilyKids, totalFamilyKids } from '@/lib/familyKids';
 import { FamilyKidsModal } from '@/components/FamilyKidsModal';
 import { useAuth } from '@/lib/auth-context';
@@ -845,8 +845,9 @@ function PlanPage() {
     const preHotelLng = preHotelLngRaw != null ? Number(preHotelLngRaw) : null;
 
     // ג”€ג”€ Onboarding preference params (skip those questions if pre-filled) ג”€ג”€
-    const preGroupType  = searchParams.get('groupType')  ?? '';
-    const prePace       = searchParams.get('pace')       ?? '';
+    const preGroupType     = searchParams.get('groupType')     ?? '';
+    const preGroupDynamics = searchParams.get('groupDynamics') ?? '';
+    const prePace          = searchParams.get('pace')          ?? '';
     const preBudget     = searchParams.get('budget')     ?? '';
     const preInterestsRaw = searchParams.get('interests') ?? '';
     const preInterests  = preInterestsRaw ? preInterestsRaw.split(',').filter(Boolean) : [];
@@ -901,8 +902,9 @@ function PlanPage() {
       hotelAddress:   preHotelAddress,
       hotelLat:       Number.isFinite(preHotelLat) ? preHotelLat : null,
       hotelLng:       Number.isFinite(preHotelLng) ? preHotelLng : null,
-      // Pre-fill from onboarding ג€” these skip their wizard steps below
+      // Pre-fill from onboarding — these skip their wizard steps below
       groupType:         validGroupTypes.includes(preGroupType)             ? preGroupType             : '',
+      groupDynamics:     preGroupDynamics                                   ? preGroupDynamics         : null,
       pace:              validPaces.includes(prePace)                       ? prePace                  : '',
       budget:            validBudgets.includes(preBudget)                   ? preBudget                : '',
       accommodation:     validAccommodations.includes(preAccommodation)     ? preAccommodation         : '',
@@ -1129,6 +1131,9 @@ function PlanPage() {
       endDate: end || '',
       duration,
       groupType: (form.groupType as TravelerProfile['groupType']) || 'solo',
+      groupDynamics: form.groupDynamics
+        ? ({ subType: form.groupDynamics } as GroupDynamicsPayload)
+        : null,
       familyKidsByAge:
         form.groupType === 'family'
           ? sanitizeFamilyKids(form.familyKidsByAge as FamilyKidsByAge) ?? undefined
