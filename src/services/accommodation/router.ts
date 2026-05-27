@@ -1,0 +1,353 @@
+import type { AccommodationType, BudgetLevel, HotelNightlyBudget, TravelerProfile } from '@/lib/types';
+
+export type AccommodationProviderId = 'booking' | 'priceline' | 'expedia' | 'airbnb';
+
+export type AccommodationEnv = Partial<Record<
+  | 'RAPIDAPI_KEY'
+  | 'RAPIDAPI_BOOKING_KEY'
+  | 'RAPIDAPI_BOOKING_HOST'
+  | 'RAPIDAPI_BOOKING_SEARCH_PATH'
+  | 'RAPIDAPI_PRICELINE_KEY'
+  | 'RAPIDAPI_PRICELINE_HOST'
+  | 'RAPIDAPI_PRICELINE_SEARCH_PATH'
+  | 'RAPIDAPI_EXPEDIA_KEY'
+  | 'RAPIDAPI_EXPEDIA_HOST'
+  | 'RAPIDAPI_EXPEDIA_SEARCH_PATH'
+  | 'RAPIDAPI_AIRBNB_KEY'
+  | 'RAPIDAPI_AIRBNB_HOST'
+  | 'RAPIDAPI_AIRBNB_SEARCH_PATH',
+  string | undefined
+>>;
+
+export interface Hotel {
+  id: string;
+  provider: AccommodationProviderId;
+  name: string;
+  address?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  nightlyRate?: { amount: number; currency?: string | null } | null;
+  rating?: number | null;
+  bookingUrl?: string | null;
+  imageUrl?: string | null;
+  available?: boolean | null;
+  raw?: unknown;
+}
+
+export interface AccommodationSearchInput {
+  destination: string;
+  lat?: number | null;
+  lng?: number | null;
+  radiusKm?: number;
+  startDate?: string;
+  endDate?: string;
+  adults?: number;
+  accommodation?: AccommodationType | string | null;
+  budget?: BudgetLevel | string | null;
+  hotelNightlyBudget?: HotelNightlyBudget | string | null;
+}
+
+export interface AccommodationSearchResult {
+  provider: AccommodationProviderId | null;
+  hotels: Hotel[];
+  attempts: Array<{ provider: AccommodationProviderId; ok: boolean; reason?: string }>;
+  fallback: boolean;
+}
+
+type ProviderConfig = {
+  id: AccommodationProviderId;
+  hostEnv: keyof AccommodationEnv;
+  keyEnv: keyof AccommodationEnv;
+  pathEnv: keyof AccommodationEnv;
+  defaultPath: string;
+};
+
+const PROVIDERS: Record<AccommodationProviderId, ProviderConfig> = {
+  booking: {
+    id: 'booking',
+    hostEnv: 'RAPIDAPI_BOOKING_HOST',
+    keyEnv: 'RAPIDAPI_BOOKING_KEY',
+    pathEnv: 'RAPIDAPI_BOOKING_SEARCH_PATH',
+    defaultPath: '/v1/hotels/search-by-coordinates',
+  },
+  priceline: {
+    id: 'priceline',
+    hostEnv: 'RAPIDAPI_PRICELINE_HOST',
+    keyEnv: 'RAPIDAPI_PRICELINE_KEY',
+    pathEnv: 'RAPIDAPI_PRICELINE_SEARCH_PATH',
+    defaultPath: '/v1/hotels/search-by-coordinates',
+  },
+  expedia: {
+    id: 'expedia',
+    hostEnv: 'RAPIDAPI_EXPEDIA_HOST',
+    keyEnv: 'RAPIDAPI_EXPEDIA_KEY',
+    pathEnv: 'RAPIDAPI_EXPEDIA_SEARCH_PATH',
+    defaultPath: '/hotels/search',
+  },
+  airbnb: {
+    id: 'airbnb',
+    hostEnv: 'RAPIDAPI_AIRBNB_HOST',
+    keyEnv: 'RAPIDAPI_AIRBNB_KEY',
+    pathEnv: 'RAPIDAPI_AIRBNB_SEARCH_PATH',
+    defaultPath: '/search',
+  },
+};
+
+function cleanHost(raw?: string): string {
+  return (raw ?? '').trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+}
+
+function ensurePath(raw?: string): string {
+  const path = (raw ?? '').trim();
+  if (!path) return '';
+  return path.startsWith('/') ? path : `/${path}`;
+}
+
+function toNum(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    const n = Number(value.trim().replace(',', '.'));
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+}
+
+function pickString(obj: Record<string, unknown>, keys: string[]): string | null {
+  for (const key of keys) {
+    const value = obj[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  }
+  return null;
+}
+
+function readPath(obj: unknown, path: string[]): unknown {
+  let cur = obj;
+  for (const segment of path) {
+    if (!cur || typeof cur !== 'object') return undefined;
+    cur = (cur as Record<string, unknown>)[segment];
+  }
+  return cur;
+}
+
+function pickNestedString(obj: Record<string, unknown>, paths: string[][]): string | null {
+  for (const path of paths) {
+    const value = readPath(obj, path);
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  }
+  return null;
+}
+
+function pickNestedNum(obj: Record<string, unknown>, paths: string[][]): number | null {
+  for (const path of paths) {
+    const value = readPath(obj, path);
+    const n = toNum(value);
+    if (n != null) return n;
+  }
+  return null;
+}
+
+function extractRawHotels(payload: unknown): unknown[] {
+  if (Array.isArray(payload)) return payload;
+  if (!payload || typeof payload !== 'object') return [];
+  const obj = payload as Record<string, unknown>;
+  for (const key of ['hotels', 'results', 'data', 'properties', 'listings', 'items']) {
+    const value = obj[key];
+    if (Array.isArray(value)) return value;
+  }
+  const nested = readPath(obj, ['data', 'hotels']) ?? readPath(obj, ['data', 'results']) ?? readPath(obj, ['data', 'properties']);
+  return Array.isArray(nested) ? nested : [];
+}
+
+export function normalizeAccommodationHotel(raw: unknown, provider: AccommodationProviderId): Hotel | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const obj = raw as Record<string, unknown>;
+
+  const rawId = pickString(obj, [
+    'id', 'hotel_id', 'hotelId', 'propertyId', 'property_id', 'listingId', 'listing_id',
+  ]);
+  const name = pickString(obj, [
+    'name', 'hotel_name', 'hotelName', 'propertyName', 'property_name', 'title',
+  ]);
+  if (!name) return null;
+
+  const lat = pickNestedNum(obj, [
+    ['location', 'latitude'], ['location', 'lat'], ['coordinates', 'latitude'], ['coordinates', 'lat'], ['geo', 'lat'], ['latitude'], ['lat'],
+  ]);
+  const lng = pickNestedNum(obj, [
+    ['location', 'longitude'], ['location', 'lng'], ['coordinates', 'longitude'], ['coordinates', 'lng'], ['geo', 'lng'], ['longitude'], ['lng'], ['lon'],
+  ]);
+  const amount = pickNestedNum(obj, [
+    ['priceBreakdown', 'grossPrice', 'value'], ['priceBreakdown', 'price', 'value'], ['rate', 'amount'], ['nightlyRate', 'amount'], ['price', 'amount'], ['price'],
+  ]);
+  const currency = pickNestedString(obj, [
+    ['priceBreakdown', 'grossPrice', 'currency'], ['priceBreakdown', 'price', 'currency'], ['rate', 'currency'], ['nightlyRate', 'currency'], ['currency'],
+  ]);
+
+  const rawAvailable =
+    obj.available ?? obj.isAvailable ?? obj.availability ?? obj.hasAvailability ?? obj.is_available;
+  const available = typeof rawAvailable === 'boolean'
+    ? rawAvailable
+    : typeof rawAvailable === 'string'
+      ? !['false', 'sold out', 'sold-out', 'unavailable', 'no availability'].includes(rawAvailable.trim().toLowerCase())
+      : null;
+
+  return {
+    id: `${provider}-${rawId ?? name.toLowerCase().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '')}`,
+    provider,
+    name,
+    address:
+      pickNestedString(obj, [['address', 'addressLine1'], ['address', 'line1'], ['address', 'street']]) ??
+      pickString(obj, ['address', 'address_line', 'neighborhood', 'cityName', 'city']),
+    lat,
+    lng,
+    nightlyRate: amount != null ? { amount, currency } : null,
+    rating: pickNestedNum(obj, [['reviewScore'], ['review_score'], ['rating'], ['stars'], ['score']]),
+    bookingUrl: pickString(obj, ['url', 'bookingUrl', 'booking_url', 'deepLink', 'deeplink', 'propertyUrl', 'webUrl']),
+    imageUrl:
+      pickNestedString(obj, [['photo', 'url'], ['image', 'url'], ['thumbnail', 'url']]) ??
+      pickString(obj, ['imageUrl', 'image_url', 'photoUrl', 'photo_url', 'thumbnailUrl']),
+    available,
+    raw,
+  };
+}
+
+export function buildAccommodationProviderOrder(input: Pick<AccommodationSearchInput, 'accommodation' | 'budget'>): AccommodationProviderId[] {
+  const accommodation = String(input.accommodation ?? '').toLowerCase();
+  const airbnbIntent =
+    accommodation.includes('airbnb') ||
+    accommodation.includes('apartment') ||
+    accommodation.includes('villa') ||
+    accommodation.includes('local') ||
+    accommodation.includes('unique');
+
+  if (airbnbIntent) return ['airbnb', 'priceline', 'expedia', 'booking'];
+  return ['booking', 'priceline', 'expedia', 'airbnb'];
+}
+
+function buildProviderUrl(config: ProviderConfig, input: AccommodationSearchInput, env: AccommodationEnv): URL | null {
+  const host = cleanHost(env[config.hostEnv]);
+  if (!host) return null;
+  const path = ensurePath(env[config.pathEnv]) || config.defaultPath;
+  const url = new URL(`https://${host}${path}`);
+
+  url.searchParams.set('destination', input.destination);
+  if (input.lat != null) url.searchParams.set('lat', String(input.lat));
+  if (input.lng != null) url.searchParams.set('lng', String(input.lng));
+  if (input.radiusKm != null) url.searchParams.set('radius', String(input.radiusKm));
+  if (input.startDate) {
+    url.searchParams.set('checkin', input.startDate.slice(0, 10));
+    url.searchParams.set('checkIn', input.startDate.slice(0, 10));
+    url.searchParams.set('startDate', input.startDate.slice(0, 10));
+  }
+  if (input.endDate) {
+    url.searchParams.set('checkout', input.endDate.slice(0, 10));
+    url.searchParams.set('checkOut', input.endDate.slice(0, 10));
+    url.searchParams.set('endDate', input.endDate.slice(0, 10));
+  }
+  url.searchParams.set('adults', String(input.adults && input.adults > 0 ? input.adults : 2));
+  url.searchParams.set('rooms', '1');
+  return url;
+}
+
+async function fetchProvider(
+  provider: AccommodationProviderId,
+  input: AccommodationSearchInput,
+  options: Required<Pick<SearchOptions, 'env' | 'fetchImpl' | 'timeoutMs'>>,
+): Promise<Hotel[]> {
+  const config = PROVIDERS[provider];
+  const url = buildProviderUrl(config, input, options.env);
+  const key = options.env[config.keyEnv] || options.env.RAPIDAPI_KEY;
+  if (!url || !key) throw new Error(`${provider} RapidAPI configuration missing`);
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), options.timeoutMs);
+  try {
+    const response = await options.fetchImpl(url, {
+      headers: {
+        'x-rapidapi-key': key,
+        'x-rapidapi-host': url.host,
+      },
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    if (response.status === 429) throw new Error(`${provider} quota exceeded (429)`);
+    if (!response.ok) throw new Error(`${provider} request failed (${response.status})`);
+
+    const payload = await response.json();
+    const hotels = extractRawHotels(payload)
+      .map((item) => normalizeAccommodationHotel(item, provider))
+      .filter((hotel): hotel is Hotel => hotel !== null);
+    if (hotels.length === 0) throw new Error(`${provider} returned empty results`);
+    return hotels;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+type SearchOptions = {
+  env?: AccommodationEnv;
+  fetchImpl?: typeof fetch;
+  timeoutMs?: number;
+  providerOrder?: AccommodationProviderId[];
+};
+
+export async function searchAccommodations(
+  input: AccommodationSearchInput,
+  options: SearchOptions = {},
+): Promise<AccommodationSearchResult> {
+  const env: AccommodationEnv = options.env ?? (process.env as AccommodationEnv);
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const timeoutMs = options.timeoutMs ?? 8000;
+  const order = options.providerOrder ?? buildAccommodationProviderOrder(input);
+  const attempts: AccommodationSearchResult['attempts'] = [];
+
+  for (const provider of order) {
+    try {
+      const hotels = await fetchProvider(provider, input, { env, fetchImpl, timeoutMs });
+      attempts.push({ provider, ok: true });
+      return { provider, hotels, attempts, fallback: attempts.length > 1 };
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      attempts.push({ provider, ok: false, reason });
+      console.warn(`[accommodation] ${provider} failed, trying next provider: ${reason}`);
+    }
+  }
+
+  return { provider: null, hotels: [], attempts, fallback: true };
+}
+
+export function buildAccommodationContext(hotels: Hotel[]): string {
+  return hotels.slice(0, 8).map((hotel) => {
+    const price = hotel.nightlyRate
+      ? `${hotel.nightlyRate.currency ?? ''}${hotel.nightlyRate.amount}/night`.trim()
+      : 'rate unknown';
+    const coords = hotel.lat != null && hotel.lng != null ? `GPS ${hotel.lat},${hotel.lng}` : 'GPS unknown';
+    const availability = hotel.available === false ? 'SOLD OUT' : 'availability/rate returned by provider';
+    return [
+      `- ${hotel.name}`,
+      `provider=${hotel.provider}`,
+      hotel.address ? `area=${hotel.address}` : null,
+      price,
+      availability,
+      coords,
+      hotel.bookingUrl ? `url=${hotel.bookingUrl}` : null,
+    ].filter(Boolean).join(' | ');
+  }).join('\n');
+}
+
+export function travelerProfileToAccommodationInput(profile: TravelerProfile): AccommodationSearchInput {
+  return {
+    destination: profile.destination,
+    lat: profile.hotelLat ?? null,
+    lng: profile.hotelLng ?? null,
+    radiusKm: 25,
+    startDate: profile.startDate,
+    endDate: profile.endDate,
+    adults: profile.groupSize,
+    accommodation: profile.accommodation,
+    budget: profile.budget,
+    hotelNightlyBudget: profile.hotelNightlyBudget ?? null,
+  };
+}

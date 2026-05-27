@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { TravelerProfile, ClassifiedResult, type Activity, type DiningSpot } from '@/lib/types';
 import { SYSTEM_PROMPT, buildUserPrompt } from '@/lib/prompts';
-import { runChainOfThoughtSearch, searchWeb } from '@/lib/rag';
+import { runChainOfThoughtSearch } from '@/lib/rag';
 import { supabase } from '@/lib/supabase';
 import { batchVerifyPlaces } from '@/lib/verification';
 import { normalizeBasecampHotels } from '@/lib/hotelNormalize';
@@ -12,6 +12,11 @@ import { resolveAuthenticatedTraveler } from '@/lib/resolveAuthUser';
 import { ensureTransportationForCity, persistTripSessionRow } from '@/lib/tripTransport';
 import { formatAvailableInventoryForSystemPrompt, getFilteredInventory } from '@/services/scoringEngine';
 import { buildFallbackItinerary, validateItineraryOrThrow, type GenerationProvider } from '@/services/itineraryFallback';
+import {
+  buildAccommodationContext,
+  searchAccommodations,
+  travelerProfileToAccommodationInput,
+} from '@/services/accommodation/router';
 import {
   GENERATE_PREFETCH_PER_BRANCH_MS,
   GENERATE_LLM_FETCH_MS,
@@ -402,24 +407,8 @@ export async function POST(req: NextRequest) {
 
     // ── All pre-AI I/O in parallel ──────────────────────────────────────────────
     // Scoring inventory (Supabase) + runChainOfThoughtSearch (Tavily/Exa)
-    // + hotel searchWeb all fire simultaneously — total wait = slowest branch.
-    const hotelQuery = !profile.hotelBooked?.trim()
-      ? (() => {
-          const accommodation = profile.accommodation?.replace(/-/g, ' ') ?? 'boutique hotel';
-          const dest = profile.destination.trim();
-          const dates =
-            profile.startDate?.slice(0, 10) && profile.endDate?.slice(0, 10)
-              ? `${profile.startDate.slice(0, 10)} to ${profile.endDate.slice(0, 10)}`
-              : '';
-          return [
-            accommodation, 'hotel', dest, profile.budget, dates,
-            'Booking.com Expedia price per night availability',
-            dates ? 'rooms available' : '', '2026',
-          ].filter(Boolean).join(' ');
-        })()
-      : null;
-
-    const [filteredInventory, classifiedResults, rawHotelResults] = await Promise.all([
+    // + multi-provider accommodation router all fire simultaneously.
+    const [filteredInventory, classifiedResults, accommodationResult] = await Promise.all([
       withPrefetchTimeout(
         getFilteredInventory({
           userTripChoices: {
@@ -446,14 +435,17 @@ export async function POST(req: NextRequest) {
         [] as ClassifiedResult[],
         'web RAG prefetch',
       ),
-      hotelQuery
+      !profile.hotelBooked?.trim()
         ? withPrefetchTimeout(
-            searchWeb(hotelQuery).catch(() => []),
+            searchAccommodations(travelerProfileToAccommodationInput(profile)).catch((err) => {
+              console.warn('[generate] accommodation router failed (non-critical):', err);
+              return { provider: null, hotels: [], attempts: [], fallback: true };
+            }),
             GENERATE_PREFETCH_PER_BRANCH_MS,
-            [] as Awaited<ReturnType<typeof searchWeb>>,
-            'hotel search prefetch',
+            { provider: null, hotels: [], attempts: [], fallback: true } as Awaited<ReturnType<typeof searchAccommodations>>,
+            'accommodation router prefetch',
           )
-        : Promise.resolve([]),
+        : Promise.resolve({ provider: null, hotels: [], attempts: [], fallback: false } as Awaited<ReturnType<typeof searchAccommodations>>),
     ]);
 
     const inventorySystemBlock = formatAvailableInventoryForSystemPrompt(filteredInventory);
@@ -465,11 +457,11 @@ export async function POST(req: NextRequest) {
     }
 
     let hotelContext: string | undefined;
-    if (rawHotelResults.length > 0) {
-      hotelContext = rawHotelResults
-        .slice(0, 5)
-        .map((r) => '- ' + r.title + ': ' + r.snippet.slice(0, 280))
-        .join('\n');
+    if (accommodationResult.hotels.length > 0) {
+      hotelContext = buildAccommodationContext(accommodationResult.hotels);
+      console.log(
+        `[generate] accommodation provider=${accommodationResult.provider ?? 'none'} hotels=${accommodationResult.hotels.length}`,
+      );
     }
 
     // ── Generate itinerary: Gemini first, Claude fallback ───────────────────────
