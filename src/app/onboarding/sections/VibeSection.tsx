@@ -67,7 +67,7 @@ interface Props {
   onEdit:      () => void;
 }
 
-export function VibeSection({ isCompleted, onComplete, onEdit }: Props) {
+export function VibeSection({ isCompleted, onEdit }: Props) {
   const { groupType, groupDynamics, pace, setGroupType, setGroupDynamics, setPace } = useOnboardingStore();
 
   // Family skips the sub-question (it has its own FamilyKidsModal further down)
@@ -76,19 +76,14 @@ export function VibeSection({ isCompleted, onComplete, onEdit }: Props) {
 
   function handleGroupSelect(gt: string) {
     setGroupType(gt as 'solo' | 'couple' | 'family' | 'group');
-    // Family skips sub-question: if pace already set, advance immediately
-    if (gt === 'family' && pace) setTimeout(() => onComplete(), 300);
   }
 
   function handleDynamicsSelect(subType: GroupDynamicsPayload['subType']) {
     setGroupDynamics({ subType });
-    // If pace already chosen, auto-advance
-    if (pace) setTimeout(() => onComplete(), 300);
   }
 
   function handlePaceSelect(p: string) {
     setPace(p as 'relaxed' | 'moderate' | 'intense');
-    setTimeout(() => onComplete(), 350);
   }
 
   const groupOpt     = GROUP_OPTIONS.find((g) => g.value === groupType);
