@@ -11,7 +11,7 @@
  * A skip link is available to move on without hotel info.
  */
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useOnboardingStore } from '@/state/onboardingStore';
 
@@ -36,10 +36,35 @@ const ACCOM_OPTIONS = [
 // ── Nightly budget options ─────────────────────────────────────────────────────
 const NIGHTLY_OPTIONS = [
   { value: 'budget',  label: 'Up to $80',   icon: '🪙' },
-  { value: 'mid',     label: '$80 – $150',  icon: '💵' },
-  { value: 'comfort', label: '$150 – $300', icon: '💳' },
+  { value: 'mid',     label: '$80 - $150',  icon: '💵' },
+  { value: 'comfort', label: '$150 - $300', icon: '💳' },
   { value: 'luxury',  label: '$300+',       icon: '💎' },
 ] as const;
+
+type AccommodationValue = (typeof ACCOM_OPTIONS)[number]['value'];
+type NightlyOption = (typeof NIGHTLY_OPTIONS)[number];
+
+const hasNightlyBudget = (
+  options: readonly NightlyOption[],
+  value: string,
+) => options.some((option) => option.value === value);
+
+export function getNightlyOptionsForAccommodation(
+  accommodation: AccommodationValue | '',
+): readonly NightlyOption[] {
+  switch (accommodation) {
+    case 'hostel':
+      return NIGHTLY_OPTIONS.filter((option) => option.value === 'budget' || option.value === 'mid');
+    case 'luxury-hotel':
+    case 'resort':
+      return NIGHTLY_OPTIONS.filter((option) => option.value === 'comfort' || option.value === 'luxury');
+    case 'boutique-hotel':
+    case 'airbnb':
+      return NIGHTLY_OPTIONS.filter((option) => option.value !== 'budget');
+    default:
+      return NIGHTLY_OPTIONS;
+  }
+}
 
 interface Props {
   onComplete: () => void;
@@ -62,6 +87,20 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
   const [query, setQuery]     = useState(hotelAddress || '');
   const [status, setStatus]   = useState<SearchStatus>(hotelAddress ? 'found' : 'idle');
   const [errMsg, setErrMsg]   = useState('');
+  const visibleNightlyOptions = useMemo(
+    () => getNightlyOptionsForAccommodation(accommodation),
+    [accommodation],
+  );
+
+  useEffect(() => {
+    if (
+      accommodation &&
+      hotelNightlyBudget &&
+      !hasNightlyBudget(visibleNightlyOptions, hotelNightlyBudget)
+    ) {
+      setHotelNightlyBudget('');
+    }
+  }, [accommodation, hotelNightlyBudget, setHotelNightlyBudget, visibleNightlyOptions]);
 
   async function handleSearch() {
     const q = query.trim();
@@ -95,6 +134,14 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
       setStatus('idle');
     }
     setPath(p);
+  }
+
+  function handleAccommodationSelect(nextAccommodation: AccommodationValue) {
+    setAccommodation(nextAccommodation);
+    const nextOptions = getNightlyOptionsForAccommodation(nextAccommodation);
+    if (hotelNightlyBudget && !hasNightlyBudget(nextOptions, hotelNightlyBudget)) {
+      setHotelNightlyBudget('');
+    }
   }
 
   return (
@@ -237,7 +284,7 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
                   return (
                     <motion.button
                       key={opt.value}
-                      onClick={() => setAccommodation(opt.value)}
+                      onClick={() => handleAccommodationSelect(opt.value)}
                       whileHover={{ scale: 1.01, x: 3 }}
                       whileTap={{ scale: 0.98 }}
                       className="flex items-center gap-3.5 px-4 py-3 rounded-xl border text-left transition-colors"
@@ -273,7 +320,7 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
                     Nightly budget per room
                   </p>
                   <div className="grid grid-cols-2 gap-2.5">
-                    {NIGHTLY_OPTIONS.map((opt) => {
+                    {visibleNightlyOptions.map((opt) => {
                       const sel = hotelNightlyBudget === opt.value;
                       return (
                         <motion.button

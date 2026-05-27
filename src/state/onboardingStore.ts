@@ -82,7 +82,7 @@ export interface OnboardingState {
   setHotelLocation:  (address: string, lat: number, lng: number) => void;
   clearHotelLocation: () => void;
   setAccommodation:      (a: 'hostel' | 'boutique-hotel' | 'luxury-hotel' | 'airbnb' | 'resort') => void;
-  setHotelNightlyBudget: (b: 'budget' | 'mid' | 'comfort' | 'luxury') => void;
+  setHotelNightlyBudget: (b: OnboardingState['hotelNightlyBudget']) => void;
   setGroupType:          (gt: 'solo' | 'couple' | 'family' | 'group') => void;
   setGroupDynamics:      (d: GroupDynamicsPayload | null) => void;
   setPace:               (p: 'relaxed' | 'moderate' | 'intense') => void;

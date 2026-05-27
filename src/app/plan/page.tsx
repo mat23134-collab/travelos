@@ -171,17 +171,12 @@ const LOADING_STEPS = [
   { icon: '💎', label: 'Filtering tourist traps and weak picks' },
 ];
 
-/** Soft target length for UX pacing (steps + progress bar ג€” aligned with server budget). */
-const GENERATION_SOFT_TARGET_SEC = 90;
-/** Never show 100% in the UI while waiting on the server (avoids ג€stuck at 100%ג€). */
-const GENERATION_UI_MAX_PCT = 97;
-
 const GENERATION_TIMER_COPY = {
   en: {
     phase: (n: number, total: number) => `Step ${n} of ${total}`,
     progressLabel: 'Trip build',
-    elapsed: 'Elapsed',
-    footer: 'Typical build: 30s-2 min · AI-powered',
+    status: 'Building',
+    footer: 'Live AI build · Your trip opens automatically when ready',
     building: (dest: string) =>
       `Building your ${dest.trim() || 'trip'} itinerary`,
     almostDone: 'Finalizing details on our servers...',
@@ -189,8 +184,8 @@ const GENERATION_TIMER_COPY = {
   he: {
     phase: (n: number, total: number) => `שלב ${n} מתוך ${total}`,
     progressLabel: 'התקדמות בניית הטיול',
-    elapsed: 'זמן שעבר',
-    footer: 'זמן טיפוסי: 30 שניות עד 2 דקות · AI',
+    status: 'בבנייה',
+    footer: 'בניית AI חיה · הטיול ייפתח אוטומטית כשהוא מוכן',
     building: (dest: string) =>
       dest.trim()
         ? `בונים את המסלול ל${dest}`
@@ -454,44 +449,14 @@ function LoadingScreen({
   streamedTips: string[];
   streamStatus: StatusEvent | null;
 }) {
-  const [tick, setTick] = useState(0);
-  const startedAtRef = useRef<number | null>(null);
   const tc = GENERATION_TIMER_COPY[lang === 'he' ? 'he' : 'en'];
-
-  useEffect(() => {
-    startedAtRef.current = Date.now();
-    const id = setInterval(() => setTick((t) => t + 1), 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  const elapsedSec =
-    startedAtRef.current != null
-      ? Math.max(0, Math.floor((Date.now() - startedAtRef.current) / 1000))
-      : 0;
-
-  void tick;
-
-  /** Advance one loading phase every N seconds so the last phase is not reached in ~27s while the API still runs. */
-  const phaseSec = Math.max(
-    14,
-    Math.floor(GENERATION_SOFT_TARGET_SEC / LOADING_STEPS.length),
-  );
+  const buildSignals = streamedPlaces.length + streamedTips.length + (streamStatus ? 1 : 0);
   const activeStep = Math.min(
     LOADING_STEPS.length - 1,
-    Math.floor(elapsedSec / phaseSec),
+    Math.floor(buildSignals / 2),
   );
-
-  /**
-   * Progress %: mostly time-based (honest ג€how long youג€™ve been waitingג€), lightly boosted by phase
-   * so the bar moves with phases but never hits 100% until navigation unmounts this screen.
-   */
-  const timeRatio = Math.min(1, elapsedSec / GENERATION_SOFT_TARGET_SEC);
-  const phaseRatio = (activeStep + 1) / LOADING_STEPS.length;
-  const blended = 0.62 * timeRatio + 0.38 * phaseRatio;
-  const pct = Math.min(GENERATION_UI_MAX_PCT, Math.round(blended * 100));
   const showAlmostDone = activeStep >= LOADING_STEPS.length - 1;
   const bgUrl = resolveBackgroundImage(destination, activeStep);
-  const elapsedLabel = `${Math.floor(elapsedSec / 60)}:${String(elapsedSec % 60).padStart(2, '0')}`;
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row items-center lg:items-start justify-center gap-10 lg:gap-16 px-6 lg:px-14 py-12 lg:py-0 relative overflow-hidden"
@@ -557,14 +522,8 @@ function LoadingScreen({
         <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.38)' }}>
           {tc.progressLabel}
         </div>
-        <div className="font-extrabold text-white text-3xl sm:text-4xl tracking-tight tabular-nums">{pct}%</div>
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <div className="rounded-xl py-2" style={{ background: 'rgba(255,255,255,0.05)' }}>
-            <div className="text-[9px] uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.32)' }}>
-              {tc.elapsed}
-            </div>
-            <div className="text-sm font-black text-white tabular-nums">{elapsedLabel}</div>
-          </div>
+        <div className="font-extrabold text-white text-3xl sm:text-4xl tracking-tight">{tc.status}</div>
+        <div className="mt-3 grid grid-cols-1 gap-2">
           <div className="rounded-xl py-2" style={{ background: 'rgba(255,255,255,0.05)' }}>
             <div className="text-[9px] uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.32)' }}>
               Phase
@@ -626,11 +585,11 @@ function LoadingScreen({
         })}
       </div>
 
-      <div className="w-full max-w-xs h-1 rounded-full overflow-hidden mb-3" style={{ background: 'rgba(255,255,255,0.08)' }}>
+      <div className="w-full max-w-xs h-1.5 rounded-full overflow-hidden mb-3 relative" style={{ background: 'rgba(255,255,255,0.08)' }}>
         <motion.div
-          className="h-full rounded-full"
-          animate={{ width: `${pct}%` }}
-          transition={{ type: 'spring', stiffness: 200, damping: 28 }}
+          className="absolute inset-y-0 w-1/2 rounded-full"
+          animate={{ x: ['-120%', '220%'] }}
+          transition={{ duration: 1.8, repeat: Infinity, ease: [0.22, 1, 0.36, 1] }}
           style={{ background: 'linear-gradient(90deg, #9e363a, #4a7bde)' }}
         />
       </div>
@@ -644,7 +603,7 @@ function LoadingScreen({
           Live build
         </p>
         <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.52)' }}>
-          We keep this screen honest: the timer is real, the bar slows before 100%, and the trip opens as soon as the itinerary is ready.
+          No fixed countdown here. We keep listening to the live build and open your trip as soon as it is ready.
         </p>
       </div>
 
