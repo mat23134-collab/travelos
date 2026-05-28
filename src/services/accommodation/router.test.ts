@@ -79,6 +79,58 @@ test('normalizes common raw hotel shapes into one internal Hotel type', () => {
   assert.equal(hotel?.bookingUrl, 'https://example.com/sacher');
 });
 
+test('Booking driver does the 2-step locations → search flow and maps results', async () => {
+  const paths: string[] = [];
+  const fetchImpl: typeof fetch = async (url) => {
+    const u = new URL(String(url));
+    paths.push(u.pathname);
+    if (u.pathname === '/v1/hotels/locations') {
+      assert.equal(u.searchParams.get('name'), 'Vienna');
+      return jsonResponse([
+        { dest_id: '-1995499', dest_type: 'city', name: 'Vienna' },
+      ]);
+    }
+    if (u.pathname === '/v1/hotels/search') {
+      assert.equal(u.searchParams.get('dest_id'), '-1995499');
+      assert.equal(u.searchParams.get('checkin_date'), '2026-07-10');
+      assert.equal(u.searchParams.get('checkout_date'), '2026-07-14');
+      return jsonResponse({
+        result: [
+          {
+            hotel_id: 99,
+            hotel_name: 'Hotel Sacher Wien',
+            latitude: 48.2039,
+            longitude: 16.3697,
+            review_score: 9.4,
+            url: 'https://booking.com/sacher',
+            main_photo_url: 'https://img/sacher.jpg',
+            min_total_price: 1680, // 4 nights → 420/night
+            composite_price_breakdown: { gross_amount: { value: 1680, currency: 'EUR' } },
+            city: 'Vienna',
+          },
+        ],
+      });
+    }
+    throw new Error(`unexpected path ${u.pathname}`);
+  };
+
+  const result = await searchAccommodations(baseInput, {
+    env: { RAPIDAPI_BOOKING_HOST: 'booking-com.p.rapidapi.com', RAPIDAPI_KEY: 'test-key' },
+    fetchImpl,
+    timeoutMs: 1000,
+    providerOrder: ['booking'],
+  });
+
+  assert.deepEqual(paths, ['/v1/hotels/locations', '/v1/hotels/search']);
+  assert.equal(result.provider, 'booking');
+  assert.equal(result.hotels.length, 1);
+  assert.equal(result.hotels[0].name, 'Hotel Sacher Wien');
+  assert.equal(result.hotels[0].nightlyRate?.amount, 420); // 1680 / 4 nights
+  assert.equal(result.hotels[0].nightlyRate?.currency, 'EUR');
+  assert.equal(result.hotels[0].rating, 9.4);
+  assert.equal(result.hotels[0].bookingUrl, 'https://booking.com/sacher');
+});
+
 test('falls back from Booking 429 to Priceline and returns normalized hotels', async () => {
   const hosts: string[] = [];
   const fetchImpl: typeof fetch = async (url, init) => {

@@ -281,11 +281,155 @@ function buildProviderUrl(config: ProviderConfig, input: AccommodationSearchInpu
   return url;
 }
 
+// ─── Booking.com driver (host: booking-com.p.rapidapi.com, by Tipsters) ──────
+// Real 2-step contract: resolve a dest_id from the city name, then search
+// hotels by that id + dates. Replaces the generic 1-shot path for booking.
+
+type Json = Record<string, unknown>;
+
+async function fetchRapidJson(
+  url: URL,
+  key: string,
+  host: string,
+  fetchImpl: typeof fetch,
+  timeoutMs: number,
+): Promise<unknown> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetchImpl(url, {
+      headers: { 'x-rapidapi-key': key, 'x-rapidapi-host': host },
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    if (res.status === 429) throw new Error('booking quota exceeded (429)');
+    if (!res.ok) throw new Error(`booking request failed (${res.status})`);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Default to a near-future 2-night window when the traveler skipped dates. */
+function resolveStayDates(start?: string, end?: string): { checkin: string; checkout: string } {
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  const ci = start?.slice(0, 10);
+  const co = end?.slice(0, 10);
+  if (ci && co && ci < co) return { checkin: ci, checkout: co };
+  const base = new Date();
+  base.setDate(base.getDate() + 30);
+  const out = new Date(base);
+  out.setDate(out.getDate() + 2);
+  return { checkin: fmt(base), checkout: fmt(out) };
+}
+
+function nightsBetween(checkin: string, checkout: string): number {
+  const a = new Date(checkin).getTime();
+  const b = new Date(checkout).getTime();
+  const n = Math.round((b - a) / 86_400_000);
+  return Number.isFinite(n) && n > 0 ? n : 1;
+}
+
+function normalizeBookingHotel(raw: unknown, nights: number): Hotel | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Json;
+  const name = pickString(r, ['hotel_name', 'hotel_name_trans', 'name']);
+  if (!name) return null;
+
+  const perNight = pickNestedNum(r, [
+    ['composite_price_breakdown', 'gross_amount_per_night', 'value'],
+  ]);
+  const total = pickNestedNum(r, [
+    ['min_total_price'],
+    ['composite_price_breakdown', 'gross_amount', 'value'],
+    ['composite_price_breakdown', 'all_inclusive_amount', 'value'],
+    ['price_breakdown', 'gross_price'],
+  ]);
+  const amount = perNight ?? (total != null ? Math.round(total / nights) : null);
+  const currency = pickNestedString(r, [
+    ['composite_price_breakdown', 'gross_amount', 'currency'],
+    ['composite_price_breakdown', 'gross_amount_per_night', 'currency'],
+    ['currencycode'], ['currency_code'], ['currency'],
+  ]);
+
+  const rawId = pickString(r, ['hotel_id', 'id']);
+  return {
+    id: `booking-${rawId ?? name.toLowerCase().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '')}`,
+    provider: 'booking',
+    name,
+    address:
+      pickString(r, ['address', 'address_trans', 'district', 'city_trans', 'city', 'city_name_en']) ?? null,
+    lat: pickNestedNum(r, [['latitude'], ['lat']]),
+    lng: pickNestedNum(r, [['longitude'], ['lng'], ['lon']]),
+    nightlyRate: amount != null ? { amount, currency } : null,
+    rating: pickNestedNum(r, [['review_score'], ['rating']]),
+    bookingUrl: pickString(r, ['url', 'hotel_url']),
+    imageUrl: pickString(r, ['main_photo_url', 'max_photo_url', 'max_1440_photo_url']),
+    available: true,
+    raw,
+  };
+}
+
+async function bookingComSearch(
+  input: AccommodationSearchInput,
+  options: Required<Pick<SearchOptions, 'env' | 'fetchImpl' | 'timeoutMs'>>,
+): Promise<Hotel[]> {
+  const host = cleanHost(options.env.RAPIDAPI_BOOKING_HOST) || 'booking-com.p.rapidapi.com';
+  const key = options.env.RAPIDAPI_BOOKING_KEY || options.env.RAPIDAPI_KEY;
+  if (!key) throw new Error('booking RapidAPI key missing');
+
+  const locale = 'en-gb';
+  const currency = input.budget === 'luxury' ? 'USD' : 'USD';
+
+  // Step 1 — resolve dest_id from the destination name.
+  const locUrl = new URL(`https://${host}/v1/hotels/locations`);
+  locUrl.searchParams.set('name', input.destination);
+  locUrl.searchParams.set('locale', locale);
+  const locRaw = await fetchRapidJson(locUrl, key, host, options.fetchImpl, options.timeoutMs);
+  const locArr = Array.isArray(locRaw) ? (locRaw as Json[]) : [];
+  const cityLoc =
+    locArr.find((l) => String(l?.dest_type) === 'city') ??
+    locArr.find((l) => l?.dest_id != null) ??
+    null;
+  const destId = cityLoc?.dest_id;
+  if (destId == null) throw new Error(`booking: no dest_id for "${input.destination}"`);
+
+  // Step 2 — hotel search by dest_id + dates.
+  const { checkin, checkout } = resolveStayDates(input.startDate, input.endDate);
+  const nights = nightsBetween(checkin, checkout);
+  const searchUrl = new URL(`https://${host}/v1/hotels/search`);
+  searchUrl.searchParams.set('dest_id', String(destId));
+  searchUrl.searchParams.set('dest_type', String(cityLoc?.dest_type ?? 'city'));
+  searchUrl.searchParams.set('checkin_date', checkin);
+  searchUrl.searchParams.set('checkout_date', checkout);
+  searchUrl.searchParams.set('adults_number', String(input.adults && input.adults > 0 ? input.adults : 2));
+  searchUrl.searchParams.set('room_number', '1');
+  searchUrl.searchParams.set('order_by', 'popularity');
+  searchUrl.searchParams.set('filter_by_currency', currency);
+  searchUrl.searchParams.set('locale', locale);
+  searchUrl.searchParams.set('units', 'metric');
+  searchUrl.searchParams.set('page_number', '0');
+
+  const dataRaw = await fetchRapidJson(searchUrl, key, host, options.fetchImpl, options.timeoutMs);
+  const data = (dataRaw ?? {}) as Json;
+  const results = Array.isArray(data.result) ? (data.result as unknown[]) : [];
+  const hotels = results
+    .map((r) => normalizeBookingHotel(r, nights))
+    .filter((h): h is Hotel => h !== null);
+  if (hotels.length === 0) throw new Error('booking returned empty results');
+  return hotels;
+}
+
 async function fetchProvider(
   provider: AccommodationProviderId,
   input: AccommodationSearchInput,
   options: Required<Pick<SearchOptions, 'env' | 'fetchImpl' | 'timeoutMs'>>,
 ): Promise<Hotel[]> {
+  // Provider-specific drivers (real API contracts) take precedence.
+  if (provider === 'booking') {
+    return bookingComSearch(input, options);
+  }
+
   const config = PROVIDERS[provider];
   const url = buildProviderUrl(config, input, options.env);
   const key = options.env[config.keyEnv] || options.env.RAPIDAPI_KEY;
