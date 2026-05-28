@@ -33,7 +33,8 @@ export interface FeedbackPayload {
 
 interface Props {
   open: boolean;
-  onSubmit: (payload: FeedbackPayload) => void;
+  /** Returns true on a confirmed save, false on any failure. */
+  onSubmit: (payload: FeedbackPayload) => Promise<boolean>;
   onDismiss: () => void;
 }
 
@@ -57,20 +58,25 @@ export function FeedbackSurveyModal({ open, onSubmit, onDismiss }: Props) {
   const [missing, setMissing] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const [error, setError] = useState(false);
 
   const canSubmit = accuracy != null || readability != null || helpful != null || wait != null || missing.trim().length > 0;
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!canSubmit || submitting) return;
     setSubmitting(true);
-    onSubmit({
+    setError(false);
+    // Only show the thank-you state on a CONFIRMED save — never optimistically.
+    const ok = await onSubmit({
       searchAccuracy: accuracy,
       readability,
       recommendationsHelpful: helpful,
       waitTime: wait,
       missingFeedback: missing.trim(),
     });
-    setDone(true);
+    setSubmitting(false);
+    if (ok) setDone(true);
+    else setError(true);
   }
 
   return (
@@ -176,6 +182,13 @@ export function FeedbackSurveyModal({ open, onSubmit, onDismiss }: Props) {
                   </Question>
                 </div>
 
+                {/* Error */}
+                {error && (
+                  <p className="mt-4 text-center text-[12px] leading-relaxed" style={{ color: '#e2a0a0' }}>
+                    לא הצלחנו לשמור את המשוב כרגע — בדקו את החיבור ונסו שוב.
+                  </p>
+                )}
+
                 {/* Submit */}
                 <button
                   onClick={handleSubmit}
@@ -188,7 +201,7 @@ export function FeedbackSurveyModal({ open, onSubmit, onDismiss }: Props) {
                     boxShadow: canSubmit ? '0 10px 28px -10px rgba(196,162,106,0.55)' : 'none',
                   }}
                 >
-                  {submitting ? 'שולח…' : 'שליחת משוב'}
+                  {submitting ? 'שולח…' : error ? 'נסה שוב' : 'שליחת משוב'}
                 </button>
                 <button
                   onClick={onDismiss}

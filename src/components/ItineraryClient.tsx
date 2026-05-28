@@ -1359,21 +1359,32 @@ export function ItineraryClient({
     markFeedbackSeen();
   }, [markFeedbackSeen]);
 
-  const handleFeedbackSubmit = useCallback((payload: FeedbackPayload) => {
-    markFeedbackSeen();
-    // Fire-and-forget POST; close the modal after the thank-you state shows.
+  const handleFeedbackSubmit = useCallback(async (payload: FeedbackPayload): Promise<boolean> => {
     const headers: HeadersInit = { 'Content-Type': 'application/json' };
     if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
-    fetch('/api/feedback', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        itineraryId: itinerary._id ?? null,
-        destination: itinerary.destination ?? null,
-        ...payload,
-      }),
-    }).catch((e) => console.warn('[feedback] submit failed (non-critical):', e));
-    setTimeout(() => setFeedbackOpen(false), 2200);
+    try {
+      const res = await fetch('/api/feedback', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          itineraryId: itinerary._id ?? null,
+          destination: itinerary.destination ?? null,
+          ...payload,
+        }),
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        console.warn(`[feedback] submit failed: HTTP ${res.status} ${text.slice(0, 200)}`);
+        return false;
+      }
+      // Confirmed save — only now mark it seen + auto-close after the thank-you.
+      markFeedbackSeen();
+      setTimeout(() => setFeedbackOpen(false), 2200);
+      return true;
+    } catch (e) {
+      console.warn('[feedback] submit error:', e instanceof Error ? e.message : e);
+      return false;
+    }
   }, [markFeedbackSeen, session, itinerary._id, itinerary.destination]);
 
   const transportDataReady = useMemo(
