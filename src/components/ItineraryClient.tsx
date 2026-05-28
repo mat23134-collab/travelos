@@ -14,6 +14,7 @@ import { LogisticsDashboard } from '@/components/LogisticsDashboard';
 import { DraftOverview } from '@/components/DraftOverview';
 import { TrendingTicker } from '@/components/TrendingTicker';
 import { TripStoryCube } from '@/components/TripStoryCube';
+import { FeedbackSurveyModal, type FeedbackPayload } from '@/components/FeedbackSurveyModal';
 import { itineraryUi, type ItineraryUiStrings } from '@/lib/tripUiCopy';
 import { hotelOtaSearchUrl, mergeHotelOtaRows, isOtaSoldOut, hasBookableOtaRate, type HotelOtaLinkOpts } from '@/lib/hotelOtaLinks';
 
@@ -1328,6 +1329,53 @@ export function ItineraryClient({
     scoutPostedRef.current = false;
   }, [itinerary.destination]);
 
+  // ── Feedback survey (timed, once per itinerary) ──────────────────────────────
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const feedbackKey = useMemo(() => {
+    const id = itinerary._id ?? (itinerary.destination ?? '').trim().toLowerCase();
+    return id ? `sarto_feedback_${id}` : null;
+  }, [itinerary._id, itinerary.destination]);
+
+  useEffect(() => {
+    if (!feedbackKey) return;
+    if (typeof window === 'undefined') return;
+    // Already submitted or dismissed for this itinerary — never show again.
+    try {
+      if (window.localStorage.getItem(feedbackKey)) return;
+    } catch { /* localStorage blocked — show anyway */ }
+    // Random 40–50 s dwell before the prompt appears.
+    const delay = 40_000 + Math.floor(Math.random() * 10_000);
+    const t = setTimeout(() => setFeedbackOpen(true), delay);
+    return () => clearTimeout(t);
+  }, [feedbackKey]);
+
+  const markFeedbackSeen = useCallback(() => {
+    if (!feedbackKey) return;
+    try { window.localStorage.setItem(feedbackKey, String(Date.now())); } catch { /* ignore */ }
+  }, [feedbackKey]);
+
+  const handleFeedbackDismiss = useCallback(() => {
+    setFeedbackOpen(false);
+    markFeedbackSeen();
+  }, [markFeedbackSeen]);
+
+  const handleFeedbackSubmit = useCallback((payload: FeedbackPayload) => {
+    markFeedbackSeen();
+    // Fire-and-forget POST; close the modal after the thank-you state shows.
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+    fetch('/api/feedback', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        itineraryId: itinerary._id ?? null,
+        destination: itinerary.destination ?? null,
+        ...payload,
+      }),
+    }).catch((e) => console.warn('[feedback] submit failed (non-critical):', e));
+    setTimeout(() => setFeedbackOpen(false), 2200);
+  }, [markFeedbackSeen, session, itinerary._id, itinerary.destination]);
+
   const transportDataReady = useMemo(
     () => hasTransportContent(displayCityTransport),
     [displayCityTransport],
@@ -1990,6 +2038,14 @@ export function ItineraryClient({
 
       <div className="print:hidden">
         <QuickEdit itinerary={itinerary} onUpdate={handleQuickEditUpdate} />
+      </div>
+
+      <div className="print:hidden">
+        <FeedbackSurveyModal
+          open={feedbackOpen}
+          onSubmit={handleFeedbackSubmit}
+          onDismiss={handleFeedbackDismiss}
+        />
       </div>
       </div>
     </div>
