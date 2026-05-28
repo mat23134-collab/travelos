@@ -39,9 +39,21 @@ function isUuid(v: unknown): v is string {
 
 export async function POST(req: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '') ?? '';
+  // Prefer the service-role key, but fall back to the anon key so feedback
+  // works even when SUPABASE_SERVICE_ROLE_KEY isn't set on the host. The
+  // itinerary_feedback table has an INSERT-only RLS policy for anon, and no
+  // SELECT policy, so anon can write but never read others' rows.
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
-  if (!url || !serviceKey) {
-    return NextResponse.json({ error: 'Server missing Supabase configuration.' }, { status: 503 });
+  const anonKey =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+    process.env.SUPABASE_ANON_KEY ??
+    '';
+  const writeKey = serviceKey || anonKey;
+  if (!url || !writeKey) {
+    return NextResponse.json(
+      { error: 'Server missing Supabase configuration (no URL or key).' },
+      { status: 503 },
+    );
   }
 
   const body = (await req.json().catch(() => ({}))) as Body;
@@ -63,7 +75,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Empty feedback — nothing to store.' }, { status: 400 });
   }
 
-  const sb = createClient(url, serviceKey, {
+  const sb = createClient(url, writeKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
@@ -71,7 +83,7 @@ export async function POST(req: NextRequest) {
   let userId: string | null = null;
   const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '').trim();
   if (token) {
-    const { data } = await sb.auth.getUser(token);
+    const { data } = await sb.auth.getUser(token).catch(() => ({ data: { user: null } }));
     userId = data.user?.id ?? null;
   }
 
