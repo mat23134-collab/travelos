@@ -131,23 +131,31 @@ test('Booking driver does the 2-step locations → search flow and maps results'
   assert.equal(result.hotels[0].bookingUrl, 'https://booking.com/sacher');
 });
 
-test('falls back from Booking 429 to Priceline and returns normalized hotels', async () => {
+test('falls back from Booking 429 to Priceline (same Tipsters 2-step contract)', async () => {
   const hosts: string[] = [];
   const fetchImpl: typeof fetch = async (url, init) => {
-    hosts.push(new URL(String(url)).host);
+    const u = new URL(String(url));
+    hosts.push(u.host);
     assert.equal((init?.headers as Record<string, string>)['x-rapidapi-key'], 'test-key');
 
-    if (hosts.length === 1) return jsonResponse({ message: 'quota exceeded' }, 429);
+    // Booking's first call (locations) is rate-limited → whole provider fails.
+    if (u.host === 'booking-tipsters.test') return jsonResponse({ message: 'quota exceeded' }, 429);
+
+    // Priceline uses the identical /v1/hotels/locations → /v1/hotels/search flow.
+    if (u.pathname === '/v1/hotels/locations') {
+      return jsonResponse([{ dest_id: '42', dest_type: 'city', name: 'Vienna' }]);
+    }
     return jsonResponse({
-      hotels: [
+      result: [
         {
-          id: 'pl-1',
-          name: 'Priceline Grand Vienna',
-          address: 'Ringstrasse',
+          hotel_id: 'pl-1',
+          hotel_name: 'Priceline Grand Vienna',
+          city: 'Vienna',
           latitude: 48.21,
           longitude: 16.37,
-          price: 250,
-          currency: 'EUR',
+          min_total_price: 1000, // 4 nights → 250/night
+          currencycode: 'EUR',
+          review_score: 8.8,
         },
       ],
     });
@@ -156,9 +164,11 @@ test('falls back from Booking 429 to Priceline and returns normalized hotels', a
   const result = await searchAccommodations(baseInput, { env, fetchImpl, timeoutMs: 1000 });
 
   assert.equal(result.provider, 'priceline');
-  assert.deepEqual(hosts, ['booking-tipsters.test', 'priceline-tipsters.test']);
   assert.equal(result.hotels[0]?.provider, 'priceline');
   assert.equal(result.hotels[0]?.name, 'Priceline Grand Vienna');
+  assert.equal(result.hotels[0]?.nightlyRate?.amount, 250);
+  // booking(429) then priceline locations + search
+  assert.deepEqual(hosts, ['booking-tipsters.test', 'priceline-tipsters.test', 'priceline-tipsters.test']);
 });
 
 test('returns null provider when every RapidAPI fails AND Exa fallback is skipped', async () => {

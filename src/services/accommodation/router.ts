@@ -330,7 +330,7 @@ function nightsBetween(checkin: string, checkout: string): number {
   return Number.isFinite(n) && n > 0 ? n : 1;
 }
 
-function normalizeBookingHotel(raw: unknown, nights: number): Hotel | null {
+function normalizeTipstersHotel(raw: unknown, nights: number, provider: AccommodationProviderId): Hotel | null {
   if (!raw || typeof raw !== 'object') return null;
   const r = raw as Json;
   const name = pickString(r, ['hotel_name', 'hotel_name_trans', 'name']);
@@ -354,8 +354,8 @@ function normalizeBookingHotel(raw: unknown, nights: number): Hotel | null {
 
   const rawId = pickString(r, ['hotel_id', 'id']);
   return {
-    id: `booking-${rawId ?? name.toLowerCase().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '')}`,
-    provider: 'booking',
+    id: `${provider}-${rawId ?? name.toLowerCase().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '')}`,
+    provider,
     name,
     address:
       pickString(r, ['address', 'address_trans', 'district', 'city_trans', 'city', 'city_name_en']) ?? null,
@@ -370,16 +370,24 @@ function normalizeBookingHotel(raw: unknown, nights: number): Hotel | null {
   };
 }
 
-async function bookingComSearch(
+/**
+ * Shared 2-step driver for Tipsters CO hotel APIs (Booking + Priceline) — they
+ * expose the identical /v1/hotels/locations → /v1/hotels/search contract.
+ */
+async function tipstersHotelSearch(
+  provider: 'booking' | 'priceline',
   input: AccommodationSearchInput,
   options: Required<Pick<SearchOptions, 'env' | 'fetchImpl' | 'timeoutMs'>>,
 ): Promise<Hotel[]> {
-  const host = cleanHost(options.env.RAPIDAPI_BOOKING_HOST) || 'booking-com.p.rapidapi.com';
-  const key = options.env.RAPIDAPI_BOOKING_KEY || options.env.RAPIDAPI_KEY;
-  if (!key) throw new Error('booking RapidAPI key missing');
+  const hostEnv = provider === 'booking' ? options.env.RAPIDAPI_BOOKING_HOST : options.env.RAPIDAPI_PRICELINE_HOST;
+  const keyEnv = provider === 'booking' ? options.env.RAPIDAPI_BOOKING_KEY : options.env.RAPIDAPI_PRICELINE_KEY;
+  const defaultHost = provider === 'booking' ? 'booking-com.p.rapidapi.com' : 'priceline-com-provider.p.rapidapi.com';
+  const host = cleanHost(hostEnv) || defaultHost;
+  const key = keyEnv || options.env.RAPIDAPI_KEY;
+  if (!key) throw new Error(`${provider} RapidAPI key missing`);
 
   const locale = 'en-gb';
-  const currency = input.budget === 'luxury' ? 'USD' : 'USD';
+  const currency = 'USD';
 
   // Step 1 — resolve dest_id from the destination name.
   const locUrl = new URL(`https://${host}/v1/hotels/locations`);
@@ -392,7 +400,7 @@ async function bookingComSearch(
     locArr.find((l) => l?.dest_id != null) ??
     null;
   const destId = cityLoc?.dest_id;
-  if (destId == null) throw new Error(`booking: no dest_id for "${input.destination}"`);
+  if (destId == null) throw new Error(`${provider}: no dest_id for "${input.destination}"`);
 
   // Step 2 — hotel search by dest_id + dates.
   const { checkin, checkout } = resolveStayDates(input.startDate, input.endDate);
@@ -414,9 +422,9 @@ async function bookingComSearch(
   const data = (dataRaw ?? {}) as Json;
   const results = Array.isArray(data.result) ? (data.result as unknown[]) : [];
   const hotels = results
-    .map((r) => normalizeBookingHotel(r, nights))
+    .map((r) => normalizeTipstersHotel(r, nights, provider))
     .filter((h): h is Hotel => h !== null);
-  if (hotels.length === 0) throw new Error('booking returned empty results');
+  if (hotels.length === 0) throw new Error(`${provider} returned empty results`);
   return hotels;
 }
 
@@ -426,8 +434,9 @@ async function fetchProvider(
   options: Required<Pick<SearchOptions, 'env' | 'fetchImpl' | 'timeoutMs'>>,
 ): Promise<Hotel[]> {
   // Provider-specific drivers (real API contracts) take precedence.
-  if (provider === 'booking') {
-    return bookingComSearch(input, options);
+  // Booking + Priceline are both by Tipsters CO and share the same contract.
+  if (provider === 'booking' || provider === 'priceline') {
+    return tipstersHotelSearch(provider, input, options);
   }
 
   const config = PROVIDERS[provider];
