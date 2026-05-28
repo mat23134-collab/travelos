@@ -1,8 +1,38 @@
 import { z } from 'zod';
-import type { Activity, DiningSpot, Itinerary, TravelerProfile, VibeLabel } from '@/lib/types';
+import type { Activity, DiningSpot, Itinerary, TravelerProfile, VibeLabel, HotelRecommendation } from '@/lib/types';
 import type { InventoryItem } from '@/services/scoringEngine';
+import type { Hotel } from '@/services/accommodation/router';
 
 export type GenerationProvider = 'gemini' | 'claude' | 'fallback';
+
+/** Map a live provider Hotel (Booking / Airbnb / etc.) into a HotelRecommendation card. */
+function hotelToRecommendation(h: Hotel): HotelRecommendation {
+  const nightly = h.nightlyRate
+    ? `${h.nightlyRate.currency ?? ''}${h.nightlyRate.amount}`.trim()
+    : null;
+  const providerLabel = h.provider.charAt(0).toUpperCase() + h.provider.slice(1);
+  return {
+    name: h.name,
+    neighborhood: h.address ?? '',
+    neighborhoodVibe: h.provider === 'airbnb' ? 'apartment stay' : 'central stay',
+    whyItFits: 'Matched to your accommodation preference.',
+    priceRange: nightly ? `${nightly}/night` : '$$',
+    neighborhoodInsight: '',
+    websiteUrl: h.bookingUrl ?? null,
+    estimatedPriceRangeTripDates: nightly ? `${nightly}/night (indicative — verify live)` : null,
+    availabilitySummary: h.available === false
+      ? 'May be sold out for your dates — verify live'
+      : `Bookable via ${providerLabel} — verify live`,
+    fitSummary: `${h.name}${h.address ? ` in ${h.address}` : ''}. Sourced live from ${providerLabel}.`,
+    otaPriceCompare: null,
+    ratingStars: typeof h.rating === 'number' ? h.rating : null,
+    ratingSource: typeof h.rating === 'number' ? `${providerLabel} rating` : null,
+    reviewCountHint: null,
+    latitude: h.lat ?? null,
+    longitude: h.lng ?? null,
+    availability: h.available ?? null,
+  };
+}
 
 const coordinateSchema = z.number().finite();
 
@@ -49,6 +79,7 @@ export function buildFallbackItinerary(
   profile: TravelerProfile,
   inventory: InventoryItem[],
   reason: unknown,
+  hotels: Hotel[] = [],
 ): Itinerary {
   const daysCount = Math.max(1, Math.min(profile.duration || calculateDays(profile.startDate, profile.endDate), 10));
   const pool = normalizeFallbackPool(profile.destination, inventory);
@@ -131,7 +162,9 @@ export function buildFallbackItinerary(
         }
       : {
           type: 'recommendations',
-          recommendations: [],
+          // Surface live provider results (Booking / Airbnb / Expedia / …) so a
+          // fallback itinerary still shows real lodging instead of an empty list.
+          recommendations: hotels.slice(0, 6).map(hotelToRecommendation),
         },
     _meta: {
       searchEnabled: false,

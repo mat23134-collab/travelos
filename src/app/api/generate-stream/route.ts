@@ -304,7 +304,7 @@ async function runPipeline(
     provider = 'fallback';
     isFallback = true;
     fallbackReason = llmErr;
-    itinerary = buildFallbackItinerary(profile, filteredInventory, llmErr);
+    itinerary = buildFallbackItinerary(profile, filteredInventory, llmErr, accommodationResult.hotels);
   } finally {
     clearTimeout(aiAbortTimer);
     if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
@@ -331,7 +331,7 @@ async function runPipeline(
           provider = 'fallback';
           isFallback = true;
           fallbackReason = claudeErr;
-          itinerary = buildFallbackItinerary(profile, filteredInventory, claudeErr);
+          itinerary = buildFallbackItinerary(profile, filteredInventory, claudeErr, accommodationResult.hotels);
         } finally {
           clearTimeout(retryTimer);
         }
@@ -339,7 +339,7 @@ async function runPipeline(
         console.warn('[generate-stream] AI parse/validation failed — using fallback itinerary:', parseErr instanceof Error ? parseErr.message : parseErr);
         provider = 'fallback';
         isFallback = true;
-        itinerary = buildFallbackItinerary(profile, filteredInventory, parseErr);
+        itinerary = buildFallbackItinerary(profile, filteredInventory, parseErr, accommodationResult.hotels);
       }
     }
   }

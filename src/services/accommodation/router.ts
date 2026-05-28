@@ -163,17 +163,29 @@ function extractRawHotels(payload: unknown): unknown[] {
   if (Array.isArray(payload)) return payload;
   if (!payload || typeof payload !== 'object') return [];
   const obj = payload as Record<string, unknown>;
-  for (const key of ['hotels', 'results', 'data', 'properties', 'listings', 'items']) {
+  // Airbnb RapidAPI variants put listings under results/searchResults; hotels
+  // under hotels/properties. Check the common shapes top-level and one deep.
+  for (const key of ['hotels', 'results', 'searchResults', 'data', 'properties', 'listings', 'items', 'list']) {
     const value = obj[key];
     if (Array.isArray(value)) return value;
   }
-  const nested = readPath(obj, ['data', 'hotels']) ?? readPath(obj, ['data', 'results']) ?? readPath(obj, ['data', 'properties']);
+  const nested =
+    readPath(obj, ['data', 'hotels']) ??
+    readPath(obj, ['data', 'results']) ??
+    readPath(obj, ['data', 'properties']) ??
+    readPath(obj, ['data', 'list']) ??
+    readPath(obj, ['data', 'dtssearchresults']);
   return Array.isArray(nested) ? nested : [];
 }
 
 export function normalizeAccommodationHotel(raw: unknown, provider: AccommodationProviderId): Hotel | null {
   if (!raw || typeof raw !== 'object') return null;
-  const obj = raw as Record<string, unknown>;
+  const top = raw as Record<string, unknown>;
+  // Airbnb-style payloads nest the venue under `listing` and pricing as a
+  // sibling. Merge the listing fields up so the field-pickers below find the
+  // name/coords, while top-level pricing keys still win.
+  const listing = top.listing && typeof top.listing === 'object' ? (top.listing as Record<string, unknown>) : null;
+  const obj: Record<string, unknown> = listing ? { ...listing, ...top } : top;
 
   const rawId = pickString(obj, [
     'id', 'hotel_id', 'hotelId', 'propertyId', 'property_id', 'listingId', 'listing_id',
@@ -190,10 +202,17 @@ export function normalizeAccommodationHotel(raw: unknown, provider: Accommodatio
     ['location', 'longitude'], ['location', 'lng'], ['coordinates', 'longitude'], ['coordinates', 'lng'], ['geo', 'lng'], ['longitude'], ['lng'], ['lon'],
   ]);
   const amount = pickNestedNum(obj, [
-    ['priceBreakdown', 'grossPrice', 'value'], ['priceBreakdown', 'price', 'value'], ['rate', 'amount'], ['nightlyRate', 'amount'], ['price', 'amount'], ['price'],
+    ['priceBreakdown', 'grossPrice', 'value'], ['priceBreakdown', 'price', 'value'],
+    ['rate', 'amount'], ['nightlyRate', 'amount'], ['price', 'amount'], ['price'],
+    // Airbnb pricing shapes
+    ['pricingQuote', 'rate', 'amount'], ['pricing_quote', 'rate', 'amount'],
+    ['pricingQuote', 'price', 'total', 'amount'], ['price', 'rate', 'amount'],
+    ['structuredDisplayPrice', 'primaryLine', 'price'],
   ]);
   const currency = pickNestedString(obj, [
-    ['priceBreakdown', 'grossPrice', 'currency'], ['priceBreakdown', 'price', 'currency'], ['rate', 'currency'], ['nightlyRate', 'currency'], ['currency'],
+    ['priceBreakdown', 'grossPrice', 'currency'], ['priceBreakdown', 'price', 'currency'],
+    ['rate', 'currency'], ['nightlyRate', 'currency'], ['currency'],
+    ['pricingQuote', 'rate', 'currency'], ['pricing_quote', 'rate', 'currency'],
   ]);
 
   const rawAvailable =

@@ -383,13 +383,13 @@ export async function POST(req: NextRequest) {
           provider = 'fallback';
           isFallback = true;
           fallbackReason = claudeErr;
-          itinerary = buildFallbackItinerary(profile, filteredInventory, claudeErr);
+          itinerary = buildFallbackItinerary(profile, filteredInventory, claudeErr, accommodationResult.hotels);
         }
       } else if (!itinerary) {
         console.warn('[generate] AI failed — using fallback itinerary:', aiOrParseErr instanceof Error ? aiOrParseErr.message : aiOrParseErr);
         provider = 'fallback';
         isFallback = true;
-        itinerary = buildFallbackItinerary(profile, filteredInventory, aiOrParseErr);
+        itinerary = buildFallbackItinerary(profile, filteredInventory, aiOrParseErr, accommodationResult.hotels);
       }
     }
 
