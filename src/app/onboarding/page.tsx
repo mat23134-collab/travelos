@@ -28,34 +28,54 @@ import { BrandWordmark } from '@/components/BrandWordmark';
 import { resolveBackgroundImage } from '@/lib/stepBackgrounds';
 import { COUNTRIES } from '@/lib/countries';
 
+// ── Chunk-load resilience ────────────────────────────────────────────────────
+// Mobile networks + post-deploy chunk-hash changes make a single dynamic import
+// occasionally fail, leaving the step area blank until a manual refresh. We
+// retry the import a few times with backoff before surfacing the error, which
+// turns almost all transient failures into a brief skeleton instead of a dead
+// screen. (A global ChunkLoadError auto-reload handler in the component covers
+// the stale-deploy case where the file is simply gone.)
+function retryImport<T>(factory: () => Promise<T>, retries = 4, delay = 350): Promise<T> {
+  return factory().catch((err) => {
+    if (retries <= 0) throw err;
+    return new Promise<T>((resolve, reject) => {
+      setTimeout(() => {
+        retryImport(factory, retries - 1, Math.min(delay * 1.6, 2500)).then(resolve, reject);
+      }, delay);
+    });
+  });
+}
+
 // ── Lazy-load heavy step components ──────────────────────────────────────────
+// Every section ships with a visible loading skeleton so the step area is never
+// blank while its chunk is in flight.
 const DestinationSection = dynamic(
-  () => import('./sections/DestinationSection').then((m) => ({ default: m.DestinationSection })),
-  { ssr: false }
+  () => retryImport(() => import('./sections/DestinationSection')).then((m) => ({ default: m.DestinationSection })),
+  { ssr: false, loading: () => <StepSkeleton /> }
 );
 const DatesSection = dynamic(
-  () => import('./sections/DatesSection').then((m) => ({ default: m.DatesSection })),
-  { ssr: false }
+  () => retryImport(() => import('./sections/DatesSection')).then((m) => ({ default: m.DatesSection })),
+  { ssr: false, loading: () => <StepSkeleton /> }
 );
 const SmartHotelStep = dynamic(
-  () => import('./sections/SmartHotelStep').then((m) => ({ default: m.SmartHotelStep })),
-  { ssr: false }
+  () => retryImport(() => import('./sections/SmartHotelStep')).then((m) => ({ default: m.SmartHotelStep })),
+  { ssr: false, loading: () => <StepSkeleton /> }
 );
 const VibeSection = dynamic(
-  () => import('./sections/VibeSection').then((m) => ({ default: m.VibeSection })),
-  { ssr: false }
+  () => retryImport(() => import('./sections/VibeSection')).then((m) => ({ default: m.VibeSection })),
+  { ssr: false, loading: () => <StepSkeleton /> }
 );
 const PreferencesSection = dynamic(
-  () => import('./sections/PreferencesSection').then((m) => ({ default: m.PreferencesSection })),
-  { ssr: false }
+  () => retryImport(() => import('./sections/PreferencesSection')).then((m) => ({ default: m.PreferencesSection })),
+  { ssr: false, loading: () => <StepSkeleton /> }
 );
 const FinishingTouchesSection = dynamic(
-  () => import('./sections/FinishingTouchesSection').then((m) => ({ default: m.FinishingTouchesSection })),
-  { ssr: false }
+  () => retryImport(() => import('./sections/FinishingTouchesSection')).then((m) => ({ default: m.FinishingTouchesSection })),
+  { ssr: false, loading: () => <StepSkeleton /> }
 );
 const TopSightsSection = dynamic(
-  () => import('./sections/TopSightsSection').then((m) => ({ default: m.TopSightsSection })),
-  { ssr: false }
+  () => retryImport(() => import('./sections/TopSightsSection')).then((m) => ({ default: m.TopSightsSection })),
+  { ssr: false, loading: () => <StepSkeleton /> }
 );
 
 // ── Steps meta ────────────────────────────────────────────────────────────────
@@ -154,6 +174,43 @@ function OnboardingPageContent() {
   useEffect(() => {
     if (!loading && !user) router.replace('/auth');
   }, [loading, user, router]);
+
+  // ── ChunkLoadError safety net ───────────────────────────────────────────────
+  // After a new deploy, an open client holds HTML that references old chunk
+  // hashes which no longer exist on the server. Loading a lazy step then 404s
+  // and the area stays blank. We catch that specific error once and hard-reload
+  // to pull fresh HTML + chunk references. A sessionStorage guard prevents any
+  // reload loop.
+  useEffect(() => {
+    const RELOAD_KEY = 'sarto_chunk_reloaded';
+    function looksLikeChunkError(message: string): boolean {
+      return /ChunkLoadError|Loading chunk [\d]+ failed|Loading CSS chunk|error loading dynamically imported module|importing a module script failed/i.test(message);
+    }
+    function handle(message: string) {
+      if (!looksLikeChunkError(message)) return;
+      try {
+        if (sessionStorage.getItem(RELOAD_KEY)) return; // already retried once
+        sessionStorage.setItem(RELOAD_KEY, '1');
+      } catch { /* ignore */ }
+      window.location.reload();
+    }
+    const onError = (e: ErrorEvent) => handle(e?.message ?? e?.error?.message ?? '');
+    const onRejection = (e: PromiseRejectionEvent) => {
+      const r = e?.reason;
+      handle(typeof r === 'string' ? r : (r?.message ?? ''));
+    };
+    // Clear the guard once a load fully succeeds so a future real deploy can retry.
+    const clearGuard = () => { try { sessionStorage.removeItem(RELOAD_KEY); } catch { /* ignore */ } };
+
+    window.addEventListener('error', onError);
+    window.addEventListener('unhandledrejection', onRejection);
+    const settle = setTimeout(clearGuard, 8000);
+    return () => {
+      window.removeEventListener('error', onError);
+      window.removeEventListener('unhandledrejection', onRejection);
+      clearTimeout(settle);
+    };
+  }, []);
 
   // Seed destination / resume from query params
   useEffect(() => {
