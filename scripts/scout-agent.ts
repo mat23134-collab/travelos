@@ -5,9 +5,9 @@
  * Uses Google Gemini for AI extraction (no Claude tokens consumed).
  *
  * SCOUT MODE (default): discover & insert new places for a city
- *   npx tsx scripts/scout-agent.ts <city>            # auto-select best engine
+ *   npx tsx scripts/scout-agent.ts <city>            # Tavily primary (Exa fallback)
  *   npx tsx scripts/scout-agent.ts <city> --mock     # force mock (offline)
- *   npx tsx scripts/scout-agent.ts <city> --tavily   # force Tavily even if Exa set
+ *   npx tsx scripts/scout-agent.ts <city> --exa      # force the legacy Exa engine
  *   npx tsx scripts/scout-agent.ts <city> --verbose  # print raw content
  *   npx tsx scripts/scout-agent.ts <city> --live-only # never use mock fallback (real web only)
  *   npx tsx scripts/scout-agent.ts <city> --categories bars
@@ -549,7 +549,7 @@ type Engine = 'exa' | 'tavily' | 'mock';
 async function gatherRawContent(
   city: string,
   forceMock: boolean,
-  forceTavily: boolean,
+  forceExa: boolean,
   liveOnly: boolean,
   categoryKeys: ScoutQueryCategoryKey[],
 ): Promise<{ content: string; engine: Engine }> {
@@ -563,33 +563,33 @@ async function gatherRawContent(
 
   if (liveOnly && !hasExa && !hasTavily) {
     throw new Error(
-      'Live-only mode requires EXA_API_KEY or TAVILY_API_KEY (mock fallback disabled).',
+      'Live-only mode requires TAVILY_API_KEY or EXA_API_KEY (mock fallback disabled).',
     );
   }
 
-  // Exa — primary, unless --tavily flag
-  if (hasExa && !forceTavily) {
-    try {
-      const content = await searchExa(city, categoryKeys);
-      return { content, engine: 'exa' };
-    } catch (err) {
-      console.warn(`  ⚠️  Exa failed: ${err instanceof Error ? err.message : err}`);
-      if (liveOnly && !hasTavily) {
-        throw new Error(
-          'Exa failed and no Tavily key for fallback (live-only mode; refusing mock data).',
-        );
-      }
-      console.log('  → Falling back to Tavily…');
-    }
-  }
-
-  // Tavily — fallback
-  if (hasTavily) {
+  // Tavily — PRIMARY engine (unless --exa forces the legacy Exa path)
+  if (hasTavily && !forceExa) {
     try {
       const content = await gatherViaTavily(city, categoryKeys);
       return { content, engine: 'tavily' };
     } catch (err) {
       console.warn(`  ⚠️  Tavily failed: ${err instanceof Error ? err.message : err}`);
+      if (liveOnly && !hasExa) {
+        throw new Error(
+          'Tavily failed and no Exa key for fallback (live-only mode; refusing mock data).',
+        );
+      }
+      console.log('  → Falling back to Exa…');
+    }
+  }
+
+  // Exa — fallback (or primary when --exa is passed)
+  if (hasExa) {
+    try {
+      const content = await searchExa(city, categoryKeys);
+      return { content, engine: 'exa' };
+    } catch (err) {
+      console.warn(`  ⚠️  Exa failed: ${err instanceof Error ? err.message : err}`);
       if (liveOnly) {
         throw new Error(
           'All live search engines failed (live-only mode; refusing mock data).',
@@ -601,15 +601,15 @@ async function gatherRawContent(
 
   if (liveOnly) {
     const msg =
-      forceTavily && !hasTavily
-        ? '--tavily requires TAVILY_API_KEY when using --live-only.'
+      forceExa && !hasExa
+        ? '--exa requires EXA_API_KEY when using --live-only.'
         : 'No live search content available (live-only mode; refusing mock).';
     throw new Error(msg);
   }
 
   // Mock — final fallback
   if (!hasExa && !hasTavily) {
-    console.log('  → No API keys set (EXA_API_KEY / TAVILY_API_KEY) — using mock data');
+    console.log('  → No API keys set (TAVILY_API_KEY / EXA_API_KEY) — using mock data');
   } else {
     console.log('  → All live engines failed — using mock data');
   }
@@ -1580,7 +1580,9 @@ async function main(): Promise<void> {
   const isJanitor   = args.includes('--janitor');
   const dryRun      = args.includes('--dry-run');
   const forceMock   = args.includes('--mock');
-  const forceTavily = args.includes('--tavily');
+  // Tavily is now the primary engine. --exa opts back into the legacy Exa path.
+  // --tavily is kept as a harmless explicit-default for backward compatibility.
+  const forceExa    = args.includes('--exa');
   const liveOnly    = args.includes('--live-only');
   const verbose     = args.includes('--verbose');
 
@@ -1677,14 +1679,14 @@ async function main(): Promise<void> {
   const hasTavily = !!process.env.TAVILY_API_KEY && !process.env.TAVILY_API_KEY.includes('your_');
   const engineLabel = forceMock
     ? 'MOCK'
-    : liveOnly
-      ? 'LIVE ONLY (no mock fallback)'
-      : forceTavily && hasTavily
-        ? 'TAVILY (forced)'
+    : forceExa && hasExa
+      ? 'EXA (forced via --exa)'
+      : hasTavily
+        ? 'TAVILY (primary)'
         : hasExa
-          ? 'EXA (neural + social)'
-          : hasTavily
-            ? 'TAVILY (Exa key not set)'
+          ? 'EXA (Tavily key not set)'
+          : liveOnly
+            ? 'LIVE ONLY (no keys — will error)'
             : 'MOCK (no API keys)';
 
   console.log(`\n🔍 TravelOS Scout Agent v4 — Scout Mode`);
@@ -1700,7 +1702,7 @@ async function main(): Promise<void> {
     const { content: rawContent, engine } = await gatherRawContent(
       city!,
       forceMock,
-      forceTavily,
+      forceExa,
       liveOnly,
       scoutCategoryKeys,
     );
