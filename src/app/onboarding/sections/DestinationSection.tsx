@@ -183,8 +183,16 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
   const typePanelRef = useRef<HTMLDivElement>(null);
   const cityPanelRef = useRef<HTMLDivElement>(null);
 
-  // Restore subStep from persisted state
+  // Restore subStep from persisted state. Multi-city is temporarily disabled,
+  // so clear any stale 'multi' selection a returning user may have persisted
+  // and send them back to the trip-type picker.
   useEffect(() => {
+    if (tripType === 'multi') {
+      setTripType('single');
+      setCities([]);
+      setSubStep(country ? 'type' : 'country');
+      return;
+    }
     if (country && tripType && cities.length > 0) setSubStep('city');
     else if (country && tripType) setSubStep('city');
     else if (country) setSubStep('type');
@@ -209,6 +217,9 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
   }
 
   function handleTripType(t: 'single' | 'multi') {
+    // Multi-city is not built yet — keep it locked behind a "coming soon" badge
+    // so users can't advance into an unfinished flow.
+    if (t === 'multi') return;
     setTripType(t);
     setSubStep('city');
     scrollTo(cityPanelRef);
@@ -367,29 +378,43 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
             </p>
             <div className="grid grid-cols-2 gap-3">
               {[
-                { value: 'single' as const, icon: '📍', label: 'Single city', sub: 'Dive deep into one destination' },
-                { value: 'multi'  as const, icon: '🗺️', label: 'Multi-city tour', sub: 'Visit multiple cities' },
-              ].map(({ value, icon, label, sub }) => {
+                { value: 'single' as const, icon: '📍', label: 'Single city', sub: 'Dive deep into one destination', comingSoon: false },
+                { value: 'multi'  as const, icon: '🗺️', label: 'Multi-city tour', sub: 'Visit multiple cities', comingSoon: true },
+              ].map(({ value, icon, label, sub, comingSoon }) => {
                 const active = tripType === value;
                 return (
                   <motion.button
                     key={value}
                     onClick={() => handleTripType(value)}
-                    whileHover={{ scale: 1.03 }}
-                    whileTap={{ scale: 0.96 }}
+                    disabled={comingSoon}
+                    aria-disabled={comingSoon}
+                    whileHover={comingSoon ? undefined : { scale: 1.03 }}
+                    whileTap={comingSoon ? undefined : { scale: 0.96 }}
                     animate={active
                       ? { boxShadow: `0 0 0 2px ${RED}, 0 8px 24px rgba(158,54,58,0.22)` }
                       : { boxShadow: '0 2px 10px rgba(0,0,0,0.2)' }}
-                    className="flex flex-col items-start gap-2 p-4 rounded-2xl text-left"
+                    className="relative flex flex-col items-start gap-2 p-4 rounded-2xl text-left"
                     style={{
                       background: active ? 'rgba(158,54,58,0.16)' : 'rgba(255,255,255,0.05)',
                       border: active ? `1.5px solid rgba(158,54,58,0.50)` : '1.5px solid rgba(255,255,255,0.08)',
+                      opacity: comingSoon ? 0.55 : 1,
+                      cursor: comingSoon ? 'not-allowed' : 'pointer',
                     }}
                   >
-                    <span className="text-2xl">{icon}</span>
+                    {comingSoon && (
+                      <span
+                        className="absolute top-2.5 right-2.5 text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-full"
+                        style={{ background: 'rgba(197,145,42,0.18)', color: '#e0b65a', border: '1px solid rgba(197,145,42,0.4)' }}
+                      >
+                        Coming soon
+                      </span>
+                    )}
+                    <span className="text-2xl" style={comingSoon ? { filter: 'grayscale(0.5)' } : undefined}>{icon}</span>
                     <div>
                       <p className="text-sm font-bold" style={{ color: active ? '#ff9fa3' : '#fff' }}>{label}</p>
-                      <p className="text-[11px] mt-0.5" style={{ color: MUTED }}>{sub}</p>
+                      <p className="text-[11px] mt-0.5" style={{ color: MUTED }}>
+                        {comingSoon ? 'In the works — single city for now' : sub}
+                      </p>
                     </div>
                   </motion.button>
                 );
