@@ -336,18 +336,28 @@ async function runPipeline(
       itinerary = validateItineraryOrThrow(parseAIJson(raw));
     } catch (parseErr) {
       fallbackReason = parseErr;
+      // Capture WHY the primary provider's output was rejected (kept even if the
+      // Claude retry later overwrites fallbackReason) — readable from the DB.
+      diag.parseError = parseErr instanceof Error ? parseErr.message : String(parseErr);
+      diag.rawLen = raw.length;
+      diag.rawTail = raw.slice(-400);
       if (provider === 'gemini' && !aiController.signal.aborted) {
         console.warn('[generate-stream] Gemini parse/validation failed — fallback to Claude');
-        // Reuse a fresh controller for the one-shot retry (original may be aborted)
+        // Fresh controller with a real budget — the old fixed 30s was too short
+        // (it started ~68s in and got aborted before Claude could finish).
         const retryController = new AbortController();
-        const retryTimer = setTimeout(() => retryController.abort(), 30_000);
+        const retryTimer = setTimeout(() => retryController.abort(), 60_000);
+        const retryStart = Date.now();
         try {
           raw = await callClaude(userPrompt, inventoryLockedSystemPrompt, retryController.signal);
-          provider = 'claude';
           itinerary = validateItineraryOrThrow(parseAIJson(raw));
+          provider = 'claude';
           fallbackReason = null;
+          diag.claudeRetryMs = Date.now() - retryStart;
         } catch (claudeErr) {
           console.warn('[generate-stream] Claude parse/validation failed — using fallback itinerary:', claudeErr instanceof Error ? claudeErr.message : claudeErr);
+          diag.claudeRetryMs = Date.now() - retryStart;
+          diag.claudeRetryError = claudeErr instanceof Error ? claudeErr.message : String(claudeErr);
           provider = 'fallback';
           isFallback = true;
           fallbackReason = claudeErr;
