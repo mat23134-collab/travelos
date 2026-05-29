@@ -159,7 +159,7 @@ async function callGemini(userPrompt: string, systemPrompt: string): Promise<str
     throw new Error('GEMINI_API_KEY is not set');
   }
 
-  const modelName = process.env.GEMINI_MODEL ?? 'gemini-3-flash-preview';
+  const modelName = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
   const url =
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelName)}` +
     `:generateContent?key=${encodeURIComponent(apiKey)}`;

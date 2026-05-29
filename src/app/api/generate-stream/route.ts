@@ -127,7 +127,7 @@ type GeminiBody = { candidates?: Array<{ content?: { parts?: Array<{ text?: stri
 async function callGemini(userPrompt: string, systemPrompt: string, signal?: AbortSignal): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) throw new Error('GEMINI_API_KEY is not set');
-  const model = process.env.GEMINI_MODEL ?? 'gemini-3-flash-preview';
+  const model = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
   const maxTokens = (() => { const n = Number(process.env.GEMINI_MAX_OUTPUT_TOKENS); return Number.isFinite(n) && n > 0 ? n : 16384; })();
   console.log(`[generate-stream] Gemini ${model}`);
