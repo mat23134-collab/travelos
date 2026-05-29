@@ -1,7 +1,7 @@
 import type { AccommodationType, BudgetLevel, HotelNightlyBudget, TravelerProfile } from '@/lib/types';
 import { searchExaOnly } from '@/lib/rag';
 
-export type AccommodationProviderId = 'booking' | 'priceline' | 'expedia' | 'airbnb';
+export type AccommodationProviderId = 'booking' | 'priceline' | 'agoda' | 'airbnb';
 /** Includes the synthetic 'exa' web-fallback provider used when no live API returned hotels. */
 export type AccommodationProviderIdOrExa = AccommodationProviderId | 'exa';
 
@@ -13,9 +13,9 @@ export type AccommodationEnv = Partial<Record<
   | 'RAPIDAPI_PRICELINE_KEY'
   | 'RAPIDAPI_PRICELINE_HOST'
   | 'RAPIDAPI_PRICELINE_SEARCH_PATH'
-  | 'RAPIDAPI_EXPEDIA_KEY'
-  | 'RAPIDAPI_EXPEDIA_HOST'
-  | 'RAPIDAPI_EXPEDIA_SEARCH_PATH'
+  | 'RAPIDAPI_AGODA_KEY'
+  | 'RAPIDAPI_AGODA_HOST'
+  | 'RAPIDAPI_AGODA_SEARCH_PATH'
   | 'RAPIDAPI_AIRBNB_KEY'
   | 'RAPIDAPI_AIRBNB_HOST'
   | 'RAPIDAPI_AIRBNB_SEARCH_PATH',
@@ -88,12 +88,12 @@ const PROVIDERS: Record<AccommodationProviderId, ProviderConfig> = {
     pathEnv: 'RAPIDAPI_PRICELINE_SEARCH_PATH',
     defaultPath: '/v1/hotels/search-by-coordinates',
   },
-  expedia: {
-    id: 'expedia',
-    hostEnv: 'RAPIDAPI_EXPEDIA_HOST',
-    keyEnv: 'RAPIDAPI_EXPEDIA_KEY',
-    pathEnv: 'RAPIDAPI_EXPEDIA_SEARCH_PATH',
-    defaultPath: '/hotels/search',
+  agoda: {
+    id: 'agoda',
+    hostEnv: 'RAPIDAPI_AGODA_HOST',
+    keyEnv: 'RAPIDAPI_AGODA_KEY',
+    pathEnv: 'RAPIDAPI_AGODA_SEARCH_PATH',
+    defaultPath: '/hotels/search-overnight',
   },
   airbnb: {
     id: 'airbnb',
@@ -252,8 +252,8 @@ export function buildAccommodationProviderOrder(input: Pick<AccommodationSearchI
     accommodation.includes('local') ||
     accommodation.includes('unique');
 
-  if (airbnbIntent) return ['airbnb', 'priceline', 'expedia', 'booking'];
-  return ['booking', 'priceline', 'expedia', 'airbnb'];
+  if (airbnbIntent) return ['airbnb', 'priceline', 'agoda', 'booking'];
+  return ['booking', 'priceline', 'agoda', 'airbnb'];
 }
 
 function buildProviderUrl(config: ProviderConfig, input: AccommodationSearchInput, env: AccommodationEnv): URL | null {
@@ -302,8 +302,8 @@ async function fetchRapidJson(
       cache: 'no-store',
       signal: controller.signal,
     });
-    if (res.status === 429) throw new Error('booking quota exceeded (429)');
-    if (!res.ok) throw new Error(`booking request failed (${res.status})`);
+    if (res.status === 429) throw new Error(`quota exceeded (429) from ${url.host}`);
+    if (!res.ok) throw new Error(`request failed (${res.status}) from ${url.host}`);
     return await res.json();
   } finally {
     clearTimeout(timer);
@@ -428,45 +428,246 @@ async function tipstersHotelSearch(
   return hotels;
 }
 
+// ─── Agoda driver (host: agoda-com.p.rapidapi.com) ────────────────────────────
+// Real 2-step contract: resolve a location objectId from the city name via
+// /hotels/search-location, then call /hotels/search-overnight with that id.
+
+function extractAgodaHotels(payload: unknown): unknown[] {
+  if (Array.isArray(payload)) return payload;
+  if (!payload || typeof payload !== 'object') return [];
+  const obj = payload as Json;
+  // Try the known Agoda nested shapes, deepest first.
+  const nested =
+    readPath(obj, ['data', 'body', 'searchResult', 'properties']) ??
+    readPath(obj, ['data', 'searchResult', 'properties']) ??
+    readPath(obj, ['data', 'hotels']) ??
+    readPath(obj, ['result', 'hotels']) ??
+    readPath(obj, ['data', 'results']) ??
+    readPath(obj, ['hotels']) ??
+    readPath(obj, ['data']);
+  return Array.isArray(nested) ? nested : [];
+}
+
+function normalizeAgodaHotel(raw: unknown, nights: number): Hotel | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Json;
+
+  // Deep nesting: content.informationSummary.{localeName|name}
+  const content = r.content && typeof r.content === 'object' ? (r.content as Json) : null;
+  const infoSummary = content?.informationSummary && typeof content.informationSummary === 'object'
+    ? (content.informationSummary as Json) : null;
+  const geo = content?.localizedGeography && typeof content.localizedGeography === 'object'
+    ? (content.localizedGeography as Json) : null;
+
+  const name =
+    (infoSummary ? pickString(infoSummary, ['localeName', 'name', 'hotelName']) : null) ??
+    pickString(r, ['name', 'hotelName', 'hotel_name', 'propertyName', 'title']);
+  if (!name) return null;
+
+  const rawId = pickString(r, ['propertyId', 'id', 'hotelId', 'hotel_id']);
+
+  // Coordinates from deep geo object or flat fields.
+  const lat = (geo ? toNum(geo.latitude ?? geo.lat) : null)
+    ?? pickNestedNum(r, [['latitude'], ['lat']]);
+  const lng = (geo ? toNum(geo.longitude ?? geo.lon ?? geo.lng) : null)
+    ?? pickNestedNum(r, [['longitude'], ['lng'], ['lon']]);
+
+  // Pricing: try the Agoda offers array first (complex), then simple fields.
+  let amount: number | null = null;
+  let currency: string | null = null;
+
+  const pricing = r.pricing && typeof r.pricing === 'object' ? (r.pricing as Json) : null;
+  if (pricing) {
+    const offers = Array.isArray(pricing.offers) ? (pricing.offers as Json[]) : [];
+    const firstOffer = offers[0] && typeof offers[0] === 'object' ? (offers[0] as Json) : null;
+    if (firstOffer) {
+      const roomOffers = Array.isArray(firstOffer.roomOffers) ? (firstOffer.roomOffers as Json[]) : [];
+      const firstRoom = roomOffers[0] && typeof roomOffers[0] === 'object'
+        ? ((roomOffers[0] as Json).room as Json) : null;
+      if (firstRoom && typeof firstRoom === 'object') {
+        const rp = firstRoom.pricing as Json | undefined;
+        if (rp) {
+          amount = pickNestedNum(rp as Record<string, unknown>, [
+            ['price', 'perRoomPerNight', 'exclusive', 'display'],
+            ['price', 'perRoomPerNight', 'inclusive', 'display'],
+            ['price', 'perNight', 'value'],
+          ]);
+          currency = pickString(rp as Record<string, unknown>, ['currency', 'currencyCode']) ?? null;
+        }
+      }
+    }
+    // Simpler pricing sub-shapes
+    if (amount == null) {
+      amount = pickNestedNum(pricing as Record<string, unknown>, [
+        ['displayPrice', 'perNight', 'value'],
+        ['displayPrice', 'value'],
+        ['price'],
+      ]);
+      currency = currency ?? pickString(pricing as Record<string, unknown>, ['currency', 'currencyCode']) ?? null;
+    }
+  }
+
+  // Top-level simple fields
+  if (amount == null) {
+    amount = pickNestedNum(r, [['price'], ['rate', 'amount'], ['nightlyRate', 'amount']]);
+    currency = currency ?? pickString(r, ['currency', 'currencyCode']) ?? null;
+  }
+
+  // Total price → divide by nights
+  if (amount == null) {
+    const total = pickNestedNum(r, [['totalPrice'], ['total'], ['totalRate']]);
+    if (total != null && nights > 0) {
+      amount = Math.round(total / nights);
+    }
+  }
+
+  const rating = pickNestedNum(r, [
+    ['reviewScore'], ['review_score'], ['rating'], ['score'],
+    ['content', 'propertyEngagement', 'score'],
+    ['reviewInfo', 'score'],
+  ]);
+
+  return {
+    id: `agoda-${rawId ?? name.toLowerCase().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '')}`,
+    provider: 'agoda',
+    name,
+    address:
+      pickNestedString(r, [
+        ['content', 'informationSummary', 'address', 'city', 'name'],
+        ['content', 'informationSummary', 'address', 'fullAddress'],
+        ['address', 'cityName'],
+        ['address', 'city', 'name'],
+      ]) ??
+      pickString(r, ['address', 'cityName', 'city', 'neighborhood', 'district']) ?? null,
+    lat,
+    lng,
+    nightlyRate: amount != null ? { amount, currency } : null,
+    rating,
+    bookingUrl: pickString(r, ['deepLink', 'deeplink', 'url', 'propertyUrl', 'hotelUrl', 'booking_url']) ?? null,
+    imageUrl:
+      pickNestedString(r, [['content', 'images', 'hotelImages', '0', 'url']]) ??
+      pickString(r, ['imageUrl', 'image_url', 'photoUrl', 'thumbnail']) ?? null,
+    available: true,
+    raw,
+  };
+}
+
+/**
+ * Agoda 2-step driver:
+ *   1. GET /hotels/search-location?query=<city>  → resolve objectId
+ *   2. GET /hotels/search-overnight?id=<objectId>&checkIn=…&checkOut=…
+ */
+async function agodaHotelSearch(
+  input: AccommodationSearchInput,
+  options: Required<Pick<SearchOptions, 'env' | 'fetchImpl' | 'timeoutMs'>>,
+): Promise<Hotel[]> {
+  const host = cleanHost(options.env.RAPIDAPI_AGODA_HOST) || 'agoda-com.p.rapidapi.com';
+  const key = options.env.RAPIDAPI_AGODA_KEY || options.env.RAPIDAPI_KEY;
+  if (!key) throw new Error('agoda RapidAPI key missing');
+
+  const { checkin, checkout } = resolveStayDates(input.startDate, input.endDate);
+  const nights = nightsBetween(checkin, checkout);
+  const adults = input.adults && input.adults > 0 ? input.adults : 2;
+
+  // Step 1 — resolve Agoda location objectId from the city name.
+  const locUrl = new URL(`https://${host}/hotels/search-location`);
+  locUrl.searchParams.set('query', input.destination);
+  locUrl.searchParams.set('language', 'en-us');
+
+  const locRaw = await fetchRapidJson(locUrl, key, host, options.fetchImpl, options.timeoutMs);
+
+  // Response may be an array or { data: [...] }
+  const locArr: Json[] = Array.isArray(locRaw)
+    ? (locRaw as Json[])
+    : Array.isArray((locRaw as Json)?.data)
+      ? ((locRaw as Json).data as Json[])
+      : [];
+
+  const cityLoc =
+    locArr.find((l) => String(l?.type ?? '').toLowerCase().includes('city')) ??
+    locArr[0] ??
+    null;
+
+  const locationId = cityLoc
+    ? pickString(cityLoc as Record<string, unknown>, ['objectId', 'id', 'cityId', 'locationId'])
+    : null;
+  if (!locationId) throw new Error(`agoda: no location ID for "${input.destination}"`);
+
+  // Step 2 — hotel search by location ID + dates.
+  const searchUrl = new URL(`https://${host}/hotels/search-overnight`);
+  searchUrl.searchParams.set('id', locationId);
+  searchUrl.searchParams.set('checkIn', checkin);
+  searchUrl.searchParams.set('checkOut', checkout);
+  searchUrl.searchParams.set('adults', String(adults));
+  searchUrl.searchParams.set('rooms', '1');
+  searchUrl.searchParams.set('currency', 'USD');
+  searchUrl.searchParams.set('language', 'en-us');
+
+  const dataRaw = await fetchRapidJson(searchUrl, key, host, options.fetchImpl, options.timeoutMs);
+  const rawHotels = extractAgodaHotels(dataRaw);
+
+  const hotels = rawHotels
+    .map((r) => normalizeAgodaHotel(r, nights))
+    .filter((h): h is Hotel => h !== null);
+
+  if (hotels.length === 0) throw new Error('agoda returned empty results');
+  return hotels;
+}
+
+// ─── Airbnb driver (host: homes-experiences-services-data.p.rapidapi.com) ─────
+// 1-step search: POST city name directly as `query` — no location lookup needed.
+// The generic normalizeAccommodationHotel already handles the Airbnb
+// listing{} + pricingQuote merge, so we reuse it here.
+
+async function airbnbHotelSearch(
+  input: AccommodationSearchInput,
+  options: Required<Pick<SearchOptions, 'env' | 'fetchImpl' | 'timeoutMs'>>,
+): Promise<Hotel[]> {
+  const host = cleanHost(options.env.RAPIDAPI_AIRBNB_HOST) || 'homes-experiences-services-data.p.rapidapi.com';
+  const key = options.env.RAPIDAPI_AIRBNB_KEY || options.env.RAPIDAPI_KEY;
+  if (!key) throw new Error('airbnb RapidAPI key missing');
+
+  const searchPath = ensurePath(options.env.RAPIDAPI_AIRBNB_SEARCH_PATH) || '/homes/search-by-query';
+  const { checkin, checkout } = resolveStayDates(input.startDate, input.endDate);
+  const adults = input.adults && input.adults > 0 ? input.adults : 2;
+
+  const url = new URL(`https://${host}${searchPath}`);
+  url.searchParams.set('query', input.destination);
+  url.searchParams.set('checkin', checkin);
+  url.searchParams.set('checkout', checkout);
+  url.searchParams.set('adults', String(adults));
+  url.searchParams.set('currency', 'USD');
+  url.searchParams.set('locale', 'en');
+  url.searchParams.set('page', '1');
+
+  const dataRaw = await fetchRapidJson(url, key, host, options.fetchImpl, options.timeoutMs);
+
+  // extractRawHotels covers searchResults / listings / results / data arrays.
+  // normalizeAccommodationHotel merges listing{} up and picks pricingQuote.rate.amount.
+  const hotels = extractRawHotels(dataRaw)
+    .map((item) => normalizeAccommodationHotel(item, 'airbnb'))
+    .filter((h): h is Hotel => h !== null);
+
+  if (hotels.length === 0) throw new Error('airbnb returned empty results');
+  return hotels;
+}
+
 async function fetchProvider(
   provider: AccommodationProviderId,
   input: AccommodationSearchInput,
   options: Required<Pick<SearchOptions, 'env' | 'fetchImpl' | 'timeoutMs'>>,
 ): Promise<Hotel[]> {
-  // Provider-specific drivers (real API contracts) take precedence.
-  // Booking + Priceline are both by Tipsters CO and share the same contract.
   if (provider === 'booking' || provider === 'priceline') {
     return tipstersHotelSearch(provider, input, options);
   }
-
-  const config = PROVIDERS[provider];
-  const url = buildProviderUrl(config, input, options.env);
-  const key = options.env[config.keyEnv] || options.env.RAPIDAPI_KEY;
-  if (!url || !key) throw new Error(`${provider} RapidAPI configuration missing`);
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), options.timeoutMs);
-  try {
-    const response = await options.fetchImpl(url, {
-      headers: {
-        'x-rapidapi-key': key,
-        'x-rapidapi-host': url.host,
-      },
-      cache: 'no-store',
-      signal: controller.signal,
-    });
-    if (response.status === 429) throw new Error(`${provider} quota exceeded (429)`);
-    if (!response.ok) throw new Error(`${provider} request failed (${response.status})`);
-
-    const payload = await response.json();
-    const hotels = extractRawHotels(payload)
-      .map((item) => normalizeAccommodationHotel(item, provider))
-      .filter((hotel): hotel is Hotel => hotel !== null);
-    if (hotels.length === 0) throw new Error(`${provider} returned empty results`);
-    return hotels;
-  } finally {
-    clearTimeout(timer);
+  if (provider === 'agoda') {
+    return agodaHotelSearch(input, options);
   }
+  if (provider === 'airbnb') {
+    return airbnbHotelSearch(input, options);
+  }
+  // Unreachable — all AccommodationProviderId values are handled above.
+  throw new Error(`unknown provider: ${provider as string}`);
 }
 
 type SearchOptions = {

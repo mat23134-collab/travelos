@@ -26,8 +26,8 @@ const env: AccommodationEnv = {
   RAPIDAPI_BOOKING_SEARCH_PATH: '/booking/search',
   RAPIDAPI_PRICELINE_HOST: 'priceline-tipsters.test',
   RAPIDAPI_PRICELINE_SEARCH_PATH: '/priceline/search',
-  RAPIDAPI_EXPEDIA_HOST: 'expedia-apiheya.test',
-  RAPIDAPI_EXPEDIA_SEARCH_PATH: '/expedia/search',
+  RAPIDAPI_AGODA_HOST: 'agoda-com.test',
+  RAPIDAPI_AGODA_SEARCH_PATH: '/agoda/search',
   RAPIDAPI_AIRBNB_HOST: 'airbnb-vibepro.test',
   RAPIDAPI_AIRBNB_SEARCH_PATH: '/airbnb/search',
 };
@@ -42,14 +42,14 @@ function jsonResponse(body: unknown, status = 200): Response {
 test('prioritizes Airbnb for apartment and local-stay intent', () => {
   assert.deepEqual(
     buildAccommodationProviderOrder({ ...baseInput, accommodation: 'airbnb' }),
-    ['airbnb', 'priceline', 'expedia', 'booking'],
+    ['airbnb', 'priceline', 'agoda', 'booking'],
   );
 });
 
 test('prioritizes Booking for premium and luxury hotel intent', () => {
   assert.deepEqual(
     buildAccommodationProviderOrder(baseInput),
-    ['booking', 'priceline', 'expedia', 'airbnb'],
+    ['booking', 'priceline', 'agoda', 'airbnb'],
   );
 });
 
@@ -186,29 +186,148 @@ test('returns null provider when every RapidAPI fails AND Exa fallback is skippe
   assert.ok(result.attempts.every((a) => !a.ok));
 });
 
-test('cascades through empty and failed providers to Expedia', async () => {
-  const hosts: string[] = [];
+test('Agoda driver does the 2-step search-location → search-overnight flow', async () => {
+  const paths: string[] = [];
   const fetchImpl: typeof fetch = async (url) => {
-    hosts.push(new URL(String(url)).host);
-    if (hosts.length === 1) return jsonResponse({ hotels: [] });
-    if (hosts.length === 2) throw new Error('provider timed out');
-    return jsonResponse({
-      data: [
+    const u = new URL(String(url));
+    paths.push(u.pathname);
+    if (u.pathname === '/hotels/search-location') {
+      assert.equal(u.searchParams.get('query'), 'Vienna');
+      return jsonResponse([{ id: '1_318', name: 'Vienna', type: 'city' }]);
+    }
+    if (u.pathname === '/hotels/search-overnight') {
+      assert.equal(u.searchParams.get('id'), '1_318');
+      assert.equal(u.searchParams.get('checkIn'), '2026-07-10');
+      assert.equal(u.searchParams.get('checkOut'), '2026-07-14');
+      return jsonResponse({
+        data: {
+          hotels: [
+            {
+              id: 9001,
+              name: 'Agoda Vienna Palace',
+              latitude: 48.2,
+              longitude: 16.36,
+              price: 300, // flat nightly rate
+              currency: 'EUR',
+              reviewScore: 8.9,
+              deepLink: 'https://agoda.com/vienna-palace',
+            },
+          ],
+        },
+      });
+    }
+    throw new Error(`unexpected path ${u.pathname}`);
+  };
+
+  const result = await searchAccommodations(baseInput, {
+    env: { RAPIDAPI_AGODA_HOST: 'agoda-com.p.rapidapi.com', RAPIDAPI_KEY: 'test-key' },
+    fetchImpl,
+    timeoutMs: 1000,
+    providerOrder: ['agoda'],
+  });
+
+  assert.deepEqual(paths, ['/hotels/search-location', '/hotels/search-overnight']);
+  assert.equal(result.provider, 'agoda');
+  assert.equal(result.hotels.length, 1);
+  assert.equal(result.hotels[0].name, 'Agoda Vienna Palace');
+  assert.equal(result.hotels[0].nightlyRate?.amount, 300);
+  assert.equal(result.hotels[0].nightlyRate?.currency, 'EUR');
+  assert.equal(result.hotels[0].rating, 8.9);
+  assert.equal(result.hotels[0].bookingUrl, 'https://agoda.com/vienna-palace');
+});
+
+test('Airbnb driver does 1-step search-by-query and maps listing+pricingQuote shape', async () => {
+  let capturedUrl: URL | null = null;
+  const fetchImpl: typeof fetch = async (url) => {
+    capturedUrl = new URL(String(url));
+    return new Response(JSON.stringify({
+      searchResults: [
         {
-          propertyId: 'ex-1',
-          name: 'Expedia Palace',
-          neighborhood: 'Innere Stadt',
-          coordinates: { lat: 48.2, lng: 16.36 },
-          rate: { amount: 300, currency: 'EUR' },
+          listing: {
+            id: 'ab-1',
+            name: 'Cozy Vienna Apartment',
+            city: 'Vienna',
+            lat: 48.21,
+            lng: 16.38,
+            avgRatingLocalized: '4.9 out of 5',
+            thumbnailUrl: 'https://img/ab1.jpg',
+          },
+          pricingQuote: {
+            rate: { amount: 95, currency: 'EUR' },
+          },
         },
       ],
-    });
+    }), { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+
+  const result = await searchAccommodations(baseInput, {
+    env: { RAPIDAPI_AIRBNB_HOST: 'homes-experiences-services-data.p.rapidapi.com', RAPIDAPI_KEY: 'test-key' },
+    fetchImpl,
+    timeoutMs: 1000,
+    providerOrder: ['airbnb'],
+  });
+
+  assert.ok(capturedUrl, 'fetch should have been called');
+  assert.equal(capturedUrl!.pathname, '/homes/search-by-query');
+  assert.equal(capturedUrl!.searchParams.get('query'), 'Vienna');
+  assert.equal(capturedUrl!.searchParams.get('checkin'), '2026-07-10');
+  assert.equal(capturedUrl!.searchParams.get('checkout'), '2026-07-14');
+  assert.equal(capturedUrl!.searchParams.get('adults'), '2');
+
+  assert.equal(result.provider, 'airbnb');
+  assert.equal(result.hotels.length, 1);
+  assert.equal(result.hotels[0].name, 'Cozy Vienna Apartment');
+  assert.equal(result.hotels[0].provider, 'airbnb');
+  assert.equal(result.hotels[0].nightlyRate?.amount, 95);
+  assert.equal(result.hotels[0].nightlyRate?.currency, 'EUR');
+});
+
+test('cascades through empty and failed providers to Agoda', async () => {
+  const hosts: string[] = [];
+  const fetchImpl: typeof fetch = async (url) => {
+    const u = new URL(String(url));
+    hosts.push(u.host);
+
+    // Booking: empty location array → no dest_id → booking fails after 1 call.
+    if (u.host === 'booking-tipsters.test') return jsonResponse([]);
+    // Priceline: throws → priceline fails after 1 call.
+    if (u.host === 'priceline-tipsters.test') throw new Error('provider timed out');
+
+    // Agoda 2-step: both calls go to agoda-com.test.
+    if (u.pathname === '/hotels/search-location') {
+      return jsonResponse([{ id: '1_318', name: 'Vienna', type: 'city' }]);
+    }
+    if (u.pathname === '/hotels/search-overnight') {
+      return jsonResponse({
+        data: {
+          hotels: [
+            {
+              id: 9001,
+              name: 'Agoda Vienna Palace',
+              latitude: 48.2,
+              longitude: 16.36,
+              price: 300,
+              currency: 'EUR',
+              reviewScore: 8.9,
+            },
+          ],
+        },
+      });
+    }
+    throw new Error(`unexpected ${u.href}`);
   };
 
   const result = await searchAccommodations(baseInput, { env, fetchImpl, timeoutMs: 1000 });
 
-  assert.equal(result.provider, 'expedia');
-  assert.deepEqual(hosts, ['booking-tipsters.test', 'priceline-tipsters.test', 'expedia-apiheya.test']);
-  assert.equal(result.hotels[0]?.provider, 'expedia');
-  assert.equal(result.hotels[0]?.name, 'Expedia Palace');
+  assert.equal(result.provider, 'agoda');
+  // booking(1 call) + priceline(1 call) + agoda(location + search = 2 calls)
+  assert.deepEqual(hosts, [
+    'booking-tipsters.test',
+    'priceline-tipsters.test',
+    'agoda-com.test',
+    'agoda-com.test',
+  ]);
+  assert.equal(result.hotels[0]?.provider, 'agoda');
+  assert.equal(result.hotels[0]?.name, 'Agoda Vienna Palace');
+  assert.equal(result.hotels[0]?.nightlyRate?.amount, 300);
 });
