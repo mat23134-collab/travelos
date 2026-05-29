@@ -113,11 +113,11 @@ export function isSoldOut(note: string | null | undefined): boolean {
 
 export function isOtaSoldOut(row: Pick<MergedOtaRow, 'indicativeNightly' | 'note' | 'hasData'>): boolean {
   const nightly = row.indicativeNightly?.trim().toLowerCase() ?? '';
-  return (
-    isSoldOut(row.note) ||
-    isSoldOut(nightly) ||
-    (row.hasData && !nightly)
-  );
+  // Only an EXPLICIT sold-out signal counts. A row with no price is UNKNOWN
+  // availability (we only have live inventory for the one provider that won the
+  // accommodation race), not sold out — it should stay a verify-live link, not a
+  // red SOLD OUT that strips the link and buries hotels that actually have rooms.
+  return isSoldOut(row.note) || isSoldOut(nightly);
 }
 
 export function hasBookableOtaRate(row: Pick<MergedOtaRow, 'indicativeNightly' | 'note' | 'hasData'>): boolean {
