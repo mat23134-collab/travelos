@@ -53,11 +53,11 @@ function starRow(score?: number | null): string | null {
   return `${'★'.repeat(full)}${half ? '½' : ''}${'☆'.repeat(empty)}`;
 }
 
-const ACTIVE_OTA_IDS = new Set(['booking', 'expedia'] as const);
+const ACTIVE_OTA_IDS = new Set(['booking', 'agoda'] as const);
 
 function activeOtaRowsForHotel(hotel: HotelRecommendation) {
   return mergeHotelOtaRows(hotel.otaPriceCompare).filter((r) =>
-    ACTIVE_OTA_IDS.has(r.id as 'booking' | 'expedia'),
+    ACTIVE_OTA_IDS.has(r.id as 'booking' | 'agoda'),
   );
 }
 
@@ -329,13 +329,11 @@ function BookingDotIcon({ size = 10 }: { size?: number }) {
   );
 }
 
-function ExpediaCompassIcon({ size = 10 }: { size?: number }) {
+function AgodaMarkIcon({ size = 10 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 10 10" fill="none" aria-hidden>
-      <circle cx="5" cy="5" r="4.2" stroke="#ffc600" strokeWidth="1.1" strokeOpacity="0.9" />
-      <circle cx="5" cy="5" r="1.6" fill="#ffc600" fillOpacity="0.85" />
-      <line x1="5" y1="1" x2="5" y2="2.4" stroke="#ffc600" strokeWidth="1" strokeOpacity="0.6" />
-      <line x1="5" y1="7.6" x2="5" y2="9" stroke="#ffc600" strokeWidth="1" strokeOpacity="0.6" />
+      <circle cx="5" cy="5" r="4.2" fill="#d6213d" fillOpacity="0.9" />
+      <circle cx="5" cy="5" r="1.7" fill="#fff" fillOpacity="0.95" />
     </svg>
   );
 }
@@ -356,14 +354,14 @@ function AirbnbFlameIcon({ size = 10 }: { size?: number }) {
 // OTA icon map — used in both card footer and popover
 const OTA_ICON: Record<string, (size: number) => React.ReactNode> = {
   booking: (s) => <BookingDotIcon size={s} />,
-  expedia: (s) => <ExpediaCompassIcon size={s} />,
+  agoda:   (s) => <AgodaMarkIcon size={s} />,
   airbnb:  (s) => <AirbnbFlameIcon size={s} />,
 };
 
 // OTA color theme map
 const OTA_THEME: Record<string, { bg: string; border: string; color: string }> = {
   booking: { bg: 'rgba(0,113,194,0.13)',  border: 'rgba(0,113,194,0.28)',  color: '#4da3e8'  },
-  expedia: { bg: 'rgba(255,198,0,0.10)',  border: 'rgba(255,198,0,0.24)',  color: '#e8c842'  },
+  agoda:   { bg: 'rgba(214,33,61,0.11)',  border: 'rgba(214,33,61,0.26)',  color: '#e8657c'  },
   airbnb:  { bg: 'rgba(255,56,92,0.11)',  border: 'rgba(255,56,92,0.26)',  color: '#ff6b87'  },
 };
 
@@ -390,11 +388,11 @@ function TosPopoverPortal({
     : null;
 
   // Inline brand badge inside popover rows
-  const brandBadge = (id: 'booking' | 'expedia' | 'airbnb') => {
+  const brandBadge = (id: 'booking' | 'agoda' | 'airbnb') => {
     const map = {
-      booking: { bg: '#003580', color: '#fff', label: 'B.' },
-      expedia: { bg: '#1b1b6b', color: '#ffd700', label: 'E' },
-      airbnb:  { bg: '#ff385c', color: '#fff',    label: 'A' },
+      booking: { bg: '#003580', color: '#fff',  label: 'B.' },
+      agoda:   { bg: '#d6213d', color: '#fff',  label: 'Ag' },
+      airbnb:  { bg: '#ff385c', color: '#fff',  label: 'A' },
     };
     const { bg, color, label } = map[id];
     return (

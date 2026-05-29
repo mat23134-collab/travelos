@@ -162,7 +162,7 @@ export function buildFallbackItinerary(
         }
       : {
           type: 'recommendations',
-          // Surface live provider results (Booking / Airbnb / Expedia / …) so a
+          // Surface live provider results (Booking / Airbnb / Agoda / …) so a
           // fallback itinerary still shows real lodging instead of an empty list.
           recommendations: hotels.slice(0, 6).map(hotelToRecommendation),
         },

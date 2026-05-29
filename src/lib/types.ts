@@ -41,7 +41,7 @@ export interface HotelRecommendation {
   availabilitySummary?: string | null;
   /** 2 sentences: what the property is + why it suits this traveler/trip (broader than whyItFits) */
   fitSummary?: string | null;
-  /** Booking.com / Expedia / Airbnb-style comparison (exactly 3 rows when present; UI merges defaults) */
+  /** Booking.com / Agoda / Airbnb-style comparison (exactly 3 rows when present; UI merges defaults) */
   otaPriceCompare?: OtaPriceCompareRow[] | null;
   /** Aggregate rating when grounded (typically 1–5 scale); omit when unknown */
   ratingStars?: number | null;

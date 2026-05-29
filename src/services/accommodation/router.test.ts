@@ -237,9 +237,9 @@ test('Agoda driver does the 2-step search-location → search-overnight flow', a
 });
 
 test('Airbnb driver does 1-step search-by-query and maps listing+pricingQuote shape', async () => {
-  let capturedUrl: URL | null = null;
+  const captured: { url: URL | null } = { url: null };
   const fetchImpl: typeof fetch = async (url) => {
-    capturedUrl = new URL(String(url));
+    captured.url = new URL(String(url));
     return new Response(JSON.stringify({
       searchResults: [
         {
@@ -267,12 +267,12 @@ test('Airbnb driver does 1-step search-by-query and maps listing+pricingQuote sh
     providerOrder: ['airbnb'],
   });
 
-  assert.ok(capturedUrl, 'fetch should have been called');
-  assert.equal(capturedUrl!.pathname, '/homes/search-by-query');
-  assert.equal(capturedUrl!.searchParams.get('query'), 'Vienna');
-  assert.equal(capturedUrl!.searchParams.get('checkin'), '2026-07-10');
-  assert.equal(capturedUrl!.searchParams.get('checkout'), '2026-07-14');
-  assert.equal(capturedUrl!.searchParams.get('adults'), '2');
+  assert.ok(captured.url, 'fetch should have been called');
+  assert.equal(captured.url.pathname, '/homes/search-by-query');
+  assert.equal(captured.url.searchParams.get('query'), 'Vienna');
+  assert.equal(captured.url.searchParams.get('checkin'), '2026-07-10');
+  assert.equal(captured.url.searchParams.get('checkout'), '2026-07-14');
+  assert.equal(captured.url.searchParams.get('adults'), '2');
 
   assert.equal(result.provider, 'airbnb');
   assert.equal(result.hotels.length, 1);

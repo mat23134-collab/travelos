@@ -36,30 +36,29 @@ export function bookingHotelSearchUrl(
   return `https://www.booking.com/searchresults.html?${params.toString()}`;
 }
 
-export function expediaHotelSearchUrl(
+export function agodaHotelSearchUrl(
   hotelName: string,
   destination: string,
   opts?: HotelOtaLinkOpts,
 ): string {
-  // Expedia date filters work on Hotel-Search, but `destination` alone often
-  // resolves to a city. `keyword` keeps the hotel name in the lodging search.
+  // Agoda's public search resolves a free-text `text` query and uses `checkIn`
+  // plus `los` (length of stay, in nights) rather than an explicit checkout.
   const params = new URLSearchParams();
-  params.set('destination', destination);
-  params.set('keyword', hotelName);
+  params.set('text', `${hotelName}, ${destination}`);
   const ci = opts?.checkIn?.slice(0, 10);
   const co = opts?.checkOut?.slice(0, 10);
   if (ci && /^\d{4}-\d{2}-\d{2}$/.test(ci)) {
-    const [y, m, d] = ci.split('-');
-    params.set('startDate', `${m}/${d}/${y}`);   // e.g. 07/15/2025
-  }
-  if (co && /^\d{4}-\d{2}-\d{2}$/.test(co)) {
-    const [y, m, d] = co.split('-');
-    params.set('endDate', `${m}/${d}/${y}`);
+    params.set('checkIn', ci);
+    if (co && /^\d{4}-\d{2}-\d{2}$/.test(co)) {
+      const nights = Math.round(
+        (new Date(co).getTime() - new Date(ci).getTime()) / 86_400_000,
+      );
+      if (Number.isFinite(nights) && nights > 0) params.set('los', String(nights));
+    }
   }
   params.set('adults', String(adultsParam(opts?.adults)));
   params.set('rooms', '1');
-  params.set('sort', 'RECOMMENDED');
-  return `https://www.expedia.com/Hotel-Search?${params.toString()}`;
+  return `https://www.agoda.com/search?${params.toString()}`;
 }
 
 /** Airbnb is often apartments — search still helps compare alternatives near the property. */
@@ -78,18 +77,18 @@ export function airbnbHotelSearchUrl(
   return `https://www.airbnb.com/s/all/homes?${params.toString()}`;
 }
 
-export type OtaId = 'booking' | 'expedia' | 'airbnb';
+export type OtaId = 'booking' | 'agoda' | 'airbnb';
 
 const CANONICAL_OTAS: { id: OtaId; label: string }[] = [
   { id: 'booking', label: 'Booking.com' },
-  { id: 'expedia', label: 'Expedia' },
+  { id: 'agoda', label: 'Agoda' },
   { id: 'airbnb', label: 'Airbnb' },
 ];
 
 function matchOtaId(source: string): OtaId | null {
   const s = source.toLowerCase();
   if (s.includes('booking')) return 'booking';
-  if (s.includes('expedia')) return 'expedia';
+  if (s.includes('agoda')) return 'agoda';
   if (s.includes('airbnb')) return 'airbnb';
   return null;
 }
@@ -125,7 +124,7 @@ export function hasBookableOtaRate(row: Pick<MergedOtaRow, 'indicativeNightly' |
   return row.hasData && Boolean(row.indicativeNightly?.trim()) && !isOtaSoldOut(row);
 }
 
-/** Merge model rows with canonical Booking → Expedia → Airbnb order for the UI. */
+/** Merge model rows with canonical Booking → Agoda → Airbnb order for the UI. */
 export function mergeHotelOtaRows(rows: OtaPriceCompareRow[] | null | undefined): MergedOtaRow[] {
   const hit = new Map<OtaId, OtaPriceCompareRow>();
   for (const r of rows ?? []) {
@@ -155,8 +154,8 @@ export function hotelOtaSearchUrl(
   switch (ota) {
     case 'booking':
       return bookingHotelSearchUrl(hotelName, destination, opts);
-    case 'expedia':
-      return expediaHotelSearchUrl(hotelName, destination, opts);
+    case 'agoda':
+      return agodaHotelSearchUrl(hotelName, destination, opts);
     case 'airbnb':
       return airbnbHotelSearchUrl(hotelName, destination, opts);
     default:
