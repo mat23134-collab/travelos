@@ -281,6 +281,15 @@ async function runPipeline(
   let provider: GenerationProvider = 'claude';
   let isFallback = false;
   let fallbackReason: unknown = null;
+  // ── Diagnostics (written into _meta so failures are readable from the DB) ──
+  const llmStart = Date.now();
+  const diag: Record<string, unknown> = {
+    geminiModel: process.env.GEMINI_MODEL ?? 'gemini-2.5-flash',
+    geminiKeySet: !!process.env.GEMINI_API_KEY?.trim(),
+    anthropicKeySet: !!process.env.ANTHROPIC_API_KEY?.trim(),
+    promptChars: userPrompt.length,
+    llmBudgetMs: GENERATE_LLM_FETCH_MS,
+  };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let itinerary: any = null;
   try {
@@ -288,12 +297,23 @@ async function runPipeline(
       try {
         raw = await callGemini(userPrompt, inventoryLockedSystemPrompt, aiController.signal);
         provider = 'gemini';
+        diag.geminiMs = Date.now() - llmStart;
       } catch (geminiErr) {
+        diag.geminiMs = Date.now() - llmStart;
+        diag.geminiError = geminiErr instanceof Error ? geminiErr.message : String(geminiErr);
         // If the shared budget already expired, surface a clear timeout error
         if (aiController.signal.aborted) throw new Error('Itinerary generation timed out. Please try again.');
         console.warn('[generate-stream] Gemini failed — falling back to Claude:', geminiErr instanceof Error ? geminiErr.message : geminiErr);
-        raw = await callClaude(userPrompt, inventoryLockedSystemPrompt, aiController.signal);
-        provider = 'claude';
+        const claudeStart = Date.now();
+        try {
+          raw = await callClaude(userPrompt, inventoryLockedSystemPrompt, aiController.signal);
+          provider = 'claude';
+          diag.claudeMs = Date.now() - claudeStart;
+        } catch (claudeErr) {
+          diag.claudeMs = Date.now() - claudeStart;
+          diag.claudeError = claudeErr instanceof Error ? claudeErr.message : String(claudeErr);
+          throw claudeErr;
+        }
       }
     } else {
       raw = await callClaude(userPrompt, inventoryLockedSystemPrompt, aiController.signal);
@@ -395,6 +415,7 @@ async function runPipeline(
     placesVerified, placesGpsCorrected, placesPhotosFilled, placesWebsitesFilled,
     isFallback,
     ...(fallbackReason ? { fallbackReason: fallbackReason instanceof Error ? fallbackReason.message : String(fallbackReason) } : {}),
+    llmDiag: { ...diag, totalLlmMs: Date.now() - llmStart },
   };
 
   // ── Kick off place streaming in background ─────────────────────────────────
