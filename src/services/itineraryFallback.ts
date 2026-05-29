@@ -34,7 +34,9 @@ function hotelToRecommendation(h: Hotel): HotelRecommendation {
   };
 }
 
-const coordinateSchema = z.number().finite();
+// Coordinates are best-effort: Google Places verifies/fills GPS downstream, so a
+// venue with a valid name but missing/null/garbage coordinates is still useful.
+const coordinateSchema = z.number().finite().nullable().optional().catch(undefined);
 
 const activitySchema = z.object({
   name: z.string().min(1),
@@ -48,17 +50,25 @@ const diningSchema = z.object({
   longitude: coordinateSchema,
 }).passthrough();
 
+// Each day slot is optional AND resilient: a malformed slot (e.g. Gemini emits
+// `evening` as a bare string, or a venue with an empty name) is DROPPED via
+// `.catch(undefined)` instead of throwing and discarding the entire itinerary.
+// Without this, one bad optional field nukes a whole valid trip into the generic
+// fallback — the exact Hanoi bug.
+const optionalActivity = activitySchema.optional().catch(undefined);
+const optionalDining = diningSchema.optional().catch(undefined);
+
 const itinerarySchema = z.object({
   destination: z.string().min(1),
   totalDays: z.number().int().positive(),
   days: z.array(z.object({
     day: z.number().int().positive(),
-    breakfast: diningSchema.optional(),
-    morning: activitySchema.optional(),
-    lunch: diningSchema.optional(),
-    afternoon: activitySchema.optional(),
-    dinner: diningSchema.optional(),
-    evening: activitySchema.optional(),
+    breakfast: optionalDining,
+    morning: optionalActivity,
+    lunch: optionalDining,
+    afternoon: optionalActivity,
+    dinner: optionalDining,
+    evening: optionalActivity,
   }).passthrough()).min(1),
 }).passthrough();
 
