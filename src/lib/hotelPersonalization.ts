@@ -1,12 +1,5 @@
 // src/lib/hotelPersonalization.ts
-import type {
-  AccommodationType,
-  BudgetLevel,
-  GroupType,
-  HotelAmenity,
-  HotelLocationPref,
-} from './types';
-import type { GroupDynamicsPayload } from './types';
+import type { AccommodationType, BudgetLevel, GroupDynamicsPayload, GroupType, HotelAmenity, HotelLocationPref } from './types';
 
 export interface HotelPersonalizationConfig {
   headline: string;
@@ -99,6 +92,25 @@ export function getHotelPersonalization(
       },
       locationOrder: ['quiet', 'nature', 'center', 'transit'],
       amenityPreset: ['spa', 'breakfast'],
+    };
+  } else if (groupType === 'solo') {
+    // Generic solo — no dynamics set yet
+    cfg = {
+      ...cfg,
+      headline:     'Your solo base in the city',
+      subline:      'A great neighbourhood to come home to each day',
+      contextBadge: '🧳 Personalized for a solo traveller',
+      accomOrder:   ['boutique-hotel', 'airbnb', 'hostel', 'luxury-hotel', 'resort'],
+      accomDimmed:  ['resort'],
+      accomDescriptions: {
+        'boutique-hotel': 'Character-driven, local feel',
+        'airbnb':         'Your own space, full kitchen',
+        'hostel':         'Social, affordable, central',
+        'luxury-hotel':   '5-star service & amenities',
+        'resort':         'Self-contained, pool, curated',
+      },
+      locationOrder: ['center', 'transit', 'quiet', 'nature'],
+      amenityPreset: ['breakfast', 'gym'],
     };
 
   // ── Couple ──────────────────────────────────────────────────────────────────
