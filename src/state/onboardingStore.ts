@@ -11,7 +11,7 @@
  */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { GroupDynamicsPayload } from '@/lib/types';
+import type { GroupDynamicsPayload, HotelLocationPref, HotelAmenity } from '@/lib/types';
 
 export interface TripCity {
   name: string;
@@ -51,6 +51,8 @@ export interface OnboardingState {
   // Step 3b: Hotel preferences (when no hotel booked)
   accommodation:      'hostel' | 'boutique-hotel' | 'luxury-hotel' | 'airbnb' | 'resort' | '';
   hotelNightlyBudget: 'budget' | 'mid' | 'comfort' | 'luxury' | '';
+  hotelLocationPref:  HotelLocationPref[];
+  hotelAmenities:     HotelAmenity[];
 
   // Step 4: Vibe — who's traveling + pace
   groupType:    'solo' | 'couple' | 'family' | 'group' | '';
@@ -88,6 +90,8 @@ export interface OnboardingState {
   clearHotelLocation: () => void;
   setAccommodation:      (a: 'hostel' | 'boutique-hotel' | 'luxury-hotel' | 'airbnb' | 'resort') => void;
   setHotelNightlyBudget: (b: OnboardingState['hotelNightlyBudget']) => void;
+  setHotelLocationPref:  (prefs: HotelLocationPref[]) => void;
+  toggleHotelAmenity:    (amenity: HotelAmenity) => void;
   setGroupType:          (gt: 'solo' | 'couple' | 'family' | 'group') => void;
   setGroupDynamics:      (d: GroupDynamicsPayload | null) => void;
   setPace:               (p: 'relaxed' | 'moderate' | 'intense') => void;
@@ -121,7 +125,7 @@ const INITIAL: Omit<
   | 'setDestinationGeo'
   | 'setArrivalTime' | 'setDepartureTime' | 'setDailyStartTime'
   | 'setHotelLocation' | 'clearHotelLocation'
-  | 'setAccommodation' | 'setHotelNightlyBudget'
+  | 'setAccommodation' | 'setHotelNightlyBudget' | 'setHotelLocationPref' | 'toggleHotelAmenity'
   | 'setGroupType' | 'setGroupDynamics' | 'setPace'
   | 'setFamilyAdults' | 'setFamilyChildCount' | 'setFamilyChildAge' | 'setGroupSize'
   | 'setBudget' | 'setInterests' | 'toggleInterest'
@@ -146,6 +150,8 @@ const INITIAL: Omit<
   destinationLng: null,
   accommodation:      '',
   hotelNightlyBudget: '',
+  hotelLocationPref:  [],
+  hotelAmenities:     [],
   groupType:       '',
   groupDynamics:   null,
   pace:            '',
@@ -212,6 +218,14 @@ export const useOnboardingStore = create<OnboardingState>()(
 
       setAccommodation:      (a) => set({ accommodation: a }),
       setHotelNightlyBudget: (b) => set({ hotelNightlyBudget: b }),
+      setHotelLocationPref:  (prefs) => set({ hotelLocationPref: prefs }),
+      toggleHotelAmenity: (amenity) => set((s) => {
+        const current = s.hotelAmenities ?? [];
+        const next = current.includes(amenity)
+          ? current.filter((a) => a !== amenity)
+          : [...current, amenity];
+        return { hotelAmenities: next };
+      }),
       setGroupType: (gt) => set({
         groupType: gt,
         groupDynamics: null,
@@ -287,8 +301,10 @@ export const useOnboardingStore = create<OnboardingState>()(
         hotelAddress:   s.hotelAddress,
         hotelLat:       s.hotelLat,
         hotelLng:       s.hotelLng,
-        accommodation:      s.accommodation,
-        hotelNightlyBudget: s.hotelNightlyBudget,
+        accommodation:       s.accommodation,
+        hotelNightlyBudget:  s.hotelNightlyBudget,
+        hotelLocationPref:   s.hotelLocationPref,
+        hotelAmenities:      s.hotelAmenities,
         groupType:          s.groupType,
         groupDynamics:      s.groupDynamics,
         familyAdults:       s.familyAdults,
