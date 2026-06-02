@@ -117,8 +117,8 @@ type Path = 'booked' | 'choose' | null;
 type SearchStatus = 'idle' | 'loading' | 'found' | 'error';
 
 interface Props {
-  onComplete: () => void;
-  onSkip:     () => void;
+  onComplete?: () => void;  // reserved for future use — parent currently drives continuation
+  onSkip:      () => void;
 }
 
 export function SmartHotelStep({ onComplete, onSkip }: Props) {
@@ -354,12 +354,12 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
                 What kind of place?
               </p>
               <div className="flex flex-col gap-2">
-                {config.accomOrder.map((type) => {
+                {config.accomOrder.map((type, i) => {
                   const base        = ACCOM_BASE[type];
                   const desc        = config.accomDescriptions[type] ?? base.defaultDesc;
                   const sel         = accommodation === type;
                   const dimmed      = !sel && config.accomDimmed.includes(type);
-                  const highlighted = !dimmed && config.accomOrder.indexOf(type) < 2;
+                  const highlighted = !dimmed && i < 2;
                   return (
                     <motion.button
                       key={type}
@@ -445,7 +445,7 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
                   <div className="grid grid-cols-2 gap-2">
                     {config.locationOrder.map((loc) => {
                       const opt = LOCATION_OPTIONS[loc];
-                      const sel = (hotelLocationPref ?? []).includes(loc);
+                      const sel = hotelLocationPref.includes(loc);
                       return (
                         <motion.button
                           key={loc}
@@ -476,7 +476,7 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
 
             {/* Block 4: Amenities — reveals after location chosen */}
             <AnimatePresence>
-              {accommodation && hotelNightlyBudget && (hotelLocationPref ?? []).length > 0 && (
+              {accommodation && hotelNightlyBudget && hotelLocationPref.length > 0 && (
                 <motion.div key="amenities"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] as const } }}
@@ -488,7 +488,7 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
                   <div className="flex flex-wrap gap-2">
                     {orderedAmenities.map((amenity) => {
                       const opt = AMENITY_OPTIONS[amenity];
-                      const sel = (hotelAmenities ?? []).includes(amenity);
+                      const sel = hotelAmenities.includes(amenity);
                       return (
                         <motion.button
                           key={amenity}
