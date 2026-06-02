@@ -151,7 +151,7 @@ function OnboardingPageContent() {
     destination, startDate, endDate,
     arrivalTime, departureTime, dailyStartTime, skipDay1,
     hotelAddress, hotelLat, hotelLng,
-    accommodation, hotelNightlyBudget,
+    accommodation, hotelNightlyBudget, hotelLocationPref, hotelAmenities,
     groupType, groupDynamics, pace, budget, interests,
     familyAdults, familyChildAges, groupSize,
     dietaryRestrictions, mustHaveItems, mustHaveOther,
@@ -360,8 +360,10 @@ function OnboardingPageContent() {
     }
 
     // Accommodation preferences (if no hotel booked)
-    if (accommodation)      params.set('accommodation',      accommodation);
-    if (hotelNightlyBudget) params.set('hotelNightlyBudget', hotelNightlyBudget);
+    if (accommodation)             params.set('accommodation',      accommodation);
+    if (hotelNightlyBudget)        params.set('hotelNightlyBudget', hotelNightlyBudget);
+    if (hotelLocationPref?.length) params.set('hotelLocationPref',  hotelLocationPref.join(','));
+    if (hotelAmenities?.length)    params.set('hotelAmenities',     hotelAmenities.join(','));
 
     // Style + budget + interests
     if (groupType)           params.set('groupType',     groupType);
