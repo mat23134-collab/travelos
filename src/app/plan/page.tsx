@@ -840,8 +840,16 @@ function PlanPage() {
     const preBudget     = searchParams.get('budget')     ?? '';
     const preInterestsRaw = searchParams.get('interests') ?? '';
     const preInterests  = preInterestsRaw ? preInterestsRaw.split(',').filter(Boolean) : [];
-    const preAccommodation      = searchParams.get('accommodation')      ?? '';
-    const preHotelNightlyBudget = searchParams.get('hotelNightlyBudget') ?? '';
+    const preAccommodation       = searchParams.get('accommodation')      ?? '';
+    const preHotelNightlyBudget  = searchParams.get('hotelNightlyBudget') ?? '';
+    const preHotelLocationRaw    = searchParams.get('hotelLocationPref')  ?? '';
+    const preHotelLocationPref   = preHotelLocationRaw
+      ? preHotelLocationRaw.split(',').filter(Boolean)
+      : [];
+    const preHotelAmenitiesRaw   = searchParams.get('hotelAmenities')     ?? '';
+    const preHotelAmenities      = preHotelAmenitiesRaw
+      ? preHotelAmenitiesRaw.split(',').filter(Boolean)
+      : [];
     const preDietaryRaw = searchParams.get('dietary') ?? '';
     const preDietary = preDietaryRaw ? preDietaryRaw.split(',').filter(Boolean) : [];
     const preMustHaveRaw = searchParams.get('mustHave') ?? '';
@@ -914,8 +922,10 @@ function PlanPage() {
       groupDynamics:     preGroupDynamics                                   ? preGroupDynamics         : null,
       pace:              validPaces.includes(prePace)                       ? prePace                  : '',
       budget:            validBudgets.includes(preBudget)                   ? preBudget                : '',
-      accommodation:     validAccommodations.includes(preAccommodation)     ? preAccommodation         : '',
-      hotelNightlyBudget: validNightlyBudgets.includes(preHotelNightlyBudget) ? preHotelNightlyBudget : '',
+      accommodation:      validAccommodations.includes(preAccommodation)       ? preAccommodation      : '',
+      hotelNightlyBudget: validNightlyBudgets.includes(preHotelNightlyBudget)  ? preHotelNightlyBudget : '',
+      hotelLocationPref:  preHotelLocationPref,
+      hotelAmenities:     preHotelAmenities,
     });
     setPlanGateReady(true);
 
