@@ -48,8 +48,8 @@ export function ItineraryDayCard({
       whileTap={{ scale: 0.98 }}
       className="flex-shrink-0 cursor-pointer rounded-[20px] overflow-hidden bg-white"
       style={{
-        minWidth: 340,
-        maxWidth: 360,
+        minWidth: 'min(340px, calc(100vw - 80px))',
+        maxWidth: 'min(360px, calc(100vw - 64px))',
         scrollSnapAlign: 'center',
         boxShadow: isActive
           ? '0 8px 32px rgba(90,173,165,0.35), 0 2px 8px rgba(0,0,0,0.08)'

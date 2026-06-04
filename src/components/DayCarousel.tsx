@@ -26,7 +26,7 @@ export function DayCarousel({ days, selectedDayIndex, destination, onSelectDay }
 
       <div
         ref={scrollRef}
-        className="flex gap-4 overflow-x-auto pb-4 pt-1 [&::-webkit-scrollbar]:hidden"
+        className="flex gap-3 sm:gap-4 overflow-x-auto pb-4 pt-1 [&::-webkit-scrollbar]:hidden"
         style={{ scrollSnapType: 'x mandatory', scrollbarWidth: 'none' }}
       >
         {days.map((day, i) => (
@@ -52,7 +52,7 @@ function NavArrow({ dir, onClick }: { dir: 'left' | 'right'; onClick: () => void
     <button
       type="button"
       onClick={onClick}
-      className="absolute top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full flex items-center justify-center text-base font-bold transition-all hover:scale-110"
+      className="hidden sm:flex absolute top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full items-center justify-center text-base font-bold transition-all hover:scale-110"
       style={{
         [dir === 'left' ? 'left' : 'right']: 4,
         background: 'rgba(255,255,255,0.75)',
