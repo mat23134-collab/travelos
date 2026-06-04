@@ -60,6 +60,7 @@ export interface UseItineraryReturn {
   mobileMapOpen: boolean;
   setMobileMapOpen: (v: boolean) => void;
   handleNeighborhoodClick: (neighborhood: string) => void;
+  handleMapClose: () => void;
 
   // Trip Story
   tripStoryOpen: boolean;
@@ -316,6 +317,11 @@ export function useItinerary({
     setMobileMapOpen(true);
   }, []);
 
+  const handleMapClose = useCallback(() => {
+    setMobileMapOpen(false);
+    setFocusedNeighborhood(undefined);
+  }, []);
+
   const handleSlotSwap = useCallback(async (
     dayIndex: number,
     slot: 'morning' | 'afternoon' | 'evening',
@@ -386,7 +392,7 @@ export function useItinerary({
     tripDatesLabel, shareCopy, mapLabels, transportLoading, isAdmin,
     viewMode, setViewMode, selectedDayIndex, setSelectedDayIndex,
     bgIdx, editBanner, expandedHotel, setExpandedHotel,
-    focusedNeighborhood, mobileMapOpen, setMobileMapOpen, handleNeighborhoodClick,
+    focusedNeighborhood, mobileMapOpen, setMobileMapOpen, handleNeighborhoodClick, handleMapClose,
     tripStoryOpen, setTripStoryOpen,
     feedbackOpen, handleFeedbackDismiss, handleFeedbackSubmit,
     persistAndSet, handleSlotSwap, handleCommitActivitySwap,

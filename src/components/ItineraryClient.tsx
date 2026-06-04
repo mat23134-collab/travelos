@@ -1459,15 +1459,15 @@ export function ItineraryClient({
             {/* Footer CTA */}
             <div className="text-center py-8 mx-12 print:hidden" style={{ borderTop: '1px solid rgba(90,173,165,0.2)' }}>
               <p className="text-sm mb-4 text-[#3a8a82]">{itin.ui.footerPrompt(itin.profile?.groupType)}</p>
-              <motion.a
-                href="/onboarding"
-                whileHover={{ y: -3 }}
-                whileTap={{ scale: 0.95 }}
-                className="inline-flex items-center gap-2 px-8 py-3 rounded-xl text-white font-semibold text-sm"
-                style={{ background: '#5aada5', boxShadow: '0 6px 24px -4px rgba(90,173,165,0.5)' }}
-              >
-                {itin.ui.planNewTripButton}
-              </motion.a>
+              <motion.div whileHover={{ y: -3 }} whileTap={{ scale: 0.95 }}>
+                <Link
+                  href="/onboarding"
+                  className="inline-flex items-center gap-2 px-8 py-3 rounded-xl text-white font-semibold text-sm"
+                  style={{ background: '#5aada5', boxShadow: '0 6px 24px -4px rgba(90,173,165,0.5)' }}
+                >
+                  {itin.ui.planNewTripButton}
+                </Link>
+              </motion.div>
             </div>
           </div>
         )}
@@ -1494,7 +1494,7 @@ export function ItineraryClient({
             basecampMarker={itin.basecampMarker}
             mapTitle={itin.ui.mapOpenMobile}
             mapLabels={itin.mapLabels}
-            onClose={() => itin.setMobileMapOpen(false)}
+            onClose={itin.handleMapClose}
           />
         )}
 
