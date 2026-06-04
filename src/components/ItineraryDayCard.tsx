@@ -125,6 +125,7 @@ function DotIndicator({ current, total }: { current: number; total: number }) {
 function ArrowBtn({ children, disabled }: { children: string; disabled: boolean }) {
   return (
     <span
+      aria-hidden="true"
       className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
       style={{
         border: '1px solid rgba(0,0,0,0.15)',

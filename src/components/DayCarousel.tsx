@@ -12,6 +12,8 @@ interface DayCarouselProps {
 }
 
 export function DayCarousel({ days, selectedDayIndex, destination, onSelectDay }: DayCarouselProps) {
+  if (days.length === 0) return null;
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const scroll = (dir: -1 | 1) => {
@@ -24,7 +26,7 @@ export function DayCarousel({ days, selectedDayIndex, destination, onSelectDay }
 
       <div
         ref={scrollRef}
-        className="flex gap-4 overflow-x-auto pb-4 pt-1"
+        className="flex gap-4 overflow-x-auto pb-4 pt-1 [&::-webkit-scrollbar]:hidden"
         style={{ scrollSnapType: 'x mandatory', scrollbarWidth: 'none' }}
       >
         {days.map((day, i) => (

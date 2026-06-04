@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import type { Basecamp, HotelRecommendation, TravelerProfile } from '@/lib/types';
 import type { ItineraryUiStrings } from '@/lib/tripUiCopy';
@@ -19,6 +20,8 @@ export function HotelSelectionCard({
   ui,
   onExpandHotel,
 }: HotelSelectionCardProps) {
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
   // Build hotel list depending on basecamp type
   if (basecamp.type === 'booked') {
     const booked = basecamp.booked;
@@ -37,7 +40,8 @@ export function HotelSelectionCard({
     return (
       <HotelSelectionLayout
         hotels={[syntheticHotel]}
-        selectedIndex={0}
+        selectedIndex={selectedIndex}
+        onSelect={setSelectedIndex}
         destination={destination}
         ui={ui}
         onExpandHotel={onExpandHotel}
@@ -56,7 +60,8 @@ export function HotelSelectionCard({
   return (
     <HotelSelectionLayout
       hotels={visibleHotels}
-      selectedIndex={0}
+      selectedIndex={selectedIndex}
+      onSelect={setSelectedIndex}
       destination={destination}
       ui={ui}
       onExpandHotel={onExpandHotel}
@@ -69,6 +74,7 @@ export function HotelSelectionCard({
 interface HotelSelectionLayoutProps {
   hotels: HotelRecommendation[];
   selectedIndex: number;
+  onSelect: (index: number) => void;
   destination: string;
   ui: ItineraryUiStrings;
   onExpandHotel: (hotel: HotelRecommendation) => void;
@@ -77,6 +83,7 @@ interface HotelSelectionLayoutProps {
 function HotelSelectionLayout({
   hotels,
   selectedIndex,
+  onSelect,
   destination: _destination,
   ui,
   onExpandHotel,
@@ -114,7 +121,10 @@ function HotelSelectionLayout({
             key={`${hotel.name}-${i}`}
             hotel={hotel}
             isSelected={i === selectedIndex}
-            onClick={() => onExpandHotel(hotel)}
+            onClick={() => {
+              onSelect(i);
+              onExpandHotel(hotel);
+            }}
           />
         ))}
       </div>
