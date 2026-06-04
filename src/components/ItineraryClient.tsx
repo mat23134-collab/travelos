@@ -1356,12 +1356,13 @@ export function ItineraryClient({
             onPrevDay={() => itin.setSelectedDayIndex(Math.max(0, itin.selectedDayIndex - 1))}
             onNextDay={() => itin.setSelectedDayIndex(Math.min(days.length - 1, itin.selectedDayIndex + 1))}
             onBackToOverview={() => itin.setSelectedDayIndex(-1)}
+            onOpenMobileMap={() => itin.setMobileMapOpen(true)}
           />
         ) : (
           /* ══ OVERVIEW ════════════════════════════════════════════════════ */
           <div className="max-w-5xl mx-auto py-4">
             <p
-              className="text-center text-[11px] font-bold uppercase tracking-[0.12em] py-3"
+              className="text-center text-[11px] font-bold uppercase tracking-[0.12em] px-4 py-3"
               style={{ color: 'rgba(60,120,114,0.7)' }}
             >
               Your {days.length}-Day Itinerary · tap a day to explore
@@ -1390,7 +1391,7 @@ export function ItineraryClient({
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.15, type: 'spring', stiffness: 280, damping: 26 }}
-                className="mx-12 mb-6 rounded-3xl p-5 grid sm:grid-cols-3 gap-3 bg-white"
+                className="mx-3 sm:mx-12 mb-6 rounded-3xl p-5 grid sm:grid-cols-3 gap-3 bg-white"
                 style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.07)' }}
               >
                 <BudgetCell label={itin.itinerary.budgetSummary.dailyAverage ? itin.ui.budgetDailyLine(itin.itinerary.budgetSummary.dailyAverage) : '—'} />
@@ -1400,7 +1401,7 @@ export function ItineraryClient({
             )}
 
             {/* Full trip map */}
-            <section className="mx-12 mb-6 hidden sm:block print:hidden">
+            <section className="mx-3 sm:mx-12 mb-6 hidden sm:block print:hidden">
               <ItineraryMap
                 days={itin.itinerary.days}
                 destination={itin.itinerary.destination}
@@ -1411,7 +1412,7 @@ export function ItineraryClient({
             </section>
 
             {/* Transport card */}
-            <div className="mx-12 mb-6">
+            <div className="mx-3 sm:mx-12 mb-6">
               <TransportCard
                 destination={itin.itinerary.destination}
                 guide={itin.displayCityTransport}
@@ -1424,7 +1425,7 @@ export function ItineraryClient({
 
             {/* Packing tips */}
             {(itin.itinerary.packingTips?.length ?? 0) > 0 && (
-              <div className="mx-12 mb-6 rounded-2xl p-5 bg-white" style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.07)' }}>
+              <div className="mx-3 sm:mx-12 mb-6 rounded-2xl p-5 bg-white" style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.07)' }}>
                 <h3 className="font-bold text-[#222] mb-3 flex items-center gap-2 text-[14px]">
                   🎒 {itin.ui.packingTitle(itin.ui.audienceTitle(itin.profile?.groupType))}
                 </h3>
@@ -1440,7 +1441,7 @@ export function ItineraryClient({
 
             {/* Best local tips */}
             {(itin.itinerary.bestLocalTips?.length ?? 0) > 0 && (
-              <div className="mx-12 mb-6 rounded-2xl p-5 bg-white" style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.07)' }}>
+              <div className="mx-3 sm:mx-12 mb-6 rounded-2xl p-5 bg-white" style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.07)' }}>
                 <h3 className="font-bold text-[#222] mb-3 flex items-center gap-2 text-[14px]">
                   🗝️ {itin.ui.insiderIntel}
                 </h3>
@@ -1455,12 +1456,12 @@ export function ItineraryClient({
             )}
 
             {/* Logistics */}
-            <div className="mx-12 mb-6">
+            <div className="mx-3 sm:mx-12 mb-6">
               {itin.profile && <LogisticsDashboard profile={itin.profile} />}
             </div>
 
             {/* Footer CTA */}
-            <div className="text-center py-8 mx-12 print:hidden" style={{ borderTop: '1px solid rgba(90,173,165,0.2)' }}>
+            <div className="text-center py-8 mx-3 sm:mx-12 print:hidden" style={{ borderTop: '1px solid rgba(90,173,165,0.2)' }}>
               <p className="text-sm mb-4 text-[#3a8a82]">{itin.ui.footerPrompt(itin.profile?.groupType)}</p>
               <motion.div whileHover={{ y: -3 }} whileTap={{ scale: 0.95 }}>
                 <Link
