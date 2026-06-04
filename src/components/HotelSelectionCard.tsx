@@ -115,7 +115,7 @@ function HotelSelectionLayout({
       </div>
 
       {/* Hotel columns */}
-      <div className="bg-white flex divide-x divide-black/[0.06]">
+      <div className="bg-white grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-black/[0.06]">
         {displayHotels.map((hotel, i) => (
           <HotelColumn
             key={`${hotel.name}-${i}`}
