@@ -1,10 +1,13 @@
 'use client';
 
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import { DayPhoto } from '@/components/DayPhoto';
-import { DayTimeline } from '@/components/DayTimeline';
-import type { DayPlan, Itinerary, TravelerProfile } from '@/lib/types';
+import { DayTimeline, type TimelineRow, type SwapTarget } from '@/components/DayTimeline';
+import { PlaceDetailCube } from '@/components/PlaceDetailCube';
+import { AlternativePickerPanel } from '@/components/AlternativePickerPanel';
+import type { DayPlan, Itinerary, TravelerProfile, Activity } from '@/lib/types';
 import type { ItineraryUiStrings } from '@/lib/tripUiCopy';
 import type { ItineraryMapLabels } from '@/components/ItineraryMap';
 
@@ -32,6 +35,13 @@ interface DayDetailPanelProps {
   basecampMarker: { lat: number; lng: number; label: string } | null;
   focusedNeighborhood: string | undefined;
   onSwapSlot: (slot: 'morning' | 'afternoon' | 'evening', request?: string) => void;
+  onCommitActivitySwap: (
+    dayIndex: number,
+    slot: 'morning' | 'afternoon' | 'evening',
+    activity: Activity,
+    summary: string,
+    diningField?: 'lunch' | 'dinner',
+  ) => void;
   onNeighborhoodClick: (neighborhood: string) => void;
   onPrevDay: () => void;
   onNextDay: () => void;
@@ -41,131 +51,144 @@ interface DayDetailPanelProps {
 export function DayDetailPanel({
   day, dayIndex, totalDays, itinerary, profile, ui, mapLabels,
   basecampMarker, focusedNeighborhood,
-  onSwapSlot, onNeighborhoodClick, onPrevDay, onNextDay, onBackToOverview,
+  onSwapSlot, onCommitActivitySwap, onNeighborhoodClick,
+  onPrevDay, onNextDay, onBackToOverview,
 }: DayDetailPanelProps) {
   const destination = itinerary.destination ?? '';
   const photoQuery = `${destination} ${day.theme ?? 'travel'} landmark`;
   const weatherEmoji = getWeatherEmoji(profile?.startDate, dayIndex);
 
+  const [activePlace, setActivePlace] = useState<TimelineRow | null>(null);
+  const [activeSwap, setActiveSwap] = useState<SwapTarget | null>(null);
+
+  const handleCommit = (activity: Activity, summary: string, diningField?: 'lunch' | 'dinner') => {
+    if (!activeSwap) return;
+    onCommitActivitySwap(dayIndex, activeSwap.slot, activity, summary, diningField);
+    setActiveSwap(null);
+  };
+
   return (
-    <AnimatePresence mode="wait">
-      <motion.div
-        key={`day-detail-${dayIndex}`}
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -8 }}
-        transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-        className="max-w-5xl mx-auto px-4 sm:px-6 py-4"
-      >
-      {/* Day navigation strip */}
-      <div className="flex items-center justify-between mb-4">
-        <button
-          type="button"
-          onClick={onPrevDay}
-          disabled={dayIndex === 0}
-          className="flex items-center gap-1 text-sm font-semibold transition-opacity disabled:opacity-30"
-          style={{ color: '#3a8a82' }}
+    <>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={`day-detail-${dayIndex}`}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+          className="max-w-5xl mx-auto px-4 sm:px-6 py-4"
         >
-          {dayIndex === 0 ? '← Previous' : `← Day ${dayIndex}`}
-        </button>
-        <span className="text-sm font-bold text-[#222]">
-          Day {dayIndex + 1} — {day.theme ?? `Day ${dayIndex + 1} of ${totalDays}`}
-        </span>
-        <button
-          type="button"
-          onClick={onNextDay}
-          disabled={dayIndex === totalDays - 1}
-          className="flex items-center gap-1 text-sm font-semibold transition-opacity disabled:opacity-30"
-          style={{ color: '#3a8a82' }}
-        >
-          {dayIndex === totalDays - 1 ? 'Next →' : `Day ${dayIndex + 2} →`}
-        </button>
-      </div>
-
-      {/* 2-col grid */}
-      <div className="grid gap-5 grid-cols-1 sm:grid-cols-2">
-
-        {/* Left */}
-        <div className="flex flex-col gap-3">
-          <div className="relative rounded-2xl overflow-hidden h-[200px]" style={{ boxShadow: '0 6px 20px rgba(0,0,0,0.12)' }}>
-            <DayPhoto query={photoQuery} alt={day.theme ?? destination} height={200} />
+          {/* Day navigation strip */}
+          <div className="flex items-center justify-between mb-4">
+            <button
+              type="button"
+              onClick={onPrevDay}
+              disabled={dayIndex === 0}
+              className="flex items-center gap-1 text-sm font-semibold transition-opacity disabled:opacity-30"
+              style={{ color: '#3a8a82' }}
+            >
+              {dayIndex === 0 ? '← Previous' : `← Day ${dayIndex}`}
+            </button>
+            <span className="text-sm font-bold text-[#222]">
+              Day {dayIndex + 1} — {day.theme ?? `Day ${dayIndex + 1} of ${totalDays}`}
+            </span>
+            <button
+              type="button"
+              onClick={onNextDay}
+              disabled={dayIndex === totalDays - 1}
+              className="flex items-center gap-1 text-sm font-semibold transition-opacity disabled:opacity-30"
+              style={{ color: '#3a8a82' }}
+            >
+              {dayIndex === totalDays - 1 ? 'Next →' : `Day ${dayIndex + 2} →`}
+            </button>
           </div>
 
-          {/* Weather widget */}
-          <div
-            className="flex items-center gap-4 px-4 py-3 rounded-2xl bg-white"
-            style={{ boxShadow: '0 3px 12px rgba(0,0,0,0.08)' }}
-          >
-            <span className="text-3xl">{weatherEmoji}</span>
-            <div>
-              <div className="text-[22px] font-black text-[#222] leading-none">—°</div>
-              <div className="text-[11px] text-[#888] mt-0.5">Typical weather · {destination}</div>
+          {/* 2-col grid */}
+          <div className="grid gap-5 grid-cols-1 sm:grid-cols-2">
+            {/* Left */}
+            <div className="flex flex-col gap-3">
+              <div className="relative rounded-2xl overflow-hidden h-[200px]" style={{ boxShadow: '0 6px 20px rgba(0,0,0,0.12)' }}>
+                <DayPhoto query={photoQuery} alt={day.theme ?? destination} height={200} />
+              </div>
+
+              <div className="flex items-center gap-4 px-4 py-3 rounded-2xl bg-white" style={{ boxShadow: '0 3px 12px rgba(0,0,0,0.08)' }}>
+                <span className="text-3xl">{weatherEmoji}</span>
+                <div>
+                  <div className="text-[22px] font-black text-[#222] leading-none">—°</div>
+                  <div className="text-[11px] text-[#888] mt-0.5">Typical weather · {destination}</div>
+                </div>
+              </div>
+
+              <DayTimeline
+                day={day}
+                dayIndex={dayIndex}
+                destination={destination}
+                ui={ui}
+                onSwapSlot={onSwapSlot}
+                onNeighborhoodClick={onNeighborhoodClick}
+                onExplore={(row) => setActivePlace(row)}
+                onFindAlternative={(target) => setActiveSwap(target)}
+              />
+            </div>
+
+            {/* Right: Map */}
+            <div className="rounded-2xl overflow-hidden bg-white" style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.08)', minHeight: 480 }}>
+              <div className="px-4 py-3 flex items-center justify-between border-b" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
+                <div>
+                  <div className="text-[13px] font-bold text-[#222]">Day {dayIndex + 1} Route</div>
+                  <div className="text-[11px] text-[#888]">{destination}</div>
+                </div>
+              </div>
+              <div style={{ height: 'calc(100% - 52px)', minHeight: 380 }}>
+                <ItineraryMap
+                  days={[day]}
+                  destination={destination}
+                  focusedNeighborhood={focusedNeighborhood}
+                  basecampMarker={basecampMarker}
+                  labels={mapLabels}
+                />
+              </div>
             </div>
           </div>
 
-          <DayTimeline
-            day={day}
-            dayIndex={dayIndex}
-            destination={destination}
-            ui={ui}
-            onSwapSlot={onSwapSlot}
-            onNeighborhoodClick={onNeighborhoodClick}
-          />
-        </div>
-
-        {/* Right: Map */}
-        <div
-          className="rounded-2xl overflow-hidden bg-white"
-          style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.08)', minHeight: 480 }}
-        >
-          <div
-            className="px-4 py-3 flex items-center justify-between border-b"
-            style={{ borderColor: 'rgba(0,0,0,0.08)' }}
-          >
-            <div>
-              <div className="text-[13px] font-bold text-[#222]">Day {dayIndex + 1} Route</div>
-              <div className="text-[11px] text-[#888]">{destination}</div>
-            </div>
+          {/* Bottom actions */}
+          <div className="flex items-center justify-center gap-3 mt-5 flex-wrap">
+            <ActionBtn onClick={onBackToOverview}>← Back to Overview</ActionBtn>
           </div>
-          <div style={{ height: 'calc(100% - 52px)', minHeight: 380 }}>
-            <ItineraryMap
-              days={[day]}
-              destination={destination}
-              focusedNeighborhood={focusedNeighborhood}
-              basecampMarker={basecampMarker}
-              labels={mapLabels}
-            />
-          </div>
-        </div>
-      </div>
+        </motion.div>
+      </AnimatePresence>
 
-      {/* Bottom actions */}
-      <div className="flex items-center justify-center gap-3 mt-5 flex-wrap">
-        <ActionBtn onClick={onBackToOverview}>← Back to Overview</ActionBtn>
-      </div>
-      </motion.div>
-    </AnimatePresence>
+      {/* Modals — outside AnimatePresence */}
+      {activePlace && (
+        <PlaceDetailCube
+          row={activePlace}
+          destination={destination}
+          onClose={() => setActivePlace(null)}
+        />
+      )}
+      {activeSwap && (
+        <AlternativePickerPanel
+          target={activeSwap}
+          itinerary={itinerary}
+          profile={profile}
+          onCommit={handleCommit}
+          onClose={() => setActiveSwap(null)}
+        />
+      )}
+    </>
   );
 }
 
-function ActionBtn({
-  children, onClick, primary = false,
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-  primary?: boolean;
-}) {
+function ActionBtn({ children, onClick, primary = false }: { children: React.ReactNode; onClick: () => void; primary?: boolean }) {
   return (
     <motion.button
       type="button"
       onClick={onClick}
       whileTap={{ scale: 0.96 }}
       className="px-5 py-2.5 rounded-xl text-[13px] font-bold transition-all"
-      style={
-        primary
-          ? { background: '#5aada5', color: '#fff', boxShadow: '0 4px 12px rgba(90,173,165,0.4)' }
-          : { background: '#fff', color: '#3a8a82', border: '1px solid rgba(90,173,165,0.3)', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }
-      }
+      style={primary
+        ? { background: '#5aada5', color: '#fff', boxShadow: '0 4px 12px rgba(90,173,165,0.4)' }
+        : { background: '#fff', color: '#3a8a82', border: '1px solid rgba(90,173,165,0.3)', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
     >
       {children}
     </motion.button>
