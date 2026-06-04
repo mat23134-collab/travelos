@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { BrandWordmark } from '@/components/BrandWordmark';
 import { SharePanel, type SharePanelCopy } from '@/components/SharePanel';
 import { Itinerary, TravelerProfile } from '@/lib/types';
@@ -18,7 +18,7 @@ interface ItineraryHeaderProps {
   onBackToOverview: () => void;
   onBackToDraft?: () => void;
   initialViewMode?: 'draft' | 'final';
-  editBanner: string;
+  editBanner?: string;
 }
 
 export function ItineraryHeader({
@@ -42,18 +42,20 @@ export function ItineraryHeader({
   return (
     <>
       {/* Edit banner — slides in above header */}
-      {editBanner && (
-        <motion.div
-          initial={{ y: -40, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: -40, opacity: 0 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-          className="fixed top-0 inset-x-0 z-[60] text-sm py-2.5 px-6 text-center shadow-lg print:hidden"
-          style={{ background: '#3a8a82', color: '#fff' }}
-        >
-          ✓ {editBanner}
-        </motion.div>
-      )}
+      <AnimatePresence>
+        {editBanner && (
+          <motion.div
+            initial={{ y: -40, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -40, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+            className="fixed top-0 inset-x-0 z-[60] text-sm py-2.5 px-6 text-center shadow-lg print:hidden"
+            style={{ background: '#3a8a82', color: '#fff' }}
+          >
+            ✓ {editBanner}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <nav
         className={`sticky z-50 print:hidden transition-all ${editBanner ? 'top-10' : 'top-0'}`}
@@ -102,7 +104,7 @@ export function ItineraryHeader({
               accessToken={session?.access_token ?? null}
               copy={shareCopy}
             />
-            {isAdmin && (
+            {isAdmin && dest && (
               <Link
                 href={`/explore/${encodeURIComponent(dest)}`}
                 className="text-xs font-medium px-3 py-1.5 rounded-lg border border-white/25 text-white/70 hover:text-white transition-colors"
