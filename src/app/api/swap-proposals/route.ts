@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
     dayIndex: number;
     slot: 'morning' | 'afternoon' | 'evening';
     profile?: TravelerProfile | null;
+    request?: string;
   };
   try {
     body = await req.json();
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const { itinerary, dayIndex, slot, profile } = body;
+  const { itinerary, dayIndex, slot, profile, request } = body;
   if (!itinerary?.days?.length || dayIndex === undefined || !slot) {
     return NextResponse.json({ error: 'itinerary, dayIndex, and slot are required' }, { status: 400 });
   }
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'dayIndex out of range' }, { status: 400 });
   }
 
-  const prompt = buildSwapProposalsPrompt({ itinerary, dayIndex, slot, profile: profile ?? null });
+  const prompt = buildSwapProposalsPrompt({ itinerary, dayIndex, slot, profile: profile ?? null, request: request?.trim() || undefined });
 
   try {
     const response = await client.messages.create({

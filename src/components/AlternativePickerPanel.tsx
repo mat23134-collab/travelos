@@ -63,7 +63,7 @@ export function AlternativePickerPanel({
 
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [target.dayIndex, target.slot, target.diningField]);
 
   const handleCustomSubmit = async () => {
     if (!customText.trim() || customLoading) return;
@@ -77,6 +77,7 @@ export function AlternativePickerPanel({
           dayIndex: target.dayIndex,
           slot: target.slot,
           profile: profile ?? null,
+          request: customText.trim(),
         }),
       });
       const data = await res.json();
@@ -160,7 +161,7 @@ export function AlternativePickerPanel({
               <div className="p-4 flex flex-col gap-3">
                 {panelState === 'results' && alternatives.map((alt, idx) => (
                   <motion.button
-                    key={alt.activity.name ?? idx}
+                    key={`${alt.activity.name ?? 'alt'}-${idx}`}
                     type="button"
                     onClick={() => setSelectedIdx(idx)}
                     whileTap={{ scale: 0.98 }}

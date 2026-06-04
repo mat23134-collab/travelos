@@ -17,7 +17,7 @@ export function PlaceDetailCube({ row, destination, onClose }: PlaceDetailCubePr
 
   const name = activity?.name ?? dining?.name ?? row.name;
   const neighborhood = activity?.neighborhood ?? dining?.neighborhood;
-  const whyText = activity?.whyThis ?? activity?.description ?? 'A curated pick for your trip.';
+  const whyText = activity?.whyThis ?? 'A curated pick for your trip.';
   const duration = activity?.duration;
   const cost = activity?.estimatedCost;
   const tags = activity?.tags ?? [];

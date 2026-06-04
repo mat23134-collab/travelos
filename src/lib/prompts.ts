@@ -784,8 +784,9 @@ export function buildSwapProposalsPrompt(params: {
   dayIndex: number;
   slot: 'morning' | 'afternoon' | 'evening';
   profile?: TravelerProfile | null;
+  request?: string;
 }): string {
-  const { itinerary, dayIndex, slot, profile } = params;
+  const { itinerary, dayIndex, slot, profile, request } = params;
   const day = itinerary.days[dayIndex];
   const current = day[slot] as Activity;
   const genre = classifyActivity(current);
@@ -833,7 +834,7 @@ Budget tier hint: ${itinerary.budgetSummary?.dailyAverage ?? 'mid-range'}
 ${traveler}
 
 ${lang}
-
+${request ? `\nUSER REFINEMENT REQUEST: "${request}" — Both proposals MUST satisfy this constraint.` : ''}
 RULES:
 1. Both picks MUST be real named places Google Maps would resolve — NEVER placeholders.
 2. Same neighborhood cluster as today's other stops OR within ~15 min walk/transit of that cluster.
