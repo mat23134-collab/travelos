@@ -1579,7 +1579,14 @@ export function DayCard({
                   <span className="text-sm leading-none">📅</span>
                   <span className="text-[10px] font-bold uppercase tracking-widest text-rose-400/80">{dc.dayTimeline}</span>
                 </div>
-                <DayTimeline day={day} />
+                <DayTimeline
+                  day={day}
+                  dayIndex={index}
+                  destination={destination ?? ''}
+                  ui={ui}
+                  onSwapSlot={(slot, request) => onSwapSlot?.(slot, request)}
+                  onNeighborhoodClick={() => {}}
+                />
               </div>
             </div>
 
