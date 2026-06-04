@@ -88,6 +88,8 @@ interface DayTimelineProps {
 
 export function DayTimeline({
   day, onSwapSlot, onNeighborhoodClick,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  dayIndex: _dayIndex, destination: _destination, ui: _ui,
 }: DayTimelineProps) {
   const rows = buildTimelineRows(day);
 

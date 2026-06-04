@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import { DayPhoto } from '@/components/DayPhoto';
 import { DayTimeline } from '@/components/DayTimeline';
@@ -36,7 +36,6 @@ interface DayDetailPanelProps {
   onPrevDay: () => void;
   onNextDay: () => void;
   onBackToOverview: () => void;
-  onShare: () => void;
 }
 
 export function DayDetailPanel({
@@ -49,13 +48,15 @@ export function DayDetailPanel({
   const weatherEmoji = getWeatherEmoji(profile?.startDate, dayIndex);
 
   return (
-    <motion.div
-      key={`day-detail-${dayIndex}`}
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-      className="max-w-5xl mx-auto px-4 sm:px-6 py-4"
-    >
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={`day-detail-${dayIndex}`}
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -8 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+        className="max-w-5xl mx-auto px-4 sm:px-6 py-4"
+      >
       {/* Day navigation strip */}
       <div className="flex items-center justify-between mb-4">
         <button
@@ -65,7 +66,7 @@ export function DayDetailPanel({
           className="flex items-center gap-1 text-sm font-semibold transition-opacity disabled:opacity-30"
           style={{ color: '#3a8a82' }}
         >
-          ← Day {dayIndex}
+          {dayIndex === 0 ? '← Previous' : `← Day ${dayIndex}`}
         </button>
         <span className="text-sm font-bold text-[#222]">
           Day {dayIndex + 1} — {day.theme ?? `Day ${dayIndex + 1} of ${totalDays}`}
@@ -77,7 +78,7 @@ export function DayDetailPanel({
           className="flex items-center gap-1 text-sm font-semibold transition-opacity disabled:opacity-30"
           style={{ color: '#3a8a82' }}
         >
-          Day {dayIndex + 2} →
+          {dayIndex === totalDays - 1 ? 'Next →' : `Day ${dayIndex + 2} →`}
         </button>
       </div>
 
@@ -142,7 +143,8 @@ export function DayDetailPanel({
       <div className="flex items-center justify-center gap-3 mt-5 flex-wrap">
         <ActionBtn onClick={onBackToOverview}>← Back to Overview</ActionBtn>
       </div>
-    </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 }
 
