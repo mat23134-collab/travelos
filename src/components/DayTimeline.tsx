@@ -70,16 +70,19 @@ interface DayTimelineProps {
   dayIndex: number;
   destination: string;
   ui: ItineraryUiStrings;
+  /** @deprecated — kept for backward compat while DayDetailPanel migrates to onFindAlternative */
   onSwapSlot: (slot: 'morning' | 'afternoon' | 'evening', request?: string) => void;
   onNeighborhoodClick: (neighborhood: string) => void;
-  onExplore: (row: TimelineRow) => void;
-  onFindAlternative: (target: SwapTarget) => void;
+  onExplore?: (row: TimelineRow) => void;
+  onFindAlternative?: (target: SwapTarget) => void;
 }
 
 export function DayTimeline({
   day, dayIndex, destination,
   onSwapSlot: _onSwapSlot,
-  onNeighborhoodClick, onExplore, onFindAlternative,
+  onNeighborhoodClick,
+  onExplore = () => {},
+  onFindAlternative = () => {},
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   ui: _ui,
 }: DayTimelineProps) {
