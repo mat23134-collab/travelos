@@ -46,13 +46,14 @@ interface DayDetailPanelProps {
   onPrevDay: () => void;
   onNextDay: () => void;
   onBackToOverview: () => void;
+  onOpenMobileMap?: () => void;
 }
 
 export function DayDetailPanel({
   day, dayIndex, totalDays, itinerary, profile, ui, mapLabels,
   basecampMarker, focusedNeighborhood,
   onSwapSlot, onCommitActivitySwap, onNeighborhoodClick,
-  onPrevDay, onNextDay, onBackToOverview,
+  onPrevDay, onNextDay, onBackToOverview, onOpenMobileMap,
 }: DayDetailPanelProps) {
   const destination = itinerary.destination ?? '';
   const photoQuery = `${destination} ${day.theme ?? 'travel'} landmark`;
@@ -129,10 +130,25 @@ export function DayDetailPanel({
                 onExplore={(row) => setActivePlace(row)}
                 onFindAlternative={(target) => setActiveSwap(target)}
               />
+
+              {/* Mobile map button */}
+              {onOpenMobileMap && (
+                <button
+                  type="button"
+                  onClick={onOpenMobileMap}
+                  className="sm:hidden w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold"
+                  style={{ background: '#e8f4f2', color: '#3a8a82', border: '1px solid rgba(90,173,165,0.3)' }}
+                >
+                  🗺 View Day {dayIndex + 1} on Map
+                </button>
+              )}
             </div>
 
             {/* Right: Map */}
-            <div className="rounded-2xl overflow-hidden bg-white" style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.08)', minHeight: 480 }}>
+            <div
+              className="hidden sm:block rounded-2xl overflow-hidden bg-white"
+              style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.08)', minHeight: 480 }}
+            >
               <div className="px-4 py-3 flex items-center justify-between border-b" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
                 <div>
                   <div className="text-[13px] font-bold text-[#222]">Day {dayIndex + 1} Route</div>
