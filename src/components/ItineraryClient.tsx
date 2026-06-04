@@ -1349,6 +1349,9 @@ export function ItineraryClient({
             basecampMarker={itin.basecampMarker}
             focusedNeighborhood={itin.focusedNeighborhood}
             onSwapSlot={(slot, req) => itin.handleSlotSwap(itin.selectedDayIndex, slot, req)}
+            onCommitActivitySwap={(dayIdx, slot, activity, summary, diningField) =>
+              itin.handleCommitActivitySwap(dayIdx, slot, activity, summary, diningField)
+            }
             onNeighborhoodClick={itin.handleNeighborhoodClick}
             onPrevDay={() => itin.setSelectedDayIndex(Math.max(0, itin.selectedDayIndex - 1))}
             onNextDay={() => itin.setSelectedDayIndex(Math.min(days.length - 1, itin.selectedDayIndex + 1))}
