@@ -35,3 +35,20 @@ assert.equal(partialRows.length, 2);
 assert.equal(partialRows[0].slot, 'afternoon');
 
 console.log('✓ DayTimeline helpers: all 11 assertions passed');
+
+// ── NEW: buildMapsDirectionsUrl + slotForDining ───────────────────────────
+import { buildMapsDirectionsUrl, slotForDining } from './DayTimeline';
+
+const url1 = buildMapsDirectionsUrl('Café Sillon', 'Vieux Lyon', 'Lyon');
+assert.ok(url1.startsWith('https://www.google.com/maps/dir/?api=1&destination='), `bad prefix: ${url1}`);
+assert.ok(url1.includes('Lyon'), `missing city in: ${url1}`);
+assert.ok(!url1.includes('undefined'), `undefined in URL: ${url1}`);
+
+const url2 = buildMapsDirectionsUrl('Colosseum', undefined, 'Rome');
+assert.ok(url2.includes('Colosseum'), `missing name: ${url2}`);
+assert.ok(!url2.includes('undefined'), `undefined in URL: ${url2}`);
+
+assert.equal(slotForDining('lunch'), 'morning');
+assert.equal(slotForDining('dinner'), 'evening');
+
+console.log('✓ buildMapsDirectionsUrl + slotForDining: all 7 new assertions passed');
