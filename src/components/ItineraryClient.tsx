@@ -32,6 +32,12 @@ import { BrandWordmark } from '@/components/BrandWordmark';
 import { TransportCard, hasTransportContent } from '@/components/TransportCard';
 import type { ItineraryMapLabels } from '@/components/ItineraryMap';
 import { parseTransportGuideJson } from '@/lib/transportGuideParse';
+import { useItinerary } from '@/hooks/useItinerary';
+import { ItineraryHeader } from '@/components/ItineraryHeader';
+import { DayCarousel } from '@/components/DayCarousel';
+import { DayDetailPanel } from '@/components/DayDetailPanel';
+import { HotelSelectionCard } from '@/components/HotelSelectionCard';
+import { formatTripDateRange } from '@/lib/formatTripDateRange';
 
 const ItineraryMap = dynamic(
   () => import('@/components/ItineraryMap').then((m) => m.ItineraryMap),
@@ -1157,38 +1163,6 @@ function TripIntelligenceButton({ meta, ui }: { meta: NonNullable<Itinerary['_me
   );
 }
 
-/** Pretty range for hero subtitle — expects ISO or YYYY-MM-DD */
-function formatTripDateRange(
-  start?: string | null,
-  end?: string | null,
-  locale = 'en-US',
-): string | null {
-  const s = start?.trim().slice(0, 10);
-  const e = end?.trim().slice(0, 10);
-  if (!s || !e || !/^\d{4}-\d{2}-\d{2}$/.test(s) || !/^\d{4}-\d{2}-\d{2}$/.test(e)) return null;
-  const ds = new Date(`${s}T12:00:00`);
-  const de = new Date(`${e}T12:00:00`);
-  if (Number.isNaN(+ds) || Number.isNaN(+de)) return null;
-
-  const y1 = ds.getFullYear();
-  const y2 = de.getFullYear();
-  const m1 = ds.getMonth();
-  const d2 = de.getDate();
-
-  const monthDay = (d: Date) =>
-    d.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
-  const full = (d: Date) =>
-    d.toLocaleDateString(locale, { month: 'short', day: 'numeric', year: 'numeric' });
-
-  if (y1 === y2 && m1 === de.getMonth()) {
-    return `${monthDay(ds)}–${d2}, ${y2}`;
-  }
-  if (y1 === y2) {
-    return `${monthDay(ds)} – ${full(de)}`;
-  }
-  return `${full(ds)} – ${full(de)}`;
-}
-
 // ─── Hero animation ───────────────────────────────────────────────────────────
 
 const heroVariant = {
@@ -1279,363 +1253,41 @@ export function ItineraryClient({
   initialTripSummaryUsername = null,
 }: Props) {
   const { session } = useAuth();
-  const [itinerary, setItinerary] = useState<Itinerary>(initialItinerary);
-  const [profile] = useState<TravelerProfile | null>(initialProfile);
-  const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
-  const [liveTransportFromDb, setLiveTransportFromDb] = useState<CityTransportGuide | null>(initialTransportFromDb ?? null);
-  const [transportLoading, setTransportLoading] = useState(false);
-  const [editBanner, setEditBanner] = useState('');
-  const [mobileMapOpen, setMobileMapOpen] = useState(false);
-  const [tripStoryOpen, setTripStoryOpen] = useState(false);
-  const [focusedNeighborhood, setFocusedNeighborhood] = useState<string | undefined>();
-  const basecampMarker = useMemo(() => {
-    if (
-      profile?.hotelLat != null &&
-      profile?.hotelLng != null &&
-      Number.isFinite(profile.hotelLat) &&
-      Number.isFinite(profile.hotelLng)
-    ) {
-      return {
-        lat: profile.hotelLat,
-        lng: profile.hotelLng,
-        label: profile.hotelAddress || profile.hotelBooked || 'Base Camp',
-      };
-    }
-    return null;
-  }, [profile]);
-
-  const displayCityTransport = useMemo(() => {
-    if (liveTransportFromDb && hasTransportContent(liveTransportFromDb)) return liveTransportFromDb;
-    return itinerary.cityTransport ?? null;
-  }, [liveTransportFromDb, itinerary.cityTransport]);
-
-  // ── Rotating background slideshow ────────────────────────────────────────────
-  // Start on the destination's photo if available; rotate every 8 s.
-  const [bgIdx, setBgIdx] = useState(() => {
-    const dest = (initialItinerary.destination ?? '').trim().toLowerCase();
-    const match = STEP_BACKGROUNDS.findIndex((b) => b.city.toLowerCase() === dest);
-    return match >= 0 ? match : 0;
+  const itin = useItinerary({
+    initialItinerary,
+    initialProfile,
+    initialViewMode,
+    initialTransportFromDb,
+    initialTripSummaryUsername,
   });
-  useEffect(() => {
-    const t = setInterval(() => setBgIdx((i) => (i + 1) % STEP_BACKGROUNDS.length), 8000);
-    return () => clearInterval(t);
-  }, []);
 
-  const scoutPostedRef = useRef(false);
-
-  useEffect(() => {
-    scoutPostedRef.current = false;
-  }, [itinerary.destination]);
-
-  // ── Feedback survey (timed, once per itinerary) ──────────────────────────────
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const feedbackKey = useMemo(() => {
-    const id = itinerary._id ?? (itinerary.destination ?? '').trim().toLowerCase();
-    return id ? `sarto_feedback_${id}` : null;
-  }, [itinerary._id, itinerary.destination]);
-
-  useEffect(() => {
-    if (!feedbackKey) return;
-    if (typeof window === 'undefined') return;
-    // Already submitted or dismissed for this itinerary — never show again.
-    try {
-      if (window.localStorage.getItem(feedbackKey)) return;
-    } catch { /* localStorage blocked — show anyway */ }
-    // Random 40–50 s dwell before the prompt appears.
-    const delay = 40_000 + Math.floor(Math.random() * 10_000);
-    const t = setTimeout(() => setFeedbackOpen(true), delay);
-    return () => clearTimeout(t);
-  }, [feedbackKey]);
-
-  const markFeedbackSeen = useCallback(() => {
-    if (!feedbackKey) return;
-    try { window.localStorage.setItem(feedbackKey, String(Date.now())); } catch { /* ignore */ }
-  }, [feedbackKey]);
-
-  const handleFeedbackDismiss = useCallback(() => {
-    setFeedbackOpen(false);
-    markFeedbackSeen();
-  }, [markFeedbackSeen]);
-
-  const handleFeedbackSubmit = useCallback(async (payload: FeedbackPayload): Promise<boolean> => {
-    const headers: HeadersInit = { 'Content-Type': 'application/json' };
-    if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
-    try {
-      const res = await fetch('/api/feedback', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          itineraryId: itinerary._id ?? null,
-          destination: itinerary.destination ?? null,
-          ...payload,
-        }),
-      });
-      if (!res.ok) {
-        const text = await res.text().catch(() => '');
-        console.warn(`[feedback] submit failed: HTTP ${res.status} ${text.slice(0, 200)}`);
-        return false;
-      }
-      // Confirmed save — only now mark it seen + auto-close after the thank-you.
-      markFeedbackSeen();
-      setTimeout(() => setFeedbackOpen(false), 2200);
-      return true;
-    } catch (e) {
-      console.warn('[feedback] submit error:', e instanceof Error ? e.message : e);
-      return false;
-    }
-  }, [markFeedbackSeen, session, itinerary._id, itinerary.destination]);
-
-  const transportDataReady = useMemo(
-    () => hasTransportContent(displayCityTransport),
-    [displayCityTransport],
-  );
-
-  useEffect(() => {
-    setLiveTransportFromDb(initialTransportFromDb ?? null);
-  }, [initialTransportFromDb]);
-
-  /** Poll Supabase `transportation`; if still empty, POST scout once and poll until filled or timeout. */
-  useEffect(() => {
-    const city = itinerary.destination?.trim();
-    if (!city) {
-      setTransportLoading(false);
-      return;
-    }
-    if (transportDataReady) {
-      setTransportLoading(false);
-      return;
-    }
-
-    setTransportLoading(true);
-    let cancelled = false;
-
-    const poll = async (): Promise<boolean> => {
-      try {
-        const res = await fetch(`/api/transportation?city=${encodeURIComponent(city)}`);
-        const body = (await res.json()) as { guide?: unknown };
-        const parsed = parseTransportGuideJson(body.guide ?? null);
-        if (!cancelled && parsed && hasTransportContent(parsed)) {
-          setLiveTransportFromDb(parsed);
-          setTransportLoading(false);
-          return true;
-        }
-      } catch {
-        /* ignore */
-      }
-      return false;
-    };
-
-    void (async () => {
-      if (await poll()) return;
-      if (cancelled) return;
-      if (!scoutPostedRef.current) {
-        scoutPostedRef.current = true;
-        try {
-          await fetch('/api/transportation/scout', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ city, tripDays: itinerary.totalDays }),
-          });
-        } catch {
-          /* ignore */
-        }
-      }
-      for (let i = 0; i < 20 && !cancelled; i++) {
-        await new Promise<void>((r) => setTimeout(r, 2500));
-        if (await poll()) return;
-      }
-      if (!cancelled) setTransportLoading(false);
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [itinerary.destination, itinerary.totalDays, transportDataReady]);
-
-  const ui = useMemo(
-    () => itineraryUi(profile?.tripLanguage === 'he' ? 'he' : 'en'),
-    [profile?.tripLanguage],
-  );
-
-  const mapLabels = useMemo(
-    (): ItineraryMapLabels => ({
-      mapDistanceTool: ui.mapDistanceTool,
-      mapSelectMoreHint: ui.mapSelectMoreHint,
-      mapComputingRoutes: ui.mapComputingRoutes,
-      mapBetween: ui.mapBetween,
-      mapDirect: ui.mapDirect,
-      mapWalking: ui.mapWalking,
-      mapDriving: ui.mapDriving,
-      mapNa: ui.mapNa,
-      mapOpenGoogleTransit: ui.mapOpenGoogleTransit,
-      mapClearSelection: ui.mapClearSelection,
-      cityTransportGoogleRoutesDoc: ui.cityTransportGoogleRoutesDoc,
-      cityTransportGoogleRoutesDocUrl: ui.cityTransportGoogleRoutesDocUrl,
-    }),
-    [ui],
-  );
-
-  const tripDatesLabel = useMemo(
-    () =>
-      formatTripDateRange(
-        profile?.startDate,
-        profile?.endDate,
-        ui.lang === 'he' ? 'he-IL' : 'en-US',
-      ),
-    [profile?.startDate, profile?.endDate, ui.lang],
-  );
-
-  const shareCopy = useMemo(
-    (): SharePanelCopy => ({
-      openButton: ui.shareOpenButton,
-      panelTitle: ui.sharePanelTitle(ui.audienceTitle(profile?.groupType)),
-      whatsapp: ui.shareWhatsApp,
-      whatsappSub: ui.shareWhatsAppSub(profile?.groupType),
-      copyLink: ui.shareCopyLinkCta(profile?.groupType),
-      copyLinkCopied: ui.shareLinkCopied,
-      copyLinkSub: ui.shareCopyLinkSub,
-      pdf: ui.sharePdf,
-      pdfSub: ui.sharePdfSub,
-      travelOsTitle: ui.shareTravelOsTitle,
-      travelOsBody: ui.shareTravelOsBody,
-      travelOsHint: ui.shareTravelOsHint,
-    }),
-    [ui, profile?.groupType],
-  );
-
-  // Admin check — reads the client-readable cookie set by middleware on ?key= login.
-  // Used purely for UI visibility; actual data filtering happens server-side.
-  const isAdmin = useMemo(() => {
-    if (typeof document === 'undefined') return false;
-    return document.cookie.split(';').some((c) => c.trim() === 'travelos_admin_ui=1');
-  }, []);
-
-  // If React reuses this component instance during client-side navigation (e.g.
-  // /itinerary → /itinerary/[id]), useState won't reinitialise. Sync from props
-  // so server-fetched Supabase data always wins over any stale local state.
-  useEffect(() => {
-    setItinerary(initialItinerary);
-    setViewMode(initialViewMode ?? 'draft');
-  }, [initialItinerary, initialViewMode]);
-
-  // Only write back to sessionStorage for the sessionStorage-backed route
-  // (/itinerary). The [id] route always re-fetches from Supabase, so writing
-  // here would pollute sessionStorage with a different trip's data.
-  const sessionPersist = initialViewMode !== 'final';
-
-  const persistAndSet = useCallback((updated: Itinerary) => {
-    setItinerary(updated);
-    if (sessionPersist) {
-      try { sessionStorage.setItem('travelos_itinerary', JSON.stringify(updated)); } catch { /* ignore */ }
-    }
-  }, [sessionPersist]);
-
-  const handleQuickEditUpdate = useCallback((updated: Itinerary, summary: string) => {
-    persistAndSet(updated);
-    setEditBanner(summary);
-    setTimeout(() => setEditBanner(''), 5000);
-  }, [persistAndSet]);
-
-  const handleDraftUpdate = useCallback((updated: Itinerary) => {
-    persistAndSet(updated);
-  }, [persistAndSet]);
-
-  const handleSlotSwap = useCallback(async (
-    dayIndex: number,
-    slot: 'morning' | 'afternoon' | 'evening',
-    request?: string,
-  ) => {
-    const res = await fetch('/api/swap', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        itinerary,
-        itinerary_id: itinerary._id ?? undefined, // enables targeted row-level DB update
-        dayIndex,
-        slot,
-        request: request?.trim() || `Suggest a better ${slot} activity`,
-      }),
-    });
-    const data: SwapResult & { error?: string } = await res.json();
-    if (!res.ok || data.error) throw new Error(data.error || 'Swap failed');
-
-    const updatedDays = itinerary.days.map((day, i) =>
-      i !== dayIndex ? day : { ...day, [slot]: data.activity }
-    );
-    persistAndSet({ ...itinerary, days: updatedDays });
-    setEditBanner(data.summary);
-    setTimeout(() => setEditBanner(''), 5000);
-  }, [itinerary, persistAndSet]);
-
-  /** Smart swap: persist a chosen proposal without re-running the swap LLM. */
-  const handleCommitActivitySwap = useCallback(async (
-    dayIndex: number,
-    slot: 'morning' | 'afternoon' | 'evening',
-    replacementActivity: Activity,
-    proposalSummary: string,
-    diningField?: 'breakfast' | 'lunch' | 'dinner',
-  ) => {
-    const res = await fetch('/api/swap', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        itinerary,
-        itinerary_id: itinerary._id ?? undefined,
-        dayIndex,
-        slot,
-        replacementActivity,
-        proposalSummary: proposalSummary.trim() || undefined,
-      }),
-    });
-    const data: SwapResult & { error?: string } = await res.json();
-    if (!res.ok || data.error) throw new Error(data.error || 'Swap failed');
-
-    const updatedDays = itinerary.days.map((day, i) => {
-      if (i !== dayIndex) return day;
-      const updatedDay = { ...day, [slot]: data.activity };
-      // When the swap originated from a DiningSpot card, also clear that field
-      // so the new activity wins — DiningSpot takes priority in mealCards otherwise.
-      if (diningField) {
-        (updatedDay as Record<string, unknown>)[diningField] = undefined;
-      }
-      return updatedDay;
-    });
-    persistAndSet({ ...itinerary, days: updatedDays });
-    setEditBanner(data.summary);
-    setTimeout(() => setEditBanner(''), 5000);
-  }, [itinerary, persistAndSet]);
-
-  const handleNeighborhoodClick = useCallback((neighborhood: string) => {
-    setFocusedNeighborhood(neighborhood);
-    setMobileMapOpen(true);
-  }, []);
-
-  // ── DRAFT MODE ──────────────────────────────────────────────────────────────
-  if (viewMode === 'draft') {
+  // Draft mode — unchanged
+  if (itin.viewMode === 'draft') {
     return (
       <DraftOverview
-        itinerary={itinerary}
-        onUpdate={handleDraftUpdate}
-        onFinalize={() => setViewMode('final')}
-        ui={ui}
+        itinerary={itin.itinerary}
+        onUpdate={itin.handleDraftUpdate}
+        onFinalize={() => itin.setViewMode('final')}
+        ui={itin.ui}
       />
     );
   }
 
-  // ── FINAL MODE ──────────────────────────────────────────────────────────────
-  return (
-    <div className="min-h-screen relative" dir={ui.dir} lang={ui.htmlLang}>
+  const days = itin.itinerary.days ?? [];
+  const selectedDay = itin.selectedDayIndex >= 0 ? days[itin.selectedDayIndex] ?? null : null;
 
-      {/* ── Rotating travel photo background ──────────────────────────────── */}
-      {/* Layer 1: photo — crossfades every 8 s */}
+  return (
+    <div className="min-h-screen relative" dir={itin.ui.dir} lang={itin.ui.htmlLang}>
+
+      {/* ── Rotating destination photo background ─────────────────────────── */}
       <AnimatePresence initial={false}>
         <motion.div
-          key={bgIdx}
+          key={itin.bgIdx}
           aria-hidden
           className="fixed inset-0 pointer-events-none"
           style={{
             zIndex: -2,
-            backgroundImage: `url("${STEP_BACKGROUNDS[bgIdx].imageUrl}")`,
+            backgroundImage: `url("${STEP_BACKGROUNDS[itin.bgIdx].imageUrl}")`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
           }}
@@ -1645,418 +1297,256 @@ export function ItineraryClient({
           transition={{ duration: 2.2, ease: 'easeInOut' }}
         />
       </AnimatePresence>
-      {/* Layer 2: teal colour wash — preserves the page's deep-teal identity */}
+
+      {/* ── Light teal overlay (NEW — replaces old dark gradient) ─────────── */}
       <div
         aria-hidden
         className="fixed inset-0 pointer-events-none"
-        style={{
-          zIndex: -1,
-          background: [
-            'radial-gradient(ellipse 88% 72% at 10% 12%, rgba(56,124,132,0.38) 0%, transparent 58%)',
-            'radial-gradient(ellipse 75% 58% at 92% 78%, rgba(10,36,40,0.68) 0%, transparent 52%)',
-            'linear-gradient(170deg, rgba(18,52,59,0.85) 0%, rgba(26,77,87,0.80) 28%, rgba(47,101,112,0.74) 50%, rgba(35,77,86,0.80) 70%, rgba(22,62,69,0.84) 90%, rgba(18,52,59,0.88) 100%)',
-          ].join(', '),
-        }}
+        style={{ zIndex: -1, background: 'rgba(180,228,222,0.82)' }}
       />
 
-      {/* Film grain on top of everything */}
+      {/* ── Film grain ─────────────────────────────────────────────────────── */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 z-0 opacity-[0.02]"
+        className="pointer-events-none absolute inset-0 z-0 opacity-[0.025]"
         style={{
           backgroundImage: `url(${ITIN_RESULTS_NOISE_DATA_URL})`,
           backgroundSize: '180px 180px',
-          mixBlendMode: 'overlay',
+          mixBlendMode: 'multiply',
         }}
       />
+
       <div className="relative z-[1]">
-        {/* Edit banner */}
-      <AnimatePresence>
-        {editBanner && (
-          <motion.div
-            initial={{ y: -40, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -40, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-            className="fixed top-0 inset-x-0 z-50 text-white text-sm py-2.5 px-6 text-center shadow-lg print:hidden"
-            style={{ background: 'rgba(18,52,59,0.96)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}
-          >
-            ✓ {editBanner}
-          </motion.div>
-        )}
-      </AnimatePresence>
 
-      <nav
-        className={`sticky z-40 backdrop-blur-sm border-b transition-all print:hidden ${editBanner ? 'top-10' : 'top-0'}`}
-        style={{ background: 'rgba(18,52,59,0.90)', borderColor: 'rgba(255,255,255,0.08)' }}
-      >
-        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between gap-3">
-          <Link href="/" className="text-lg font-semibold tracking-tight text-white">
-            <BrandWordmark accent={ITIN_PALETTE.sand} className="text-lg" />
-          </Link>
-          <div className="flex items-center gap-2">
-            {initialViewMode !== 'final' && (
-              <motion.button
-                onClick={() => setViewMode('draft')}
-                whileTap={{ scale: 0.92, transition: { type: 'spring', stiffness: 600, damping: 18 } }}
-                className="text-xs font-medium px-3 py-2 rounded-lg border transition-colors hover-surface-text"
-                style={{ borderColor: 'rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.50)' }}
-              >
-                {ui.draft}
-              </motion.button>
-            )}
-            <SharePanel
-              itinerary={itinerary}
-              profile={profile}
-              itineraryDbId={itinerary._id ?? null}
-              accessToken={session?.access_token ?? null}
-              copy={shareCopy}
-            />
-            {isAdmin && (
-              <Link
-                href={`/explore/${encodeURIComponent(itinerary.destination)}`}
-                className="text-sm font-medium px-4 py-2 rounded-lg border transition-colors inline-flex items-center justify-center min-h-[40px] hover-share-btn"
-                style={{ borderColor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.78)', background: 'rgba(255,255,255,0.05)' }}
-              >
-                {ui.scoutPicks}
-              </Link>
-            )}
-            <Link
-              href="/onboarding"
-              className="text-sm font-medium px-4 py-2 rounded-lg border transition-colors inline-flex items-center justify-center min-h-[40px] hover-share-btn"
-              style={{ borderColor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.78)', background: 'rgba(255,255,255,0.05)' }}
+        {/* ── Teal header with trip chips ─────────────────────────────────── */}
+        <ItineraryHeader
+          itinerary={itin.itinerary}
+          profile={itin.profile}
+          ui={itin.ui}
+          shareCopy={itin.shareCopy}
+          session={session}
+          isAdmin={itin.isAdmin}
+          selectedDayIndex={itin.selectedDayIndex}
+          editBanner={itin.editBanner}
+          onBackToOverview={() => itin.setSelectedDayIndex(-1)}
+          onBackToDraft={initialViewMode !== 'final' ? () => itin.setViewMode('draft') : undefined}
+          initialViewMode={initialViewMode}
+        />
+
+        {/* ── Trending ticker ─────────────────────────────────────────────── */}
+        <TrendingTicker destination={itin.itinerary.destination} groupType={itin.profile?.groupType} />
+
+        {selectedDay !== null ? (
+          /* ══ DAY DETAIL VIEW ══════════════════════════════════════════════ */
+          <DayDetailPanel
+            day={selectedDay}
+            dayIndex={itin.selectedDayIndex}
+            totalDays={days.length}
+            itinerary={itin.itinerary}
+            profile={itin.profile}
+            ui={itin.ui}
+            mapLabels={itin.mapLabels}
+            basecampMarker={itin.basecampMarker}
+            focusedNeighborhood={itin.focusedNeighborhood}
+            onSwapSlot={(slot, req) => itin.handleSlotSwap(itin.selectedDayIndex, slot, req)}
+            onNeighborhoodClick={itin.handleNeighborhoodClick}
+            onPrevDay={() => itin.setSelectedDayIndex(Math.max(0, itin.selectedDayIndex - 1))}
+            onNextDay={() => itin.setSelectedDayIndex(Math.min(days.length - 1, itin.selectedDayIndex + 1))}
+            onBackToOverview={() => itin.setSelectedDayIndex(-1)}
+          />
+        ) : (
+          /* ══ OVERVIEW ════════════════════════════════════════════════════ */
+          <div className="max-w-5xl mx-auto py-4">
+            <p
+              className="text-center text-[11px] font-bold uppercase tracking-[0.12em] py-3"
+              style={{ color: 'rgba(60,120,114,0.7)' }}
             >
-              {ui.newTrip}
-            </Link>
-          </div>
-        </div>
-      </nav>
-
-      {/* Trending Now ticker — social proof belt below nav */}
-      <TrendingTicker destination={itinerary.destination} groupType={profile?.groupType} />
-
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-
-        {/* Hero — photo strip + personal framing (not “dashboard chrome”) */}
-        <motion.div
-          variants={heroVariant}
-          initial="hidden"
-          animate="show"
-          className="rounded-2xl mb-8 text-white relative overflow-hidden border border-white/10"
-        >
-          <div className="relative h-[min(200px,34vh)] sm:h-[230px]">
-            <div className="absolute inset-0 pointer-events-none">
-              <DayPhoto
-                query={`${itinerary.destination} iconic skyline golden hour`}
-                alt={itinerary.destination}
-                height={440}
-                dark
-              />
-            </div>
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/25 pointer-events-none" />
-            <div className="absolute bottom-0 right-0 w-64 h-64 bg-[#C9A84C]/14 rounded-full blur-[70px] pointer-events-none" />
-            <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-8 z-10">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/50 mb-2">
-                {ui.heroPersonalEyebrow}
-              </p>
-              {initialViewMode === 'final' && initialTripSummaryUsername?.trim() && (
-                <p
-                  className="text-base sm:text-lg font-medium text-white/90 mb-2 tracking-tight"
-                  style={{ textShadow: '0 2px 24px rgba(0,0,0,0.5)' }}
-                >
-                  {ui.tripSummaryWelcome(initialTripSummaryUsername.trim())}
-                </p>
-              )}
-              <h1
-                className="font-light tracking-tight text-white leading-[1.06]"
-                style={{
-                  fontSize: 'clamp(2rem, 7vw, 3.35rem)',
-                  fontWeight: 300,
-                  textShadow: '0 4px 36px rgba(0,0,0,0.55), 0 1px 2px rgba(0,0,0,0.85)',
-                }}
-              >
-                {itinerary.destination ?? 'Your Trip'}
-              </h1>
-              <p className="text-sm text-white/62 mt-2 max-w-xl leading-relaxed">{ui.heroPersonalTagline}</p>
-            </div>
-          </div>
-
-          <div
-            className="relative z-10 p-6 sm:p-8 border-t border-white/10"
-            style={{
-              background: 'linear-gradient(180deg, rgba(15,42,48,0.94) 0%, rgba(8,28,32,0.99) 100%)',
-            }}
-          >
-            <div className="pointer-events-none absolute top-0 right-0 w-72 h-72 bg-[#a89254]/12 rounded-full blur-[80px]" />
-            <div className="relative flex items-center gap-3 mb-5 flex-wrap">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-xs text-white/70 backdrop-blur-sm">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#a89254] animate-pulse" />
-                {ui.heroAiBadge}
-              </div>
-              {itinerary._meta && <TripIntelligenceButton meta={itinerary._meta} ui={ui} />}
-              <motion.button
-                type="button"
-                onClick={() => setTripStoryOpen(true)}
-                whileHover={{ scale: 1.04 }}
-                whileTap={{ scale: 0.93, transition: { type: 'spring', stiffness: 600, damping: 18 } }}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-xs text-white/80 hover:bg-white/14 transition-colors"
-              >
-                {ui.tripStoryButton}
-              </motion.button>
-            </div>
-            <p className="text-white/65 text-sm mb-6 relative">
-              {ui.dayItineraryMeta(itinerary.totalDays ?? '?')}
-              {tripDatesLabel && ` · ${tripDatesLabel}`}
-              {profile && ` · ${ui.tripMetaTeaser(profile)}`}
+              Your {days.length}-Day Itinerary · tap a day to explore
             </p>
-            {itinerary.strategicOverview && (
-              <div
-                className="rounded-xl p-4 relative"
-                style={{
-                  background: 'rgba(255,255,255,0.08)',
-                  backdropFilter: 'blur(20px) saturate(160%)',
-                  border: '1px solid rgba(255,255,255,0.15)',
-                }}
+
+            <DayCarousel
+              days={days}
+              selectedDayIndex={itin.selectedDayIndex}
+              destination={itin.itinerary.destination ?? ''}
+              onSelectDay={(i) => itin.setSelectedDayIndex(i)}
+            />
+
+            {itin.itinerary.basecamp && (
+              <HotelSelectionCard
+                basecamp={itin.itinerary.basecamp}
+                destination={itin.itinerary.destination ?? ''}
+                profile={itin.profile}
+                ui={itin.ui}
+                onExpandHotel={itin.setExpandedHotel}
+              />
+            )}
+
+            {/* Budget summary */}
+            {itin.itinerary.budgetSummary && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15, type: 'spring', stiffness: 280, damping: 26 }}
+                className="mx-12 mb-6 rounded-3xl p-5 grid sm:grid-cols-3 gap-3 bg-white"
+                style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.07)' }}
               >
-                <div className="text-xs font-semibold uppercase tracking-widest text-[#C9A84C] mb-2">
-                  {ui.masterPlanLabel(ui.audienceTitle(profile?.groupType))}
-                </div>
-                <p className="text-white/85 text-sm leading-relaxed">{itinerary.strategicOverview}</p>
+                <BudgetCell label={itin.itinerary.budgetSummary.dailyAverage ? itin.ui.budgetDailyLine(itin.itinerary.budgetSummary.dailyAverage) : '—'} />
+                <BudgetCell label={itin.itinerary.budgetSummary.totalEstimate ? itin.ui.budgetTotalLine(itin.itinerary.budgetSummary.totalEstimate) : '—'} accent />
+                <BudgetCell label={itin.itinerary.budgetSummary.includes ? itin.ui.budgetIncludesLine(itin.itinerary.budgetSummary.includes) : '—'} />
+              </motion.div>
+            )}
+
+            {/* Full trip map */}
+            <section className="mx-12 mb-6 hidden sm:block print:hidden">
+              <ItineraryMap
+                days={itin.itinerary.days}
+                destination={itin.itinerary.destination}
+                focusedNeighborhood={itin.focusedNeighborhood}
+                basecampMarker={itin.basecampMarker}
+                labels={itin.mapLabels}
+              />
+            </section>
+
+            {/* Transport card */}
+            <div className="mx-12 mb-6">
+              <TransportCard
+                destination={itin.itinerary.destination}
+                guide={itin.displayCityTransport}
+                ui={itin.ui}
+                totalDays={itin.itinerary.totalDays}
+                isLoading={itin.transportLoading}
+                hotelAnchor={itin.basecampMarker ? { lat: itin.basecampMarker.lat, lng: itin.basecampMarker.lng } : null}
+              />
+            </div>
+
+            {/* Packing tips */}
+            {(itin.itinerary.packingTips?.length ?? 0) > 0 && (
+              <div className="mx-12 mb-6 rounded-2xl p-5 bg-white" style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.07)' }}>
+                <h3 className="font-bold text-[#222] mb-3 flex items-center gap-2 text-[14px]">
+                  🎒 {itin.ui.packingTitle(itin.ui.audienceTitle(itin.profile?.groupType))}
+                </h3>
+                <ul className="flex flex-col gap-1.5">
+                  {(itin.itinerary.packingTips ?? []).map((tip, i) => (
+                    <li key={i} className="flex gap-2 text-[13px] text-[#555]">
+                      <span className="flex-shrink-0 mt-0.5 text-[#5aada5]">✓</span>{tip}
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
-          </div>
-        </motion.div>
 
-        {/* Basecamp */}
-        {itinerary.basecamp && (
-          <BasecampSection
-            basecamp={itinerary.basecamp}
-            groupType={profile?.groupType}
-            destination={itinerary.destination ?? ''}
-            profile={profile}
-            ui={ui}
+            {/* Best local tips */}
+            {(itin.itinerary.bestLocalTips?.length ?? 0) > 0 && (
+              <div className="mx-12 mb-6 rounded-2xl p-5 bg-white" style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.07)' }}>
+                <h3 className="font-bold text-[#222] mb-3 flex items-center gap-2 text-[14px]">
+                  🗝️ {itin.ui.insiderIntel}
+                </h3>
+                <ul className="flex flex-col gap-1.5">
+                  {(itin.itinerary.bestLocalTips ?? []).map((tip, i) => (
+                    <li key={i} className="flex gap-2 text-[13px] text-[#555]">
+                      <span className="flex-shrink-0 mt-0.5 text-[#5aada5]">✦</span>{tip}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Logistics */}
+            <div className="mx-12 mb-6">
+              {itin.profile && <LogisticsDashboard profile={itin.profile} />}
+            </div>
+
+            {/* Footer CTA */}
+            <div className="text-center py-8 mx-12 print:hidden" style={{ borderTop: '1px solid rgba(90,173,165,0.2)' }}>
+              <p className="text-sm mb-4 text-[#3a8a82]">{itin.ui.footerPrompt(itin.profile?.groupType)}</p>
+              <motion.a
+                href="/onboarding"
+                whileHover={{ y: -3 }}
+                whileTap={{ scale: 0.95 }}
+                className="inline-flex items-center gap-2 px-8 py-3 rounded-xl text-white font-semibold text-sm"
+                style={{ background: '#5aada5', boxShadow: '0 6px 24px -4px rgba(90,173,165,0.5)' }}
+              >
+                {itin.ui.planNewTripButton}
+              </motion.a>
+            </div>
+          </div>
+        )}
+
+        {/* ── Mobile map FAB ─────────────────────────────────────────────── */}
+        <motion.button
+          onClick={() => itin.setMobileMapOpen(true)}
+          initial={{ y: 80, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.6, type: 'spring', stiffness: 300, damping: 26 }}
+          whileTap={{ scale: 0.90 }}
+          className="sm:hidden fixed bottom-20 right-4 z-30 flex items-center gap-2 px-4 py-3 rounded-full text-white text-sm font-semibold shadow-xl print:hidden"
+          style={{ background: 'rgba(90,173,165,0.92)', border: '1px solid rgba(255,255,255,0.25)' }}
+        >
+          <span>🗺</span> {itin.ui.mapFab}
+        </motion.button>
+
+        {/* ── Existing modals — unchanged ─────────────────────────────────── */}
+        {itin.mobileMapOpen && (
+          <MobileMapOverlay
+            days={itin.itinerary.days}
+            destination={itin.itinerary.destination}
+            focusedNeighborhood={itin.focusedNeighborhood}
+            basecampMarker={itin.basecampMarker}
+            mapTitle={itin.ui.mapOpenMobile}
+            mapLabels={itin.mapLabels}
+            onClose={() => itin.setMobileMapOpen(false)}
           />
         )}
 
-        {itinerary.basecamp?.type === 'booked' &&
-          itinerary.basecamp.booked?.aroundHotel &&
-          hasAroundHotelContent(itinerary.basecamp.booked.aroundHotel) && (
-            <BookedHotelAroundSection
-              around={itinerary.basecamp.booked.aroundHotel}
-              neighborhood={itinerary.basecamp.booked.neighborhood}
-              ui={ui}
+        <TripStoryCube
+          open={itin.tripStoryOpen}
+          onClose={() => itin.setTripStoryOpen(false)}
+          itinerary={itin.itinerary}
+          ui={itin.ui}
+        />
+
+        <AnimatePresence>
+          {itin.expandedHotel && (
+            <HotelDetailCube
+              hotel={itin.expandedHotel}
+              destination={itin.itinerary.destination ?? ''}
+              profile={itin.profile}
+              ui={itin.ui}
+              onClose={() => itin.setExpandedHotel(null)}
             />
           )}
+        </AnimatePresence>
 
-        {/* Budget summary */}
-        {itinerary.budgetSummary && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15, type: 'spring', stiffness: 280, damping: 26 }}
-            className="rounded-3xl p-6 mb-8 grid sm:grid-cols-3 gap-4"
-            style={{ background: 'rgba(45,84,94,0.28)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 20px 60px -10px rgba(0,0,0,0.50)' }}
-          >
-            <div className="text-center p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <p className="text-sm leading-snug text-white/82">
-                {itinerary.budgetSummary.dailyAverage
-                  ? ui.budgetDailyLine(itinerary.budgetSummary.dailyAverage)
-                  : '—'}
-              </p>
-            </div>
-            <div className="text-center p-4 rounded-xl" style={{ background: 'rgba(201,168,76,0.12)', border: '1px solid rgba(201,168,76,0.22)' }}>
-              <p className="text-sm leading-snug font-medium" style={{ color: '#C9A84C' }}>
-                {itinerary.budgetSummary.totalEstimate
-                  ? ui.budgetTotalLine(itinerary.budgetSummary.totalEstimate)
-                  : '—'}
-              </p>
-            </div>
-            <div className="text-center p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <p className="text-sm leading-relaxed text-white/60">
-                {itinerary.budgetSummary.includes
-                  ? ui.budgetIncludesLine(itinerary.budgetSummary.includes)
-                  : '—'}
-              </p>
-            </div>
-          </motion.div>
-        )}
+        <div className="print:hidden">
+          <QuickEdit itinerary={itin.itinerary} onUpdate={itin.handleQuickEditUpdate} />
+        </div>
 
-        {/* Map — desktop only */}
-        <section className="mb-8 print:hidden hidden sm:block">
-          <div className="flex items-center gap-3 mb-4">
-            <h2 className="text-xl font-bold text-white tracking-tight">{ui.routeSection(ui.audienceTitle(profile?.groupType))}</h2>
-            <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
-            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.38)' }}>Pinned by neighborhood</span>
-          </div>
-          <ItineraryMap
-            days={itinerary.days}
-            destination={itinerary.destination}
-            focusedNeighborhood={focusedNeighborhood}
-            basecampMarker={basecampMarker}
-            labels={mapLabels}
+        <div className="print:hidden">
+          <FeedbackSurveyModal
+            open={itin.feedbackOpen}
+            onSubmit={itin.handleFeedbackSubmit}
+            onDismiss={itin.handleFeedbackDismiss}
           />
-        </section>
-
-        <TransportCard
-          destination={itinerary.destination}
-          guide={displayCityTransport}
-          ui={ui}
-          totalDays={itinerary.totalDays}
-          isLoading={transportLoading}
-          hotelAnchor={
-            basecampMarker
-              ? { lat: basecampMarker.lat, lng: basecampMarker.lng }
-              : null
-          }
-        />
-
-        {/* Day cards — staggered fade-in */}
-        <motion.div
-          className="flex flex-col gap-6 mb-8"
-          initial="hidden"
-          whileInView="show"
-          viewport={{ once: true, margin: '-40px' }}
-          variants={{ hidden: {}, show: { transition: { staggerChildren: 0.13 } } }}
-        >
-          {itinerary.days.map((day, i) => (
-            <motion.div
-              key={`${day.day}-${i}`}
-              variants={{
-                hidden: { opacity: 0, y: 56, scale: 0.97 },
-                show: {
-                  opacity: 1, y: 0, scale: 1,
-                  transition: { type: 'spring', stiffness: 260, damping: 28 },
-                },
-              }}
-              style={{ willChange: 'transform, opacity' }}
-            >
-              <DayCard
-                day={day}
-                index={i}
-                destination={itinerary.destination}
-                groupType={profile?.groupType}
-                ui={ui}
-                itinerary={itinerary}
-                profile={profile ?? null}
-                onSwapSlot={(slot, req) => handleSlotSwap(i, slot, req)}
-                onCommitActivitySwap={(slot, act, summary, diningField) =>
-                  handleCommitActivitySwap(i, slot, act, summary, diningField)
-                }
-                onNeighborhoodClick={handleNeighborhoodClick}
-              />
-            </motion.div>
-          ))}
-        </motion.div>
-
-        {/* Packing + tips */}
-        <div className="grid sm:grid-cols-2 gap-6 mb-8">
-          {(itinerary.packingTips?.length ?? 0) > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-40px' }}
-              transition={{ type: 'spring', stiffness: 280, damping: 26 }}
-              className="rounded-3xl p-6"
-              style={{ background: 'rgba(45,84,94,0.28)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 20px 60px -10px rgba(0,0,0,0.45)' }}
-            >
-              <h3 className="font-bold text-white mb-4 flex items-center gap-2 tracking-tight"><span>🎒</span> {ui.packingTitle(ui.audienceTitle(profile?.groupType))}</h3>
-              <ul className="flex flex-col gap-2">
-                {(itinerary.packingTips ?? []).map((tip, i) => (
-                  <li key={i} className="flex gap-2 text-sm" style={{ color: 'rgba(255,255,255,0.65)' }}>
-                    <span className="flex-shrink-0 mt-0.5" style={{ color: '#a89254' }}>✓</span>{tip}
-                  </li>
-                ))}
-              </ul>
-            </motion.div>
-          )}
-          {(itinerary.bestLocalTips?.length ?? 0) > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-40px' }}
-              transition={{ type: 'spring', stiffness: 280, damping: 26, delay: 0.08 }}
-              className="rounded-3xl p-6"
-              style={{ background: 'rgba(45,84,94,0.28)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 20px 60px -10px rgba(0,0,0,0.45)' }}
-            >
-              <h3 className="font-bold text-white mb-4 flex items-center gap-2 tracking-tight"><span>🗝️</span> {ui.insiderIntel}</h3>
-              <ul className="flex flex-col gap-2">
-                {(itinerary.bestLocalTips ?? []).map((tip, i) => (
-                  <li key={i} className="flex gap-2 text-sm" style={{ color: 'rgba(255,255,255,0.65)' }}>
-                    <span className="flex-shrink-0 mt-0.5" style={{ color: '#a89254' }}>✦</span>{tip}
-                  </li>
-                ))}
-              </ul>
-            </motion.div>
-          )}
         </div>
 
-        {profile && <LogisticsDashboard profile={profile} />}
-
-        <div className="text-center py-8 print:hidden" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-          <p className="text-sm mb-4" style={{ color: 'rgba(255,255,255,0.40)' }}>
-            {ui.footerPrompt(profile?.groupType)}
-          </p>
-          <motion.div
-            whileHover={{ y: -3 }}
-            whileTap={{ scale: 0.95, transition: { type: 'spring', stiffness: 600, damping: 18 } }}
-            className="inline-block"
-          >
-            <Link
-              href="/onboarding"
-              className="inline-flex items-center gap-2 px-8 py-3 rounded-xl text-white font-semibold text-sm transition-colors hover-bg-gold-warm"
-              style={{ background: '#a89254', boxShadow: '0 6px 24px -4px rgba(201,168,76,0.38)' }}
-            >
-              {ui.planNewTripButton}
-            </Link>
-          </motion.div>
-        </div>
       </div>
+    </div>
+  );
+}
 
-      {/* Mobile floating map button */}
-      <motion.button
-        onClick={() => setMobileMapOpen(true)}
-        initial={{ y: 80, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.6, type: 'spring', stiffness: 300, damping: 26 }}
-        whileHover={{ scale: 1.06 }}
-        whileTap={{ scale: 0.90, transition: { type: 'spring', stiffness: 600, damping: 18 } }}
-        className="sm:hidden fixed bottom-20 right-4 z-30 flex items-center gap-2 px-4 py-3 rounded-full text-white text-sm font-semibold shadow-xl print:hidden"
-        style={{ background: 'rgba(45,84,94,0.90)', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 8px 32px -8px rgba(0,0,0,0.60)' }}
-      >
-        <span>🗺</span> {ui.mapFab}
-      </motion.button>
+// ── Small helper ──────────────────────────────────────────────────────────────
 
-      {mobileMapOpen && (
-        <MobileMapOverlay
-          days={itinerary.days}
-          destination={itinerary.destination}
-          focusedNeighborhood={focusedNeighborhood}
-          basecampMarker={basecampMarker}
-          mapTitle={ui.mapOpenMobile}
-          mapLabels={mapLabels}
-          onClose={() => { setMobileMapOpen(false); setFocusedNeighborhood(undefined); }}
-        />
-      )}
-
-      <TripStoryCube
-        open={tripStoryOpen}
-        onClose={() => setTripStoryOpen(false)}
-        itinerary={itinerary}
-        ui={ui}
-      />
-
-      <div className="print:hidden">
-        <QuickEdit itinerary={itinerary} onUpdate={handleQuickEditUpdate} />
-      </div>
-
-      <div className="print:hidden">
-        <FeedbackSurveyModal
-          open={feedbackOpen}
-          onSubmit={handleFeedbackSubmit}
-          onDismiss={handleFeedbackDismiss}
-        />
-      </div>
-      </div>
+function BudgetCell({ label, accent = false }: { label: string; accent?: boolean }) {
+  return (
+    <div
+      className="text-center p-3 rounded-xl"
+      style={accent
+        ? { background: 'rgba(90,173,165,0.1)', border: '1px solid rgba(90,173,165,0.2)' }
+        : { background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.06)' }}
+    >
+      <p className="text-[13px] leading-snug" style={{ color: accent ? '#3a8a82' : '#444', fontWeight: accent ? 700 : 400 }}>
+        {label || '—'}
+      </p>
     </div>
   );
 }
