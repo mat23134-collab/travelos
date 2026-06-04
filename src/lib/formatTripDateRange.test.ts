@@ -10,10 +10,15 @@ assert.ok(r1?.includes('2026'), `expected year in "${r1}"`);
 const r2 = formatTripDateRange('2026-06-28', '2026-07-05');
 assert.ok(r2 !== null, 'cross-month should not be null');
 
+// Cross-year
+const r3 = formatTripDateRange('2025-12-28', '2026-01-05');
+assert.ok(r3 !== null, 'cross-year should not be null');
+assert.ok(r3?.includes('2025'), `expected 2025 in "${r3}"`);
+
 // Invalid inputs
 assert.equal(formatTripDateRange(null, null), null);
 assert.equal(formatTripDateRange('bad', '2026-06-10'), null);
 assert.equal(formatTripDateRange('2026-06-03', 'bad'), null);
 assert.equal(formatTripDateRange('2026-06-03', undefined), null);
 
-console.log('✓ formatTripDateRange: all 6 assertions passed');
+console.log('✓ formatTripDateRange: all 9 assertions passed');
