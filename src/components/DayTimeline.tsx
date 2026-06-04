@@ -1,128 +1,224 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { DayPlan, Activity } from '@/lib/types';
-import { VerificationBadge } from '@/components/VerificationBadge';
+import type { DayPlan, Activity, DiningSpot } from '@/lib/types';
+import type { ItineraryUiStrings } from '@/lib/tripUiCopy';
 
-interface TimelineEntry {
-  slot: 'morning' | 'afternoon' | 'evening';
-  activity: Activity;
-  slotIcon: string;
-  slotColor: string;
+// ── Pure helpers (exported for tests) ────────────────────────────────────────
+
+export function isHotelCheckIn(activity: Pick<Activity, 'name'>): boolean {
+  return /(check[- ]?in|hotel|accommodation)/i.test(activity.name ?? '');
 }
 
-// Keyed by slot name — fields match TimelineEntry exactly (slotIcon / slotColor)
-const SLOT_META: Record<'morning' | 'afternoon' | 'evening', { slotIcon: string; slotColor: string }> = {
-  morning:   { slotIcon: '🌅', slotColor: '#f59e0b' },
-  afternoon: { slotIcon: '☀️',  slotColor: '#ff5a5f' },
-  evening:   { slotIcon: '🌙', slotColor: '#8b5cf6' },
-};
+export type TimelineRowType = 'activity' | 'dining';
 
-function formatTimeSlot(activity: Activity, slot: string): string {
-  if (activity.time_slot) return activity.time_slot;
-  if (activity.startTime && activity.endTime) return `${activity.startTime} – ${activity.endTime}`;
-  return slot.charAt(0).toUpperCase() + slot.slice(1);
+export interface TimelineRow {
+  type: TimelineRowType;
+  slot: string;
+  name: string;
+  time: string;
+  emoji: string;
+  activity?: Activity;
+  dining?: DiningSpot;
 }
 
-export function DayTimeline({ day }: { day: DayPlan }) {
-  // Use ternary (not &&) so the array never contains `undefined`.
-  // Explicit field names (slotIcon / slotColor) avoid the structural mismatch
-  // that broke the build when SLOT_META used icon/color key names.
-  const entries: TimelineEntry[] = [
-    day.morning   ? { slot: 'morning'   as const, activity: day.morning,   ...SLOT_META.morning   } : null,
-    day.afternoon ? { slot: 'afternoon' as const, activity: day.afternoon, ...SLOT_META.afternoon } : null,
-    day.evening   ? { slot: 'evening'   as const, activity: day.evening,   ...SLOT_META.evening   } : null,
-  ].filter((e): e is TimelineEntry => e !== null);
+/** Ordered timeline rows: morning → lunch → afternoon → dinner → evening */
+export function buildTimelineRows(day: DayPlan): TimelineRow[] {
+  const rows: TimelineRow[] = [];
 
-  if (entries.length === 0) return null;
+  if (day.morning) {
+    rows.push({
+      type: 'activity', slot: 'morning',
+      name: day.morning.name ?? 'Morning activity',
+      time: day.morning.startTime ?? day.morning.time_slot?.split('–')[0]?.trim() ?? 'Morning',
+      emoji: day.morning.category_emoji ?? (isHotelCheckIn(day.morning) ? '🏨' : '☀️'),
+      activity: day.morning,
+    });
+  }
+  if (day.lunch) {
+    rows.push({
+      type: 'dining', slot: 'lunch',
+      name: day.lunch.name ?? 'Lunch',
+      time: 'Lunch',
+      emoji: '🍽️',
+      dining: day.lunch,
+    });
+  }
+  if (day.afternoon) {
+    rows.push({
+      type: 'activity', slot: 'afternoon',
+      name: day.afternoon.name ?? 'Afternoon activity',
+      time: day.afternoon.startTime ?? day.afternoon.time_slot?.split('–')[0]?.trim() ?? 'Afternoon',
+      emoji: day.afternoon.category_emoji ?? '🌤',
+      activity: day.afternoon,
+    });
+  }
+  if (day.dinner) {
+    rows.push({
+      type: 'dining', slot: 'dinner',
+      name: day.dinner.name ?? 'Dinner',
+      time: 'Dinner',
+      emoji: '🍷',
+      dining: day.dinner,
+    });
+  }
+  if (day.evening) {
+    rows.push({
+      type: 'activity', slot: 'evening',
+      name: day.evening.name ?? 'Evening activity',
+      time: day.evening.startTime ?? day.evening.time_slot?.split('–')[0]?.trim() ?? 'Evening',
+      emoji: day.evening.category_emoji ?? '🌙',
+      activity: day.evening,
+    });
+  }
+
+  return rows;
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
+interface DayTimelineProps {
+  day: DayPlan;
+  dayIndex: number;
+  destination: string;
+  ui: ItineraryUiStrings;
+  onSwapSlot: (slot: 'morning' | 'afternoon' | 'evening', request?: string) => void;
+  onNeighborhoodClick: (neighborhood: string) => void;
+}
+
+export function DayTimeline({
+  day, onSwapSlot, onNeighborhoodClick,
+}: DayTimelineProps) {
+  const rows = buildTimelineRows(day);
+
+  if (rows.length === 0) {
+    return (
+      <div className="p-6 text-center text-sm text-[#888] bg-white rounded-2xl" style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}>
+        No activities planned for this day yet.
+      </div>
+    );
+  }
 
   return (
-    <div className="relative py-1">
-      {/* Vertical connector line — thinner, lower opacity */}
-      <div
-        className="absolute left-[17px] top-8 bottom-8 w-px pointer-events-none"
-        style={{
-          background: 'linear-gradient(to bottom, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 60%, transparent 100%)',
-        }}
-      />
+    <div className="rounded-2xl overflow-hidden bg-white" style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}>
+      {rows.map((row, i) => (
+        <TimelineItem
+          key={`${row.slot}-${i}`}
+          row={row}
+          isLast={i === rows.length - 1}
+          onSwap={() => {
+            if (row.type === 'activity' &&
+                (row.slot === 'morning' || row.slot === 'afternoon' || row.slot === 'evening')) {
+              onSwapSlot(row.slot as 'morning' | 'afternoon' | 'evening');
+            }
+          }}
+          onNeighborhoodClick={onNeighborhoodClick}
+        />
+      ))}
+    </div>
+  );
+}
 
-      <div className="flex flex-col gap-3">
-        {entries.map(({ slot, activity, slotIcon, slotColor }, i) => (
-          <motion.div
-            key={slot}
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: i * 0.08, type: 'spring', stiffness: 380, damping: 28 }}
-            className="flex items-start gap-3"
+function TimelineItem({
+  row, isLast, onSwap, onNeighborhoodClick,
+}: {
+  row: TimelineRow;
+  isLast: boolean;
+  onSwap: () => void;
+  onNeighborhoodClick: (n: string) => void;
+}) {
+  const isCheckIn = row.type === 'activity' && row.activity && isHotelCheckIn(row.activity);
+  const neighborhood = row.activity?.neighborhood ?? row.dining?.neighborhood;
+
+  return (
+    <div
+      className="flex items-start gap-3 px-4 py-3.5"
+      style={{ borderBottom: isLast ? 'none' : '1px solid rgba(0,0,0,0.06)' }}
+    >
+      {/* Time */}
+      <span
+        className="text-[13px] font-bold flex-shrink-0 w-[52px] pt-0.5"
+        style={{ color: '#5aada5' }}
+      >
+        {row.time}
+      </span>
+
+      {/* Icon */}
+      <span
+        className="w-8 h-8 rounded-full flex items-center justify-center text-[14px] flex-shrink-0 mt-0.5"
+        style={{ background: '#e8f4f2', border: '1px solid rgba(90,173,165,0.25)' }}
+      >
+        {row.emoji}
+      </span>
+
+      {/* Content */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-start gap-2 flex-wrap mb-1.5">
+          <span className="text-[13px] font-bold text-[#222]">{row.name}</span>
+          {row.activity?.isHiddenGem && (
+            <span
+              className="text-[9px] font-black px-2 py-0.5 rounded-full flex-shrink-0"
+              style={{ background: 'rgba(197,145,42,0.15)', color: '#b8860b', border: '1px solid rgba(197,145,42,0.25)' }}
+            >
+              💎 Hidden Gem
+            </span>
+          )}
+        </div>
+
+        {neighborhood && (
+          <button
+            type="button"
+            onClick={() => onNeighborhoodClick(neighborhood)}
+            className="text-[11px] text-[#5aada5] hover:underline mb-2 block text-left"
           >
-            {/* Dot / emoji bubble */}
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-base flex-shrink-0 z-10 relative mt-1"
-              style={{
-                background: `${slotColor}18`,
-                border: `1px solid ${slotColor}35`,
-                boxShadow: `0 0 10px ${slotColor}20`,
-              }}
-            >
-              {activity.category_emoji ?? slotIcon}
-            </div>
+            📍 {neighborhood}
+          </button>
+        )}
 
-            {/* Glass block content */}
-            <div
-              className="flex-1 min-w-0 rounded-2xl px-3 py-2.5"
-              style={{
-                background: 'rgba(255,255,255,0.02)',
-                border: '1px solid rgba(255,255,255,0.05)',
-              }}
-            >
-              {/* Time badge */}
-              <span
-                className="inline-block text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md mb-1"
-                style={{
-                  background: `${slotColor}12`,
-                  border: `1px solid ${slotColor}28`,
-                  color: slotColor,
-                }}
-              >
-                {formatTimeSlot(activity, slot)}
-              </span>
-
-              {/* Activity name + verification badge */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="font-semibold text-white/90 text-sm tracking-tight leading-snug">
-                  {activity.name}
-                </div>
-                <VerificationBadge
-                  status={activity.verificationStatus}
-                  verifiedAt={activity.verifiedAt}
-                />
-              </div>
-
-              {/* Neighborhood */}
-              {activity.neighborhood && (
-                <div className="text-[11px] text-white/55 mt-0.5">
-                  <span aria-hidden="true">📍</span> {activity.neighborhood}
-                </div>
-              )}
-
-              {/* Transit note */}
-              {activity.transitFromPrevious && i > 0 && (
-                <div className="text-[10px] text-white/40 mt-1 flex items-center gap-1">
-                  <span aria-hidden="true">🚶</span>
-                  <span>{activity.transitFromPrevious} from previous</span>
-                </div>
-              )}
-
-              {/* Duration pill */}
-              {activity.duration && (
-                <span className="inline-block text-[10px] text-white/30 mt-1.5">
-                  ⏱ {activity.duration}
-                </span>
-              )}
-            </div>
-          </motion.div>
-        ))}
+        <div className="flex flex-wrap gap-1.5">
+          {isCheckIn ? (
+            <>
+              <TlBtn onClick={() => {}}>Hotel Details</TlBtn>
+              <TlBtn onClick={onSwap} primary>Change Hotel</TlBtn>
+            </>
+          ) : row.type === 'dining' ? (
+            <>
+              <TlBtn onClick={() => {}}>View Menu</TlBtn>
+              <TlBtn onClick={() => {}}>Reservation</TlBtn>
+              <TlBtn onClick={onSwap} primary>Find Alternative</TlBtn>
+            </>
+          ) : (
+            <>
+              <TlBtn onClick={() => {}}>Explore Details</TlBtn>
+              <TlBtn onClick={onSwap} primary>Modify</TlBtn>
+            </>
+          )}
+        </div>
       </div>
     </div>
+  );
+}
+
+function TlBtn({
+  children, onClick, primary = false,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  primary?: boolean;
+}) {
+  return (
+    <motion.button
+      type="button"
+      onClick={onClick}
+      whileTap={{ scale: 0.93 }}
+      className="text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-colors"
+      style={
+        primary
+          ? { background: '#5aada5', color: '#fff', border: '1px solid #5aada5' }
+          : { background: '#e8f4f2', color: '#3a8a82', border: '1px solid rgba(90,173,165,0.3)' }
+      }
+    >
+      {children}
+    </motion.button>
   );
 }
