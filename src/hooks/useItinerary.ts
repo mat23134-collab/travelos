@@ -114,6 +114,10 @@ export function useItinerary({
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const scoutPostedRef = useRef(false);
 
+  useEffect(() => {
+    scoutPostedRef.current = false;
+  }, [itinerary.destination]);
+
   // Sync when props change (client-side navigation reuses instance)
   useEffect(() => {
     setItinerary(initialItinerary);
