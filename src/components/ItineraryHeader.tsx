@@ -58,69 +58,83 @@ export function ItineraryHeader({
       </AnimatePresence>
 
       <nav
-        className={`sticky z-50 print:hidden transition-all ${editBanner ? 'top-10' : 'top-0'}`}
-        style={{ background: '#5aada5', boxShadow: '0 2px 12px rgba(0,0,0,0.12)' }}
+  className={`sticky z-50 print:hidden transition-all ${editBanner ? 'top-10' : 'top-0'}`}
+  style={{ background: '#5aada5', boxShadow: '0 2px 12px rgba(0,0,0,0.12)' }}
+>
+  {/* ── Row 1: Brand + Back + Actions ─────────────────────────────────── */}
+  <div className="flex items-center gap-2 px-4 sm:px-6 h-12 sm:h-14">
+    {/* Back to overview (day-detail only) */}
+    {selectedDayIndex >= 0 && (
+      <motion.button
+        onClick={onBackToOverview}
+        whileTap={{ scale: 0.93 }}
+        className="flex items-center gap-1 text-white/80 hover:text-white text-sm font-semibold transition-colors flex-shrink-0"
       >
-        <div className="flex items-center gap-3 px-4 sm:px-6 h-14">
-          {/* Back to overview (only in day-detail view) */}
-          {selectedDayIndex >= 0 && (
-            <motion.button
-              onClick={onBackToOverview}
-              whileTap={{ scale: 0.93 }}
-              className="flex items-center gap-1.5 text-white/80 hover:text-white text-sm font-semibold transition-colors flex-shrink-0"
-            >
-              ← Overview
-            </motion.button>
-          )}
+        ←
+      </motion.button>
+    )}
 
-          {/* Brand */}
-          <Link href="/" className="flex-shrink-0">
-            <BrandWordmark accent="rgba(255,255,255,0.9)" className="text-base text-white" />
-          </Link>
+    {/* Brand */}
+    <Link href="/" className="flex-shrink-0">
+      <BrandWordmark accent="rgba(255,255,255,0.9)" className="text-base text-white" />
+    </Link>
 
-          {/* Trip chips */}
-          <div className="flex items-center gap-2 flex-1 overflow-x-auto scrollbar-none min-w-0">
-            {dateLabel && <Chip>📅 {dateLabel}</Chip>}
-            {dest && <Chip>📍 {dest}</Chip>}
-            {hotelLabel && <Chip>🏨 {hotelLabel}</Chip>}
-            {groupLabel && <Chip>👥 {groupLabel}</Chip>}
-          </div>
+    {/* Desktop chips — inline on sm+ */}
+    <div className="hidden sm:flex items-center gap-2 flex-1 overflow-x-auto scrollbar-none min-w-0">
+      {dateLabel && <Chip>📅 {dateLabel}</Chip>}
+      {dest && <Chip>📍 {dest}</Chip>}
+      {hotelLabel && <Chip>🏨 {hotelLabel}</Chip>}
+      {groupLabel && <Chip>👥 {groupLabel}</Chip>}
+    </div>
 
-          {/* Right actions */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {initialViewMode !== 'final' && onBackToDraft && (
-              <motion.button
-                onClick={onBackToDraft}
-                whileTap={{ scale: 0.92 }}
-                className="text-xs font-medium px-3 py-1.5 rounded-lg border border-white/25 text-white/70 hover:text-white hover:border-white/50 transition-colors"
-              >
-                {ui.draft}
-              </motion.button>
-            )}
-            <SharePanel
-              itinerary={itinerary}
-              profile={profile}
-              itineraryDbId={itinerary._id ?? null}
-              accessToken={session?.access_token ?? null}
-              copy={shareCopy}
-            />
-            {isAdmin && dest && (
-              <Link
-                href={`/explore/${encodeURIComponent(dest)}`}
-                className="text-xs font-medium px-3 py-1.5 rounded-lg border border-white/25 text-white/70 hover:text-white transition-colors"
-              >
-                {ui.scoutPicks}
-              </Link>
-            )}
-            <Link
-              href="/onboarding"
-              className="text-xs font-medium px-3 py-1.5 rounded-lg border border-white/25 text-white/70 hover:text-white transition-colors"
-            >
-              {ui.newTrip}
-            </Link>
-          </div>
-        </div>
-      </nav>
+    {/* Spacer on mobile (chips move to row 2) */}
+    <div className="flex-1 sm:hidden" />
+
+    {/* Actions */}
+    <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+      {/* Draft button — desktop only */}
+      {initialViewMode !== 'final' && onBackToDraft && (
+        <motion.button
+          onClick={onBackToDraft}
+          whileTap={{ scale: 0.92 }}
+          className="hidden sm:inline-flex text-xs font-medium px-3 py-1.5 rounded-lg border border-white/25 text-white/70 hover:text-white hover:border-white/50 transition-colors"
+        >
+          {ui.draft}
+        </motion.button>
+      )}
+      <SharePanel
+        itinerary={itinerary}
+        profile={profile}
+        itineraryDbId={itinerary._id ?? null}
+        accessToken={session?.access_token ?? null}
+        copy={shareCopy}
+      />
+      {/* Scout picks — desktop only */}
+      {isAdmin && dest && (
+        <Link
+          href={`/explore/${encodeURIComponent(dest)}`}
+          className="hidden sm:inline-flex text-xs font-medium px-3 py-1.5 rounded-lg border border-white/25 text-white/70 hover:text-white transition-colors"
+        >
+          {ui.scoutPicks}
+        </Link>
+      )}
+      <Link
+        href="/onboarding"
+        className="text-xs font-medium px-2.5 py-1.5 rounded-lg border border-white/25 text-white/70 hover:text-white transition-colors"
+      >
+        {ui.newTrip}
+      </Link>
+    </div>
+  </div>
+
+  {/* ── Row 2: Chips — mobile only ──────────────────────────────────────── */}
+  <div className="sm:hidden flex items-center gap-2 px-4 pb-2 overflow-x-auto [&::-webkit-scrollbar]:hidden">
+    {dateLabel && <Chip>📅 {dateLabel}</Chip>}
+    {dest && <Chip>📍 {dest}</Chip>}
+    {hotelLabel && <Chip>🏨 {hotelLabel}</Chip>}
+    {groupLabel && <Chip>👥 {groupLabel}</Chip>}
+  </div>
+</nav>
     </>
   );
 }
