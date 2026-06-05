@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { NextRequest, NextResponse } from 'next/server';
+import { MOCK_ITINERARY } from '@/lib/mockData';
 import { createClient } from '@supabase/supabase-js';
 import { TravelerProfile, ClassifiedResult, type Activity, type DiningSpot } from '@/lib/types';
 import { SYSTEM_PROMPT, buildUserPrompt } from '@/lib/prompts';
@@ -258,6 +259,12 @@ export async function POST(req: NextRequest) {
 
     if (!profile.destination) {
       return NextResponse.json({ error: 'Destination is required' }, { status: 400 });
+    }
+
+    // ── Mock mode — set MOCK_AI=true to skip all AI + DB writes for load testing ─
+    if (process.env.MOCK_AI === 'true') {
+      await new Promise((r) => setTimeout(r, 300)); // simulate minimal latency
+      return NextResponse.json({ id: 'mock-itinerary-id', itinerary: MOCK_ITINERARY, isFallback: false });
     }
 
     // ── All pre-AI I/O in parallel ──────────────────────────────────────────────

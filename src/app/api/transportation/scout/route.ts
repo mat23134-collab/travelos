@@ -3,6 +3,7 @@ import { createServiceRoleClient } from '@/lib/supabaseService';
 import { runTransportScoutAgent } from '@/lib/transportScoutAgent';
 import { upsertTransportationGuide } from '@/lib/tripTransport';
 import { hasTransportContent } from '@/lib/transportGuideParse';
+import { MOCK_ITINERARY } from '@/lib/mockData';
 
 /** Per-city cooldown to limit abuse of Gemini + Exa (in-memory; resets on cold start). */
 const lastScoutAt = new Map<string, number>();
@@ -18,6 +19,11 @@ export async function POST(req: NextRequest) {
   const city = body?.city?.trim() ?? '';
   if (!city) {
     return NextResponse.json({ error: 'city is required' }, { status: 400 });
+  }
+
+  // ── Mock mode ────────────────────────────────────────────────────────────────
+  if (process.env.MOCK_AI === 'true') {
+    return NextResponse.json({ ok: true, guide: MOCK_ITINERARY.cityTransport });
   }
 
   const key = city.toLowerCase();

@@ -65,8 +65,10 @@ export async function ensureTransportationForCity(
   const city = cityRaw.trim();
   if (!city) return;
 
+  const STALE_MS = 90 * 24 * 60 * 60 * 1000; // 3 months
+
   const key = normalizeCityKey(city);
-  const { data: existing, error: selErr } = await db.from('transportation').select('id').eq('city_norm', key).maybeSingle();
+  const { data: existing, error: selErr } = await db.from('transportation').select('id, updated_at').eq('city_norm', key).maybeSingle();
   if (selErr) {
     const e = selErr as unknown as { message?: string; details?: string; hint?: string; code?: string };
     console.log('❌ SUPABASE ERROR DETECTED IN TRANSPORTATION (select check):');
@@ -77,8 +79,13 @@ export async function ensureTransportationForCity(
     return;
   }
   if (existing) {
-    console.log('ℹ️  transportation already exists for city:', city, '— skipping scout');
-    return;
+    const updatedAt = existing.updated_at ? new Date(existing.updated_at).getTime() : 0;
+    const isStale = Date.now() - updatedAt > STALE_MS;
+    if (!isStale) {
+      console.log('ℹ️  transportation already exists for city:', city, '— skipping scout');
+      return;
+    }
+    console.log('🔄 transportation data for city:', city, 'is older than 3 months — refreshing…');
   }
 
   console.log('🔍 transportation missing for city:', city, '— running scout agent…');
