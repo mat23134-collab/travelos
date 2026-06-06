@@ -44,8 +44,9 @@ Instructions:
 - Keep the same JSON structure as the existing days.
 - Preserve whyThis citations where possible; update them if the activity changes.
 - Keep costs within the existing budget tier of the itinerary.
+- IMPORTANT: You MUST return complete, valid JSON. Do not truncate or omit any fields.
 
-Return ONLY a JSON object — no markdown, no prose:
+Return ONLY a JSON object — no markdown, no prose, no trailing text after the closing brace:
 {
   "changedDays": [ ...full day objects with the same structure as the input, only for days that changed... ],
   "summary": "One sentence describing what was changed and why"
@@ -54,7 +55,7 @@ Return ONLY a JSON object — no markdown, no prose:
   try {
     const response = await client.messages.create({
       model: 'claude-opus-4-7',
-      max_tokens: 4096,
+      max_tokens: 8192,
       messages: [{ role: 'user', content: prompt }],
     });
 
@@ -65,9 +66,14 @@ Return ONLY a JSON object — no markdown, no prose:
     try {
       result = JSON.parse(jsonText);
     } catch {
+      // Try to extract JSON object — find the last valid closing brace
       const match = raw.match(/\{[\s\S]*\}/);
-      if (!match) return NextResponse.json({ error: 'Could not parse edit result' }, { status: 500 });
-      result = JSON.parse(match[0]);
+      if (!match) return NextResponse.json({ error: 'The AI returned an incomplete response. Please try again.' }, { status: 500 });
+      try {
+        result = JSON.parse(match[0]);
+      } catch {
+        return NextResponse.json({ error: 'The AI returned an incomplete response. Please try again.' }, { status: 500 });
+      }
     }
 
     return NextResponse.json(result);
