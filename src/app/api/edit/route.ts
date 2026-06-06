@@ -14,6 +14,52 @@ export interface EditResult {
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+// Extract day numbers mentioned in the message (e.g. "Day 1", "day 2", "days 1 and 3")
+function parseMentionedDays(message: string, totalDays: number): number[] {
+  const nums: number[] = [];
+  const re = /\bday[s]?\s*(\d+)(?:\s*(?:and|,|&)\s*(\d+))*/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(message)) !== null) {
+    for (let i = 1; i < m.length; i++) {
+      if (m[i]) {
+        const n = parseInt(m[i], 10);
+        if (n >= 1 && n <= totalDays) nums.push(n);
+      }
+    }
+  }
+  // Also catch bare numbers like "on 2" or "day2"
+  if (nums.length === 0) {
+    const bare = message.match(/\b([1-9])\b/g);
+    if (bare) {
+      bare.forEach((b) => {
+        const n = parseInt(b, 10);
+        if (n >= 1 && n <= totalDays) nums.push(n);
+      });
+    }
+  }
+  return [...new Set(nums)].sort((a, b) => a - b);
+}
+
+// Slim a DayPlan for the prompt — drop heavy/optional fields to save tokens
+function slimDay(day: DayPlan): object {
+  return {
+    day: day.day,
+    title: day.title,
+    theme: day.theme,
+    activities: (day.activities ?? []).map((a) => ({
+      time: a.time,
+      title: a.title,
+      description: a.description,
+      type: a.type,
+      cost: a.cost,
+      duration: a.duration,
+      whyThis: a.whyThis,
+      neighborhood: a.neighborhood,
+    })),
+    meals: day.meals,
+  };
+}
+
 export async function POST(req: NextRequest) {
   if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY.includes('your_')) {
     return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 });
@@ -31,31 +77,32 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'itinerary and message are required' }, { status: 400 });
   }
 
-  const prompt = `You are editing an existing travel itinerary based on a user request.
+  // Determine which days to send — only mentioned days, or all if none specified
+  const mentionedDays = parseMentionedDays(message, itinerary.totalDays);
+  const targetDays = mentionedDays.length > 0
+    ? itinerary.days.filter((d) => mentionedDays.includes(d.day))
+    : itinerary.days;
+
+  const daysPayload = JSON.stringify(targetDays.map(slimDay));
+
+  const prompt = `Edit a travel itinerary for ${itinerary.destination} (${itinerary.totalDays} days total). Budget tier: ${itinerary.budgetTier ?? 'mid'}.
 
 USER REQUEST: "${message}"
 
-CURRENT ITINERARY (${itinerary.totalDays} days in ${itinerary.destination}):
-${JSON.stringify(itinerary.days, null, 2)}
+DAYS TO POTENTIALLY EDIT:
+${daysPayload}
 
-Instructions:
-- Identify which day(s) the request applies to. If no day is mentioned, apply to the most relevant day(s).
-- Modify only what the user asked for — do not change unrelated days or activities.
-- Keep the same JSON structure as the existing days.
-- Preserve whyThis citations where possible; update them if the activity changes.
-- Keep costs within the existing budget tier of the itinerary.
-- IMPORTANT: You MUST return complete, valid JSON. Do not truncate or omit any fields.
+Rules:
+- Only modify what the user asked. Keep all other fields identical.
+- Preserve whyThis where unchanged; update it if the activity changes.
+- Return ONLY valid JSON, no markdown, no prose.
 
-Return ONLY a JSON object — no markdown, no prose, no trailing text after the closing brace:
-{
-  "changedDays": [ ...full day objects with the same structure as the input, only for days that changed... ],
-  "summary": "One sentence describing what was changed and why"
-}`;
+{"changedDays":[...modified day objects only, same structure as input...],"summary":"One sentence of what changed"}`;
 
   try {
     const response = await client.messages.create({
-      model: 'claude-opus-4-7',
-      max_tokens: 8192,
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 4096,
       messages: [{ role: 'user', content: prompt }],
     });
 
@@ -66,9 +113,10 @@ Return ONLY a JSON object — no markdown, no prose, no trailing text after the 
     try {
       result = JSON.parse(jsonText);
     } catch {
-      // Try to extract JSON object — find the last valid closing brace
       const match = raw.match(/\{[\s\S]*\}/);
-      if (!match) return NextResponse.json({ error: 'The AI returned an incomplete response. Please try again.' }, { status: 500 });
+      if (!match) {
+        return NextResponse.json({ error: 'The AI returned an incomplete response. Please try again.' }, { status: 500 });
+      }
       try {
         result = JSON.parse(match[0]);
       } catch {
@@ -76,7 +124,14 @@ Return ONLY a JSON object — no markdown, no prose, no trailing text after the 
       }
     }
 
-    return NextResponse.json(result);
+    // Merge slim changedDays back onto full original day objects
+    const mergedChangedDays: DayPlan[] = result.changedDays.map((slim) => {
+      const original = itinerary.days.find((d) => d.day === slim.day);
+      if (!original) return slim as DayPlan;
+      return { ...original, ...slim } as DayPlan;
+    });
+
+    return NextResponse.json({ changedDays: mergedChangedDays, summary: result.summary });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
     return NextResponse.json({ error: msg }, { status: 500 });
