@@ -685,10 +685,16 @@ async function runPipeline(
     } catch (tripErr) {
       console.error('[generate-stream] trips row failed (non-critical):', tripErr instanceof Error ? tripErr.message : tripErr);
     }
-    // Transportation scout: intentionally fire-and-forget (can take 10-30 s)
-    void ensureTransportationForCity(dbWrite, destCity, profile.duration).catch((e) => {
+    // Transportation scout: await with a 60 s cap so the serverless function
+    // doesn't exit before the Gemini call + DB write complete (void was killed).
+    try {
+      await Promise.race([
+        ensureTransportationForCity(dbWrite, destCity, profile.duration),
+        new Promise<void>((resolve) => setTimeout(resolve, 60_000)),
+      ]);
+    } catch (e) {
       console.warn('[generate-stream] transportation scout failed (non-critical):', e instanceof Error ? e.message : e);
-    });
+    }
   }
 
   // ── Interest tags ──────────────────────────────────────────────────────────
