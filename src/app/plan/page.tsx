@@ -343,8 +343,7 @@ function AutoSubmitTripScreen({
     <main
       className="min-h-screen flex items-center justify-center px-6 relative overflow-hidden"
       style={{
-        backgroundColor: '#091f36',
-        backgroundImage: `linear-gradient(rgba(9,31,54,0.72), rgba(9,31,54,0.94)), url("${bgUrl}")`,
+        backgroundImage: `linear-gradient(rgba(180,228,222,0.82), rgba(180,228,222,0.82)), url("${bgUrl}")`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       }}
@@ -354,21 +353,21 @@ function AutoSubmitTripScreen({
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            'radial-gradient(ellipse 70% 55% at 50% 8%, rgba(158,54,58,0.18), transparent 62%), linear-gradient(to top, rgba(9,31,54,0.98), transparent 45%)',
+            'radial-gradient(ellipse 70% 55% at 50% 8%, rgba(90,173,165,0.18), transparent 62%), linear-gradient(to top, rgba(180,228,222,0.6), transparent 45%)',
         }}
       />
       <div
         className="relative z-10 max-w-sm w-full rounded-3xl border p-6 text-center backdrop-blur-md"
         style={{
-          background: 'rgba(9,31,54,0.62)',
-          borderColor: 'rgba(255,255,255,0.12)',
-          boxShadow: '0 24px 80px rgba(0,0,0,0.42), 0 0 50px rgba(158,54,58,0.18)',
+          background: 'rgba(255,255,255,0.78)',
+          borderColor: 'rgba(90,173,165,0.25)',
+          boxShadow: '0 24px 80px rgba(0,0,0,0.10), 0 0 50px rgba(90,173,165,0.18)',
         }}
       >
         {error ? (
           <>
-            <p className="text-sm font-bold text-white mb-2">Trip generation did not start</p>
-            <p className="text-xs leading-relaxed mb-5" style={{ color: 'rgba(255,255,255,0.55)' }}>
+            <p className="text-sm font-bold mb-2" style={{ color: '#1a4a44' }}>Trip generation did not start</p>
+            <p className="text-xs leading-relaxed mb-5" style={{ color: '#3a6460' }}>
               {error}
             </p>
             <button
@@ -390,11 +389,11 @@ function AutoSubmitTripScreen({
             >
               🧭
             </motion.div>
-            <p className="text-sm font-black text-white">Starting your trip build</p>
-            <p className="text-xs mt-2 leading-relaxed" style={{ color: 'rgba(255,255,255,0.55)' }}>
+            <p className="text-sm font-black" style={{ color: '#1a4a44' }}>Starting your trip build</p>
+            <p className="text-xs mt-2 leading-relaxed" style={{ color: '#3a6460' }}>
               Preparing the AI request for {destination || 'your destination'}...
             </p>
-            <div className="mt-5 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+            <div className="mt-5 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(90,173,165,0.20)' }}>
               <motion.div
                 className="h-full w-1/2 rounded-full"
                 style={{ background: 'linear-gradient(90deg, #9e363a, #b5404a)' }}
@@ -1099,7 +1098,7 @@ function PlanPage() {
         <div
           className="fixed bottom-0 left-0 right-0 z-20"
           style={{
-            background: 'linear-gradient(to top, rgba(9,31,54,0.98) 60%, transparent 100%)',
+            background: 'linear-gradient(to top, rgba(180,228,222,0.97) 60%, transparent 100%)',
             paddingTop: 36,
           }}
         >
@@ -1109,9 +1108,9 @@ function PlanPage() {
               onClick={handleBack}
               className="flex items-center gap-1.5 px-5 py-3.5 rounded-full text-sm font-bold shrink-0 transition-colors"
               style={{
-                background: 'rgba(255,255,255,0.07)',
-                border: '1px solid rgba(255,255,255,0.14)',
-                color: 'rgba(255,255,255,0.75)',
+                background: 'rgba(255,255,255,0.45)',
+                border: '1px solid rgba(90,173,165,0.35)',
+                color: '#3a6460',
               }}
             >
               ‹ Back
@@ -1165,17 +1164,15 @@ function PlanPage() {
       {/* Background orbs */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="animate-orb-float absolute w-[700px] h-[700px] rounded-full blur-[160px] -top-40 -left-40"
-          style={{ backgroundColor: 'rgba(158,54,58,0.10)' }} />
+          style={{ backgroundColor: 'rgba(90,173,165,0.12)' }} />
         <div className="animate-orb-float absolute w-[500px] h-[500px] rounded-full blur-[140px] bottom-0 right-0"
-          style={{ backgroundColor: 'rgba(15,40,98,0.30)', animationDelay: '-4s' }} />
-        <div className="animate-orb-float absolute w-[300px] h-[300px] rounded-full blur-[120px] top-1/2 left-1/2"
-          style={{ backgroundColor: 'rgba(74,123,222,0.06)', animationDelay: '-8s' }} />
+          style={{ backgroundColor: 'rgba(90,173,165,0.10)', animationDelay: '-4s' }} />
       </div>
 
       {/* Top bar */}
       <div
         className="relative z-10 flex items-center justify-between px-6 py-5 border-b backdrop-blur-sm"
-        style={{ background: 'rgba(9,31,54,0.88)', borderColor: 'rgba(255,255,255,0.08)' }}
+        style={{ background: 'rgba(90,173,165,0.90)', borderColor: 'rgba(255,255,255,0.20)' }}
       >
         <Link href="/" className="text-lg text-white tracking-tight">
           <BrandWordmark accent="#9e363a" className="text-lg" />

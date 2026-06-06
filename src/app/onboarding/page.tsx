@@ -438,7 +438,7 @@ function OnboardingPageContent() {
                   onClick={goBack}
                   aria-label="Go back"
                   className="w-8 h-8 rounded-full flex items-center justify-center hover-bg-subtle transition-colors"
-                  style={{ color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.10)' }}
+                  style={{ color: '#3a6460', border: '1px solid rgba(90,173,165,0.35)' }}
                 >
                   ‹
                 </motion.button>
@@ -541,7 +541,7 @@ function OnboardingPageContent() {
       <div
         className="fixed bottom-0 left-0 right-0 z-20"
         style={{
-          background: 'linear-gradient(to top, rgba(9,31,54,0.98) 60%, transparent 100%)',
+          background: 'linear-gradient(to top, rgba(180,228,222,0.97) 60%, transparent 100%)',
           paddingTop: 36,
         }}
       >
@@ -559,9 +559,9 @@ function OnboardingPageContent() {
                 onClick={goBack}
                 className="flex items-center gap-1.5 px-5 py-3.5 rounded-full text-sm font-bold shrink-0 transition-colors"
                 style={{
-                  background: 'rgba(255,255,255,0.07)',
-                  border: '1px solid rgba(255,255,255,0.14)',
-                  color: 'rgba(255,255,255,0.75)',
+                  background: 'rgba(255,255,255,0.45)',
+                  border: '1px solid rgba(90,173,165,0.35)',
+                  color: '#3a6460',
                 }}
               >
                 ‹ Back
