@@ -13,7 +13,8 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { checkRateLimit, getClientIp, rateLimitedResponse, verifySession } from '@/lib/apiGuard';
 import { createClient } from '@supabase/supabase-js';
 import { TravelerProfile, ClassifiedResult, type Activity, type DiningSpot } from '@/lib/types';
 import { SYSTEM_PROMPT, buildUserPrompt } from '@/lib/prompts';
@@ -803,15 +804,27 @@ async function runPipeline(
 
 // ── Route handler ─────────────────────────────────────────────────────────────
 
+// Rate limit: 10 generations per 10 minutes per IP
+const STREAM_RATE_LIMIT  = 10;
+const STREAM_RATE_WINDOW = 10 * 60 * 1000;
+
 export async function POST(req: NextRequest) {
+  // ── Rate limiting ───────────────────────────────────────────────────────────
+  const ip = getClientIp(req);
+  if (!checkRateLimit(ip, STREAM_RATE_LIMIT, STREAM_RATE_WINDOW)) {
+    return rateLimitedResponse();
+  }
+
   let body: unknown;
   try { body = await req.json(); } catch {
     return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
 
   const bodyObj = body as TravelerProfile & { userId?: string | null };
-  const bodyUserId: string | null = bodyObj.userId ?? null;
   const { userId: _u, ...profile } = bodyObj;
+
+  // ── userId: trust JWT only, never the request body ──────────────────────────
+  const bodyUserId: string | null = await verifySession(req);
 
   if (!profile.destination) {
     return new Response(JSON.stringify({ error: 'Destination is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
