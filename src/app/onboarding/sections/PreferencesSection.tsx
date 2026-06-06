@@ -15,7 +15,7 @@ import { motion } from 'framer-motion';
 import { useOnboardingStore } from '@/state/onboardingStore';
 
 const GREEN = '#2e9e74';
-const MUTED = 'rgba(255,255,255,0.38)';
+const MUTED = '#3a7068';
 
 const BUDGET_OPTIONS = [
   {
@@ -71,13 +71,13 @@ export function PreferencesSection({ isCompleted, onComplete, onEdit }: Props) {
       <motion.div
         initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
         className="flex items-center justify-between px-5 py-3.5 rounded-2xl"
-        style={{ background: 'rgba(15,40,98,0.28)', border: '1px solid rgba(46,158,116,0.22)' }}
+        style={{ background: 'rgba(255,255,255,0.72)', border: '1px solid rgba(46,158,116,0.22)' }}
       >
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <span className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black text-white shrink-0"
             style={{ background: GREEN }}>✓</span>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-white truncate">
+            <p className="text-sm font-bold truncate" style={{ color: '#1a4a44' }}>
               {budgetOpt?.icon} {budgetOpt?.label}
             </p>
             {interests.length > 0 && (
@@ -90,7 +90,7 @@ export function PreferencesSection({ isCompleted, onComplete, onEdit }: Props) {
         </div>
         <button onClick={onEdit}
           className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors hover-bg-subtle shrink-0"
-          style={{ color: MUTED, border: '1px solid rgba(255,255,255,0.10)' }}>
+          style={{ color: '#3a7068', border: '1px solid rgba(90,173,165,0.30)' }}>
           Edit
         </button>
       </motion.div>
@@ -106,7 +106,7 @@ export function PreferencesSection({ isCompleted, onComplete, onEdit }: Props) {
         <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black text-white shrink-0"
           style={{ background: GREEN }}>3</span>
         <div>
-          <h2 className="text-xl font-black text-white tracking-tight">Your travel style</h2>
+          <h2 className="text-xl font-black tracking-tight" style={{ color: '#0d2b27' }}>Your travel style</h2>
           <p className="text-xs mt-0.5" style={{ color: MUTED }}>
             Budget calibrates every recommendation · interests bias the picks
           </p>
@@ -116,7 +116,7 @@ export function PreferencesSection({ isCompleted, onComplete, onEdit }: Props) {
       {/* Budget — 3 row options */}
       <div className="flex flex-col gap-2">
         <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: MUTED }}>
-          Daily budget <span style={{ color: 'rgba(255,255,255,0.20)' }}>(excl. flights)</span>
+          Daily budget <span style={{ color: '#5a908a' }}>(excl. flights)</span>
         </p>
         {BUDGET_OPTIONS.map((opt) => {
           const sel = budget === opt.value;
@@ -134,13 +134,13 @@ export function PreferencesSection({ isCompleted, onComplete, onEdit }: Props) {
               className="flex items-center gap-4 px-4 py-3.5 rounded-xl border text-left transition-colors"
               style={sel
                 ? { borderColor: GREEN, background: 'rgba(46,158,116,0.10)' }
-                : { borderColor: 'rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }
+                : { borderColor: 'rgba(90,173,165,0.28)', background: 'rgba(255,255,255,0.65)' }
               }
             >
               <span className="text-xl shrink-0 leading-none">{opt.icon}</span>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-bold leading-tight"
-                  style={{ color: sel ? '#3ec98a' : 'rgba(255,255,255,0.9)' }}>
+                  style={{ color: sel ? '#3ec98a' : '#1a4a44' }}>
                   {opt.label}
                 </div>
                 <div className="text-[11px] mt-0.5 leading-snug" style={{ color: MUTED }}>
@@ -160,7 +160,7 @@ export function PreferencesSection({ isCompleted, onComplete, onEdit }: Props) {
       <div>
         <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: MUTED }}>
           What lights you up?{' '}
-          <span style={{ color: 'rgba(255,255,255,0.18)' }}>(optional — pick any)</span>
+          <span style={{ color: '#5a908a' }}>(optional — pick any)</span>
         </p>
         <div className="grid grid-cols-2 gap-2">
           {INTEREST_OPTIONS.map((opt) => {
@@ -174,7 +174,7 @@ export function PreferencesSection({ isCompleted, onComplete, onEdit }: Props) {
                 className="flex items-center gap-2.5 px-3.5 py-3 rounded-xl border text-left transition-colors"
                 style={sel
                   ? { borderColor: GREEN, background: 'rgba(46,158,116,0.10)', color: '#3ec98a' }
-                  : { borderColor: 'rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)', color: 'rgba(255,255,255,0.7)' }
+                  : { borderColor: 'rgba(90,173,165,0.28)', background: 'rgba(255,255,255,0.65)', color: '#1a4a44' }
                 }
               >
                 <span className="text-base shrink-0 leading-none">{opt.icon}</span>

@@ -21,7 +21,7 @@ import { useOnboardingStore } from '@/state/onboardingStore';
 // ── Palette ───────────────────────────────────────────────────────────────────
 const RED  = '#9e363a';
 const RED2 = '#b5404a';
-const MUTED = 'rgba(255,255,255,0.38)';
+const MUTED = '#3a7068';
 
 // ── Variants ──────────────────────────────────────────────────────────────────
 const reveal = {
@@ -266,7 +266,7 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
         animate={{ opacity: 1, y: 0 }}
         className="flex items-center justify-between px-5 py-3.5 rounded-2xl"
         style={{
-          background: 'rgba(15,40,98,0.28)',
+          background: 'rgba(255,255,255,0.72)',
           border: '1px solid rgba(158,54,58,0.22)',
         }}
       >
@@ -276,19 +276,19 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
             style={{ background: RED }}
           >✓</span>
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-bold text-white">
+            <span className="text-sm font-bold" style={{ color: '#1a4a44' }}>
               {selectedCountry?.flag} {country}
             </span>
             <span style={{ color: MUTED }} className="text-xs">·</span>
             <span className="text-xs font-medium" style={{ color: MUTED }}>{typeLabel}</span>
             <span style={{ color: MUTED }} className="text-xs">·</span>
-            <span className="text-xs font-semibold text-white/80">{cityLabel}</span>
+            <span className="text-xs font-semibold" style={{ color: '#1a4a44' }}>{cityLabel}</span>
           </div>
         </div>
         <button
           onClick={onEdit}
           className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors hover-bg-subtle"
-          style={{ color: MUTED, border: '1px solid rgba(255,255,255,0.10)' }}
+          style={{ color: '#3a7068', border: '1px solid rgba(90,173,165,0.30)' }}
         >
           Edit
         </button>
@@ -307,7 +307,7 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
           style={{ background: RED }}
         >1</span>
         <div>
-          <h2 className="text-xl font-black text-white tracking-tight">Where to?</h2>
+          <h2 className="text-xl font-black tracking-tight" style={{ color: '#0d2b27' }}>Where to?</h2>
           <p className="text-xs mt-0.5" style={{ color: MUTED }}>Choose a country, then pick your cities</p>
         </div>
       </div>
@@ -315,7 +315,7 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
       {/* Country search */}
       <div
         className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl"
-        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)' }}
+        style={{ background: 'rgba(255,255,255,0.80)', border: '1px solid rgba(90,173,165,0.28)' }}
       >
         <span className="text-base">🔍</span>
         <input
@@ -323,7 +323,8 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
           placeholder="Search countries…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 bg-transparent text-sm text-white placeholder-white/30 outline-none"
+          className="flex-1 bg-transparent text-sm outline-none"
+          style={{ color: '#1a4a44' }}
         />
         {search && (
           <button onClick={() => setSearch('')} className="text-xs" style={{ color: MUTED }}>✕</button>
@@ -372,8 +373,8 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
             exit="exit"
             className="flex flex-col gap-3"
           >
-            <div className="h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
-            <p className="text-sm font-semibold text-white">
+            <div className="h-px" style={{ background: 'rgba(90,173,165,0.20)' }} />
+            <p className="text-sm font-semibold" style={{ color: '#1a4a44' }}>
               How would you like to explore {selectedCountry?.flag} {country}?
             </p>
             <div className="grid grid-cols-2 gap-3">
@@ -395,8 +396,8 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
                       : { boxShadow: '0 2px 10px rgba(0,0,0,0.2)' }}
                     className="relative flex flex-col items-start gap-2 p-4 rounded-2xl text-left"
                     style={{
-                      background: active ? 'rgba(158,54,58,0.16)' : 'rgba(255,255,255,0.05)',
-                      border: active ? `1.5px solid rgba(158,54,58,0.50)` : '1.5px solid rgba(255,255,255,0.08)',
+                      background: active ? 'rgba(158,54,58,0.16)' : 'rgba(255,255,255,0.65)',
+                      border: active ? `1.5px solid rgba(158,54,58,0.50)` : '1.5px solid rgba(90,173,165,0.28)',
                       opacity: comingSoon ? 0.55 : 1,
                       cursor: comingSoon ? 'not-allowed' : 'pointer',
                     }}
@@ -411,7 +412,7 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
                     )}
                     <span className="text-2xl" style={comingSoon ? { filter: 'grayscale(0.5)' } : undefined}>{icon}</span>
                     <div>
-                      <p className="text-sm font-bold" style={{ color: active ? '#ff9fa3' : '#fff' }}>{label}</p>
+                      <p className="text-sm font-bold" style={{ color: active ? '#ff9fa3' : '#1a4a44' }}>{label}</p>
                       <p className="text-[11px] mt-0.5" style={{ color: MUTED }}>
                         {comingSoon ? 'In the works — single city for now' : sub}
                       </p>
@@ -436,7 +437,7 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
             exit="exit"
             className="flex flex-col gap-4"
           >
-            <div className="h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
+            <div className="h-px" style={{ background: 'rgba(90,173,165,0.20)' }} />
 
             {/* Popular cities */}
             <div>
@@ -460,7 +461,7 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
             <div className="flex gap-2">
               <div
                 className="flex-1 flex items-center gap-2 px-3.5 py-2.5 rounded-xl"
-                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)' }}
+                style={{ background: 'rgba(255,255,255,0.80)', border: '1px solid rgba(90,173,165,0.28)' }}
               >
                 <input
                   type="text"
@@ -468,7 +469,8 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
                   value={customInput}
                   onChange={(e) => setCustomInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleCustomCity()}
-                  className="flex-1 bg-transparent text-sm text-white placeholder-white/30 outline-none"
+                  className="flex-1 bg-transparent text-sm outline-none"
+                  style={{ color: '#1a4a44' }}
                 />
               </div>
               <motion.button

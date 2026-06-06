@@ -24,14 +24,14 @@ import type {
   GroupDynamicsPayload,
 } from '@/lib/types';
 
-const IVORY = '#f1ece3';
-const IVORY_DIM = 'rgba(241,236,227,0.55)';
-const IVORY_FAINT = 'rgba(241,236,227,0.32)';
+const IVORY = '#0d2b27';
+const IVORY_DIM = '#3a7068';
+const IVORY_FAINT = '#5a908a';
 const ACCENT = '#c4a26a';          // muted warm gold — quiet luxury accent
 const ACCENT_SOFT = 'rgba(196,162,106,0.35)';
-const SURFACE = 'rgba(255,255,255,0.04)';
-const SURFACE_SEL = 'rgba(196,162,106,0.05)';
-const BORDER = '1px solid rgba(255,255,255,0.07)';
+const SURFACE = 'rgba(255,255,255,0.65)';
+const SURFACE_SEL = 'rgba(255,255,255,0.88)';
+const BORDER = '1px solid rgba(90,173,165,0.28)';
 const BORDER_SEL = `1px solid ${ACCENT}`;
 
 const GROUP_OPTIONS = [
@@ -109,13 +109,13 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
         initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
         className="flex items-center justify-between px-6 py-4 rounded-2xl backdrop-blur-xl"
         style={{
-          background: 'rgba(255,255,255,0.025)',
+          background: 'rgba(255,255,255,0.72)',
           border: BORDER,
-          boxShadow: '0 1px 0 rgba(255,255,255,0.04) inset, 0 8px 24px -16px rgba(0,0,0,0.45)',
+          boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
         }}
       >
         <div className="flex items-baseline gap-3 flex-wrap">
-          <span className="font-serif text-base text-white tracking-tight" style={{ color: IVORY }}>
+          <span className="font-serif text-base tracking-tight" style={{ color: IVORY }}>
             {groupOpt?.label}
           </span>
           {compositionLine && (
@@ -137,7 +137,7 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
         <button
           onClick={onEdit}
           className="text-[11px] uppercase tracking-[0.18em] px-3 py-1.5 rounded-full transition-colors"
-          style={{ color: IVORY_DIM, border: '1px solid rgba(255,255,255,0.10)' }}
+          style={{ color: '#3a7068', border: '1px solid rgba(90,173,165,0.30)' }}
         >
           Edit
         </button>
@@ -168,9 +168,9 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
       <div
         className="rounded-3xl p-3 backdrop-blur-2xl"
         style={{
-          background: 'linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.015))',
+          background: 'rgba(255,255,255,0.65)',
           border: BORDER,
-          boxShadow: '0 1px 0 rgba(255,255,255,0.06) inset, 0 20px 50px -30px rgba(0,0,0,0.6)',
+          boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
         }}
       >
         <div className="grid grid-cols-2 gap-2">
@@ -190,7 +190,7 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
               >
                 <div
                   className="font-serif text-[19px] leading-none tracking-[-0.01em]"
-                  style={{ color: sel ? IVORY : 'rgba(241,236,227,0.88)' }}
+                  style={{ color: sel ? IVORY : '#1a4a44' }}
                 >
                   {opt.label}
                 </div>
@@ -223,9 +223,9 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
             exit={{ opacity: 0, y: -6, transition: { duration: 0.18 } }}
             className="rounded-3xl p-6 backdrop-blur-2xl"
             style={{
-              background: 'linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.015))',
+              background: 'rgba(255,255,255,0.65)',
               border: BORDER,
-              boxShadow: '0 1px 0 rgba(255,255,255,0.06) inset, 0 20px 50px -30px rgba(0,0,0,0.6)',
+              boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
             }}
           >
             <p className="text-[11px] uppercase tracking-[0.22em] mb-5" style={{ color: IVORY_DIM }}>
@@ -266,7 +266,7 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
                     animate={{ opacity: 1, y: 0, transition: { duration: 0.28 } }}
                     exit={{ opacity: 0, y: -4, transition: { duration: 0.15 } }}
                     className="pt-2 border-t flex flex-col gap-3"
-                    style={{ borderColor: 'rgba(255,255,255,0.06)' }}
+                    style={{ borderColor: 'rgba(90,173,165,0.20)' }}
                   >
                     <p className="text-[11px] uppercase tracking-[0.22em] pt-3" style={{ color: IVORY_DIM }}>
                       Children&apos;s ages
@@ -298,9 +298,9 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
             exit={{ opacity: 0, y: -6, transition: { duration: 0.18 } }}
             className="rounded-3xl p-6 backdrop-blur-2xl"
             style={{
-              background: 'linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.015))',
+              background: 'rgba(255,255,255,0.65)',
               border: BORDER,
-              boxShadow: '0 1px 0 rgba(255,255,255,0.06) inset, 0 20px 50px -30px rgba(0,0,0,0.6)',
+              boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
             }}
           >
             <p className="text-[11px] uppercase tracking-[0.22em] mb-5" style={{ color: IVORY_DIM }}>
@@ -352,7 +352,7 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
                     <div>
                       <div
                         className="font-serif text-[16px] leading-tight tracking-[-0.01em]"
-                        style={{ color: sel ? IVORY : 'rgba(241,236,227,0.88)' }}
+                        style={{ color: sel ? IVORY : '#1a4a44' }}
                       >
                         {opt.label}
                       </div>
@@ -408,7 +408,7 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
                     <div>
                       <div
                         className="font-serif text-[16px] leading-tight tracking-[-0.01em]"
-                        style={{ color: sel ? IVORY : 'rgba(241,236,227,0.88)' }}
+                        style={{ color: sel ? IVORY : '#1a4a44' }}
                       >
                         {opt.label}
                       </div>
@@ -477,14 +477,14 @@ function QuietSelect({
         onChange={(e) => onChange(e.target.value)}
         className="appearance-none bg-transparent text-[13px] pr-7 pl-3 py-2 rounded-lg transition-colors cursor-pointer"
         style={{
-          color: IVORY,
+          color: '#1a4a44',
           border: BORDER,
-          background: SURFACE,
+          background: 'rgba(255,255,255,0.65)',
           minWidth: 160,
         }}
       >
         {options.map((o) => (
-          <option key={o.value} value={o.value} style={{ background: '#0d1623', color: IVORY }}>
+          <option key={o.value} value={o.value} style={{ background: '#fff', color: '#1a4a44' }}>
             {o.label}
           </option>
         ))}

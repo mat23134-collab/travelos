@@ -15,7 +15,7 @@ import { useOnboardingStore } from '@/state/onboardingStore';
 const GOLD  = '#c5912a';
 const RED   = '#9e363a';
 const RED2  = '#b5404a';
-const MUTED = 'rgba(255,255,255,0.38)';
+const MUTED = '#3a7068';
 
 const reveal = {
   hidden:  { opacity: 0, y: 14 },
@@ -76,18 +76,18 @@ export function HotelSection({ isCompleted, onComplete, onSkip, onEdit }: Props)
       <motion.div
         initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
         className="flex items-center justify-between px-5 py-3.5 rounded-2xl"
-        style={{ background: 'rgba(15,40,98,0.28)', border: `1px solid rgba(197,145,42,0.22)` }}
+        style={{ background: 'rgba(255,255,255,0.72)', border: `1px solid rgba(197,145,42,0.22)` }}
       >
         <div className="flex items-center gap-3">
           <span className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black text-white shrink-0"
             style={{ background: GOLD }}>✓</span>
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-bold text-white">🏨 {hotelAddress.split(',')[0]}</span>
+            <span className="text-sm font-bold" style={{ color: '#1a4a44' }}>🏨 {hotelAddress.split(',')[0]}</span>
           </div>
         </div>
         <button onClick={onEdit}
           className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors hover-bg-subtle"
-          style={{ color: MUTED, border: '1px solid rgba(255,255,255,0.10)' }}>
+          style={{ color: '#3a7068', border: '1px solid rgba(90,173,165,0.30)' }}>
           Edit
         </button>
       </motion.div>
@@ -103,11 +103,11 @@ export function HotelSection({ isCompleted, onComplete, onSkip, onEdit }: Props)
         <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black text-white shrink-0"
           style={{ background: GOLD }}>3</span>
         <div>
-          <h2 className="text-xl font-black text-white tracking-tight">Where to stay?</h2>
+          <h2 className="text-xl font-black tracking-tight" style={{ color: '#0d2b27' }}>Where to stay?</h2>
           <p className="text-xs mt-0.5 flex items-center gap-1.5" style={{ color: MUTED }}>
             Your hotel becomes the anchor for the entire trip
             <span className="px-1.5 py-0.5 rounded-full text-[10px]"
-              style={{ background: 'rgba(255,255,255,0.07)', color: MUTED }}>Optional</span>
+              style={{ background: 'rgba(90,173,165,0.12)', color: MUTED }}>Optional</span>
           </p>
         </div>
       </div>
@@ -118,9 +118,9 @@ export function HotelSection({ isCompleted, onComplete, onSkip, onEdit }: Props)
           <motion.div key="search" variants={reveal} initial="hidden" animate="visible" exit="exit"
             className="flex gap-2">
             <div className="flex-1 flex items-center gap-2.5 px-3.5 py-3 rounded-xl"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)' }}
+              style={{ background: 'rgba(255,255,255,0.80)', border: '1px solid rgba(90,173,165,0.28)' }}
               onFocus={(e) => (e.currentTarget.style.borderColor = `rgba(197,145,42,0.45)`)}
-              onBlur={(e)  => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)')}
+              onBlur={(e)  => (e.currentTarget.style.borderColor = 'rgba(90,173,165,0.28)')}
             >
               <span className="text-base shrink-0">🏨</span>
               <input
@@ -129,7 +129,8 @@ export function HotelSection({ isCompleted, onComplete, onSkip, onEdit }: Props)
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                className="flex-1 bg-transparent text-sm text-white placeholder-white/30 outline-none"
+                className="flex-1 bg-transparent text-sm outline-none"
+                style={{ color: '#1a4a44' }}
               />
             </div>
             <motion.button
@@ -150,7 +151,7 @@ export function HotelSection({ isCompleted, onComplete, onSkip, onEdit }: Props)
             style={{ background: 'rgba(197,145,42,0.10)', border: '1.5px solid rgba(197,145,42,0.35)' }}>
             <span className="text-xl mt-0.5">📍</span>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-white truncate">{hotelAddress.split(',')[0]}</p>
+              <p className="text-sm font-bold truncate" style={{ color: '#1a4a44' }}>{hotelAddress.split(',')[0]}</p>
               <p className="text-[11px] mt-0.5 truncate" style={{ color: MUTED }}>{hotelAddress}</p>
               {hotelLat != null && (
                 <p className="text-[10px] mt-1 font-mono" style={{ color: 'rgba(79,95,118,0.7)' }}>
@@ -178,7 +179,7 @@ export function HotelSection({ isCompleted, onComplete, onSkip, onEdit }: Props)
 
       {/* Info note */}
       <div className="flex items-start gap-3 px-4 py-3 rounded-xl"
-        style={{ background: 'rgba(15,40,98,0.22)', border: '1px solid rgba(74,123,222,0.12)' }}>
+        style={{ background: 'rgba(255,255,255,0.65)', border: '1px solid rgba(90,173,165,0.28)' }}>
         <span className="text-base shrink-0">🧭</span>
         <p className="text-xs leading-relaxed" style={{ color: '#4f5f76' }}>
           The AI uses your hotel's location as the trip anchor — optimizing routes and neighbourhood recommendations around it.
