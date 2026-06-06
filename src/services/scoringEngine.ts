@@ -34,6 +34,11 @@ export interface InventoryItem {
   vibe_label?: string | null;
   status?: string | null;
   created_at?: string | null;
+  // Verification data — present for previously-verified rows; used to skip
+  // Google Places API calls for inventory hits during generation.
+  photo_url?: string | null;
+  website_url?: string | null;
+  google_place_id?: string | null;
   vibe: string[];
   group_suitability: string[];
   culinary_focus: string[];
@@ -103,6 +108,9 @@ type RawInventoryRow = {
   vibe_label?: string | null;
   status?: string | null;
   created_at?: string | null;
+  photo_url?: string | null;
+  website_url?: string | null;
+  google_place_id?: string | null;
   vibe?: unknown;
   group_suitability?: unknown;
   culinary_focus?: unknown;
@@ -190,12 +198,12 @@ export async function getFilteredInventory(
   const desiredTags = buildDesiredTags(input);
   const city = normalizeText(input.userTripChoices.city_name ?? input.userTripChoices.destination ?? '');
 
-  const [places, restaurants] = await Promise.all([
-    fetchInventoryTable(client, 'places', city),
-    fetchInventoryTable(client, 'restaurants', city),
-  ]);
+  // All venues (activities + dining) are stored in `places` — dining rows land
+  // there with category='restaurant'/'cafe' via venueCache.ts after each generation.
+  // The `restaurants` table does not exist; querying it was a silent no-op.
+  const places = await fetchInventoryTable(client, 'places', city);
 
-  const inventory = [...places, ...restaurants];
+  const inventory = [...places];
   if (!inventory.length) return [];
 
   const scored = inventory.map((item) => scoreInventoryItem(item, desiredTags));
@@ -216,12 +224,16 @@ export async function getFilteredInventory(
 
 async function fetchInventoryTable(
   client: SupabaseClient,
-  table: 'places' | 'restaurants',
+  table: 'places',
   city: string,
 ): Promise<InventoryItem[]> {
   try {
-    let query = client.from(table).select('*').limit(120);
-    if (city && table === 'places') query = query.ilike('city', city);
+    // Select only the columns the scoring/formatting/verification logic uses.
+    // photo_url, website_url, google_place_id are included so inventory hits
+    // can skip Google Places API calls during generation (already verified).
+    const COLS = 'id,name,city,category,description,lat,lng,category_emoji,social_proof_url,vibe_label,status,created_at,photo_url,website_url,google_place_id,vibe,group_suitability,culinary_focus';
+    let query = client.from(table).select(COLS).limit(120);
+    if (city) query = query.ilike('city', city);
 
     const { data, error } = await query;
     if (error) {
@@ -348,6 +360,9 @@ function normalizeInventoryRow(row: RawInventoryRow, sourceTable: 'places' | 're
     vibe_label: row.vibe_label ?? null,
     status: row.status ?? null,
     created_at: row.created_at ?? null,
+    photo_url: row.photo_url ?? null,
+    website_url: row.website_url ?? null,
+    google_place_id: row.google_place_id ?? null,
     vibe: normalizeTagArray(row.vibe),
     group_suitability: normalizeTagArray(row.group_suitability),
     culinary_focus: normalizeTagArray(row.culinary_focus),
