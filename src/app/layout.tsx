@@ -7,6 +7,7 @@ import { AuthProvider } from '@/lib/auth-context';
 import { MotionProvider } from '@/components/MotionProvider';
 import { LegalConsentBanner } from '@/components/LegalConsentBanner';
 import dynamic from 'next/dynamic';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 
 // CanvasShell uses WebGL — must be client-only (no SSR).
 const CanvasShell = dynamic(
@@ -79,6 +80,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </MotionProvider>
         <CanvasShell />
         <VersionStamp />
+        <SpeedInsights />
       </body>
     </html>
   );
