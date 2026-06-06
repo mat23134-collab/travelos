@@ -108,8 +108,7 @@ export async function runChainOfThoughtSearchWithCache(
       .then(({ error }) => {
         if (error) console.warn('[searchCache] write failed:', error.message);
         else console.log(`[searchCache] cached ${results.length} results for ${cacheKey}`);
-      })
-      .catch((e) => console.warn('[searchCache] write error:', e instanceof Error ? e.message : e));
+      }, (e: unknown) => console.warn('[searchCache] write error:', e instanceof Error ? e.message : e));
   }
 
   return results;
