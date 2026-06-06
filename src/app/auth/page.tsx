@@ -226,24 +226,14 @@ export default function AuthPage() {
   return (
     <main
       className="min-h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden"
-      style={{ backgroundColor: '#091f36' }}
     >
-      {/* Grain */}
-      <div
-        className="fixed inset-0 pointer-events-none z-0 opacity-[0.025] mix-blend-overlay"
-        style={{ backgroundImage: GRAIN, backgroundSize: '180px 180px' }}
-      />
-
-      {/* Ambient orbs */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full blur-[140px] pointer-events-none"
-        style={{ background: 'rgba(158,54,58,0.10)' }} />
-      <div className="absolute bottom-1/4 right-1/4 w-[300px] h-[300px] rounded-full blur-[110px] pointer-events-none"
-        style={{ background: 'rgba(15,40,98,0.35)' }} />
-
       {/* Back link */}
       <Link
         href="/"
-        className="absolute top-6 left-6 text-sm text-white/35 hover:text-white/70 transition-colors flex items-center gap-1.5 z-10"
+        className="absolute top-6 left-6 text-sm transition-colors flex items-center gap-1.5 z-10"
+        style={{ color: 'rgba(58,138,130,0.70)' }}
+        onMouseEnter={(e) => (e.currentTarget.style.color = 'rgba(58,138,130,1)')}
+        onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(58,138,130,0.70)')}
       >
         ← <BrandWordmark accent="#9e363a" className="text-sm" />
       </Link>
@@ -258,10 +248,10 @@ export default function AuthPage() {
         <div
           className="rounded-3xl p-8"
           style={{
-            background: 'rgba(255,255,255,0.035)',
-            backdropFilter: 'blur(24px)',
-            border: '1px solid rgba(255,255,255,0.08)',
-            boxShadow: '0 32px 80px -16px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.06)',
+            background: 'rgba(255,255,255,0.82)',
+            backdropFilter: 'blur(16px)',
+            border: '1px solid rgba(90,173,165,0.25)',
+            boxShadow: '0 32px 80px -16px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.6)',
           }}
         >
           {/* Brand mark */}
@@ -272,7 +262,7 @@ export default function AuthPage() {
           {/* Tab switcher */}
           <div
             className="flex rounded-xl p-1 mb-8"
-            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.07)' }}
+            style={{ background: 'rgba(90,173,165,0.12)', border: '1px solid rgba(90,173,165,0.20)' }}
           >
             {(['login', 'signup'] as Mode[]).map((m) => (
               <button
@@ -280,7 +270,7 @@ export default function AuthPage() {
                 onClick={() => switchMode(m)}
                 className="flex-1 py-2 rounded-lg text-sm font-semibold transition-all relative"
                 style={{
-                  color: mode === m ? '#fff' : 'rgba(255,255,255,0.35)',
+                  color: mode === m ? '#fff' : 'rgba(58,138,130,0.70)',
                 }}
               >
                 {mode === m && (
@@ -310,7 +300,7 @@ export default function AuthPage() {
             >
               {/* Email */}
               <div>
-                <label className="block text-xs font-semibold text-white/40 uppercase tracking-widest mb-2">
+                <label className="block text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#555' }}>
                   Email
                 </label>
                 <input
@@ -320,19 +310,20 @@ export default function AuthPage() {
                   placeholder="you@example.com"
                   autoComplete="off"
                   required
-                  className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-white/20 outline-none transition-all"
+                  className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
                   style={{
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.10)',
+                    color: '#222',
+                    background: 'rgba(255,255,255,0.6)',
+                    border: '1px solid rgba(90,173,165,0.3)',
                   }}
-                  onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(158,54,58,0.55)'; e.currentTarget.style.background = 'rgba(158,54,58,0.07)'; }}
-                  onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(90,173,165,0.7)'; e.currentTarget.style.background = 'rgba(255,255,255,0.85)'; }}
+                  onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(90,173,165,0.3)'; e.currentTarget.style.background = 'rgba(255,255,255,0.6)'; }}
                 />
               </div>
 
               {/* Password */}
               <div>
-                <label className="block text-xs font-semibold text-white/40 uppercase tracking-widest mb-2">
+                <label className="block text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#555' }}>
                   Password
                 </label>
                 <input
@@ -343,13 +334,14 @@ export default function AuthPage() {
                   autoComplete="off"
                   required
                   minLength={6}
-                  className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-white/20 outline-none transition-all"
+                  className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
                   style={{
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.10)',
+                    color: '#222',
+                    background: 'rgba(255,255,255,0.6)',
+                    border: '1px solid rgba(90,173,165,0.3)',
                   }}
-                  onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(158,54,58,0.55)'; e.currentTarget.style.background = 'rgba(158,54,58,0.07)'; }}
-                  onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(90,173,165,0.7)'; e.currentTarget.style.background = 'rgba(255,255,255,0.85)'; }}
+                  onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(90,173,165,0.3)'; e.currentTarget.style.background = 'rgba(255,255,255,0.6)'; }}
                 />
               </div>
 
@@ -357,7 +349,7 @@ export default function AuthPage() {
                 <>
                   {/* Username */}
                   <div>
-                    <label className="block text-xs font-semibold text-white/40 uppercase tracking-widest mb-2">
+                    <label className="block text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#555' }}>
                       Username
                     </label>
                     <input
@@ -394,7 +386,7 @@ export default function AuthPage() {
 
                   {/* Phone */}
                   <div>
-                    <label className="block text-xs font-semibold text-white/40 uppercase tracking-widest mb-2">
+                    <label className="block text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#555' }}>
                       Phone Number
                     </label>
                     <input
@@ -417,7 +409,7 @@ export default function AuthPage() {
                   {/* Gender + Age */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold text-white/40 uppercase tracking-widest mb-2">
+                      <label className="block text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#555' }}>
                         Gender
                       </label>
                       <select
@@ -439,7 +431,7 @@ export default function AuthPage() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-white/40 uppercase tracking-widest mb-2">
+                      <label className="block text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#555' }}>
                         Age
                       </label>
                       <input

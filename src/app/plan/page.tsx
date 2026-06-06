@@ -968,7 +968,6 @@ function PlanPage() {
     return (
       <div
         className="min-h-screen w-full"
-        style={{ backgroundColor: '#091f36' }}
         aria-busy="true"
         aria-label="Loading trip planner"
       />
@@ -998,7 +997,6 @@ function PlanPage() {
       <main
         className="min-h-screen relative"
         style={{
-          backgroundColor: '#091f36',
           backgroundImage: `${photoOverlay}, url("${bgUrl}")`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
@@ -1144,7 +1142,6 @@ function PlanPage() {
     <div
       className="min-h-screen flex flex-col relative overflow-hidden"
       style={{
-        backgroundColor: '#091f36',
         backgroundImage: `${photoOverlay}, url("${bgUrl}")`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',

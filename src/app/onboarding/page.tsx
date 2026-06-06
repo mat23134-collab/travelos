@@ -254,8 +254,7 @@ function OnboardingPageContent() {
 
   if (loading || !user) {
     return (
-      <main className="min-h-screen flex items-center justify-center px-8"
-        style={{ backgroundColor: '#091f36' }}>
+      <main className="min-h-screen flex items-center justify-center px-8">
         <StepSkeleton />
       </main>
     );
@@ -402,8 +401,7 @@ function OnboardingPageContent() {
     <main
       className="min-h-screen relative"
       style={{
-        backgroundColor: '#091f36',
-        backgroundImage: `linear-gradient(rgba(9,31,54,0.76), rgba(9,31,54,0.91)), url("${bgUrl}")`,
+        backgroundImage: `linear-gradient(rgba(180,228,222,0.82), rgba(180,228,222,0.82)), url("${bgUrl}")`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundAttachment: 'fixed',
@@ -612,8 +610,7 @@ function OnboardingPageContent() {
 export default function OnboardingPage() {
   return (
     <Suspense fallback={
-      <main className="min-h-screen flex items-center justify-center px-8"
-        style={{ backgroundColor: '#091f36' }}>
+      <main className="min-h-screen flex items-center justify-center px-8">
         <div className="flex flex-col gap-4 w-full max-w-xl animate-pulse">
           <div className="h-8 w-48 rounded-xl" style={{ background: 'rgba(255,255,255,0.07)' }} />
           <div className="h-40 rounded-2xl mt-2" style={{ background: 'rgba(255,255,255,0.04)' }} />

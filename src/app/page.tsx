@@ -195,13 +195,13 @@ export default function HomePage() {
   };
 
   return (
-    <main className="min-h-screen overflow-x-hidden" style={{ backgroundColor: NIGHT, color: '#fff' }}>
+    <main className="min-h-screen overflow-x-hidden" style={{ color: '#fff' }}>
 
       {/* ── Glassmorphism Nav ──────────────────────────────────────────────── */}
       <motion.nav
         className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-8 py-5"
         animate={{
-          backgroundColor: scrolled ? 'rgba(11,18,32,0.90)' : 'rgba(11,18,32,0.01)',
+          backgroundColor: scrolled ? 'rgba(90,173,165,0.90)' : 'rgba(90,173,165,0.01)',
           borderBottomColor: scrolled ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0)',
         }}
         transition={{ duration: 0.35 }}
@@ -374,7 +374,7 @@ export default function HomePage() {
       </section>
 
       {/* ── Destination Postcards ─────────────────────────────────────────── */}
-      <section className="py-28 px-8 lg:px-16" style={{ backgroundColor: NIGHT }}>
+      <section className="py-28 px-8 lg:px-16">
         <div className="max-w-6xl mx-auto">
 
           {/* Section header */}
@@ -389,13 +389,13 @@ export default function HomePage() {
               </span>
             </div>
             <h2
-              className="font-black text-white mb-3"
-              style={{ fontSize: 'clamp(1.9rem, 4vw, 3rem)', letterSpacing: '-0.035em', maxWidth: 520 }}
+              className="font-black mb-3"
+              style={{ fontSize: 'clamp(1.9rem, 4vw, 3rem)', letterSpacing: '-0.035em', maxWidth: 520, color: '#1a4a44' }}
             >
               Live the trip{' '}
-              <span style={{ color: 'rgba(255,255,255,0.18)' }}>you imagined.</span>
+              <span style={{ color: 'rgba(26,74,68,0.40)' }}>you imagined.</span>
             </h2>
-            <p className="text-sm max-w-md leading-relaxed" style={{ color: MUTED }}>
+            <p className="text-sm max-w-md leading-relaxed" style={{ color: '#3a6460' }}>
               Pick a destination — each card is a real place, ready for your itinerary.
             </p>
           </div>
@@ -415,7 +415,7 @@ export default function HomePage() {
       </section>
 
       {/* ── How it works ──────────────────────────────────────────────────── */}
-      <section className="py-28 px-8 lg:px-16" style={{ backgroundColor: NIGHT_2 }}>
+      <section className="py-28 px-8 lg:px-16">
         <div className="max-w-5xl mx-auto">
 
           <div className="flex items-center gap-3 mb-5">
@@ -429,12 +429,12 @@ export default function HomePage() {
           </div>
 
           <h2
-            className="font-black text-white mb-16"
-            style={{ fontSize: 'clamp(1.9rem, 4vw, 3rem)', letterSpacing: '-0.035em' }}
+            className="font-black mb-16"
+            style={{ fontSize: 'clamp(1.9rem, 4vw, 3rem)', letterSpacing: '-0.035em', color: '#1a4a44' }}
           >
             From hotel to hero itinerary
             <br />
-            <span style={{ color: 'rgba(255,255,255,0.18)' }}>in three steps.</span>
+            <span style={{ color: 'rgba(26,74,68,0.40)' }}>in three steps.</span>
           </h2>
 
           <div className="grid sm:grid-cols-3 gap-12">
@@ -469,12 +469,12 @@ export default function HomePage() {
                   {item.n}
                 </div>
                 <h3
-                  className="font-bold text-white mb-3"
-                  style={{ letterSpacing: '-0.015em' }}
+                  className="font-bold mb-3"
+                  style={{ letterSpacing: '-0.015em', color: '#222' }}
                 >
                   {item.title}
                 </h3>
-                <p className="text-sm leading-relaxed" style={{ color: MUTED }}>
+                <p className="text-sm leading-relaxed" style={{ color: '#3a6460' }}>
                   {item.body}
                 </p>
               </motion.div>
@@ -484,7 +484,7 @@ export default function HomePage() {
       </section>
 
       {/* ── Features ──────────────────────────────────────────────────────── */}
-      <section className="py-28 px-8 lg:px-16" style={{ backgroundColor: NIGHT }}>
+      <section className="py-28 px-8 lg:px-16">
         <div className="max-w-5xl mx-auto">
 
           <div className="flex items-center gap-3 mb-5">
@@ -498,8 +498,8 @@ export default function HomePage() {
           </div>
 
           <h2
-            className="font-black text-white mb-16"
-            style={{ fontSize: 'clamp(1.9rem, 4vw, 3rem)', letterSpacing: '-0.035em', maxWidth: 440 }}
+            className="font-black mb-16"
+            style={{ fontSize: 'clamp(1.9rem, 4vw, 3rem)', letterSpacing: '-0.035em', maxWidth: 440, color: '#1a4a44' }}
           >
             Not another generic planner.
           </h2>
@@ -514,19 +514,19 @@ export default function HomePage() {
                 transition={{ delay: i * 0.08, type: 'spring', stiffness: 250, damping: 24 }}
                 className="p-8 rounded-3xl transition-all duration-300 cursor-default hover-feature-card"
                 style={{
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid rgba(255,255,255,0.06)',
-                  boxShadow: '0 4px 24px rgba(0,0,0,0.22)',
+                  background: 'rgba(255,255,255,0.70)',
+                  border: '1px solid rgba(90,173,165,0.20)',
+                  boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
                 }}
               >
                 <div className="text-3xl mb-5">{f.icon}</div>
                 <h3
-                  className="font-bold text-white mb-3"
-                  style={{ letterSpacing: '-0.015em' }}
+                  className="font-bold mb-3"
+                  style={{ letterSpacing: '-0.015em', color: '#222' }}
                 >
                   {f.title}
                 </h3>
-                <p className="text-sm leading-relaxed" style={{ color: MUTED }}>
+                <p className="text-sm leading-relaxed" style={{ color: '#555' }}>
                   {f.body}
                 </p>
               </motion.div>
@@ -538,7 +538,6 @@ export default function HomePage() {
       {/* ── Final CTA ─────────────────────────────────────────────────────── */}
       <section
         className="relative py-40 px-8 text-center overflow-hidden"
-        style={{ backgroundColor: NIGHT }}
       >
         {/* Redline glow from below */}
         <div
@@ -570,12 +569,12 @@ export default function HomePage() {
           </div>
 
           <h2
-            className="font-black text-white mb-10 leading-[0.93]"
-            style={{ fontSize: 'clamp(2.6rem, 6vw, 4.2rem)', letterSpacing: '-0.04em' }}
+            className="font-black mb-10 leading-[0.93]"
+            style={{ fontSize: 'clamp(2.6rem, 6vw, 4.2rem)', letterSpacing: '-0.04em', color: '#1a4a44' }}
           >
             Travel smarter.
             <br />
-            <span style={{ color: 'rgba(255,255,255,0.18)' }}>Start in 60 seconds.</span>
+            <span style={{ color: 'rgba(26,74,68,0.40)' }}>Start in 60 seconds.</span>
           </h2>
 
           <Link
@@ -601,8 +600,7 @@ export default function HomePage() {
       <footer
         className="flex flex-col sm:flex-row items-center justify-between px-8 py-8 gap-3"
         style={{
-          borderTop: '1px solid rgba(255,255,255,0.05)',
-          backgroundColor: NIGHT,
+          borderTop: '1px solid rgba(90,173,165,0.20)',
         }}
       >
         <BrandWordmark accent={REDLINE} className="text-sm" />

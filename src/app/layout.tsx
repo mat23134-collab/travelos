@@ -7,6 +7,7 @@ import { AuthProvider } from '@/lib/auth-context';
 import { MotionProvider } from '@/components/MotionProvider';
 import { LegalConsentBanner } from '@/components/LegalConsentBanner';
 import dynamic from 'next/dynamic';
+import { SiteBackground } from '@/components/SiteBackground';
 
 // CanvasShell uses WebGL — must be client-only (no SSR).
 const CanvasShell = dynamic(
@@ -70,6 +71,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${inter.variable} ${brandSerif.variable} h-full`}>
       <body className="min-h-full antialiased">
+        <SiteBackground />
         <MotionProvider>
           <AuthProvider>
             {children}

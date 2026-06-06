@@ -266,29 +266,19 @@ export default function DashboardPage() {
   return (
     <main
       className="min-h-screen relative"
-      style={{ backgroundColor: '#091f36' }}
     >
-      {/* Grain */}
-      <div
-        className="fixed inset-0 pointer-events-none z-0 opacity-[0.022] mix-blend-overlay"
-        style={{ backgroundImage: GRAIN, backgroundSize: '180px 180px' }}
-      />
-
-      {/* Ambient */}
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[700px] h-[400px] rounded-full blur-[160px] pointer-events-none"
-        style={{ background: 'rgba(158,54,58,0.08)' }} />
 
       {/* ── Header ────────────────────────────────────────────────────────────── */}
       <header
-        className="sticky top-0 z-40 flex items-center justify-between px-6 py-4 border-b border-white/6"
-        style={{ background: 'rgba(9,31,54,0.90)', backdropFilter: 'blur(16px)' }}
+        className="sticky top-0 z-40 flex items-center justify-between px-6 py-4 border-b border-white/20"
+        style={{ background: 'rgba(90,173,165,0.90)', backdropFilter: 'blur(16px)' }}
       >
         <Link href="/" className="text-lg text-white tracking-tight">
           <BrandWordmark accent="#9e363a" className="text-lg" />
         </Link>
 
         <div className="flex items-center gap-3">
-          <span className="hidden sm:block text-xs text-white/30 truncate max-w-[180px]">
+          <span className="hidden sm:block text-xs text-white/60 truncate max-w-[180px]">
             {user.email}
           </span>
           <Link
@@ -304,8 +294,8 @@ export default function DashboardPage() {
           <button
             onClick={handleSignOut}
             disabled={signingOut}
-            className="px-3 py-2 rounded-xl text-xs font-semibold text-white/35 hover:text-white/70 transition-colors"
-            style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+            className="px-3 py-2 rounded-xl text-xs font-semibold text-white/80 hover:text-white transition-colors"
+            style={{ border: '1px solid rgba(255,255,255,0.25)' }}
           >
             {signingOut ? '…' : 'Sign Out'}
           </button>
