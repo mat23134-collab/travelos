@@ -40,23 +40,36 @@ function parseMentionedDays(message: string, totalDays: number): number[] {
   return [...new Set(nums)].sort((a, b) => a - b);
 }
 
+// Slim an Activity — keep only prompt-relevant fields, drop GPS/media/JIT
+function slimActivity(a: import('@/lib/types').Activity | undefined): object | undefined {
+  if (!a) return undefined;
+  return {
+    name: a.name,
+    description: a.description,
+    neighborhood: a.neighborhood,
+    duration: a.duration,
+    estimatedCost: a.estimatedCost,
+    whyThis: a.whyThis,
+    startTime: a.startTime,
+    endTime: a.endTime,
+    tags: a.tags,
+    isHiddenGem: a.isHiddenGem,
+  };
+}
+
 // Slim a DayPlan for the prompt — drop heavy/optional fields to save tokens
 function slimDay(day: DayPlan): object {
   return {
     day: day.day,
-    title: day.title,
     theme: day.theme,
-    activities: (day.activities ?? []).map((a) => ({
-      time: a.time,
-      title: a.title,
-      description: a.description,
-      type: a.type,
-      cost: a.cost,
-      duration: a.duration,
-      whyThis: a.whyThis,
-      neighborhood: a.neighborhood,
-    })),
-    meals: day.meals,
+    morning:   slimActivity(day.morning),
+    afternoon: slimActivity(day.afternoon),
+    evening:   slimActivity(day.evening),
+    breakfast: day.breakfast,
+    lunch:     day.lunch,
+    dinner:    day.dinner,
+    estimatedDailyCost: day.estimatedDailyCost,
+    transportTip: day.transportTip,
   };
 }
 
@@ -85,7 +98,8 @@ export async function POST(req: NextRequest) {
 
   const daysPayload = JSON.stringify(targetDays.map(slimDay));
 
-  const prompt = `Edit a travel itinerary for ${itinerary.destination} (${itinerary.totalDays} days total). Budget tier: ${itinerary.budgetTier ?? 'mid'}.
+  const budget = itinerary.budgetSummary?.dailyAverage ?? 'mid-range';
+  const prompt = `Edit a travel itinerary for ${itinerary.destination} (${itinerary.totalDays} days total). Budget: ${budget}.
 
 USER REQUEST: "${message}"
 
