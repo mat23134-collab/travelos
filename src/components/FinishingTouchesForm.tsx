@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { DIETARY_OPTIONS, getMustHaveGroups } from '@/lib/finishingTouches';
 
 const ACCENT = '#9e363a';
-const MUTED  = 'rgba(255,255,255,0.38)';
+const MUTED  = '#3a7068';
 
 interface Props {
   destination: string;
@@ -61,7 +61,7 @@ export function FinishingTouchesForm({
             {stepBadge}
           </span>
           <div>
-            <h2 className="text-xl font-black text-white tracking-tight">{headerCopy.title}</h2>
+            <h2 className="text-xl font-black tracking-tight" style={{ color: '#0d2b27' }}>{headerCopy.title}</h2>
             <p className="text-xs mt-0.5" style={{ color: MUTED }}>
               {headerCopy.body}
             </p>
@@ -69,7 +69,7 @@ export function FinishingTouchesForm({
         </div>
       ) : (
         <div>
-          <h2 className="text-xl font-black text-white tracking-tight">{headerCopy.title}</h2>
+          <h2 className="text-xl font-black tracking-tight" style={{ color: '#0d2b27' }}>{headerCopy.title}</h2>
           <p className="text-xs mt-0.5" style={{ color: MUTED }}>
             {headerCopy.body}
           </p>
@@ -100,7 +100,7 @@ export function FinishingTouchesForm({
                 className="flex items-center gap-2.5 px-3.5 py-3 rounded-xl border text-left transition-colors"
                 style={sel
                   ? { borderColor: ACCENT, background: 'rgba(158,54,58,0.10)', color: '#e07078' }
-                  : { borderColor: 'rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)', color: 'rgba(255,255,255,0.7)' }
+                  : { borderColor: 'rgba(90,173,165,0.28)', background: 'rgba(255,255,255,0.65)', color: '#1a4a44' }
                 }
               >
                 <span className="text-base shrink-0 leading-none">{opt.icon}</span>
@@ -131,8 +131,8 @@ export function FinishingTouchesForm({
                 key={group.key}
                 className="rounded-2xl border p-2.5"
                 style={{
-                  borderColor: 'rgba(255,255,255,0.07)',
-                  background: 'rgba(255,255,255,0.025)',
+                  borderColor: 'rgba(90,173,165,0.28)',
+                  background: 'rgba(255,255,255,0.65)',
                 }}
               >
                 <p
@@ -159,7 +159,7 @@ export function FinishingTouchesForm({
                         className="flex items-start gap-2.5 px-3.5 py-3 rounded-xl border text-left transition-colors"
                         style={sel
                           ? { borderColor: ACCENT, background: 'rgba(158,54,58,0.10)', color: '#e07078' }
-                          : { borderColor: 'rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)', color: 'rgba(255,255,255,0.7)' }
+                          : { borderColor: 'rgba(90,173,165,0.28)', background: 'rgba(255,255,255,0.65)', color: '#1a4a44' }
                         }
                       >
                         <span className="text-base shrink-0 leading-none mt-0.5">{pick.icon}</span>
@@ -194,10 +194,11 @@ export function FinishingTouchesForm({
           placeholder='Anything else? e.g. "teamLab", "hidden izakayas", "sunrise view"'
           value={mustHaveOther}
           onChange={(e) => onMustHaveOtherChange(e.target.value)}
-          className="w-full px-4 py-3.5 rounded-xl border focus:outline-none text-sm transition-all text-white"
+          className="w-full px-4 py-3.5 rounded-xl border focus:outline-none text-sm transition-all"
           style={{
-            borderColor: 'rgba(255,255,255,0.07)',
-            background: 'rgba(255,255,255,0.02)',
+            borderColor: 'rgba(90,173,165,0.28)',
+            background: 'rgba(255,255,255,0.65)',
+            color: '#1a4a44',
           }}
           onFocus={(e) => {
             e.currentTarget.style.borderColor = ACCENT;

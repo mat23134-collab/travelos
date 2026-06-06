@@ -22,7 +22,7 @@ import { getHotelPersonalization } from '@/lib/hotelPersonalization';
 import type { AccommodationType, HotelAmenity, HotelLocationPref } from '@/lib/types';
 
 const GOLD  = '#c5912a';
-const MUTED = 'rgba(255,255,255,0.38)';
+const MUTED = '#3a7068';
 
 const reveal = {
   hidden:  { opacity: 0, y: 12 },
@@ -225,7 +225,7 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
             {config.contextBadge}
           </div>
         )}
-        <h2 className="text-2xl font-black text-white tracking-tight">{config.headline}</h2>
+        <h2 className="text-2xl font-black tracking-tight" style={{ color: '#0d2b27' }}>{config.headline}</h2>
         <p className="text-sm mt-1" style={{ color: MUTED }}>{config.subline}</p>
       </div>
 
@@ -249,7 +249,7 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
               className="relative flex flex-col items-start gap-2 p-4 rounded-2xl border text-left transition-colors"
               style={sel
                 ? { borderColor: GOLD, background: 'rgba(197,145,42,0.10)' }
-                : { borderColor: 'rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)' }
+                : { borderColor: 'rgba(90,173,165,0.28)', background: 'rgba(255,255,255,0.65)' }
               }
             >
               {sel && (
@@ -262,7 +262,7 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
               <span className="text-2xl leading-none">{icon}</span>
               <div>
                 <p className="text-sm font-bold leading-tight"
-                  style={{ color: sel ? '#d4a235' : 'rgba(255,255,255,0.9)' }}>{label}</p>
+                  style={{ color: sel ? '#d4a235' : '#1a4a44' }}>{label}</p>
                 <p className="text-[11px] mt-0.5" style={{ color: MUTED }}>{sub}</p>
               </div>
             </motion.button>
@@ -371,18 +371,18 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
                         opacity: dimmed ? 0.4 : 1,
                         borderColor: sel
                           ? GOLD
-                          : highlighted ? 'rgba(197,145,42,0.30)'
-                          : 'rgba(255,255,255,0.07)',
+                          : highlighted ? 'rgba(197,145,42,0.40)'
+                          : 'rgba(90,173,165,0.28)',
                         background: sel
                           ? 'rgba(197,145,42,0.10)'
-                          : highlighted ? 'rgba(197,145,42,0.04)'
-                          : 'rgba(255,255,255,0.02)',
+                          : highlighted ? 'rgba(255,255,255,0.82)'
+                          : 'rgba(255,255,255,0.65)',
                       }}
                     >
                       <span className="text-xl shrink-0 leading-none">{base.icon}</span>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold leading-tight"
-                          style={{ color: sel ? '#d4a235' : 'rgba(255,255,255,0.9)' }}>{base.label}</p>
+                          style={{ color: sel ? '#d4a235' : '#1a4a44' }}>{base.label}</p>
                         <p className="text-[11px] mt-0.5" style={{ color: MUTED }}>{desc}</p>
                       </div>
                       {sel && (
@@ -418,12 +418,12 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
                           className="flex items-center gap-2.5 px-3.5 py-3 rounded-xl border text-left transition-colors"
                           style={sel
                             ? { borderColor: GOLD, background: 'rgba(197,145,42,0.10)' }
-                            : { borderColor: 'rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }
+                            : { borderColor: 'rgba(90,173,165,0.28)', background: 'rgba(255,255,255,0.65)' }
                           }
                         >
                           <span className="text-lg shrink-0">{opt.icon}</span>
                           <span className="text-xs font-semibold leading-tight"
-                            style={{ color: sel ? '#d4a235' : 'rgba(255,255,255,0.82)' }}>{opt.label}</span>
+                            style={{ color: sel ? '#d4a235' : '#1a4a44' }}>{opt.label}</span>
                         </motion.button>
                       );
                     })}
@@ -455,13 +455,13 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
                           className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-colors"
                           style={sel
                             ? { borderColor: GOLD, background: 'rgba(197,145,42,0.10)' }
-                            : { borderColor: 'rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }
+                            : { borderColor: 'rgba(90,173,165,0.28)', background: 'rgba(255,255,255,0.65)' }
                           }
                         >
                           <span className="text-base shrink-0">{opt.icon}</span>
                           <div>
                             <p className="text-xs font-semibold leading-tight"
-                              style={{ color: sel ? '#d4a235' : 'rgba(255,255,255,0.85)' }}>{opt.label}</p>
+                              style={{ color: sel ? '#d4a235' : '#1a4a44' }}>{opt.label}</p>
                             <p className="text-[10px] mt-0.5" style={{ color: MUTED }}>
                               {opt.subLabel(groupType)}
                             </p>
@@ -498,7 +498,7 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-colors"
                           style={sel
                             ? { borderColor: GOLD, background: 'rgba(197,145,42,0.12)', color: '#d4a235' }
-                            : { borderColor: 'rgba(255,255,255,0.10)', background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.75)' }
+                            : { borderColor: 'rgba(90,173,165,0.28)', background: 'rgba(255,255,255,0.65)', color: '#1a4a44' }
                           }
                         >
                           <span>{opt.icon}</span>
