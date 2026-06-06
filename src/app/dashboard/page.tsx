@@ -266,12 +266,13 @@ export default function DashboardPage() {
   return (
     <main
       className="min-h-screen relative"
+      style={{ backgroundColor: '#0b1220' }}
     >
 
       {/* ── Header ────────────────────────────────────────────────────────────── */}
       <header
-        className="sticky top-0 z-40 flex items-center justify-between px-6 py-4 border-b border-white/20"
-        style={{ background: 'rgba(90,173,165,0.90)', backdropFilter: 'blur(16px)' }}
+        className="sticky top-0 z-40 flex items-center justify-between px-6 py-4 border-b border-white/6"
+        style={{ background: 'rgba(11,18,32,0.90)', backdropFilter: 'blur(16px)' }}
       >
         <Link href="/" className="text-lg text-white tracking-tight">
           <BrandWordmark accent="#9e363a" className="text-lg" />
