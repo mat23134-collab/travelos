@@ -248,10 +248,13 @@ export default function AuthPage() {
         <div
           className="rounded-3xl p-8"
           style={{
-            background: 'rgba(255,255,255,0.82)',
-            backdropFilter: 'blur(16px)',
-            border: '1px solid rgba(90,173,165,0.25)',
-            boxShadow: '0 32px 80px -16px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.6)',
+            // Dark navy surface so the existing white form text stays readable
+            // on top of the light teal/photo background. Teal border accent
+            // preserves the new global theme.
+            background: 'rgba(9,31,54,0.92)',
+            backdropFilter: 'blur(24px)',
+            border: '1px solid rgba(90,173,165,0.35)',
+            boxShadow: '0 32px 80px -16px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.06)',
           }}
         >
           {/* Brand mark */}
@@ -262,7 +265,7 @@ export default function AuthPage() {
           {/* Tab switcher */}
           <div
             className="flex rounded-xl p-1 mb-8"
-            style={{ background: 'rgba(90,173,165,0.12)', border: '1px solid rgba(90,173,165,0.20)' }}
+            style={{ background: 'rgba(90,173,165,0.14)', border: '1px solid rgba(90,173,165,0.28)' }}
           >
             {(['login', 'signup'] as Mode[]).map((m) => (
               <button
@@ -270,7 +273,7 @@ export default function AuthPage() {
                 onClick={() => switchMode(m)}
                 className="flex-1 py-2 rounded-lg text-sm font-semibold transition-all relative"
                 style={{
-                  color: mode === m ? '#fff' : 'rgba(58,138,130,0.70)',
+                  color: mode === m ? '#fff' : 'rgba(255,255,255,0.65)',
                 }}
               >
                 {mode === m && (

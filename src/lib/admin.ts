@@ -1,6 +1,11 @@
 /**
  * admin.ts — Server-side admin auth helpers
  *
+ * The admin cookie stores an HMAC-SHA256 token (not the raw secret) so a
+ * stolen cookie cannot be used to reconstruct the original secret.
+ *
+ * Login is done via POST /api/admin/login — never via a URL query param.
+ *
  * Usage in Server Components:
  *   const admin = await isAdminSession();
  *
@@ -17,6 +22,25 @@ import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET ?? '';
+const PEPPER       = 'travelos-admin-v1'; // cheap domain separation
+
+/**
+ * Derives a stable HMAC-SHA256 token from the admin secret.
+ * This is what gets stored in the httpOnly cookie — never the raw secret.
+ */
+export async function deriveAdminToken(secret: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(PEPPER));
+  return Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
 
 /**
  * Returns true when the current request has a valid admin session cookie.
@@ -26,7 +50,10 @@ export async function isAdminSession(): Promise<boolean> {
   if (!ADMIN_SECRET) return false;
   try {
     const store = await cookies();
-    return store.get('travelos_admin')?.value === ADMIN_SECRET;
+    const cookieVal = store.get('travelos_admin')?.value;
+    if (!cookieVal) return false;
+    const expected = await deriveAdminToken(ADMIN_SECRET);
+    return cookieVal === expected;
   } catch {
     // cookies() throws outside of a request context (e.g. during static generation)
     return false;

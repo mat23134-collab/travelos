@@ -66,10 +66,34 @@ export function LoadingScreen({
   streamStatus,
 }: LoadingScreenProps) {
   // ── Progress maths ──────────────────────────────────────────────────────────
+  // `signalPercent` reflects real SSE progress (places/tips/status). But the
+  // LLM goes silent for 30-60 s in the middle, so signal alone would freeze
+  // at ~7% and then jump. We layer a time-based creep on top: every ~700 ms
+  // we advance the displayed % by a small amount (faster early, slower as it
+  // approaches the cap) and always take the MAX of (signal, creep) so real
+  // events can still pull the bar forward instantly.
   const buildSignals = streamedPlaces.length + streamedTips.length + (streamStatus ? 1 : 0);
-  const percent = Math.min(95, Math.round((buildSignals / 14) * 100));
+  const signalPercent = Math.min(95, Math.round((buildSignals / 14) * 100));
   const activeStep = Math.min(LOADING_STEPS.length - 1, Math.floor(buildSignals / 2));
   const bgUrl = resolveBackgroundImage(destination, activeStep);
+
+  const [creepPercent, setCreepPercent] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => {
+      setCreepPercent((prev) => {
+        if (prev >= 95) return 95;
+        // Slow logistic-ish creep: bigger steps when we're far from 95.
+        const remaining = 95 - prev;
+        const step = Math.max(0.3, remaining * 0.025); // ~2.4% near start, ~0.3% near 95
+        return Math.min(95, prev + step);
+      });
+    }, 700);
+    return () => clearInterval(id);
+  }, []);
+
+  // Displayed percent never decreases and is the max of signal-driven and
+  // time-driven progress, so even during LLM silence the bar keeps moving.
+  const percent = Math.max(signalPercent, Math.round(creepPercent));
 
   // ── Rotating destination facts ──────────────────────────────────────────────
   const facts = useMemo(() => getDestinationFacts(destination), [destination]);

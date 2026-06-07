@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { NextRequest, NextResponse } from 'next/server';
 import { Itinerary, DayPlan } from '@/lib/types';
+import { verifySession, unauthorizedResponse } from '@/lib/apiGuard';
 
 interface EditPayload {
   itinerary: Itinerary;
@@ -74,6 +75,9 @@ function slimDay(day: DayPlan): object {
 }
 
 export async function POST(req: NextRequest) {
+  const userId = await verifySession(req);
+  if (!userId) return unauthorizedResponse();
+
   if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY.includes('your_')) {
     return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 });
   }

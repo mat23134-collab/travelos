@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Itinerary, Activity } from '@/lib/types';
 import { buildSwapPrompt } from '@/lib/prompts';
 import { supabase } from '@/lib/supabase';
+import { verifySession, unauthorizedResponse } from '@/lib/apiGuard';
 
 export interface SwapPayload {
   itinerary: Itinerary;
@@ -113,6 +114,9 @@ async function persistSwap(
 }
 
 export async function POST(req: NextRequest) {
+  const userId = await verifySession(req);
+  if (!userId) return unauthorizedResponse();
+
   if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY.includes('your_')) {
     return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 });
   }
