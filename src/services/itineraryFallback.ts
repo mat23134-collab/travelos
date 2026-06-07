@@ -2,6 +2,26 @@ import { z } from 'zod';
 import type { Activity, DiningSpot, Itinerary, TravelerProfile, VibeLabel, HotelRecommendation } from '@/lib/types';
 import type { InventoryItem } from '@/services/scoringEngine';
 import type { Hotel } from '@/services/accommodation/router';
+import { DESTINATIONS } from '@/lib/destinations';
+import { COUNTRIES } from '@/lib/countries';
+
+// Look up best-known GPS for the user's destination so fallback map pins land
+// in the right city. Returns Paris as a last resort only if nothing matches —
+// which previously was hardcoded everywhere and made a Tokyo fallback render as
+// a Paris trip on the map.
+function destinationCoords(destination: string): { lat: number; lng: number } {
+  const needle = destination.trim().toLowerCase();
+  if (!needle) return { lat: 0, lng: 0 };
+  const direct = DESTINATIONS.find((d) => d.name.toLowerCase() === needle);
+  if (direct) return { lat: direct.lat, lng: direct.lng };
+  for (const country of COUNTRIES) {
+    const city = country.cities.find((c) => c.name.toLowerCase() === needle);
+    if (city) return { lat: city.lat, lng: city.lng };
+  }
+  // Last resort: a tiny offset around 0,0 so it's visibly "unknown" instead of
+  // silently impersonating Paris.
+  return { lat: 0, lng: 0 };
+}
 
 export type GenerationProvider = 'gemini' | 'claude' | 'fallback';
 
@@ -72,13 +92,16 @@ const itinerarySchema = z.object({
   }).passthrough()).min(1),
 }).passthrough();
 
+// Generic city-agnostic placeholders. GPS is intentionally null — the real
+// destination's coordinates are injected at runtime by normalizeFallbackPool
+// so a Tokyo fallback shows Tokyo pins, not Paris pins.
 const FALLBACK_INVENTORY: Array<Pick<InventoryItem, 'id' | 'source_table' | 'name' | 'city' | 'category' | 'description' | 'lat' | 'lng' | 'category_emoji' | 'vibe_label'>> = [
-  { id: 'fallback-market', source_table: 'places', name: 'Central Market Hall', city: null, category: 'market', description: 'A sensory first stop with local snacks, quick bites, and easy browsing.', lat: 48.8566, lng: 2.3522, category_emoji: '🛍️', vibe_label: 'local-favorite' },
-  { id: 'fallback-museum', source_table: 'places', name: 'City Heritage Museum', city: null, category: 'attraction', description: 'A polished cultural anchor that gives the trip immediate local context.', lat: 48.8606, lng: 2.3376, category_emoji: '🏛️', vibe_label: 'classic' },
-  { id: 'fallback-viewpoint', source_table: 'places', name: 'Old Town Viewpoint', city: null, category: 'attraction', description: 'A scenic pause for golden-hour photos and orientation.', lat: 48.8584, lng: 2.2945, category_emoji: '🌆', vibe_label: 'classic' },
-  { id: 'fallback-bakery', source_table: 'restaurants', name: 'Neighborhood Bakery', city: null, category: 'cafe', description: 'Reliable breakfast with pastries, coffee, and a calm start.', lat: 48.853, lng: 2.3499, category_emoji: '☕', vibe_label: 'local-favorite' },
-  { id: 'fallback-bistro', source_table: 'restaurants', name: 'Local Bistro', city: null, category: 'restaurant', description: 'A comfortable local lunch or dinner with regional dishes.', lat: 48.8546, lng: 2.3477, category_emoji: '🍽️', vibe_label: 'local-favorite' },
-  { id: 'fallback-winebar', source_table: 'restaurants', name: 'Quiet Wine Bar', city: null, category: 'bar', description: 'Dim, relaxed evening energy with conversation-friendly seating.', lat: 48.8528, lng: 2.3508, category_emoji: '🍷', vibe_label: 'hidden-gem' },
+  { id: 'fallback-market', source_table: 'places', name: 'Central Market Hall', city: null, category: 'market', description: 'A sensory first stop with local snacks, quick bites, and easy browsing.', lat: null, lng: null, category_emoji: '🛍️', vibe_label: 'local-favorite' },
+  { id: 'fallback-museum', source_table: 'places', name: 'City Heritage Museum', city: null, category: 'attraction', description: 'A polished cultural anchor that gives the trip immediate local context.', lat: null, lng: null, category_emoji: '🏛️', vibe_label: 'classic' },
+  { id: 'fallback-viewpoint', source_table: 'places', name: 'Old Town Viewpoint', city: null, category: 'attraction', description: 'A scenic pause for golden-hour photos and orientation.', lat: null, lng: null, category_emoji: '🌆', vibe_label: 'classic' },
+  { id: 'fallback-bakery', source_table: 'restaurants', name: 'Neighborhood Bakery', city: null, category: 'cafe', description: 'Reliable breakfast with pastries, coffee, and a calm start.', lat: null, lng: null, category_emoji: '☕', vibe_label: 'local-favorite' },
+  { id: 'fallback-bistro', source_table: 'restaurants', name: 'Local Bistro', city: null, category: 'restaurant', description: 'A comfortable local lunch or dinner with regional dishes.', lat: null, lng: null, category_emoji: '🍽️', vibe_label: 'local-favorite' },
+  { id: 'fallback-winebar', source_table: 'restaurants', name: 'Quiet Wine Bar', city: null, category: 'bar', description: 'Dim, relaxed evening energy with conversation-friendly seating.', lat: null, lng: null, category_emoji: '🍷', vibe_label: 'hidden-gem' },
 ];
 
 export function validateItineraryOrThrow(value: unknown): Itinerary {
@@ -191,12 +214,15 @@ export function buildFallbackItinerary(
 function normalizeFallbackPool(destination: string, inventory: InventoryItem[]) {
   const real = inventory.filter((item) => item.name && item.lat != null && item.lng != null);
   const pool = real.length >= 3 ? real : [...real, ...FALLBACK_INVENTORY.map((item) => ({ ...item, city: item.city ?? destination }))];
+  // Anchor on the actual destination's GPS, NOT a hardcoded Paris fallback —
+  // otherwise a Tokyo fallback shows every venue pinned in central Paris.
+  const { lat: anchorLat, lng: anchorLng } = destinationCoords(destination);
   return pool.map((item, index) => ({
     ...item,
     id: item.id ?? `fallback-${index}`,
     city: item.city ?? destination,
-    lat: item.lat ?? 48.8566 + index * 0.002,
-    lng: item.lng ?? 2.3522 + index * 0.002,
+    lat: item.lat ?? anchorLat + index * 0.002,
+    lng: item.lng ?? anchorLng + index * 0.002,
     category_emoji: item.category_emoji ?? (isDiningCategory(item.category) ? '🍽️' : '📍'),
     vibe_label: item.vibe_label ?? 'local-favorite',
   }));
