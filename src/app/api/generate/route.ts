@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { NextRequest, NextResponse } from 'next/server';
 import { MOCK_ITINERARY } from '@/lib/mockData';
+import { checkRateLimit, getClientIp, rateLimitedResponse, verifySession } from '@/lib/apiGuard';
 import { createClient } from '@supabase/supabase-js';
 import { TravelerProfile, ClassifiedResult, type Activity, type DiningSpot } from '@/lib/types';
 import { SYSTEM_PROMPT, buildUserPrompt } from '@/lib/prompts';
@@ -250,12 +251,26 @@ async function callClaude(userPrompt: string, systemPrompt: string): Promise<str
 
 // ── Main route ────────────────────────────────────────────────────────────────
 
+// Rate limit: 10 generations per 10 minutes per IP
+const GENERATE_RATE_LIMIT   = 10;
+const GENERATE_RATE_WINDOW  = 10 * 60 * 1000;
+
 export async function POST(req: NextRequest) {
   try {
+    // ── Rate limiting (blocks scripted abuse without requiring login) ───────────
+    const ip = getClientIp(req);
+    if (!checkRateLimit(ip, GENERATE_RATE_LIMIT, GENERATE_RATE_WINDOW)) {
+      return rateLimitedResponse();
+    }
+
     const body = await req.json();
     const bodyObj = body as TravelerProfile & { userId?: string | null };
-    let userId: string | null = bodyObj.userId ?? null;
     const { userId: _u, ...profile } = bodyObj;
+
+    // ── userId: trust JWT only, never the request body ──────────────────────────
+    // An unauthenticated caller could put any UUID in the body to hijack another
+    // user's account. We always derive the real userId from the verified JWT.
+    let userId: string | null = await verifySession(req);
 
     if (!profile.destination) {
       return NextResponse.json({ error: 'Destination is required' }, { status: 400 });

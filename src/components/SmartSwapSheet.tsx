@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import type { Activity, Itinerary, TravelerProfile } from '@/lib/types';
 import { dayCardUi, type ItineraryUiStrings } from '@/lib/tripUiCopy';
+import { useAuth } from '@/lib/auth-context';
 
 export type SwapSlot = 'morning' | 'afternoon' | 'evening';
 
@@ -37,6 +38,7 @@ export function SmartSwapSheet({
   ui: ItineraryUiStrings;
   dc: ReturnType<typeof dayCardUi>;
 }) {
+  const { session } = useAuth();
   const [portalEl, setPortalEl] = useState<HTMLElement | null>(null);
   const [phase, setPhase] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [alts, setAlts] = useState<SwapProposalAlternative[]>([]);
@@ -64,9 +66,11 @@ export function SmartSwapSheet({
       setPhase('loading');
       setLocalErr('');
       try {
+        const authHeaders: HeadersInit = { 'Content-Type': 'application/json' };
+        if (session?.access_token) authHeaders.Authorization = `Bearer ${session.access_token}`;
         const res = await fetch('/api/swap-proposals', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders,
           body: JSON.stringify({
             itinerary,
             dayIndex,
@@ -97,9 +101,11 @@ export function SmartSwapSheet({
     setLocalErr('');
     (async () => {
       try {
+        const retryHeaders: HeadersInit = { 'Content-Type': 'application/json' };
+        if (session?.access_token) retryHeaders.Authorization = `Bearer ${session.access_token}`;
         const res = await fetch('/api/swap-proposals', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: retryHeaders,
           body: JSON.stringify({ itinerary, dayIndex, slot, profile }),
         });
         const data = (await res.json()) as { alternatives?: SwapProposalAlternative[]; error?: string };

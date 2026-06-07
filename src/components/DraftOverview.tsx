@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { Itinerary, Activity, DayPlan } from '@/lib/types';
 import type { SwapResult } from '@/app/api/swap/route';
+import { useAuth } from '@/lib/auth-context';
 import { draftSlotUi, type ItineraryUiStrings } from '@/lib/tripUiCopy';
 import { TripStoryCube } from '@/components/TripStoryCube';
 import { ITIN_RESULTS_PAGE_BG, ITIN_RESULTS_NOISE_DATA_URL } from '@/lib/itineraryResultsPalette';
@@ -203,6 +204,7 @@ interface Props {
 }
 
 export function DraftOverview({ itinerary, onUpdate, onFinalize, ui }: Props) {
+  const { session } = useAuth();
   const [swappingKey, setSwappingKey] = useState<string | null>(null);
   const [swappedKeys, setSwappedKeys] = useState<Set<string>>(new Set());
   const [error, setError] = useState('');
@@ -214,9 +216,11 @@ export function DraftOverview({ itinerary, onUpdate, onFinalize, ui }: Props) {
     setError('');
 
     try {
+      const swapHeaders: HeadersInit = { 'Content-Type': 'application/json' };
+      if (session?.access_token) swapHeaders.Authorization = `Bearer ${session.access_token}`;
       const res = await fetch('/api/swap', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: swapHeaders,
         body: JSON.stringify({
           itinerary,
           dayIndex,

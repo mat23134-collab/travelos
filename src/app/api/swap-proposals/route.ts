@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { NextRequest, NextResponse } from 'next/server';
 import type { Activity, Itinerary, TravelerProfile } from '@/lib/types';
 import { buildSwapProposalsPrompt } from '@/lib/prompts';
+import { verifySession, unauthorizedResponse } from '@/lib/apiGuard';
 
 export interface SwapProposalAlternative {
   placeIntro: string;
@@ -12,6 +13,9 @@ export interface SwapProposalAlternative {
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export async function POST(req: NextRequest) {
+  const userId = await verifySession(req);
+  if (!userId) return unauthorizedResponse();
+
   if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY.includes('your_')) {
     return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 });
   }

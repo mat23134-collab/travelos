@@ -213,13 +213,55 @@ export async function getFilteredInventory(
     item.matchedTags.culinary_focus.length > 0,
   );
 
-  return scored
-    .sort((a, b) => {
-      const scoreDelta = hasTagMatches ? b.score - a.score : popularityScore(b) - popularityScore(a);
-      if (scoreDelta !== 0) return scoreDelta;
-      return Date.parse(b.created_at ?? '') - Date.parse(a.created_at ?? '');
-    })
-    .slice(0, MAX_RESULTS);
+  const sorted = scored.sort((a, b) => {
+    const scoreDelta = hasTagMatches ? b.score - a.score : popularityScore(b) - popularityScore(a);
+    if (scoreDelta !== 0) return scoreDelta;
+    return Date.parse(b.created_at ?? '') - Date.parse(a.created_at ?? '');
+  });
+
+  // ── Geo-diversification ────────────────────────────────────────────────────
+  // Without this, a city whose cache is dominated by one neighborhood (e.g.
+  // every Tokyo row sits in Ueno because earlier generations picked Ueno and
+  // venueCache wrote them back) would feed the AI a one-neighborhood hint,
+  // which produces a one-neighborhood itinerary — and the loop reinforces.
+  //
+  // We bucket candidates by a ~1 km lat/lng cell, then round-robin across
+  // buckets up to MAX_RESULTS so the hint surface a mix of neighborhoods.
+  // Items without GPS fall into a single "no-geo" bucket and still appear.
+  return diversifyByGeo(sorted, MAX_RESULTS);
+}
+
+const GEO_BUCKET = 0.01; // ≈ 1.1 km
+
+function diversifyByGeo(items: InventoryItem[], limit: number): InventoryItem[] {
+  if (items.length <= limit) return items;
+
+  const buckets = new Map<string, InventoryItem[]>();
+  for (const item of items) {
+    const key =
+      item.lat != null && item.lng != null
+        ? `${Math.round(item.lat / GEO_BUCKET)}_${Math.round(item.lng / GEO_BUCKET)}`
+        : 'nogeo';
+    const arr = buckets.get(key);
+    if (arr) arr.push(item);
+    else buckets.set(key, [item]);
+  }
+
+  // Round-robin across buckets in insertion order (which is score-sorted).
+  const queues = Array.from(buckets.values());
+  const picked: InventoryItem[] = [];
+  while (picked.length < limit) {
+    let advanced = false;
+    for (const q of queues) {
+      const next = q.shift();
+      if (!next) continue;
+      picked.push(next);
+      advanced = true;
+      if (picked.length >= limit) break;
+    }
+    if (!advanced) break;
+  }
+  return picked;
 }
 
 async function fetchInventoryTable(

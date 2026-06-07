@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Itinerary, DayPlan } from '@/lib/types';
+import { useAuth } from '@/lib/auth-context';
 
 const SUGGESTIONS = [
   'Make Day 1 more budget-friendly',
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export function QuickEdit({ itinerary, onUpdate }: Props) {
+  const { session } = useAuth();
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
@@ -41,9 +43,11 @@ export function QuickEdit({ itinerary, onUpdate }: Props) {
     setError('');
 
     try {
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
       const res = await fetch('/api/edit', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ itinerary, message: trimmed }),
       });
 

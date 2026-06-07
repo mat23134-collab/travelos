@@ -327,9 +327,11 @@ export function useItinerary({
     slot: 'morning' | 'afternoon' | 'evening',
     request?: string,
   ) => {
+    const swapHeaders: HeadersInit = { 'Content-Type': 'application/json' };
+    if (session?.access_token) swapHeaders.Authorization = `Bearer ${session.access_token}`;
     const res = await fetch('/api/swap', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: swapHeaders,
       body: JSON.stringify({
         itinerary,
         itinerary_id: itinerary._id ?? undefined,
@@ -354,9 +356,11 @@ export function useItinerary({
     proposalSummary: string,
     diningField?: 'breakfast' | 'lunch' | 'dinner',
   ) => {
+    const commitHeaders: HeadersInit = { 'Content-Type': 'application/json' };
+    if (session?.access_token) commitHeaders.Authorization = `Bearer ${session.access_token}`;
     const res = await fetch('/api/swap', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: commitHeaders,
       body: JSON.stringify({
         itinerary,
         itinerary_id: itinerary._id ?? undefined,

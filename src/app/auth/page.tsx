@@ -258,9 +258,11 @@ export default function AuthPage() {
         <div
           className="rounded-3xl p-8"
           style={{
-            background: 'rgba(255,255,255,0.035)',
+            // Opaque dark surface — guarantees white text stays readable
+            // on top of light photo backgrounds (e.g. the Vienna skyline).
+            background: 'rgba(9,31,54,0.92)',
             backdropFilter: 'blur(24px)',
-            border: '1px solid rgba(255,255,255,0.08)',
+            border: '1px solid rgba(255,255,255,0.14)',
             boxShadow: '0 32px 80px -16px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.06)',
           }}
         >
@@ -272,7 +274,7 @@ export default function AuthPage() {
           {/* Tab switcher */}
           <div
             className="flex rounded-xl p-1 mb-8"
-            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.07)' }}
+            style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)' }}
           >
             {(['login', 'signup'] as Mode[]).map((m) => (
               <button
@@ -280,7 +282,7 @@ export default function AuthPage() {
                 onClick={() => switchMode(m)}
                 className="flex-1 py-2 rounded-lg text-sm font-semibold transition-all relative"
                 style={{
-                  color: mode === m ? '#fff' : 'rgba(255,255,255,0.35)',
+                  color: mode === m ? '#fff' : 'rgba(255,255,255,0.65)',
                 }}
               >
                 {mode === m && (

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { Activity, Itinerary, TravelerProfile } from '@/lib/types';
 import type { SwapTarget } from '@/components/DayTimeline';
 import type { SwapProposalAlternative } from '@/app/api/swap-proposals/route';
+import { useAuth } from '@/lib/auth-context';
 
 interface AlternativePickerPanelProps {
   target: SwapTarget;
@@ -19,6 +20,7 @@ type PanelState = 'loading' | 'results' | 'error';
 export function AlternativePickerPanel({
   target, itinerary, profile, onCommit, onClose,
 }: AlternativePickerPanelProps) {
+  const { session } = useAuth();
   const [panelState, setPanelState] = useState<PanelState>('loading');
   const [alternatives, setAlternatives] = useState<SwapProposalAlternative[]>([]);
   const [selectedIdx, setSelectedIdx] = useState<number>(0);
@@ -33,9 +35,11 @@ export function AlternativePickerPanel({
 
     void (async () => {
       try {
+        const initHeaders: HeadersInit = { 'Content-Type': 'application/json' };
+        if (session?.access_token) initHeaders.Authorization = `Bearer ${session.access_token}`;
         const res = await fetch('/api/swap-proposals', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: initHeaders,
           body: JSON.stringify({
             itinerary,
             dayIndex: target.dayIndex,
@@ -69,9 +73,11 @@ export function AlternativePickerPanel({
     if (!customText.trim() || customLoading) return;
     setCustomLoading(true);
     try {
+      const customHeaders: HeadersInit = { 'Content-Type': 'application/json' };
+      if (session?.access_token) customHeaders.Authorization = `Bearer ${session.access_token}`;
       const res = await fetch('/api/swap-proposals', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: customHeaders,
         body: JSON.stringify({
           itinerary,
           dayIndex: target.dayIndex,

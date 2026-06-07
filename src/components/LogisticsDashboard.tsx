@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { TravelerProfile } from '@/lib/types';
 import type { LogisticsData } from '@/app/api/logistics/route';
+import { useAuth } from '@/lib/auth-context';
 
 function Skeleton() {
   return <div className="h-4 bg-[#f0ede4] rounded-lg animate-pulse w-full" />;
@@ -87,6 +88,7 @@ function SafetyCard({ s }: { s: LogisticsData['safetyVisa'] }) {
 }
 
 export function LogisticsDashboard({ profile }: { profile: TravelerProfile }) {
+  const { session } = useAuth();
   const [data, setData] = useState<LogisticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -98,9 +100,12 @@ export function LogisticsDashboard({ profile }: { profile: TravelerProfile }) {
     setLoading(true);
     setError('');
 
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+
     fetch('/api/logistics', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         destination: profile.destination,
         startDate: profile.startDate || '',
@@ -125,7 +130,7 @@ export function LogisticsDashboard({ profile }: { profile: TravelerProfile }) {
       });
 
     return () => { clearTimeout(timeout); controller.abort(); };
-  }, [profile, attempt]);
+  }, [profile, attempt, session]);
 
   return (
     <section className="mb-8">
