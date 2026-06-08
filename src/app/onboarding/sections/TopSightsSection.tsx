@@ -17,10 +17,13 @@
  * primary action; the section never has its own buttons.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useOnboardingStore } from '@/state/onboardingStore';
 import type { Landmark } from '@/app/api/landmarks/route';
+
+const MAX_NOTE_IMAGE_BYTES = 8 * 1024 * 1024; // 8 MB — matches /api/scan-notes cap
+const ACCEPTED_NOTE_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
 const IVORY        = '#0d2b27';
 const IVORY_DIM    = '#3a7068';
@@ -107,6 +110,9 @@ export function TopSightsSection() {
           </p>
         </div>
       )}
+
+      {/* Scan-your-own-notes */}
+      <NoteScanner destination={destination} />
 
       {status === 'ready' && data && (
         <AnimatePresence mode="wait">
@@ -248,6 +254,202 @@ function CuboidCard({
         )}
       </div>
     </motion.button>
+  );
+}
+
+// ─── Note scanner ─────────────────────────────────────────────────────────────
+//
+// Lets the traveler upload a photo of their own notes (a screenshot, a
+// handwritten list, anything) so we can pull out concrete ideas — place
+// names, dishes, neighborhoods — and fold the ones they keep into their
+// must-haves above, alongside our curated picks.
+
+type ScanStatus = 'idle' | 'reading' | 'scanning' | 'ready' | 'empty' | 'error';
+
+function NoteScanner({ destination }: { destination: string }) {
+  const { mustHaveItems, toggleMustHave } = useOnboardingStore();
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [status, setStatus] = useState<ScanStatus>('idle');
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [items, setItems] = useState<string[]>([]);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  async function handleFile(file: File | undefined | null) {
+    if (!file) return;
+    setErrorMsg(null);
+    setItems([]);
+
+    if (!ACCEPTED_NOTE_IMAGE_TYPES.includes(file.type)) {
+      setStatus('error');
+      setErrorMsg('Please upload a JPEG, PNG, WEBP, or GIF image.');
+      return;
+    }
+    if (file.size > MAX_NOTE_IMAGE_BYTES) {
+      setStatus('error');
+      setErrorMsg('That image is a bit large — try one under 8 MB.');
+      return;
+    }
+
+    setStatus('reading');
+    const dataUrl: string = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    }).catch(() => '');
+
+    if (!dataUrl) {
+      setStatus('error');
+      setErrorMsg('Could not read that file — try a different photo.');
+      return;
+    }
+
+    setPreviewUrl(dataUrl);
+    setStatus('scanning');
+    try {
+      const res = await fetch('/api/scan-notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: dataUrl, destination }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`);
+      const found: string[] = Array.isArray(body?.items) ? body.items : [];
+      setItems(found);
+      setStatus(found.length ? 'ready' : 'empty');
+      // Pre-select everything we found — the traveler can deselect what doesn't fit.
+      found.forEach((item) => {
+        if (!mustHaveItems.includes(item)) toggleMustHave(item);
+      });
+    } catch (err) {
+      console.warn('[NoteScanner] scan failed:', err);
+      setStatus('error');
+      setErrorMsg(err instanceof Error ? err.message : 'Could not read that image — try a clearer photo.');
+    }
+  }
+
+  function reset() {
+    setStatus('idle');
+    setPreviewUrl(null);
+    setItems([]);
+    setErrorMsg(null);
+    if (inputRef.current) inputRef.current.value = '';
+  }
+
+  return (
+    <div
+      className="rounded-3xl p-6 backdrop-blur-xl"
+      style={{ background: SURFACE, border: BORDER }}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="font-serif text-[16px] leading-tight" style={{ color: IVORY }}>
+            Already have a list of your own?
+          </p>
+          <p className="mt-1.5 text-[12px] leading-snug tracking-wide" style={{ color: IVORY_DIM }}>
+            Upload a photo of any notes — a screenshot, a handwritten list, anything — and
+            we&apos;ll pull out the highlights and weave the ones that fit into your itinerary.
+          </p>
+        </div>
+        {status !== 'idle' && (
+          <button
+            type="button"
+            onClick={reset}
+            className="shrink-0 text-[11px] tracking-wide underline underline-offset-2"
+            style={{ color: IVORY_FAINT }}
+          >
+            Start over
+          </button>
+        )}
+      </div>
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept={ACCEPTED_NOTE_IMAGE_TYPES.join(',')}
+        className="sr-only"
+        onChange={(e) => handleFile(e.target.files?.[0])}
+      />
+
+      {status === 'idle' && (
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="mt-4 flex items-center justify-center gap-2 w-full rounded-2xl py-4 text-[12px] tracking-wide transition-colors"
+          style={{ border: `1px dashed ${IVORY_FAINT}`, color: IVORY_DIM }}
+        >
+          <span aria-hidden="true">📷</span>
+          Upload a photo of your notes
+        </button>
+      )}
+
+      {status !== 'idle' && (
+        <div className="mt-4 flex flex-col sm:flex-row gap-4">
+          {previewUrl && (
+            <div
+              className="relative shrink-0 rounded-xl overflow-hidden"
+              style={{ width: 88, height: 88, border: BORDER }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={previewUrl} alt="Uploaded note" className="absolute inset-0 w-full h-full object-cover" />
+            </div>
+          )}
+
+          <div className="flex-1 min-w-0">
+            {(status === 'reading' || status === 'scanning') && (
+              <p className="text-[12px] tracking-wide animate-pulse" style={{ color: IVORY_DIM }}>
+                {status === 'reading' ? 'Reading your photo…' : 'Scanning for things you mentioned…'}
+              </p>
+            )}
+
+            {status === 'error' && (
+              <p className="text-[12px] tracking-wide" style={{ color: '#9e363a' }}>
+                {errorMsg || 'Something went wrong — try again.'}
+              </p>
+            )}
+
+            {status === 'empty' && (
+              <p className="text-[12px] tracking-wide" style={{ color: IVORY_DIM }}>
+                We couldn&apos;t make out any specific places or activities in that photo. Try a clearer shot, or skip this.
+              </p>
+            )}
+
+            {status === 'ready' && (
+              <>
+                <p className="text-[11px] uppercase tracking-[0.22em] mb-2.5" style={{ color: IVORY_DIM }}>
+                  Found in your photo — tap to keep or remove
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {items.map((item) => {
+                    const selected = mustHaveItems.includes(item);
+                    return (
+                      <motion.button
+                        key={item}
+                        type="button"
+                        whileTap={{ scale: 0.97 }}
+                        onClick={() => toggleMustHave(item)}
+                        className="px-3.5 py-2 rounded-full text-[12px] tracking-wide transition-colors"
+                        style={{
+                          background: selected ? SURFACE_SEL : 'transparent',
+                          border: selected ? BORDER_SEL : BORDER,
+                          color: selected ? IVORY : IVORY_DIM,
+                        }}
+                      >
+                        {selected && <span className="mr-1.5" style={{ color: ACCENT }}>✓</span>}
+                        {item}
+                      </motion.button>
+                    );
+                  })}
+                </div>
+                <p className="mt-3 text-[11px] tracking-wide" style={{ color: IVORY_FAINT }}>
+                  Kept items join your must-haves above — we&apos;ll fit them into the plan where they make sense.
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

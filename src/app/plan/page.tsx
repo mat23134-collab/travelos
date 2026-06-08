@@ -869,9 +869,12 @@ function PlanPage() {
 
         if (!res.ok) {
           const text = await res.text();
-          let parsed: { error?: string; details?: string } = {};
+          let parsed: { error?: string; details?: Record<string, string[]> } = {};
           try { parsed = JSON.parse(text); } catch { /* ignore */ }
-          throw new Error(parsed.error ?? `Server error ${res.status}: ${text.slice(0, 200)}`);
+          const fieldHint = parsed.details
+            ? ' (' + Object.keys(parsed.details).join(', ') + ')'
+            : '';
+          throw new Error((parsed.error ?? `Server error ${res.status}`) + fieldHint);
         }
 
         if (!res.body) throw new Error('Generation stream did not start');
