@@ -129,4 +129,6 @@ Rules:
     return NextResponse.json(result);
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
-    return NextResponse.json({ error: m
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}

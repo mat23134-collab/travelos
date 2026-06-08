@@ -152,4 +152,6 @@ Rules:
     return NextResponse.json({ changedDays: mergedChangedDays, summary: result.summary });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
-    r
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
