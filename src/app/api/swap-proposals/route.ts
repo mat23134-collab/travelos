@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const response = await client.messages.create({
-      model: 'claude-opus-4-7',
+      model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6',
       max_tokens: 8192,
       messages: [{ role: 'user', content: prompt }],
     });
@@ -81,6 +81,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ alternatives: cleaned });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
-    return NextResponse.json({ error: msg }, { status: 500 });
-  }
-}
+    return NextResponse.json({ error: m

@@ -119,7 +119,7 @@ Rules:
 
   try {
     const response = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
+      model: process.env.ANTHROPIC_EDIT_MODEL || process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001',
       max_tokens: 4096,
       messages: [{ role: 'user', content: prompt }],
     });
@@ -152,6 +152,4 @@ Rules:
     return NextResponse.json({ changedDays: mergedChangedDays, summary: result.summary });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
-    return NextResponse.json({ error: msg }, { status: 500 });
-  }
-}
+    r
