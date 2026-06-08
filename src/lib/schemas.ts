@@ -40,10 +40,11 @@ const DateString = z.string()
   .max(32)
   .refine((v) => !isNaN(Date.parse(v)), { message: 'Invalid date string' });
 
-/** "HH:MM" or "HH:MM:SS" */
-const TimeString = z.string()
-  .regex(/^\d{2}:\d{2}(:\d{2})?$/, 'Expected HH:MM or HH:MM:SS time format')
-  .optional();
+/** "HH:MM" or "HH:MM:SS", or empty string (client sends '' when unset) */
+const TimeString = z.union([
+  z.literal(''),
+  z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/, 'Expected HH:MM or HH:MM:SS time format'),
+]).optional();
 
 // ── TravelerProfile schema ────────────────────────────────────────────────────
 
