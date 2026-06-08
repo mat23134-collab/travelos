@@ -15,7 +15,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { COUNTRIES, type Country, type TravelCity } from '@/lib/countries';
-import { getCityImage, getCountryImage } from '@/lib/travelImagery';
+import { getCityImage, getCountryImage, DEFAULT_HERO } from '@/lib/travelImagery';
 import { useOnboardingStore } from '@/state/onboardingStore';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
@@ -81,6 +81,11 @@ function CountryCard({ country, selected, onClick }: {
         src={photo}
         alt={country.name}
         loading="lazy"
+        onError={(event) => {
+          if (event.currentTarget.src !== DEFAULT_HERO) {
+            event.currentTarget.src = DEFAULT_HERO;
+          }
+        }}
         className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 ease-out"
         style={{ transform: selected ? 'scale(1.05)' : 'scale(1)' }}
       />

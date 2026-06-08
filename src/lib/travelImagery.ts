@@ -16,20 +16,24 @@ const EXTRA_COUNTRY_HERO: Record<string, string> = {
   Iceland:
     'https://images.unsplash.com/photo-1504829857797-ddff29c27927?auto=format&fit=crop&w=1800&q=80',
   Thailand:
-    'https://images.unsplash.com/photo-1552465011-b21e7a7a6598?auto=format&fit=crop&w=1800&q=80',
+    'https://images.unsplash.com/photo-1506665531195-3566af2b4dfa?auto=format&fit=crop&w=1800&q=80',
   Vietnam:
     'https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=1800&q=80',
   Jordan:
-    'https://images.unsplash.com/photo-1579606032821-4e68a8265a44?auto=format&fit=crop&w=1800&q=80',
+    'https://images.unsplash.com/photo-1564507592333-c60657eea523?auto=format&fit=crop&w=1800&q=80',
   'South Korea':
     'https://images.unsplash.com/photo-1517154421773-0529f29ea771?auto=format&fit=crop&w=1800&q=80',
   Mexico:
-    'https://images.unsplash.com/photo-1518638150340-f706f99b669e?auto=format&fit=crop&w=1800&q=80',
+    'https://images.unsplash.com/photo-1512813195386-6cf811ad3542?auto=format&fit=crop&w=1800&q=80',
+  UAE:
+    'https://images.unsplash.com/photo-1518684079-3c830dcef090?auto=format&fit=crop&w=1800&q=80',
+  USA:
+    'https://images.unsplash.com/photo-1485871981521-5b1fd3805eee?auto=format&fit=crop&w=1800&q=80',
   'Costa Rica':
     'https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=1800&q=80',
 };
 
-const DEFAULT_HERO =
+export const DEFAULT_HERO =
   'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=1800&q=80';
 
 /** Aerial coastline — Pexels (free to use, hotlink OK) */
