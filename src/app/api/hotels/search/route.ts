@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { searchAccommodations, type Hotel } from '@/services/accommodation/router';
+import { verifySession, unauthorizedResponse } from '@/lib/apiGuard';
 
 function toNum(v: unknown): number | null {
   if (typeof v === 'number' && Number.isFinite(v)) return v;
@@ -19,6 +20,9 @@ function fallbackHotels(lat: number, lng: number): Hotel[] {
 }
 
 export async function GET(req: NextRequest) {
+  const userId = await verifySession(req);
+  if (!userId) return unauthorizedResponse();
+
   const lat = toNum(req.nextUrl.searchParams.get('lat'));
   const lng = toNum(req.nextUrl.searchParams.get('lng'));
   const radius = toNum(req.nextUrl.searchParams.get('radius')) ?? 25;

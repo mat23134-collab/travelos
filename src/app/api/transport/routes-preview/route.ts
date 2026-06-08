@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verifySession, unauthorizedResponse } from '@/lib/apiGuard';
 
 type ComputeRoutesBody = {
   routes?: Array<{ duration?: string }>;
@@ -19,6 +20,9 @@ function parseDurationSeconds(duration: string | undefined): number | null {
  * Env: GOOGLE_ROUTES_API_KEY or GOOGLE_MAPS_API_KEY (same key if Routes API is enabled on the project).
  */
 export async function POST(req: NextRequest) {
+  const userId = await verifySession(req);
+  if (!userId) return unauthorizedResponse();
+
   const body = (await req.json().catch(() => null)) as {
     originLat?: unknown;
     originLng?: unknown;
@@ -61,7 +65,7 @@ export async function POST(req: NextRequest) {
   if (!res.ok) {
     console.warn('[routes-preview]', res.status, text.slice(0, 400));
     return NextResponse.json(
-      { error: 'Routes API error', detail: text.slice(0, 200) },
+      { error: 'Routes API error' },
       { status: res.status === 403 ? 403 : 502 },
     );
   }

@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { normalizeUsername, validateUsernameShape } from '@/lib/username';
+import { checkRateLimit, getClientIp, rateLimitedResponse } from '@/lib/apiGuard';
 
 export async function GET(req: NextRequest) {
+  if (!checkRateLimit(getClientIp(req), 20, 60_000)) return rateLimitedResponse();
   const raw = req.nextUrl.searchParams.get('u') ?? '';
   const shapeErr = validateUsernameShape(raw);
   if (shapeErr) {

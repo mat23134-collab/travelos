@@ -67,15 +67,9 @@ export async function POST(req: NextRequest) {
   });
 
   if (error) {
-    const e = error as unknown as { message?: string; details?: string; hint?: string; code?: string };
-    console.log('❌ SUPABASE ERROR DETECTED IN LEGAL_CONSENTS:');
-    console.log('  Message:', e.message);
-    console.log('  Details:', e.details);
-    console.log('  Hint:   ', e.hint);
-    console.log('  Code:   ', e.code);
-    return NextResponse.json({ error: e.message, hint: e.hint, code: e.code }, { status: 500 });
+    console.error('[legal-consent] insert failed:', error.message, error.code);
+    return NextResponse.json({ error: 'Failed to save consent. Please try again.' }, { status: 500 });
   }
-  console.log('✅ legal_consents row saved — userId:', userId);
 
   return NextResponse.json({ ok: true });
 }

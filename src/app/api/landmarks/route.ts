@@ -85,7 +85,7 @@ export async function GET(req: NextRequest) {
 
   if (error) {
     console.warn('[api/landmarks] places select failed:', error.message);
-    return NextResponse.json({ sightseeing: [], history: [], food: [], error: error.message }, { status: 500 });
+    return NextResponse.json({ sightseeing: [], history: [], food: [] }, { status: 500 });
   }
 
   const rows = (data ?? []) as Row[];
