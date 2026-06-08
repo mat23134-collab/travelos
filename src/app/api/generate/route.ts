@@ -3,7 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { MOCK_ITINERARY } from '@/lib/mockData';
 import { checkRateLimit, getClientIp, rateLimitedResponse, verifySession } from '@/lib/apiGuard';
 import { createClient } from '@supabase/supabase-js';
-import { TravelerProfile, ClassifiedResult, type Activity, type DiningSpot } from '@/lib/types';
+import { ClassifiedResult, type Activity, type DiningSpot } from '@/lib/types';
+import { TravelerProfileSchema } from '@/lib/schemas';
 import { SYSTEM_PROMPT, buildUserPrompt } from '@/lib/prompts';
 import { runChainOfThoughtSearch } from '@/lib/rag';
 import { supabase } from '@/lib/supabase';
@@ -263,18 +264,27 @@ export async function POST(req: NextRequest) {
       return rateLimitedResponse();
     }
 
-    const body = await req.json();
-    const bodyObj = body as TravelerProfile & { userId?: string | null };
-    const { userId: _u, ...profile } = bodyObj;
+    let rawBody: unknown;
+    try {
+      rawBody = await req.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
+    }
+
+    // ── Zod validation — rejects malformed/malicious payloads before LLM/DB ────
+    // Strip the userId field first (we derive it from JWT, never the body).
+    const { userId: _u, ...bodyWithoutUserId } = rawBody as Record<string, unknown>;
+    const parsed = TravelerProfileSchema.safeParse(bodyWithoutUserId);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid request.', details: parsed.error.flatten().fieldErrors },
+        { status: 400 },
+      );
+    }
+    const profile = parsed.data;
 
     // ── userId: trust JWT only, never the request body ──────────────────────────
-    // An unauthenticated caller could put any UUID in the body to hijack another
-    // user's account. We always derive the real userId from the verified JWT.
     let userId: string | null = await verifySession(req);
-
-    if (!profile.destination) {
-      return NextResponse.json({ error: 'Destination is required' }, { status: 400 });
-    }
 
     // ── Mock mode — set MOCK_AI=true to skip all AI + DB writes for load testing ─
     if (process.env.MOCK_AI === 'true') {

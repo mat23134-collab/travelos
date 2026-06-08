@@ -16,7 +16,8 @@ import Anthropic from '@anthropic-ai/sdk';
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIp, rateLimitedResponse, verifySession } from '@/lib/apiGuard';
 import { createClient } from '@supabase/supabase-js';
-import { TravelerProfile, ClassifiedResult, type Activity, type DiningSpot } from '@/lib/types';
+import { type TravelerProfile, ClassifiedResult, type Activity, type DiningSpot } from '@/lib/types';
+import { TravelerProfileSchema } from '@/lib/schemas';
 import { SYSTEM_PROMPT, buildUserPrompt } from '@/lib/prompts';
 import { runChainOfThoughtSearchWithCache } from '@/lib/searchCache';
 import { supabase } from '@/lib/supabase';
@@ -815,20 +816,24 @@ export async function POST(req: NextRequest) {
     return rateLimitedResponse();
   }
 
-  let body: unknown;
-  try { body = await req.json(); } catch {
+  let rawBody: unknown;
+  try { rawBody = await req.json(); } catch {
     return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
 
-  const bodyObj = body as TravelerProfile & { userId?: string | null };
-  const { userId: _u, ...profile } = bodyObj;
+  // ── Zod validation ──────────────────────────────────────────────────────────
+  const { userId: _u, ...bodyWithoutUserId } = rawBody as Record<string, unknown>;
+  const parsed = TravelerProfileSchema.safeParse(bodyWithoutUserId);
+  if (!parsed.success) {
+    return new Response(
+      JSON.stringify({ error: 'Invalid request.', details: parsed.error.flatten().fieldErrors }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } },
+    );
+  }
+  const profile = parsed.data;
 
   // ── userId: trust JWT only, never the request body ──────────────────────────
   const bodyUserId: string | null = await verifySession(req);
-
-  if (!profile.destination) {
-    return new Response(JSON.stringify({ error: 'Destination is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
-  }
 
   const encoder = new TextEncoder();
   const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();

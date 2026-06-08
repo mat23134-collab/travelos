@@ -12,11 +12,18 @@
  *
  * The actual scout logic lives in scripts/scout-agent.ts (CLI).
  * This route exists so you can trigger it from CI/cron without SSH access.
- * Hook up your CLI execution logic (e.g. child_process.spawn) here when ready.
+ *
+ * SECURITY: When wiring up execution, always use spawn() with an args array —
+ * never interpolate `city` into a shell template string. The validation below
+ * enforces a strict allowlist, but spawn-with-array is a defence-in-depth
+ * safeguard against shell injection regardless of input sanitisation.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { isAdminApiRequest } from '@/lib/admin';
+
+/** Only allow clean city name strings — letters, spaces, hyphens, apostrophes. */
+const SAFE_CITY_RE = /^[\p{L}\p{N}\s\-'.]{1,80}$/u;
 
 export async function POST(req: NextRequest) {
   if (!isAdminApiRequest(req)) {
@@ -32,15 +39,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '{ city: string } required in request body.' }, { status: 400 });
   }
 
+  if (!SAFE_CITY_RE.test(city)) {
+    return NextResponse.json({ error: 'Invalid city name.' }, { status: 400 });
+  }
+
   // ── Wire your scout execution here ──────────────────────────────────────────
-  // Example (Node runtime required, not Edge):
-  //   const { execSync } = await import('child_process');
-  //   execSync(`npx tsx scripts/scout-agent.ts --city "${city}"${dryRun ? ' --dry-run' : ''}`);
+  // IMPORTANT: use spawn() with an args ARRAY, never a template string.
+  // Template strings risk shell injection even with the regex above.
+  //
+  //   const { spawn } = await import('child_process');
+  //   const args = ['tsx', 'scripts/scout-agent.ts', '--city', city];
+  //   if (dryRun) args.push('--dry-run');
+  //   spawn('npx', args, { stdio: 'inherit' });
   // ────────────────────────────────────────────────────────────────────────────
 
   return NextResponse.json({
     ok: true,
     message: `Scout trigger received for "${city}"${dryRun ? ' (dry-run)' : ''}.`,
-    note: 'Execution hook not yet wired — add your spawn/execSync call above.',
+    note: 'Execution hook not yet wired — add your spawn call above.',
   });
 }
