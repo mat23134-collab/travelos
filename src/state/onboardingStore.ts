@@ -8,10 +8,17 @@
  *
  * All fields persist to localStorage. Plan page reads destination + dates
  * from the query-string params we push on completion.
+ *
+ * Persisted choices expire after STALE_AFTER_MS of inactivity: re-opening
+ * the wizard after a long break starts fresh instead of restoring a trip
+ * you abandoned earlier.
  */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { GroupDynamicsPayload, HotelLocationPref, HotelAmenity } from '@/lib/types';
+
+/** Restore persisted onboarding choices only if the last interaction was this recent. */
+const STALE_AFTER_MS = 10 * 60 * 1000; // 10 minutes
 
 export interface TripCity {
   name: string;
@@ -284,7 +291,21 @@ export const useOnboardingStore = create<OnboardingState>()(
     }),
     {
       name: 'travelos-onboarding',
+      // Stale-session reset: persisted choices are only restored if the last
+      // interaction was within STALE_AFTER_MS. Come back after a long break
+      // (e.g. an hour later) and the wizard starts fresh — no leftover
+      // destination or choices bleeding into a new trip.
+      merge: (persisted, current) => {
+        const p = persisted as (Record<string, unknown> & { lastActiveAt?: number }) | null;
+        if (!p || typeof p.lastActiveAt !== 'number' || Date.now() - p.lastActiveAt > STALE_AFTER_MS) {
+          return current; // stale or malformed → fresh INITIAL state
+        }
+        const { lastActiveAt: _ignored, ...fields } = p;
+        return { ...current, ...fields };
+      },
       partialize: (s) => ({
+        // Refreshed on every persisted change → reflects last interaction time.
+        lastActiveAt: Date.now(),
         step:           s.step,
         country:        s.country,
         tripType:       s.tripType,
