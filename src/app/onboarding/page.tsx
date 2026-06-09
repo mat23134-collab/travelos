@@ -151,7 +151,7 @@ function OnboardingPageContent() {
     destination, startDate, endDate,
     arrivalTime, departureTime, dailyStartTime, skipDay1,
     hotelAddress, hotelLat, hotelLng,
-    accommodation, hotelNightlyBudget, hotelLocationPref, hotelAmenities,
+    accommodation, hotelNightlyBudget, hotelLocationPref, hotelAmenities, hotelSkipped,
     groupType, groupDynamics, pace, budget, interests,
     familyAdults, familyChildAges, groupSize,
     dietaryRestrictions, mustHaveItems, mustHaveOther,
@@ -371,6 +371,7 @@ function OnboardingPageContent() {
     if (hotelNightlyBudget)        params.set('hotelNightlyBudget', hotelNightlyBudget);
     if (hotelLocationPref?.length) params.set('hotelLocationPref',  hotelLocationPref.join(','));
     if (hotelAmenities?.length)    params.set('hotelAmenities',     hotelAmenities.join(','));
+    if (hotelSkipped)              params.set('hotelSkipped',       '1');
 
     // Style + budget + interests
     if (groupType)           params.set('groupType',     groupType);

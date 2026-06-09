@@ -77,6 +77,7 @@ export const TravelerProfileSchema = z.object({
   hotelNightlyBudget:   HotelNightlyBudget,
   hotelLocationPref:    z.array(HotelLocationPref).max(2).optional(),
   hotelAmenities:       z.array(HotelAmenity).max(10).optional(),
+  hotelSkipped:         z.boolean().optional(),
   dietaryRestrictions:  z.string().max(500),
   mustHave:             z.string().max(2000),
   hotelBooked:          z.string().max(200).optional(),

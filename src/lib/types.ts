@@ -126,6 +126,8 @@ export interface TravelerProfile {
   hotelLocationPref?: HotelLocationPref[];
   /** Optional must-have amenities — empty = no preference */
   hotelAmenities?: HotelAmenity[];
+  /** True when the user skipped the hotel step — suppress all hotel content. */
+  hotelSkipped?: boolean;
   dietaryRestrictions: string;
   mustHave: string;
   hotelBooked?: string;

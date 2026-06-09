@@ -509,6 +509,7 @@ function PlanPage() {
     const preHotelAmenities      = preHotelAmenitiesRaw
       ? preHotelAmenitiesRaw.split(',').filter(Boolean)
       : [];
+    const preHotelSkipped        = searchParams.get('hotelSkipped') === '1';
     const preDietaryRaw = searchParams.get('dietary') ?? '';
     const preDietary = preDietaryRaw ? preDietaryRaw.split(',').filter(Boolean) : [];
     const preMustHaveRaw = searchParams.get('mustHave') ?? '';
@@ -585,6 +586,7 @@ function PlanPage() {
       hotelNightlyBudget: validNightlyBudgets.includes(preHotelNightlyBudget)  ? preHotelNightlyBudget : '',
       hotelLocationPref:  preHotelLocationPref,
       hotelAmenities:     preHotelAmenities,
+      hotelSkipped:       preHotelSkipped,
     });
     setPlanGateReady(true);
 
@@ -831,6 +833,7 @@ function PlanPage() {
       hotelNightlyBudget: ((form.hotelNightlyBudget as string) || null) as TravelerProfile['hotelNightlyBudget'],
       hotelLocationPref: ((form.hotelLocationPref as TravelerProfile['hotelLocationPref']) || []),
       hotelAmenities: ((form.hotelAmenities as TravelerProfile['hotelAmenities']) || []),
+      hotelSkipped: !!(form.hotelSkipped as boolean),
       dietaryRestrictions: ((form.dietaryRestrictions as string[]) || []).join(', '),
       mustHave: [
         ...((form.mustHaveItems as string[]) || []),

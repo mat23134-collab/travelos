@@ -233,7 +233,8 @@ async function runPipeline(
       [] as ClassifiedResult[],
       'web RAG prefetch',
     ),
-    !profile.hotelBooked?.trim()
+    // Skip hotel search entirely when the user pre-booked OR skipped the step.
+    (!profile.hotelBooked?.trim() && !profile.hotelSkipped)
       ? withPrefetchTimeout(
           searchAccommodations(travelerProfileToAccommodationInput(profile)).catch((err) => {
             console.warn('[generate-stream] accommodation router failed (non-critical):', err);
@@ -395,6 +396,12 @@ async function runPipeline(
         itinerary = buildFallbackItinerary(profile, filteredInventory, parseErr, accommodationResult.hotels);
       }
     }
+  }
+
+  // Hotel step skipped → strip every hotel section regardless of what the model
+  // (or the fallback builder) produced. Guarantees no recommendations/basecamp.
+  if (profile.hotelSkipped) {
+    delete itinerary.basecamp;
   }
 
   normalizeBasecampHotels(itinerary.basecamp);
