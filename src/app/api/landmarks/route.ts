@@ -139,6 +139,6 @@ export async function GET(req: NextRequest) {
       history:     grouped.history,
       food:        grouped.food,
     },
-    { headers: { 'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=86400' } },
+    { headers: { 'Cache-Control': 'no-store' } },
   );
 }
