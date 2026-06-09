@@ -76,8 +76,7 @@ export function DayDetailPanel({
     setPendingSlot(null);
   };
 
-  const handleScheduleFromBank = async (item: BankItem) => {
-    if (!pendingSlot) return;
+  const handleScheduleFromBank = async (item: BankItem, target: SwapTarget) => {
     const res = await fetch('/api/swap', {
       method: 'POST',
       headers: {
@@ -88,7 +87,7 @@ export function DayDetailPanel({
         itinerary,
         itinerary_id: itineraryId ?? undefined,
         dayIndex,
-        slot: pendingSlot.slot,
+        slot: target.slot,
         replacementActivity: {
           name: item.name,
           description: item.description ?? '',
@@ -96,7 +95,7 @@ export function DayDetailPanel({
           longitude: item.lng ?? undefined,
           category_emoji: item.category_emoji ?? undefined,
           website_url: item.website_url ?? undefined,
-          neighborhood: pendingSlot.neighborhood,
+          neighborhood: target.neighborhood,
         },
         proposalSummary: `הוחלף ב${item.name} מבנק האטרקציות`,
       }),
@@ -104,9 +103,9 @@ export function DayDetailPanel({
 
     if (res.ok) {
       const result = await res.json();
-      onCommitActivitySwap(dayIndex, pendingSlot.slot, result.activity, result.summary, pendingSlot.diningField);
+      onCommitActivitySwap(dayIndex, target.slot, result.activity, result.summary, target.diningField);
       await bank.removeItem(item.id);
-      setPendingSlot(null);
+      if (pendingSlot) setPendingSlot(null);
     }
   };
 
@@ -213,6 +212,9 @@ export function DayDetailPanel({
                 items={bank.items}
                 loading={bank.loading}
                 pendingSlot={pendingSlot}
+                day={day}
+                dayIndex={dayIndex}
+                ui={ui}
                 onAddManual={bank.addManualItem}
                 onRemove={bank.removeItem}
                 onSchedule={handleScheduleFromBank}
