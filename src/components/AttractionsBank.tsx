@@ -112,7 +112,7 @@ export function AttractionsBank({ items, loading, pendingSlot, onAddManual, onRe
           onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
           placeholder="הוסיפו מקום בעצמכם…"
           className="flex-1 text-[12px] px-3 py-2 rounded-xl border outline-none"
-          style={{ borderColor: 'rgba(0,0,0,0.12)' }}
+          style={{ borderColor: 'rgba(0,0,0,0.12)', background: '#ffffff', color: '#222' }}
         />
         <button
           type="button"
