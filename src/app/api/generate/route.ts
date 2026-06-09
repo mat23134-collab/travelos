@@ -185,9 +185,17 @@ async function callGemini(userPrompt: string, systemPrompt: string): Promise<str
           temperature: 0.35,
           maxOutputTokens: (() => {
             const n = Number(process.env.GEMINI_MAX_OUTPUT_TOKENS);
-            return Number.isFinite(n) && n > 0 ? n : 16384;
+            return Number.isFinite(n) && n > 0 ? n : 24576;
           })(),
           responseMimeType: 'application/json',
+          // gemini-2.5-* thinking tokens count against maxOutputTokens; cap them so
+          // the itinerary JSON isn't truncated into the generic fallback (default 0).
+          thinkingConfig: {
+            thinkingBudget: (() => {
+              const n = Number(process.env.GEMINI_THINKING_BUDGET);
+              return Number.isFinite(n) && n >= 0 ? n : 0;
+            })(),
+          },
         },
       }),
     });

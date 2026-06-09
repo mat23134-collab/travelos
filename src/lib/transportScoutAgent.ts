@@ -92,8 +92,11 @@ async function callGeminiTransport(userPrompt: string): Promise<string> {
         contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
         generationConfig: {
           temperature: 0.25,
-          maxOutputTokens: 4096,
+          maxOutputTokens: 8192,
           responseMimeType: 'application/json',
+          // gemini-2.5-* thinking tokens count against maxOutputTokens; disable so
+          // the transport JSON isn't truncated (a truncated guide parses to empty).
+          thinkingConfig: { thinkingBudget: 0 },
         },
       }),
       signal: abort.signal,

@@ -131,15 +131,26 @@ async function callGemini(userPrompt: string, systemPrompt: string, signal?: Abo
   if (!apiKey) throw new Error('GEMINI_API_KEY is not set');
   const model = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-  const maxTokens = (() => { const n = Number(process.env.GEMINI_MAX_OUTPUT_TOKENS); return Number.isFinite(n) && n > 0 ? n : 16384; })();
-  console.log(`[generate-stream] Gemini ${model}`);
+  const maxTokens = (() => { const n = Number(process.env.GEMINI_MAX_OUTPUT_TOKENS); return Number.isFinite(n) && n > 0 ? n : 24576; })();
+  // gemini-2.5-* are "thinking" models: their reasoning tokens are billed against
+  // maxOutputTokens. On long prompts thinking ate ~12k of a 16k budget, leaving the
+  // JSON truncated → parse failure → generic fallback. Cap the thinking budget so the
+  // full itinerary JSON always fits. Default 0 (disabled) for deterministic output;
+  // override with GEMINI_THINKING_BUDGET if some reasoning is desired.
+  const thinkingBudget = (() => { const n = Number(process.env.GEMINI_THINKING_BUDGET); return Number.isFinite(n) && n >= 0 ? n : 0; })();
+  console.log(`[generate-stream] Gemini ${model} (maxOut ${maxTokens}, thinking ${thinkingBudget})`);
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: JSON_PREAMBLE + systemPrompt }] },
       contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-      generationConfig: { temperature: 0.35, maxOutputTokens: maxTokens, responseMimeType: 'application/json' },
+      generationConfig: {
+        temperature: 0.35,
+        maxOutputTokens: maxTokens,
+        responseMimeType: 'application/json',
+        thinkingConfig: { thinkingBudget },
+      },
     }),
     signal, // ← shared abort signal
   });
@@ -151,6 +162,11 @@ async function callGemini(userPrompt: string, systemPrompt: string, signal?: Abo
   if (cand.finishReason === 'SAFETY' || cand.finishReason === 'RECITATION') throw new Error(`Gemini finish: ${cand.finishReason}`);
   const raw = (cand.content?.parts ?? []).map((p) => p.text ?? '').join('').trim();
   if (!raw) throw new Error('Gemini returned empty text');
+  // MAX_TOKENS ⇒ the JSON is truncated and will never parse. Fail loudly so the
+  // caller routes straight to the Claude retry instead of a doomed parse attempt.
+  if (cand.finishReason === 'MAX_TOKENS') {
+    throw new Error(`Gemini hit MAX_TOKENS (${raw.length} chars) — output truncated; raise GEMINI_MAX_OUTPUT_TOKENS or lower GEMINI_THINKING_BUDGET`);
+  }
   console.log(`[generate-stream] Gemini: ${raw.length} chars | finishReason: ${cand.finishReason ?? 'UNKNOWN'}`);
   return raw;
 }
@@ -345,10 +361,15 @@ async function runPipeline(
       diag.rawTail = raw.slice(-400);
       if (provider === 'gemini' && !aiController.signal.aborted) {
         console.warn('[generate-stream] Gemini parse/validation failed — fallback to Claude');
-        // Fresh controller with a real budget — the old fixed 30s was too short
-        // (it started ~68s in and got aborted before Claude could finish).
+        // Fresh controller sized to the time actually left in the wall-clock
+        // budget. The old fixed 60s aborted Claude mid-generation when Gemini had
+        // already burned ~73s (60s wasn't enough for a full itinerary). Give Claude
+        // every remaining second, with a 75s floor so a slow Gemini can't starve it.
+        const elapsed = Date.now() - llmStart;
+        const retryBudget = Math.max(75_000, GENERATE_LLM_FETCH_MS - elapsed);
+        diag.claudeRetryBudgetMs = retryBudget;
         const retryController = new AbortController();
-        const retryTimer = setTimeout(() => retryController.abort(), 60_000);
+        const retryTimer = setTimeout(() => retryController.abort(), retryBudget);
         const retryStart = Date.now();
         try {
           raw = await callClaude(userPrompt, inventoryLockedSystemPrompt, retryController.signal);
