@@ -24,6 +24,9 @@ export interface TimelineRow {
 
 export function buildTimelineRows(day: DayPlan): TimelineRow[] {
   const rows: TimelineRow[] = [];
+  if (day.breakfast) {
+    rows.push({ type: 'dining', slot: 'breakfast', name: day.breakfast.name ?? 'Breakfast', time: 'Breakfast', emoji: '☕', dining: day.breakfast });
+  }
   if (day.morning) {
     rows.push({ type: 'activity', slot: 'morning', name: day.morning.name ?? 'Morning activity', time: day.morning.startTime ?? day.morning.time_slot?.split('–')[0]?.trim() ?? 'Morning', emoji: day.morning.category_emoji ?? (isHotelCheckIn(day.morning) ? '🏨' : '☀️'), activity: day.morning });
   }
@@ -49,7 +52,8 @@ export function buildMapsDirectionsUrl(name: string, neighborhood: string | unde
 }
 
 /** Map dining field to nearest activity slot for the swap API. */
-export function slotForDining(field: 'lunch' | 'dinner'): 'morning' | 'evening' {
+export function slotForDining(field: 'breakfast' | 'lunch' | 'dinner'): 'morning' | 'evening' {
+  if (field === 'breakfast') return 'morning';
   return field === 'lunch' ? 'morning' : 'evening';
 }
 
@@ -58,7 +62,7 @@ export function slotForDining(field: 'lunch' | 'dinner'): 'morning' | 'evening' 
 export interface SwapTarget {
   dayIndex: number;
   slot: 'morning' | 'afternoon' | 'evening';
-  diningField?: 'lunch' | 'dinner';
+  diningField?: 'breakfast' | 'lunch' | 'dinner';
   currentName: string;
   neighborhood?: string;
 }
@@ -102,7 +106,7 @@ export function DayTimeline({
         const slot = row.type === 'activity'
           ? (row.slot as 'morning' | 'afternoon' | 'evening')
           : slotForDining(row.slot as 'lunch' | 'dinner');
-        const diningField = row.type === 'dining' ? (row.slot as 'lunch' | 'dinner') : undefined;
+        const diningField = row.type === 'dining' ? (row.slot as 'breakfast' | 'lunch' | 'dinner') : undefined;
         const neighborhood = row.activity?.neighborhood ?? row.dining?.neighborhood;
         const swapTarget: SwapTarget = { dayIndex, slot, diningField, currentName: row.name, neighborhood };
 

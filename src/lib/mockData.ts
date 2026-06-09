@@ -114,6 +114,16 @@ export const MOCK_ITINERARY: Itinerary = {
         ],
       },
 
+      breakfast: {
+        name: 'Fuglen Tokyo — Tomigaya',
+        cuisine: 'Scandinavian Coffee & Pastries',
+        priceRange: '¥600–900',
+        mustTry: 'Single-origin pour-over with a Norwegian cardamom bun',
+        neighborhood: 'Tomigaya',
+        latitude: 35.6688,
+        longitude: 139.6923,
+      },
+
       lunch: {
         name: 'Afuri Ramen — Harajuku',
         cuisine: 'Yuzu Shio Ramen',

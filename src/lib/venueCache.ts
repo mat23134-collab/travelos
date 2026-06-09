@@ -306,3 +306,33 @@ export async function persistVenuesToCache(
   const seeds = collectPlaceSeeds(itineraryObj, cleanCity, tags);
   await upsertPlaceSeeds(client, seeds, label);
 }
+
+// ── Link user_place_events → places (FK back-fill) ───────────────────────────
+//
+// After persistVenuesToCache upserts places and user_place_events rows are
+// already written (from itinerary_items audit trail), this function runs a
+// single UPDATE to stamp place_id on every event row whose place_name matches
+// a row in public.places for the same city — closing the FK loop.
+//
+// Safe to call multiple times (WHERE place_id IS NULL guard).
+//
+export async function linkPlacesToUserEvents(
+  client: SupabaseClient,
+  itineraryId: string,
+  city: string,
+  label: 'generate' | 'generate-stream' = 'generate',
+): Promise<void> {
+  if (!itineraryId || !city.trim()) return;
+
+  const { error } = await client.rpc('link_user_place_events_to_places', {
+    p_itinerary_id: itineraryId,
+    p_city: city.trim().toLowerCase(),
+  });
+
+  if (error) {
+    // Non-critical: the RPC may not exist on older schemas — log and continue.
+    console.warn(`[${label}] linkPlacesToUserEvents failed (non-critical):`, error.message);
+  } else {
+    console.log(`[${label}] user_place_events.place_id back-filled for itinerary:`, itineraryId);
+  }
+}

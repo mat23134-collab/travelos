@@ -11,7 +11,7 @@ interface AlternativePickerPanelProps {
   target: SwapTarget;
   itinerary: Itinerary;
   profile: TravelerProfile | null;
-  onCommit: (activity: Activity, summary: string, diningField?: 'lunch' | 'dinner') => void;
+  onCommit: (activity: Activity, summary: string, diningField?: 'breakfast' | 'lunch' | 'dinner') => void;
   onClose: () => void;
 }
 

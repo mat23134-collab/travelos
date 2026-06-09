@@ -19,7 +19,7 @@ import { classifyActivity } from '@/lib/activityGenre';
 import { resolveAuthenticatedTraveler } from '@/lib/resolveAuthUser';
 import { ensureTransportationForCity, persistTripSessionRow } from '@/lib/tripTransport';
 import { gatherTransportExaSnippets } from '@/lib/transportExaIntel';
-import { persistVenuesToCache } from '@/lib/venueCache';
+import { persistVenuesToCache, linkPlacesToUserEvents } from '@/lib/venueCache';
 import { formatAvailableInventoryForSystemPrompt, getFilteredInventory } from '@/services/scoringEngine';
 import { buildFallbackItinerary, validateItineraryOrThrow, type GenerationProvider } from '@/services/itineraryFallback';
 import {
@@ -976,6 +976,9 @@ export async function POST(req: NextRequest) {
         profile,
         'generate',
       );
+      // Back-fill place_id FK on user_place_events rows written above.
+      // Runs after places are upserted so the join always resolves.
+      await linkPlacesToUserEvents(dbWrite, itineraryDbId, profile.destination ?? '', 'generate');
     } catch (e) {
       console.warn('[generate] places sync failed (non-critical):', e instanceof Error ? e.message : e);
     }

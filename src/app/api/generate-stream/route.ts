@@ -32,7 +32,7 @@ import { classifyActivity } from '@/lib/activityGenre';
 import { resolveAuthenticatedTraveler } from '@/lib/resolveAuthUser';
 import { ensureTransportationForCity, persistTripSessionRow } from '@/lib/tripTransport';
 import { gatherTransportExaSnippets } from '@/lib/transportExaIntel';
-import { persistVenuesToCache } from '@/lib/venueCache';
+import { persistVenuesToCache, linkPlacesToUserEvents } from '@/lib/venueCache';
 import { formatAvailableInventoryForSystemPrompt, getFilteredInventory } from '@/services/scoringEngine';
 import { buildFallbackItinerary, validateItineraryOrThrow, type GenerationProvider } from '@/services/itineraryFallback';
 import {
@@ -824,6 +824,8 @@ async function runPipeline(
       profile,
       'generate-stream',
     );
+    // Back-fill place_id FK on user_place_events rows — runs after places upsert.
+    await linkPlacesToUserEvents(dbWrite, itineraryDbId, profile.destination ?? '', 'generate-stream');
   } catch (e) {
     console.warn('[generate-stream] places sync failed (non-critical):', e instanceof Error ? e.message : e);
   }

@@ -40,7 +40,7 @@ interface DayDetailPanelProps {
     slot: 'morning' | 'afternoon' | 'evening',
     activity: Activity,
     summary: string,
-    diningField?: 'lunch' | 'dinner',
+    diningField?: 'breakfast' | 'lunch' | 'dinner',
   ) => void;
   onNeighborhoodClick: (neighborhood: string) => void;
   onPrevDay: () => void;
@@ -62,7 +62,7 @@ export function DayDetailPanel({
   const [activePlace, setActivePlace] = useState<TimelineRow | null>(null);
   const [activeSwap, setActiveSwap] = useState<SwapTarget | null>(null);
 
-  const handleCommit = (activity: Activity, summary: string, diningField?: 'lunch' | 'dinner') => {
+  const handleCommit = (activity: Activity, summary: string, diningField?: 'breakfast' | 'lunch' | 'dinner') => {
     if (!activeSwap) return;
     onCommitActivitySwap(dayIndex, activeSwap.slot, activity, summary, diningField);
     setActiveSwap(null);
