@@ -132,6 +132,14 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
     destination, groupType, groupDynamics, budget,
   } = useOnboardingStore();
 
+  function handleSkip() {
+    // Clear all hotel state so the itinerary generator has no hotel anchor.
+    clearHotelLocation();
+    setHotelNightlyBudget('');
+    setHotelLocationPref([]);
+    onSkip();
+  }
+
   // Personalization config derived from traveler context
   const config = useMemo(
     () => getHotelPersonalization(groupType, groupDynamics, budget),
@@ -515,14 +523,21 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
         )}
       </AnimatePresence>
 
-      {/* Skip */}
-      <button
-        onClick={onSkip}
-        className="text-xs text-center transition-colors"
-        style={{ color: 'rgba(79,95,118,0.7)' }}
+      {/* Skip — explicit third option */}
+      <motion.button
+        type="button"
+        onClick={handleSkip}
+        whileHover={{ scale: 1.01 }}
+        whileTap={{ scale: 0.98 }}
+        className="w-full py-3 rounded-2xl text-sm font-semibold text-center transition-colors"
+        style={{
+          border: '1.5px dashed rgba(90,173,165,0.38)',
+          background: 'transparent',
+          color: 'rgba(58,112,104,0.75)',
+        }}
       >
-        Skip — I&apos;ll add my hotel later
-      </button>
+        Skip — I don&apos;t have a hotel
+      </motion.button>
 
     </div>
   );
