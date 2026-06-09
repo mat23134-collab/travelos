@@ -36,9 +36,10 @@ export interface AuthContextValue {
   signUp:  (
     email: string,
     password: string,
-    profile?: { phone: string; gender: 'male' | 'female'; age: number; username: string },
+    profile?: { phone?: string; gender?: 'male' | 'female'; age?: number; username: string },
   ) => Promise<{ error: string | null }>;
   signIn:  (email: string, password: string) => Promise<{ error: string | null }>;
+  signInWithGoogle: () => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -103,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = async (
     email: string,
     password: string,
-    profile?: { phone: string; gender: 'male' | 'female'; age: number; username: string },
+    profile?: { phone?: string; gender?: 'male' | 'female'; age?: number; username: string },
   ) => {
     try {
       const { error } = await supabaseAuth.auth.signUp({
@@ -119,6 +120,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const signInWithGoogle = async () => {
+    try {
+      const redirectTo =
+        typeof window !== 'undefined'
+          ? `${window.location.origin}/auth/callback`
+          : `${process.env.NEXT_PUBLIC_SITE_URL ?? ''}/auth/callback`;
+      const { error } = await supabaseAuth.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo },
+      });
+      return { error: error?.message ?? null };
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : 'Google sign-in failed' };
+    }
+  };
+
   const signOut = async () => {
     try {
       await supabaseAuth.auth.signOut();
@@ -128,7 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signInWithGoogle, signOut }}>
       {children}
     </AuthContext.Provider>
   );

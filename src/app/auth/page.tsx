@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -23,7 +23,7 @@ const GRAIN = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http:
 
 export default function AuthPage() {
   const router                          = useRouter();
-  const { user, loading, signIn, signUp } = useAuth();
+  const { user, loading, signIn, signUp, signInWithGoogle } = useAuth();
 
   const [mode,     setMode]     = useState<Mode>('login');
   const [email,    setEmail]    = useState('');
@@ -65,6 +65,16 @@ export default function AuthPage() {
     setBusy(false);
     setLegalAccepted(hasRequiredLegalConsent());
   };
+
+  // Show error injected from OAuth callback (?error=...)
+  const errorReadRef = useRef(false);
+  useEffect(() => {
+    if (errorReadRef.current) return;
+    errorReadRef.current = true;
+    const params = new URLSearchParams(window.location.search);
+    const e = params.get('error');
+    if (e) setError(decodeURIComponent(e));
+  }, []);
 
   // Already logged in → restore pending intent or go to dashboard
   useEffect(() => {
@@ -147,15 +157,17 @@ export default function AuthPage() {
         setError('Could not verify username. Try again.');
         return;
       }
-      const ageNum = Number(age);
       const onlyDigitsPhone = phone.replace(/\D/g, '');
-      if (!onlyDigitsPhone || onlyDigitsPhone.length < 8) {
-        setError('Please enter a valid phone number.');
+      if (onlyDigitsPhone && onlyDigitsPhone.length < 8) {
+        setError('Please enter a valid phone number (or leave it blank).');
         return;
       }
-      if (!Number.isFinite(ageNum) || ageNum < 13 || ageNum > 120) {
-        setError('Please enter a valid age between 13 and 120.');
-        return;
+      if (age.trim()) {
+        const ageNum = Number(age);
+        if (!Number.isFinite(ageNum) || ageNum < 13 || ageNum > 120) {
+          setError('Please enter a valid age between 13 and 120 (or leave it blank).');
+          return;
+        }
       }
     }
     setBusy(true);
@@ -176,9 +188,9 @@ export default function AuthPage() {
       authError = result.error;
     } else {
       const result = await signUp(email.trim(), password, {
-        phone: phone.trim(),
-        gender,
-        age: Number(age),
+        phone: phone.trim() || undefined,
+        gender: gender || undefined,
+        age: age.trim() ? Number(age) : undefined,
         username: normalizeUsername(username),
       });
       authError = result.error;
@@ -289,6 +301,45 @@ export default function AuthPage() {
             ))}
           </div>
 
+          {/* Google OAuth */}
+          <motion.button
+            type="button"
+            whileHover={{ scale: 1.015 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={async () => {
+              setBusy(true);
+              setError('');
+              const { error: gErr } = await signInWithGoogle();
+              if (gErr) { setError(gErr); setBusy(false); }
+              // on success the page redirects — busy stays true intentionally
+            }}
+            disabled={busy}
+            className="w-full flex items-center justify-center gap-3 py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-60"
+            style={{
+              background: 'rgba(255,255,255,0.07)',
+              border: '1px solid rgba(255,255,255,0.14)',
+              color: '#fff',
+            }}
+            onMouseEnter={(e) => { if (!busy) e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; }}
+          >
+            {/* Google logo */}
+            <svg width="18" height="18" viewBox="0 0 48 48" fill="none">
+              <path d="M44.5 20H24v8.5h11.8C34.7 33.9 30.1 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 5.1 29.6 3 24 3 12.9 3 4 11.9 4 23s8.9 20 20 20c11 0 19.7-8 19.7-20 0-1.3-.1-2.7-.2-3z" fill="#FFC107"/>
+              <path d="M6.3 14.7l7 5.1C15.1 16.2 19.2 13 24 13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 5.1 29.6 3 24 3c-7.5 0-14 4.3-17.7 10.7z" fill="#FF3D00"/>
+              <path d="M24 43c5.9 0 10.9-2 14.5-5.3l-6.7-5.5C29.9 34 27.1 35 24 35c-6.1 0-11.3-4.1-13.1-9.7l-7 5.4C7.7 39.5 15.3 43 24 43z" fill="#4CAF50"/>
+              <path d="M44.5 20H24v8.5h11.8c-.9 2.6-2.6 4.8-4.9 6.2l6.7 5.5C41.3 36.5 44.5 30.2 44.5 23c0-1.3-.1-2-.2-3z" fill="#1976D2"/>
+            </svg>
+            {busy ? 'Redirecting…' : `${mode === 'login' ? 'Continue' : 'Sign up'} with Google`}
+          </motion.button>
+
+          {/* Divider */}
+          <div className="flex items-center gap-3 my-2">
+            <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.07)' }} />
+            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.22)' }}>or continue with email</span>
+            <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.07)' }} />
+          </div>
+
           {/* Form */}
           <AnimatePresence mode="wait">
             <motion.form
@@ -303,8 +354,8 @@ export default function AuthPage() {
             >
               {/* Email */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#555' }}>
-                  Email
+                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#555' }}>
+                  Email <span className="text-[10px] font-normal normal-case tracking-normal text-red-400">required</span>
                 </label>
                 <input
                   type="email"
@@ -326,8 +377,8 @@ export default function AuthPage() {
 
               {/* Password */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#555' }}>
-                  Password
+                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#555' }}>
+                  Password <span className="text-[10px] font-normal normal-case tracking-normal text-red-400">required</span>
                 </label>
                 <input
                   type="password"
@@ -352,8 +403,8 @@ export default function AuthPage() {
                 <>
                   {/* Username */}
                   <div>
-                    <label className="block text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#555' }}>
-                      Username
+                    <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#555' }}>
+                      Username <span className="text-[10px] font-normal normal-case tracking-normal text-red-400">required</span>
                     </label>
                     <input
                       type="text"
@@ -389,8 +440,8 @@ export default function AuthPage() {
 
                   {/* Phone */}
                   <div>
-                    <label className="block text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#555' }}>
-                      Phone Number
+                    <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#555' }}>
+                      Phone Number <span className="text-[10px] font-normal normal-case tracking-normal" style={{ color: 'rgba(255,255,255,0.28)' }}>optional</span>
                     </label>
                     <input
                       type="tel"
@@ -398,7 +449,6 @@ export default function AuthPage() {
                       onChange={(e) => setPhone(e.target.value)}
                       placeholder="+972 50 123 4567"
                       autoComplete="off"
-                      required={mode === 'signup'}
                       className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-white/20 outline-none transition-all"
                       style={{
                         background: 'rgba(255,255,255,0.05)',
@@ -412,13 +462,12 @@ export default function AuthPage() {
                   {/* Gender + Age */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#555' }}>
-                        Gender
+                      <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#555' }}>
+                        Gender <span className="text-[10px] font-normal normal-case tracking-normal" style={{ color: 'rgba(255,255,255,0.28)' }}>optional</span>
                       </label>
                       <select
                         value={gender}
                         onChange={(e) => setGender(e.target.value as Gender)}
-                        required={mode === 'signup'}
                         className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
                         style={{
                           background: 'rgba(255,255,255,0.05)',
@@ -434,8 +483,8 @@ export default function AuthPage() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#555' }}>
-                        Age
+                      <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#555' }}>
+                        Age <span className="text-[10px] font-normal normal-case tracking-normal" style={{ color: 'rgba(255,255,255,0.28)' }}>optional</span>
                       </label>
                       <input
                         type="number"
@@ -445,7 +494,6 @@ export default function AuthPage() {
                         max={120}
                         placeholder="25"
                         autoComplete="off"
-                        required={mode === 'signup'}
                         className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-white/20 outline-none transition-all"
                         style={{
                           background: 'rgba(255,255,255,0.05)',
@@ -553,13 +601,6 @@ export default function AuthPage() {
               </motion.button>
             </motion.form>
           </AnimatePresence>
-
-          {/* Divider */}
-          <div className="flex items-center gap-3 my-6">
-            <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.07)' }} />
-            <span className="text-xs text-white/20">or</span>
-            <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.07)' }} />
-          </div>
 
           {/* Switch mode link */}
           <p className="text-center text-xs text-white/30">
