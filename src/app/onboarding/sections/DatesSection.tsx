@@ -21,7 +21,18 @@ const RED2  = '#b5404a';
 const MUTED = '#3a7068';
 
 // ── Calendar helpers ──────────────────────────────────────────────────────────
-function todayString() { return new Date().toISOString().slice(0, 10); }
+// Format a Date as YYYY-MM-DD using its LOCAL calendar fields. Using
+// toISOString() here would convert to UTC first, shifting the date back a
+// day in any positive-offset timezone (e.g. Israel UTC+2/+3) — which made
+// the calendar render every day one column too far right.
+function dateStr(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function todayString() { return dateStr(new Date()); }
 
 function tripDuration(start: string, end: string) {
   if (!start || !end) return null;
@@ -34,7 +45,6 @@ function toDateObj(str: string) {
   const d = new Date(str + 'T00:00:00');
   return isNaN(d.getTime()) ? null : d;
 }
-function dateStr(d: Date) { return d.toISOString().slice(0, 10); }
 function addDays(str: string, n: number) {
   const d = new Date(str + 'T00:00:00');
   d.setDate(d.getDate() + n);
