@@ -330,7 +330,7 @@ export async function POST(req: NextRequest) {
         [] as ClassifiedResult[],
         'web RAG prefetch',
       ),
-      !profile.hotelBooked?.trim()
+      (!profile.hotelBooked?.trim() && !profile.hotelSkipped)
         ? withPrefetchTimeout(
             searchAccommodations(travelerProfileToAccommodationInput(profile)).catch((err) => {
               console.warn('[generate] accommodation router failed (non-critical):', err);
@@ -431,6 +431,11 @@ export async function POST(req: NextRequest) {
         isFallback = true;
         itinerary = buildFallbackItinerary(profile, filteredInventory, aiOrParseErr, accommodationResult.hotels);
       }
+    }
+
+    // Hotel step skipped → strip every hotel section (recommendations + basecamp).
+    if (profile.hotelSkipped) {
+      delete itinerary.basecamp;
     }
 
     normalizeBasecampHotels(itinerary.basecamp);

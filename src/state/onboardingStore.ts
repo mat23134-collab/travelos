@@ -60,6 +60,9 @@ export interface OnboardingState {
   hotelNightlyBudget: 'budget' | 'mid' | 'comfort' | 'luxury' | '';
   hotelLocationPref:  HotelLocationPref[];
   hotelAmenities:     HotelAmenity[];
+  /** True when the user explicitly skipped the hotel step — suppresses all
+   *  hotel content (recommendations + basecamp) in the generated itinerary. */
+  hotelSkipped:       boolean;
 
   // Step 4: Vibe — who's traveling + pace
   groupType:    'solo' | 'couple' | 'family' | 'group' | '';
@@ -99,6 +102,8 @@ export interface OnboardingState {
   setHotelNightlyBudget: (b: OnboardingState['hotelNightlyBudget']) => void;
   setHotelLocationPref:  (prefs: HotelLocationPref[]) => void;
   toggleHotelAmenity:    (amenity: HotelAmenity) => void;
+  /** Clear every hotel field and mark the step as skipped. */
+  skipHotel:             () => void;
   setGroupType:          (gt: 'solo' | 'couple' | 'family' | 'group') => void;
   setGroupDynamics:      (d: GroupDynamicsPayload | null) => void;
   setPace:               (p: 'relaxed' | 'moderate' | 'intense') => void;
@@ -132,7 +137,7 @@ const INITIAL: Omit<
   | 'setDestinationGeo'
   | 'setArrivalTime' | 'setDepartureTime' | 'setDailyStartTime'
   | 'setHotelLocation' | 'clearHotelLocation'
-  | 'setAccommodation' | 'setHotelNightlyBudget' | 'setHotelLocationPref' | 'toggleHotelAmenity'
+  | 'setAccommodation' | 'setHotelNightlyBudget' | 'setHotelLocationPref' | 'toggleHotelAmenity' | 'skipHotel'
   | 'setGroupType' | 'setGroupDynamics' | 'setPace'
   | 'setFamilyAdults' | 'setFamilyChildCount' | 'setFamilyChildAge' | 'setGroupSize'
   | 'setBudget' | 'setInterests' | 'toggleInterest'
@@ -159,6 +164,7 @@ const INITIAL: Omit<
   hotelNightlyBudget: '',
   hotelLocationPref:  [],
   hotelAmenities:     [],
+  hotelSkipped:       false,
   groupType:       '',
   groupDynamics:   null,
   pace:            '',
@@ -217,13 +223,15 @@ export const useOnboardingStore = create<OnboardingState>()(
 
       setDailyStartTime: (time) => set({ dailyStartTime: time }),
 
+      // Engaging any hotel path (entering a hotel or picking a preference)
+      // clears the "skipped" flag so hotel content is restored.
       setHotelLocation: (address, lat, lng) =>
-        set({ hotelAddress: address, hotelLat: lat, hotelLng: lng }),
+        set({ hotelAddress: address, hotelLat: lat, hotelLng: lng, hotelSkipped: false }),
 
       clearHotelLocation: () =>
         set({ hotelAddress: '', hotelLat: null, hotelLng: null }),
 
-      setAccommodation:      (a) => set({ accommodation: a }),
+      setAccommodation:      (a) => set({ accommodation: a, hotelSkipped: false }),
       setHotelNightlyBudget: (b) => set({ hotelNightlyBudget: b }),
       setHotelLocationPref:  (prefs) => set({ hotelLocationPref: prefs }),
       toggleHotelAmenity: (amenity) => set((s) => {
@@ -232,6 +240,12 @@ export const useOnboardingStore = create<OnboardingState>()(
           ? current.filter((a) => a !== amenity)
           : [...current, amenity];
         return { hotelAmenities: next };
+      }),
+      skipHotel: () => set({
+        hotelAddress: '', hotelLat: null, hotelLng: null,
+        accommodation: '', hotelNightlyBudget: '',
+        hotelLocationPref: [], hotelAmenities: [],
+        hotelSkipped: true,
       }),
       setGroupType: (gt) => set({
         groupType: gt,
@@ -326,6 +340,7 @@ export const useOnboardingStore = create<OnboardingState>()(
         hotelNightlyBudget:  s.hotelNightlyBudget,
         hotelLocationPref:   s.hotelLocationPref,
         hotelAmenities:      s.hotelAmenities,
+        hotelSkipped:        s.hotelSkipped,
         groupType:          s.groupType,
         groupDynamics:      s.groupDynamics,
         familyAdults:       s.familyAdults,

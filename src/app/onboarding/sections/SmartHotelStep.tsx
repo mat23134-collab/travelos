@@ -128,15 +128,14 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
     accommodation, hotelNightlyBudget,
     hotelLocationPref, hotelAmenities,
     setAccommodation, setHotelNightlyBudget,
-    setHotelLocationPref, toggleHotelAmenity,
+    setHotelLocationPref, toggleHotelAmenity, skipHotel,
     destination, groupType, groupDynamics, budget,
   } = useOnboardingStore();
 
   function handleSkip() {
-    // Clear all hotel state so the itinerary generator has no hotel anchor.
-    clearHotelLocation();
-    setHotelNightlyBudget('');
-    setHotelLocationPref([]);
+    // Clear all hotel state AND flag the step as skipped so the itinerary
+    // generator suppresses every hotel section (recommendations + basecamp).
+    skipHotel();
     onSkip();
   }
 

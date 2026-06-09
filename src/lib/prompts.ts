@@ -485,7 +485,9 @@ export function buildUserPrompt(
       + `\nPick hotels with availability evidence for those nights first. If HOTEL_SEARCH_DATA shows no rooms/no availability, mark SOLD OUT and prefer a different available hotel. Never present sold-out hotels as normal options.`
       : '';
 
-  const hotelBlock = profile.hotelBooked?.trim()
+  const hotelBlock = profile.hotelSkipped
+    ? `\nHOTEL: The user SKIPPED accommodation entirely. Do NOT recommend or mention any hotels. OMIT the "basecamp" field completely from the JSON (do not output a basecamp key at all). Do not include hotel recommendations anywhere in the itinerary.`
+    : profile.hotelBooked?.trim()
     ? `\nHOTEL_BOOKED: ${profile.hotelBooked.trim()}\n(Use this for basecamp.type="booked" — extract name and neighborhood from the text above)`
     : hotelContext
       ? `\nHOTEL_SEARCH_DATA (use to generate 3 squad-approved recommendations for basecamp.recommendations[]):\n${hotelContext}${hotelDateAnchoring}`
@@ -496,7 +498,7 @@ export function buildUserPrompt(
   // questions weren't asked / are irrelevant). Each line is a direct
   // instruction so the model treats them as hard filters / weighting.
   const hotelPrefLines: string[] = [];
-  if (!profile.hotelBooked?.trim()) {
+  if (!profile.hotelBooked?.trim() && !profile.hotelSkipped) {
     const NIGHTLY: Record<string, string> = {
       budget:  'Up to $80/night — prioritize value picks; skip 5-star',
       mid:     '$80–$150/night — comfortable mid-tier; smart picks only',
