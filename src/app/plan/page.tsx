@@ -827,7 +827,8 @@ function PlanPage() {
       pace: (form.pace as TravelerProfile['pace']) || 'moderate',
       interests: (form.interests as string[]) || [],
       accommodation: (form.accommodation as TravelerProfile['accommodation']) || 'boutique-hotel',
-      hotelNightlyBudget: (form.hotelNightlyBudget as TravelerProfile['hotelNightlyBudget']) ?? null,
+      // '' means the hotel step was skipped — send null, not '' (not a valid enum).
+      hotelNightlyBudget: ((form.hotelNightlyBudget as string) || null) as TravelerProfile['hotelNightlyBudget'],
       hotelLocationPref: ((form.hotelLocationPref as TravelerProfile['hotelLocationPref']) || []),
       hotelAmenities: ((form.hotelAmenities as TravelerProfile['hotelAmenities']) || []),
       dietaryRestrictions: ((form.dietaryRestrictions as string[]) || []).join(', '),

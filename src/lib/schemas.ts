@@ -9,14 +9,26 @@ import { z } from 'zod';
 
 // ── Primitives matching types.ts enums ────────────────────────────────────────
 
+/**
+ * '' → undefined coercion for skippable single-select fields. The onboarding
+ * UI represents an unset/skipped choice as an empty string; coercing it here
+ * means a skipped optional step never trips enum validation.
+ */
+const emptyToUndefined = (v: unknown) => (v === '' ? undefined : v);
+
 const GroupType        = z.enum(['solo', 'couple', 'family', 'group']);
 const BudgetLevel      = z.enum(['budget', 'mid-range', 'luxury']);
 const PaceLevel        = z.enum(['relaxed', 'moderate', 'intense']);
 const AccommodationType = z.enum(['hostel', 'boutique-hotel', 'luxury-hotel', 'airbnb', 'resort']);
-const HotelNightlyBudget = z.enum(['budget', 'mid', 'comfort', 'luxury']).nullable().optional();
+// Skippable in the UI: "unset" arrives as ''. Coerce '' → undefined so a
+// skipped hotel step never trips enum validation.
+const HotelNightlyBudget = z.preprocess(
+  emptyToUndefined,
+  z.enum(['budget', 'mid', 'comfort', 'luxury']).nullable().optional(),
+);
 const HotelLocationPref  = z.enum(['center', 'nature', 'quiet', 'transit']);
 const HotelAmenity       = z.enum(['breakfast', 'pool', 'parking', 'gym', 'pets', 'spa', 'suite', 'workspace', 'rooftop']);
-const TripLanguage       = z.enum(['en', 'he']).optional();
+const TripLanguage       = z.preprocess(emptyToUndefined, z.enum(['en', 'he']).optional());
 
 const SoloDynamics   = z.enum(['digital-nomad', 'deep-recharge', 'adventure']);
 const CoupleDynamics = z.enum(['romantic', 'parent-child', 'reconnecting']);
