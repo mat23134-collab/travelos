@@ -312,10 +312,18 @@ function OnboardingPageContent() {
         return { canContinue: true, label: 'Continue' };
       }
       case 4:
-        if (hotelAddress)  return { canContinue: true, label: 'Next: dining rules →' };
-        if (accommodation && !hotelNightlyBudget) return { canContinue: false, label: 'Pick nightly budget' };
-        if (accommodation && hotelNightlyBudget) return { canContinue: true, label: 'Next: dining rules →' };
-        return { canContinue: true, label: 'Next: dining rules →' };
+        // Path A: hotel geocoded and confirmed
+        if (hotelAddress) return { canContinue: true, label: 'Next: dining rules →' };
+        // Path B: all three required blocks complete (amenities are optional)
+        if (accommodation && hotelNightlyBudget && hotelLocationPref.length > 0)
+          return { canContinue: true, label: 'Next: dining rules →' };
+        // Path B partial — tell user exactly what's missing
+        if (accommodation && hotelNightlyBudget)
+          return { canContinue: false, label: 'Pick your location preference' };
+        if (accommodation)
+          return { canContinue: false, label: 'Pick nightly budget' };
+        // Nothing selected — user must complete a path or tap Skip
+        return { canContinue: false, label: 'Select an option or skip' };
       case 5:
         return { canContinue: true, label: 'Next: our recommendations →' };
       case 6: {
