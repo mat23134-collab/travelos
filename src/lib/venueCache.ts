@@ -303,6 +303,14 @@ export async function persistVenuesToCache(
   const tags = buildSeedTagContext(profile);
   const seeds = collectPlaceSeeds(itineraryObj, cleanCity, tags);
   await upsertPlaceSeeds(client, seeds, label);
+
+  // Auto-tag new places as top picks for Step 7 onboarding.
+  // Runs after the upsert so newly inserted rows are immediately eligible.
+  // Fire-and-forget — never blocks the generate response.
+  client.rpc('auto_tag_top_picks', { p_city: cleanCity }).then(({ data, error }) => {
+    if (error) console.warn(`[${label}] auto_tag_top_picks failed (non-critical):`, error.message);
+    else if (data > 0) console.log(`[${label}] auto_tag_top_picks: ${data} new top picks tagged for ${cleanCity}`);
+  });
 }
 
 // ── Link user_place_events → places (FK back-fill) ───────────────────────────
