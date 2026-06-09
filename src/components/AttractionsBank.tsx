@@ -18,7 +18,7 @@ interface AttractionsBankProps {
   ui: ItineraryUiStrings;
   onAddManual: (name: string) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
-  onSchedule: (item: BankItem, target: SwapTarget) => void;
+  onSchedule: (item: BankItem, target: SwapTarget) => Promise<void>;
   onCancelPending: () => void;
 }
 
@@ -52,10 +52,19 @@ export function AttractionsBank({ items, loading, pendingSlot, day, dayIndex, ui
     }
   };
 
-  const handlePickSlot = (target: SwapTarget) => {
-    if (!pickerItem) return;
-    onSchedule(pickerItem, target);
-    setPickerItem(null);
+  const [confirming, setConfirming] = useState(false);
+
+  const handlePickSlot = async (target: SwapTarget) => {
+    if (!pickerItem || confirming) return;
+    setConfirming(true);
+    try {
+      await onSchedule(pickerItem, target);
+      setPickerItem(null);
+    } catch {
+      // keep the sheet open so the user can retry
+    } finally {
+      setConfirming(false);
+    }
   };
 
   return (
@@ -147,8 +156,9 @@ export function AttractionsBank({ items, loading, pendingSlot, day, dayIndex, ui
             day={day}
             dayIndex={dayIndex}
             ui={ui}
+            confirming={confirming}
             onPick={handlePickSlot}
-            onClose={() => setPickerItem(null)}
+            onClose={() => { if (!confirming) setPickerItem(null); }}
           />
         )}
       </AnimatePresence>
@@ -235,15 +245,26 @@ function BankItemCard({ item, pending, replaceLabel, onRemove, onSchedule, onRep
   );
 }
 
-function SlotPickerSheet({ item, day, dayIndex, ui, onPick, onClose }: {
+function SlotPickerSheet({ item, day, dayIndex, ui, confirming, onPick, onClose }: {
   item: BankItem;
   day: DayPlan;
   dayIndex: number;
   ui: ItineraryUiStrings;
+  confirming: boolean;
   onPick: (target: SwapTarget) => void;
   onClose: () => void;
 }) {
   const rows = buildTimelineRows(day);
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
+
+  const targets: SwapTarget[] = rows.map((row) => {
+    const slot = row.type === 'activity'
+      ? (row.slot as 'morning' | 'afternoon' | 'evening')
+      : slotForDining(row.slot as 'lunch' | 'dinner');
+    const diningField = row.type === 'dining' ? (row.slot as 'breakfast' | 'lunch' | 'dinner') : undefined;
+    const neighborhood = row.activity?.neighborhood ?? row.dining?.neighborhood;
+    return { dayIndex, slot, diningField, currentName: row.name, neighborhood };
+  });
 
   return (
     <motion.div
@@ -270,19 +291,16 @@ function SlotPickerSheet({ item, day, dayIndex, ui, onPick, onClose }: {
 
         <div className="max-h-[360px] overflow-y-auto divide-y" style={{ borderColor: 'rgba(0,0,0,0.06)' }}>
           {rows.map((row, i) => {
-            const slot = row.type === 'activity'
-              ? (row.slot as 'morning' | 'afternoon' | 'evening')
-              : slotForDining(row.slot as 'lunch' | 'dinner');
-            const diningField = row.type === 'dining' ? (row.slot as 'breakfast' | 'lunch' | 'dinner') : undefined;
-            const neighborhood = row.activity?.neighborhood ?? row.dining?.neighborhood;
-            const target: SwapTarget = { dayIndex, slot, diningField, currentName: row.name, neighborhood };
+            const isSelected = selectedIdx === i;
 
             return (
               <button
                 key={`${row.slot}-${i}`}
                 type="button"
-                onClick={() => onPick(target)}
-                className="w-full flex items-center gap-3 px-4 py-3 text-right hover:bg-[#f7faf9] transition-colors"
+                disabled={confirming}
+                onClick={() => setSelectedIdx(isSelected ? null : i)}
+                className="w-full flex items-center gap-3 px-4 py-3 text-right transition-colors disabled:opacity-60"
+                style={isSelected ? { background: 'rgba(90,173,165,0.12)' } : undefined}
               >
                 <span className="text-[13px] font-bold flex-shrink-0 w-[52px]" style={{ color: '#5aada5' }}>
                   {row.time}
@@ -291,19 +309,37 @@ function SlotPickerSheet({ item, day, dayIndex, ui, onPick, onClose }: {
                   {row.emoji}
                 </span>
                 <span className="text-[12.5px] font-bold text-[#222] truncate flex-1">{row.name}</span>
+                <span
+                  className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[11px]"
+                  style={isSelected
+                    ? { background: '#5aada5', color: '#fff' }
+                    : { border: '1.5px solid rgba(0,0,0,0.15)' }}
+                >
+                  {isSelected ? '✓' : ''}
+                </span>
               </button>
             );
           })}
         </div>
 
-        <div className="px-4 py-3 border-t" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
+        <div className="px-4 py-3 border-t flex items-center gap-2" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
           <button
             type="button"
             onClick={onClose}
-            className="w-full text-[12px] font-bold px-3 py-2 rounded-xl"
+            disabled={confirming}
+            className="flex-1 text-[12px] font-bold px-3 py-2 rounded-xl disabled:opacity-50"
             style={{ background: '#f2f2f2', color: '#888' }}
           >
             {ui.bankPickSlotCancel}
+          </button>
+          <button
+            type="button"
+            onClick={() => { if (selectedIdx !== null) onPick(targets[selectedIdx]); }}
+            disabled={selectedIdx === null || confirming}
+            className="flex-1 text-[12px] font-bold px-3 py-2 rounded-xl disabled:opacity-40"
+            style={{ background: '#5aada5', color: 'white' }}
+          >
+            {confirming ? '…' : ui.bankPickSlotConfirm}
           </button>
         </div>
       </motion.div>

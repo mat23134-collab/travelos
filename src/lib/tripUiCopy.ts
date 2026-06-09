@@ -262,6 +262,7 @@ export function itineraryUi(lang: TripUiLang) {
     bankPickSlotTitle: he ? 'בחרו מה להחליף' : 'Choose what to replace',
     bankPickSlotSubtitle: (place: string) => (he ? `בחרו שיבוץ עבור "${place}"` : `Pick a slot for "${place}"`),
     bankPickSlotCancel: he ? 'ביטול' : 'Cancel',
+    bankPickSlotConfirm: he ? 'אישור החלפה' : 'Confirm swap',
   };
 }
 
