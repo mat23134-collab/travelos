@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { ItineraryClient } from '@/components/ItineraryClient';
 import { Itinerary, TravelerProfile, type CityTransportGuide } from '@/lib/types';
-import { fetchTransportGuideForCity } from '@/lib/tripTransport';
+import { fetchTransportGuideForCity, ensureTransportationForCity } from '@/lib/tripTransport';
 import { createServiceRoleClient } from '@/lib/supabaseService';
 
 interface PageProps {
@@ -83,6 +83,16 @@ export default async function ItineraryByIdPage({ params }: PageProps) {
       transportFromDb = await fetchTransportGuideForCity(supabase, city);
     } catch (e) {
       console.warn('[itinerary/id] transportation fetch skipped:', e instanceof Error ? e.message : e);
+    }
+    if (!transportFromDb) {
+      // Scout is missing for this city — fire in the background so the next
+      // page load will have the data. Uses service-role client (bypasses RLS).
+      const scoutClient = createServiceRoleClient();
+      if (scoutClient) {
+        void ensureTransportationForCity(scoutClient, city).catch((e) =>
+          console.warn('[itinerary/id] background transport scout failed:', e instanceof Error ? e.message : e)
+        );
+      }
     }
   }
 

@@ -80,19 +80,30 @@ async function callGeminiTransport(userPrompt: string): Promise<string> {
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelName)}` +
     `:generateContent?key=${encodeURIComponent(apiKey)}`;
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: TRANSPORT_SYSTEM }] },
-      contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-      generationConfig: {
-        temperature: 0.25,
-        maxOutputTokens: 4096,
-        responseMimeType: 'application/json',
-      },
-    }),
-  });
+  const abort = new AbortController();
+  const abortTimer = setTimeout(() => abort.abort(), 45_000);
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: TRANSPORT_SYSTEM }] },
+        contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+        generationConfig: {
+          temperature: 0.25,
+          maxOutputTokens: 8192,
+          responseMimeType: 'application/json',
+          // gemini-2.5-* thinking tokens count against maxOutputTokens; disable so
+          // the transport JSON isn't truncated (a truncated guide parses to empty).
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+      }),
+      signal: abort.signal,
+    });
+  } finally {
+    clearTimeout(abortTimer);
+  }
 
   const errBody = !res.ok ? await res.text() : '';
   if (!res.ok) {
