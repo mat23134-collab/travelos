@@ -51,6 +51,7 @@ export function TopSightsSection() {
   const { destination, mustHaveItems, toggleMustHave } = useOnboardingStore();
   const [data, setData] = useState<LandmarksByCategory | null>(null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'empty' | 'ready' | 'error'>('idle');
+  const [activeDetail, setActiveDetail] = useState<Landmark | null>(null);
 
   useEffect(() => {
     const city = (destination ?? '').trim();
@@ -111,6 +112,18 @@ export function TopSightsSection() {
         </div>
       )}
 
+      {/* Detail popup */}
+      <AnimatePresence>
+        {activeDetail && (
+          <LandmarkDetailPopup
+            landmark={activeDetail}
+            selected={mustHaveItems.includes(activeDetail.name)}
+            onToggle={() => toggleMustHave(activeDetail.name)}
+            onClose={() => setActiveDetail(null)}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Scan-your-own-notes */}
       <NoteScanner destination={destination} />
 
@@ -141,6 +154,7 @@ export function TopSightsSection() {
                         landmark={landmark}
                         selected={mustHaveItems.includes(landmark.name)}
                         onToggle={() => toggleMustHave(landmark.name)}
+                        onOpenDetail={() => setActiveDetail(landmark)}
                       />
                     ))}
                   </div>
@@ -160,15 +174,17 @@ function CuboidCard({
   landmark,
   selected,
   onToggle,
+  onOpenDetail,
 }: {
   landmark: Landmark;
   selected: boolean;
   onToggle: () => void;
+  onOpenDetail: () => void;
 }) {
   return (
     <motion.button
       type="button"
-      onClick={onToggle}
+      onClick={onOpenDetail}
       whileTap={{ scale: 0.985 }}
       transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
       className="relative flex flex-col text-left rounded-2xl overflow-hidden transition-colors"
@@ -254,6 +270,122 @@ function CuboidCard({
         )}
       </div>
     </motion.button>
+  );
+}
+
+// ─── Landmark detail popup ────────────────────────────────────────────────────
+
+function LandmarkDetailPopup({
+  landmark,
+  selected,
+  onToggle,
+  onClose,
+}: {
+  landmark: Landmark;
+  selected: boolean;
+  onToggle: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <motion.div
+      className="fixed inset-0 z-[80] flex items-center justify-center p-5"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
+    >
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0"
+        style={{ background: 'rgba(8,20,18,0.55)', backdropFilter: 'blur(6px)' }}
+        onClick={onClose}
+      />
+
+      {/* Card */}
+      <motion.div
+        className="relative z-10 w-full max-w-sm rounded-3xl overflow-hidden flex flex-col"
+        style={{
+          background: 'rgba(255,255,255,0.92)',
+          border: BORDER,
+          boxShadow: '0 24px 60px -12px rgba(0,0,0,0.35)',
+          backdropFilter: 'blur(20px)',
+        }}
+        initial={{ scale: 0.88, opacity: 0, y: 16 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.92, opacity: 0, y: 8 }}
+        transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+      >
+        {/* Photo */}
+        <div className="relative w-full overflow-hidden" style={{ aspectRatio: '16 / 9', background: 'rgba(90,173,165,0.12)' }}>
+          {landmark.photo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={landmark.photo_url}
+              alt={landmark.name}
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-5xl" style={{ opacity: 0.3 }}>{landmark.category_emoji || '📍'}</span>
+            </div>
+          )}
+          {/* Top bar: emoji + close */}
+          <div className="absolute inset-x-0 top-0 flex items-center justify-between px-4 pt-4">
+            <span
+              className="text-[11px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full"
+              style={{ background: 'rgba(0,0,0,0.45)', color: '#fff', backdropFilter: 'blur(6px)' }}
+            >
+              {landmark.category_emoji}
+            </span>
+            <motion.button
+              type="button"
+              onClick={onClose}
+              whileTap={{ scale: 0.85 }}
+              className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs"
+              style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
+            >✕</motion.button>
+          </div>
+          {/* Bottom gradient */}
+          <div
+            className="absolute inset-x-0 bottom-0 h-1/3 pointer-events-none"
+            style={{ background: 'linear-gradient(to top, rgba(255,255,255,0.7), transparent)' }}
+          />
+        </div>
+
+        {/* Content */}
+        <div className="px-5 pb-5 pt-4 flex flex-col gap-3">
+          <h3
+            className="font-serif text-[20px] leading-tight tracking-[-0.015em]"
+            style={{ color: IVORY }}
+          >
+            {landmark.name}
+          </h3>
+
+          {landmark.description && (
+            <p
+              className="text-[13px] leading-relaxed tracking-wide"
+              style={{ color: IVORY_DIM }}
+            >
+              {landmark.description}
+            </p>
+          )}
+
+          {/* Action button */}
+          <motion.button
+            type="button"
+            onClick={() => { onToggle(); onClose(); }}
+            whileTap={{ scale: 0.97 }}
+            className="mt-1 w-full py-3 rounded-2xl text-[13px] font-bold tracking-wide transition-colors"
+            style={selected
+              ? { background: 'rgba(196,162,106,0.12)', color: ACCENT, border: `1px solid ${ACCENT}` }
+              : { background: IVORY, color: '#fff', border: `1px solid ${IVORY}` }
+            }
+          >
+            {selected ? '✓ Added to my picks · Tap to remove' : '+ Add to my picks'}
+          </motion.button>
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
