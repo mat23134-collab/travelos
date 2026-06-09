@@ -15,6 +15,7 @@ import { parseTransportGuideJson } from '@/lib/transportGuideParse';
 import { STEP_BACKGROUNDS } from '@/lib/stepBackgrounds';
 import { useAuth } from '@/lib/auth-context';
 import { formatTripDateRange } from '@/lib/formatTripDateRange';
+import type { Session } from '@supabase/supabase-js';
 
 // ─── Public interfaces ────────────────────────────────────────────────────────
 
@@ -87,6 +88,9 @@ export interface UseItineraryReturn {
   ) => Promise<void>;
   handleQuickEditUpdate: (updated: Itinerary, summary: string) => void;
   handleDraftUpdate: (updated: Itinerary) => void;
+
+  // Auth
+  session: Session | null;
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -401,5 +405,6 @@ export function useItinerary({
     feedbackOpen, handleFeedbackDismiss, handleFeedbackSubmit,
     persistAndSet, handleSlotSwap, handleCommitActivitySwap,
     handleQuickEditUpdate, handleDraftUpdate,
+    session,
   };
 }

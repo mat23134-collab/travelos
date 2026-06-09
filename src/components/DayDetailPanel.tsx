@@ -7,9 +7,12 @@ import { DayPhoto } from '@/components/DayPhoto';
 import { DayTimeline, type TimelineRow, type SwapTarget } from '@/components/DayTimeline';
 import { PlaceDetailCube } from '@/components/PlaceDetailCube';
 import { AlternativePickerPanel } from '@/components/AlternativePickerPanel';
+import { AttractionsBank } from '@/components/AttractionsBank';
+import { useAttractionBank, type BankItem } from '@/hooks/useAttractionBank';
 import type { DayPlan, Itinerary, TravelerProfile, Activity } from '@/lib/types';
 import type { ItineraryUiStrings } from '@/lib/tripUiCopy';
 import type { ItineraryMapLabels } from '@/components/ItineraryMap';
+import type { Session } from '@supabase/supabase-js';
 
 const ItineraryMap = dynamic(
   () => import('@/components/ItineraryMap').then((m) => m.ItineraryMap),
@@ -29,6 +32,8 @@ interface DayDetailPanelProps {
   dayIndex: number;
   totalDays: number;
   itinerary: Itinerary;
+  itineraryId: string | null;
+  session: Session | null;
   profile: TravelerProfile | null;
   ui: ItineraryUiStrings;
   mapLabels: ItineraryMapLabels;
@@ -50,7 +55,7 @@ interface DayDetailPanelProps {
 }
 
 export function DayDetailPanel({
-  day, dayIndex, totalDays, itinerary, profile, ui, mapLabels,
+  day, dayIndex, totalDays, itinerary, itineraryId, session, profile, ui, mapLabels,
   basecampMarker, focusedNeighborhood,
   onSwapSlot, onCommitActivitySwap, onNeighborhoodClick,
   onPrevDay, onNextDay, onBackToOverview, onOpenMobileMap,
@@ -61,11 +66,48 @@ export function DayDetailPanel({
 
   const [activePlace, setActivePlace] = useState<TimelineRow | null>(null);
   const [activeSwap, setActiveSwap] = useState<SwapTarget | null>(null);
+  const [pendingSlot, setPendingSlot] = useState<SwapTarget | null>(null);
+  const bank = useAttractionBank({ itineraryId, destination, itinerary, session });
 
   const handleCommit = (activity: Activity, summary: string, diningField?: 'breakfast' | 'lunch' | 'dinner') => {
     if (!activeSwap) return;
     onCommitActivitySwap(dayIndex, activeSwap.slot, activity, summary, diningField);
     setActiveSwap(null);
+    setPendingSlot(null);
+  };
+
+  const handleScheduleFromBank = async (item: BankItem) => {
+    if (!pendingSlot) return;
+    const res = await fetch('/api/swap', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
+      body: JSON.stringify({
+        itinerary,
+        itinerary_id: itineraryId ?? undefined,
+        dayIndex,
+        slot: pendingSlot.slot,
+        replacementActivity: {
+          name: item.name,
+          description: item.description ?? '',
+          latitude: item.lat ?? undefined,
+          longitude: item.lng ?? undefined,
+          category_emoji: item.category_emoji ?? undefined,
+          website_url: item.website_url ?? undefined,
+          neighborhood: pendingSlot.neighborhood,
+        },
+        proposalSummary: `הוחלף ב${item.name} מבנק האטרקציות`,
+      }),
+    });
+
+    if (res.ok) {
+      const result = await res.json();
+      onCommitActivitySwap(dayIndex, pendingSlot.slot, result.activity, result.summary, pendingSlot.diningField);
+      await bank.removeItem(item.id);
+      setPendingSlot(null);
+    }
   };
 
   return (
@@ -128,7 +170,7 @@ export function DayDetailPanel({
                 onSwapSlot={onSwapSlot}
                 onNeighborhoodClick={onNeighborhoodClick}
                 onExplore={(row) => setActivePlace(row)}
-                onFindAlternative={(target) => setActiveSwap(target)}
+                onFindAlternative={(target) => { setActiveSwap(target); setPendingSlot(target); }}
               />
 
               {/* Mobile map button */}
@@ -144,26 +186,38 @@ export function DayDetailPanel({
               )}
             </div>
 
-            {/* Right: Map */}
-            <div
-              className="hidden sm:block rounded-2xl overflow-hidden bg-white"
-              style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.08)', minHeight: 480 }}
-            >
-              <div className="px-4 py-3 flex items-center justify-between border-b" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
-                <div>
-                  <div className="text-[13px] font-bold text-[#222]">Day {dayIndex + 1} Route</div>
-                  <div className="text-[11px] text-[#888]">{destination}</div>
+            {/* Right: Map + Attractions Bank */}
+            <div className="flex flex-col gap-3">
+              <div
+                className="rounded-2xl overflow-hidden bg-white"
+                style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.08)', minHeight: 380 }}
+              >
+                <div className="px-4 py-3 flex items-center justify-between border-b" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
+                  <div>
+                    <div className="text-[13px] font-bold text-[#222]">Day {dayIndex + 1} Route</div>
+                    <div className="text-[11px] text-[#888]">{destination}</div>
+                  </div>
+                </div>
+                <div style={{ height: 'calc(100% - 52px)', minHeight: 328 }}>
+                  <ItineraryMap
+                    days={[day]}
+                    destination={destination}
+                    focusedNeighborhood={focusedNeighborhood}
+                    basecampMarker={basecampMarker}
+                    labels={mapLabels}
+                  />
                 </div>
               </div>
-              <div style={{ height: 'calc(100% - 52px)', minHeight: 380 }}>
-                <ItineraryMap
-                  days={[day]}
-                  destination={destination}
-                  focusedNeighborhood={focusedNeighborhood}
-                  basecampMarker={basecampMarker}
-                  labels={mapLabels}
-                />
-              </div>
+
+              <AttractionsBank
+                items={bank.items}
+                loading={bank.loading}
+                pendingSlot={pendingSlot}
+                onAddManual={bank.addManualItem}
+                onRemove={bank.removeItem}
+                onSchedule={handleScheduleFromBank}
+                onCancelPending={() => setPendingSlot(null)}
+              />
             </div>
           </div>
 
@@ -188,7 +242,7 @@ export function DayDetailPanel({
           itinerary={itinerary}
           profile={profile}
           onCommit={handleCommit}
-          onClose={() => setActiveSwap(null)}
+          onClose={() => { setActiveSwap(null); setPendingSlot(null); }}
         />
       )}
     </>
