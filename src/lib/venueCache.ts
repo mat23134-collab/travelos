@@ -195,32 +195,30 @@ export async function upsertPlaceSeeds(
 ): Promise<void> {
   if (seeds.length === 0) return;
 
-  const { error: upsertErr, count } = await client
-    .from('places')
-    .upsert(seeds, { onConflict: 'lower(name),lower(city)', count: 'exact', ignoreDuplicates: false });
+  // Use a server-side RPC that executes
+  //   INSERT ... ON CONFLICT (lower(name), lower(city)) DO UPDATE
+  // PostgREST does not support expression-based onConflict targets, so the
+  // previous client-side upsert always failed with "column lower does not exist".
+  const { error: rpcErr } = await client.rpc('bulk_upsert_places', { rows: seeds });
 
-  if (!upsertErr) {
-    console.log(`[${label}] places sync (batch upsert): ${count ?? seeds.length} rows touched`);
+  if (!rpcErr) {
+    console.log(`[${label}] places sync (rpc bulk_upsert_places): ${seeds.length} rows`);
     return;
   }
 
-  if (upsertErr.message?.includes('on_conflict') || upsertErr.code === '42P10' || upsertErr.code === 'PGRST204') {
-    console.warn(`[${label}] places batch upsert fell back to per-row: ${upsertErr.message}`);
-    let inserted = 0, skipped = 0;
-    for (const seed of seeds) {
-      const { error: insErr } = await client.from('places').insert(seed);
-      if (insErr) {
-        if (insErr.code === '23505') skipped++;
-        else console.warn(`[${label}] places insert skipped for "${seed.name}":`, insErr.message);
-        continue;
-      }
-      inserted++;
+  // RPC unavailable (schema lag) — fall back to per-row INSERT, skip duplicates
+  console.warn(`[${label}] bulk_upsert_places rpc failed (${rpcErr.message}) — falling back to per-row insert`);
+  let inserted = 0, skipped = 0;
+  for (const seed of seeds) {
+    const { error: insErr } = await client.from('places').insert(seed);
+    if (insErr) {
+      if (insErr.code === '23505') skipped++;
+      else console.warn(`[${label}] places insert skipped for "${seed.name}":`, insErr.message);
+      continue;
     }
-    console.log(`[${label}] places sync (fallback): inserted ${inserted}, skipped ${skipped}`);
-    return;
+    inserted++;
   }
-
-  console.warn(`[${label}] places batch upsert failed: ${upsertErr.message}`);
+  console.log(`[${label}] places sync (fallback per-row): inserted ${inserted}, skipped ${skipped}`);
 }
 
 // ── Profile → tag context ─────────────────────────────────────────────────────
