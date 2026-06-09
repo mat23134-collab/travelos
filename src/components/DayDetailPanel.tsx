@@ -77,35 +77,28 @@ export function DayDetailPanel({
   };
 
   const handleScheduleFromBank = async (item: BankItem, target: SwapTarget) => {
-    const res = await fetch('/api/swap', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-      },
-      body: JSON.stringify({
-        itinerary,
-        itinerary_id: itineraryId ?? undefined,
-        dayIndex,
-        slot: target.slot,
-        replacementActivity: {
-          name: item.name,
-          description: item.description ?? '',
-          latitude: item.lat ?? undefined,
-          longitude: item.lng ?? undefined,
-          category_emoji: item.category_emoji ?? undefined,
-          website_url: item.website_url ?? undefined,
-          neighborhood: target.neighborhood,
-        },
-        proposalSummary: `הוחלף ב${item.name} מבנק האטרקציות`,
-      }),
-    });
+    const replacementActivity: Activity = {
+      name: item.name,
+      description: item.description ?? '',
+      latitude: item.lat ?? undefined,
+      longitude: item.lng ?? undefined,
+      category_emoji: item.category_emoji ?? undefined,
+      website_url: item.website_url ?? undefined,
+      neighborhood: target.neighborhood,
+    };
 
-    if (res.ok) {
-      const result = await res.json();
-      onCommitActivitySwap(dayIndex, target.slot, result.activity, result.summary, target.diningField);
+    try {
+      await onCommitActivitySwap(
+        dayIndex,
+        target.slot,
+        replacementActivity,
+        `הוחלף ב${item.name} מבנק האטרקציות`,
+        target.diningField,
+      );
       await bank.removeItem(item.id);
       if (pendingSlot) setPendingSlot(null);
+    } catch {
+      // swap failed — keep the item in the bank so the user can retry
     }
   };
 
