@@ -263,6 +263,8 @@ export function itineraryUi(lang: TripUiLang) {
     bankPickSlotSubtitle: (place: string) => (he ? `בחרו שיבוץ עבור "${place}"` : `Pick a slot for "${place}"`),
     bankPickSlotCancel: he ? 'ביטול' : 'Cancel',
     bankPickSlotConfirm: he ? 'אישור החלפה' : 'Confirm swap',
+
+    daySummaryTitle: he ? '📋 תקציר היום' : "📋 Today's Plan",
   };
 }
 

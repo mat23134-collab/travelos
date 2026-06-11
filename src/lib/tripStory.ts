@@ -21,7 +21,7 @@ export function buildTripStoryDays(itinerary: Itinerary, lang: TripUiLang): Trip
   });
 }
 
-function summarizeDay(day: DayPlan, dayNum: number, lang: TripUiLang): string[] {
+export function summarizeDay(day: DayPlan, dayNum: number, lang: TripUiLang): string[] {
   const he = lang === 'he';
   const chunks: string[] = [];
 

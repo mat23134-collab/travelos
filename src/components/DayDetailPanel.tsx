@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import { DayPhoto } from '@/components/DayPhoto';
+import { DaySummaryCard } from '@/components/DaySummaryCard';
 import { DayTimeline, type TimelineRow, type SwapTarget } from '@/components/DayTimeline';
 import { PlaceDetailCube } from '@/components/PlaceDetailCube';
 import { AlternativePickerPanel } from '@/components/AlternativePickerPanel';
@@ -153,6 +154,8 @@ export function DayDetailPanel({
                   <div className="text-[11px] text-[#888] mt-0.5">Typical weather · {destination}</div>
                 </div>
               </div>
+
+              <DaySummaryCard day={day} dayIndex={dayIndex} ui={ui} />
 
               <DayTimeline
                 day={day}
