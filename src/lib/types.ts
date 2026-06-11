@@ -215,6 +215,7 @@ export interface DayPlan {
   estimatedDailyCost?: string;
   transportTip?: string;
   webInsights?: WebInsight[];
+  daySummary?: string;   // AI-written "daily story" paragraph (new itineraries only); falls back to summarizeDay() when absent
 }
 
 export interface SearchResult {
