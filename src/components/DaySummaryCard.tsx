@@ -2,7 +2,7 @@
 
 import { summarizeDay } from '@/lib/tripStory';
 import type { DayPlan } from '@/lib/types';
-import type { ItineraryUiStrings } from '@/lib/tripUiCopy';
+import type { ItineraryUiStrings, TripUiLang } from '@/lib/tripUiCopy';
 
 interface DaySummaryCardProps {
   day: DayPlan;
@@ -10,8 +10,20 @@ interface DaySummaryCardProps {
   ui: ItineraryUiStrings;
 }
 
+/**
+ * Returns the sentences to show in the "Today's Plan" card: the AI-written
+ * `day.daySummary` narrative when present and non-empty, otherwise the
+ * deterministic `summarizeDay()` output (used by itineraries generated
+ * before this field existed).
+ */
+export function getDaySummarySentences(day: DayPlan, dayIndex: number, lang: TripUiLang): string[] {
+  const aiSummary = day.daySummary?.trim();
+  if (aiSummary) return [aiSummary];
+  return summarizeDay(day, dayIndex + 1, lang);
+}
+
 export function DaySummaryCard({ day, dayIndex, ui }: DaySummaryCardProps) {
-  const sentences = summarizeDay(day, dayIndex + 1, ui.lang);
+  const sentences = getDaySummarySentences(day, dayIndex, ui.lang);
   if (sentences.length === 0) return null;
 
   return (
