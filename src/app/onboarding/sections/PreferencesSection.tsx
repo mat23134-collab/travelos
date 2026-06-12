@@ -13,40 +13,40 @@
 
 import { motion } from 'framer-motion';
 import { useOnboardingStore } from '@/state/onboardingStore';
-
-const GREEN = '#2e9e74';
-const MUTED = '#3a7068';
+import { THEME, CARD } from '@/lib/onboardingTheme';
+import { Wallet, CreditCard, Gem, Landmark, UtensilsCrossed, Mountain, Palette, Moon, Flower2, ShoppingBag } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 const BUDGET_OPTIONS = [
   {
     value: 'budget',
     label: 'Budget Explorer',
-    icon:  '💚',
+    icon:  Wallet as LucideIcon,
     sub:   'Under $100/day · hostels, street food, free sights',
   },
   {
     value: 'mid-range',
     label: 'Smart Traveler',
-    icon:  '💛',
+    icon:  CreditCard as LucideIcon,
     sub:   '$100–$300/day · boutique hotels, local restaurants',
   },
   {
     value: 'luxury',
     label: 'Luxury Seeker',
-    icon:  '💎',
+    icon:  Gem as LucideIcon,
     sub:   '$300+/day · 5-star, fine dining, private tours',
   },
 ] as const;
 
-const INTEREST_OPTIONS = [
-  { value: 'culture',      label: 'Culture & History', icon: '🏛️' },
-  { value: 'food',         label: 'Food & Dining',     icon: '🍜' },
-  { value: 'adventure',    label: 'Adventure',          icon: '🧗' },
-  { value: 'art',          label: 'Art & Museums',      icon: '🎨' },
-  { value: 'nightlife',    label: 'Nightlife',           icon: '🌃' },
-  { value: 'wellness',     label: 'Wellness & Spa',     icon: '🧘' },
-  { value: 'shopping',     label: 'Shopping',           icon: '🛍️' },
-  { value: 'hidden-gems',  label: 'Hidden Gems',        icon: '💎' },
+const INTEREST_OPTIONS: { value: string; label: string; icon: LucideIcon }[] = [
+  { value: 'culture',      label: 'Culture & History', icon: Landmark },
+  { value: 'food',         label: 'Food & Dining',     icon: UtensilsCrossed },
+  { value: 'adventure',    label: 'Adventure',          icon: Mountain },
+  { value: 'art',          label: 'Art & Museums',      icon: Palette },
+  { value: 'nightlife',    label: 'Nightlife',           icon: Moon },
+  { value: 'wellness',     label: 'Wellness & Spa',     icon: Flower2 },
+  { value: 'shopping',     label: 'Shopping',           icon: ShoppingBag },
+  { value: 'hidden-gems',  label: 'Hidden Gems',        icon: Gem },
 ];
 
 interface Props {
@@ -62,11 +62,6 @@ export function PreferencesSection({ isCompleted, onComplete, onEdit }: Props) {
 
   // ── Completed summary bar ──────────────────────────────────────────────────
   if (isCompleted) {
-    const interestIcons = interests
-      .slice(0, 4)
-      .map((v) => INTEREST_OPTIONS.find((o) => o.value === v)?.icon ?? '')
-      .join(' ');
-
     return (
       <motion.div
         initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
@@ -75,15 +70,14 @@ export function PreferencesSection({ isCompleted, onComplete, onEdit }: Props) {
       >
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <span className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black text-white shrink-0"
-            style={{ background: GREEN }}>✓</span>
+            style={{ background: THEME.gold }}>✓</span>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold truncate" style={{ color: '#1a4a44' }}>
-              {budgetOpt?.icon} {budgetOpt?.label}
+              {budgetOpt?.label}
             </p>
             {interests.length > 0 && (
-              <p className="text-xs mt-0.5 truncate" style={{ color: MUTED }}>
-                {interestIcons}
-                {interests.length > 4 && ` +${interests.length - 4} more`}
+              <p className="text-xs mt-0.5 truncate" style={{ color: THEME.textMuted }}>
+                {interests.length} interests
               </p>
             )}
           </div>
@@ -101,22 +95,10 @@ export function PreferencesSection({ isCompleted, onComplete, onEdit }: Props) {
   return (
     <div className="flex flex-col gap-6">
 
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black text-white shrink-0"
-          style={{ background: GREEN }}>3</span>
-        <div>
-          <h2 className="text-xl font-black tracking-tight" style={{ color: '#0d2b27' }}>Your travel style</h2>
-          <p className="text-xs mt-0.5" style={{ color: MUTED }}>
-            Budget calibrates every recommendation · interests bias the picks
-          </p>
-        </div>
-      </div>
-
       {/* Budget — 3 row options */}
       <div className="flex flex-col gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: MUTED }}>
-          Daily budget <span style={{ color: '#5a908a' }}>(excl. flights)</span>
+        <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: THEME.textMuted }}>
+          Daily budget <span style={{ color: THEME.textFaint }}>(excl. flights)</span>
         </p>
         {BUDGET_OPTIONS.map((opt) => {
           const sel = budget === opt.value;
@@ -126,31 +108,25 @@ export function PreferencesSection({ isCompleted, onComplete, onEdit }: Props) {
               onClick={() => setBudget(opt.value)}
               whileHover={{ scale: 1.01, x: 3 }}
               whileTap={{ scale: 0.98 }}
-              animate={sel
-                ? { boxShadow: `0 0 0 2px ${GREEN}, 0 8px 28px -6px rgba(46,158,116,0.25)` }
-                : { boxShadow: 'none' }
-              }
               transition={{ type: 'spring', stiffness: 400, damping: 24 }}
               className="flex items-center gap-4 px-4 py-3.5 rounded-xl border text-left transition-colors"
-              style={sel
-                ? { borderColor: GREEN, background: 'rgba(46,158,116,0.10)' }
-                : { borderColor: 'rgba(90,173,165,0.28)', background: 'rgba(255,255,255,0.65)' }
-              }
+              style={sel ? CARD.selected : CARD.base}
             >
-              <span className="text-xl shrink-0 leading-none">{opt.icon}</span>
+              <opt.icon
+                size={18}
+                strokeWidth={1.75}
+                style={{ color: sel ? THEME.gold : THEME.textMuted }}
+                className="shrink-0"
+              />
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-bold leading-tight"
-                  style={{ color: sel ? '#3ec98a' : '#1a4a44' }}>
+                  style={{ color: sel ? THEME.deepGreen : THEME.textBody }}>
                   {opt.label}
                 </div>
-                <div className="text-[11px] mt-0.5 leading-snug" style={{ color: MUTED }}>
+                <div className="text-[11px] mt-0.5 leading-snug" style={{ color: THEME.textMuted }}>
                   {opt.sub}
                 </div>
               </div>
-              {sel && (
-                <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }}
-                  className="text-xs font-bold shrink-0" style={{ color: GREEN }}>✓</motion.span>
-              )}
             </motion.button>
           );
         })}
@@ -158,9 +134,9 @@ export function PreferencesSection({ isCompleted, onComplete, onEdit }: Props) {
 
       {/* Interests — 4×2 chip grid */}
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: MUTED }}>
+        <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: THEME.textMuted }}>
           What lights you up?{' '}
-          <span style={{ color: '#5a908a' }}>(optional — pick any)</span>
+          <span style={{ color: THEME.textFaint }}>(optional — pick any)</span>
         </p>
         <div className="grid grid-cols-2 gap-2">
           {INTEREST_OPTIONS.map((opt) => {
@@ -172,17 +148,18 @@ export function PreferencesSection({ isCompleted, onComplete, onEdit }: Props) {
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
                 className="flex items-center gap-2.5 px-3.5 py-3 rounded-xl border text-left transition-colors"
-                style={sel
-                  ? { borderColor: GREEN, background: 'rgba(46,158,116,0.10)', color: '#3ec98a' }
-                  : { borderColor: 'rgba(90,173,165,0.28)', background: 'rgba(255,255,255,0.65)', color: '#1a4a44' }
-                }
+                style={sel ? CARD.selected : CARD.base}
               >
-                <span className="text-base shrink-0 leading-none">{opt.icon}</span>
-                <span className="text-xs font-semibold leading-snug flex-1">{opt.label}</span>
-                {sel && (
-                  <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }}
-                    className="text-[10px] font-black shrink-0" style={{ color: GREEN }}>✓</motion.span>
-                )}
+                <opt.icon
+                  size={18}
+                  strokeWidth={1.75}
+                  style={{ color: sel ? THEME.gold : THEME.textMuted }}
+                  className="shrink-0"
+                />
+                <span className="text-xs font-semibold leading-snug flex-1"
+                  style={{ color: sel ? THEME.deepGreen : THEME.textBody }}>
+                  {opt.label}
+                </span>
               </motion.button>
             );
           })}
