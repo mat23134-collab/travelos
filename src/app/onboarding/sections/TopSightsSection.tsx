@@ -515,7 +515,7 @@ function NoteScanner({ destination }: { destination: string }) {
             )}
 
             {status === 'error' && (
-              <p className="text-[12px] tracking-wide" style={{ color: '#9e363a' }}>
+              <p className="text-[12px] tracking-wide" style={{ color: '#b43c3c' }}>
                 {errorMsg || 'Something went wrong — try again.'}
               </p>
             )}

@@ -66,13 +66,13 @@ export function PreferencesSection({ isCompleted, onComplete, onEdit }: Props) {
       <motion.div
         initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
         className="flex items-center justify-between px-5 py-3.5 rounded-2xl"
-        style={{ background: 'rgba(255,255,255,0.72)', border: '1px solid rgba(46,158,116,0.22)' }}
+        style={{ background: THEME.surface, border: `1px solid ${THEME.border}` }}
       >
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <span className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black text-white shrink-0"
             style={{ background: THEME.gold }}>✓</span>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold truncate" style={{ color: '#1a4a44' }}>
+            <p className="text-sm font-bold truncate" style={{ color: THEME.textBody }}>
               {budgetOpt?.label}
             </p>
             {interests.length > 0 && (
@@ -84,7 +84,7 @@ export function PreferencesSection({ isCompleted, onComplete, onEdit }: Props) {
         </div>
         <button onClick={onEdit}
           className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors hover-bg-subtle shrink-0"
-          style={{ color: '#3a7068', border: '1px solid rgba(90,173,165,0.30)' }}>
+          style={{ color: THEME.textMuted, border: `1px solid ${THEME.border}` }}>
           Edit
         </button>
       </motion.div>
