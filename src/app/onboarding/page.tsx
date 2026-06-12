@@ -13,8 +13,10 @@
  *                          → "Generate My Itinerary" (only CTA)
  *
  * One section fills the viewport at a time; steps slide in from the right
- * and exit to the left (reverse on back). A single progress bar sits at the
- * top. Back arrow in the header. No duplicate action buttons anywhere.
+ * and exit to the left (reverse on back). A flat ivory page with a hero
+ * photo strip and a gold segmented progress bar sits at the top, alongside
+ * a serif headline + sub line driven by stepCopy. Back arrow in the header.
+ * No duplicate action buttons anywhere.
  */
 
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -27,6 +29,8 @@ import { useAuth } from '@/lib/auth-context';
 import { BrandWordmark } from '@/components/BrandWordmark';
 import { resolveBackgroundImage } from '@/lib/stepBackgrounds';
 import { COUNTRIES } from '@/lib/countries';
+import { THEME } from '@/lib/onboardingTheme';
+import { getStepCopy } from '@/lib/stepCopy';
 
 // ── Chunk-load resilience ────────────────────────────────────────────────────
 // Mobile networks + post-deploy chunk-hash changes make a single dynamic import
@@ -80,38 +84,26 @@ const TopSightsSection = dynamic(
 
 // ── Steps meta ────────────────────────────────────────────────────────────────
 const STEPS = [
-  { label: 'Destination', color: '#9e363a' },
-  { label: 'Dates',       color: '#4a7bde' },
-  { label: 'Interests',   color: '#2e9e74' },
-  { label: 'Style',       color: '#7b6fcf' },
-  { label: 'Stay',        color: '#c5912a' },
-  { label: 'Dining',      color: '#9e363a' },
-  { label: 'Our Picks',   color: '#9e363a' },
+  { label: 'Destination' },
+  { label: 'Dates' },
+  { label: 'Interests' },
+  { label: 'Style' },
+  { label: 'Stay' },
+  { label: 'Dining' },
+  { label: 'Our Picks' },
 ] as const;
 
 // ── Progress bar ──────────────────────────────────────────────────────────────
 function ProgressBar({ step, total }: { step: number; total: number }) {
   return (
-    <div className="flex items-center gap-1.5">
-      {Array.from({ length: total }).map((_, i) => {
-        const done   = i < step;
-        const active = i === step;
-        return (
-          <div
-            key={i}
-            className="rounded-full transition-all duration-500"
-            style={{
-              height: 5,
-              width:  active ? 24 : done ? 8 : 6,
-              background: active
-                ? STEPS[i]?.color ?? '#fff'
-                : done
-                  ? (STEPS[i]?.color ?? '#fff') + '70'
-                  : 'rgba(255,255,255,0.10)',
-            }}
-          />
-        );
-      })}
+    <div className="flex items-center gap-1 w-32">
+      {Array.from({ length: total }).map((_, i) => (
+        <div
+          key={i}
+          className="flex-1 rounded-full transition-colors duration-500"
+          style={{ height: 3, background: i <= step ? THEME.gold : THEME.border }}
+        />
+      ))}
     </div>
   );
 }
@@ -133,9 +125,49 @@ const slide = {
 function StepSkeleton() {
   return (
     <div className="flex flex-col gap-4 animate-pulse">
-      <div className="h-8 w-48 rounded-xl" style={{ background: 'rgba(255,255,255,0.07)' }} />
-      <div className="h-4 w-64 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)' }} />
-      <div className="h-40 rounded-2xl mt-2" style={{ background: 'rgba(255,255,255,0.04)' }} />
+      <div className="h-8 w-48 rounded-xl" style={{ background: 'rgba(31,36,33,0.06)' }} />
+      <div className="h-4 w-64 rounded-lg" style={{ background: 'rgba(31,36,33,0.04)' }} />
+      <div className="h-40 rounded-2xl mt-2" style={{ background: 'rgba(31,36,33,0.04)' }} />
+    </div>
+  );
+}
+
+// ── Hero strip ────────────────────────────────────────────────────────────────
+function HeroStrip({ url, cityName }: { url: string | null; cityName: string | null }) {
+  const [failed, setFailed] = useState(false);
+  const showPhoto = !!url && !failed;
+  return (
+    <div
+      className="relative rounded-2xl overflow-hidden mb-2"
+      style={{ height: 140, background: showPhoto ? THEME.ink : '#EAE7DE' }}
+    >
+      <AnimatePresence mode="wait">
+        {showPhoto && (
+          <motion.img
+            key={url}
+            src={url!}
+            alt=""
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.6 }}
+            className="absolute inset-0 w-full h-full object-cover"
+            onError={() => setFailed(true)}
+          />
+        )}
+      </AnimatePresence>
+      <div
+        className="absolute inset-0"
+        style={{ background: 'linear-gradient(to top, rgba(13,20,18,0.55) 0%, transparent 55%)' }}
+      />
+      {cityName && (
+        <p
+          className="absolute bottom-3 left-4 font-serif text-[22px] tracking-[-0.01em]"
+          style={{ color: '#FDFCF9', fontWeight: 400 }}
+        >
+          {cityName}
+        </p>
+      )}
     </div>
   );
 }
@@ -279,6 +311,12 @@ function OnboardingPageContent() {
     ? Math.round((new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000)
     : null;
 
+  const stepCopy = getStepCopy(wizardStep, {
+    cityName:  cities[0]?.name ?? (destination.trim() || null),
+    nights:    nightCount,
+    groupType: groupType || null,
+  });
+
   const stepState: { canContinue: boolean; label: string } = (() => {
     switch (wizardStep) {
       case 0:
@@ -404,34 +442,8 @@ function OnboardingPageContent() {
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
-  const stepColor = STEPS[wizardStep]?.color ?? '#9e363a';
-
   return (
-    <main
-      className="min-h-screen relative"
-      style={{
-        backgroundImage: `linear-gradient(rgba(180,228,222,0.82), rgba(180,228,222,0.82)), url("${bgUrl}")`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundAttachment: 'fixed',
-      }}
-    >
-      {/* Step-colour accent glow on top of photo */}
-      <div className="fixed inset-0 pointer-events-none z-0" aria-hidden="true">
-        <div
-          className="absolute top-0 left-0 right-0 h-64 transition-all duration-700"
-          style={{
-            background: `radial-gradient(ellipse 80% 100% at 50% -10%, ${stepColor}30 0%, transparent 70%)`,
-          }}
-        />
-        <div
-          className="absolute bottom-0 left-0 right-0 h-48 transition-all duration-700"
-          style={{
-            background: `linear-gradient(to top, ${stepColor}15 0%, transparent 100%)`,
-          }}
-        />
-      </div>
-
+    <main className="min-h-screen relative" style={{ background: THEME.ivory }}>
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <div className="relative z-10 max-w-xl mx-auto px-5 sm:px-8 pt-8">
         <div className="flex items-center justify-between mb-2">
@@ -447,29 +459,45 @@ function OnboardingPageContent() {
                   onClick={goBack}
                   aria-label="Go back"
                   className="w-8 h-8 rounded-full flex items-center justify-center hover-bg-subtle transition-colors"
-                  style={{ color: '#3a6460', border: '1px solid rgba(90,173,165,0.35)' }}
+                  style={{ color: THEME.textMuted, border: `1px solid ${THEME.border}` }}
                 >
                   ‹
                 </motion.button>
               )}
             </AnimatePresence>
-            <BrandWordmark accent={stepColor} className="text-sm" />
+            <BrandWordmark accent={THEME.gold} className="text-sm" />
           </div>
           <ProgressBar step={wizardStep} total={STEPS.length} />
         </div>
 
-        {/* Step label */}
+        <HeroStrip
+          url={bgUrl || null}
+          cityName={cities[0]?.name ?? (destination.trim() || null)}
+        />
+
+        {/* Step label + headline */}
         <AnimatePresence mode="wait">
-          <motion.p
+          <motion.div
             key={wizardStep}
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
-            className="text-[11px] font-bold uppercase tracking-widest mt-3 mb-8"
-            style={{ color: stepColor }}
+            className="mt-5 mb-8"
           >
-            Step {wizardStep + 1} of {STEPS.length} · {STEPS[wizardStep]?.label}
-          </motion.p>
+            <p className="text-[11px] uppercase tracking-[0.22em]" style={{ color: THEME.gold }}>
+              {String(wizardStep + 1).padStart(2, '0')} — {STEPS[wizardStep]?.label}
+              <span style={{ color: THEME.textFaint }}> · of {String(STEPS.length).padStart(2, '0')}</span>
+            </p>
+            <h1
+              className="font-serif text-[28px] leading-[1.15] tracking-[-0.015em] mt-2"
+              style={{ color: THEME.deepGreen, fontWeight: 400 }}
+            >
+              {stepCopy.headline}
+            </h1>
+            <p className="mt-1.5 text-[13px] tracking-wide" style={{ color: THEME.textMuted }}>
+              {stepCopy.sub}
+            </p>
+          </motion.div>
         </AnimatePresence>
       </div>
 
@@ -550,7 +578,7 @@ function OnboardingPageContent() {
       <div
         className="fixed bottom-0 left-0 right-0 z-20"
         style={{
-          background: 'linear-gradient(to top, rgba(180,228,222,0.97) 60%, transparent 100%)',
+          background: 'linear-gradient(to top, rgba(253,252,249,0.97) 60%, transparent 100%)',
           paddingTop: 36,
         }}
       >
@@ -568,9 +596,9 @@ function OnboardingPageContent() {
                 onClick={goBack}
                 className="flex items-center gap-1.5 px-5 py-3.5 rounded-full text-sm font-bold shrink-0 transition-colors"
                 style={{
-                  background: 'rgba(255,255,255,0.45)',
-                  border: '1px solid rgba(90,173,165,0.35)',
-                  color: '#3a6460',
+                  background: THEME.surface,
+                  border: `1px solid ${THEME.border}`,
+                  color: THEME.textMuted,
                 }}
               >
                 ‹ Back
@@ -592,17 +620,13 @@ function OnboardingPageContent() {
               className="flex-1 py-3.5 rounded-full text-sm font-black tracking-wide transition-all"
               style={{
                 background: stepState.canContinue
-                  ? wizardStep === STEPS.length - 1
-                    ? 'linear-gradient(135deg, #9e363a, #b5404a)'
-                    : stepColor
-                  : 'rgba(255,255,255,0.07)',
-                color: stepState.canContinue ? '#fff' : 'rgba(255,255,255,0.35)',
-                boxShadow: stepState.canContinue
-                  ? wizardStep === STEPS.length - 1
-                    ? '0 0 40px rgba(158,54,58,0.42), 0 8px 24px -4px rgba(158,54,58,0.28)'
-                    : `0 0 28px ${stepColor}60, 0 6px 18px -4px ${stepColor}50`
-                  : 'none',
-                opacity: stepState.canContinue ? 1 : 0.55,
+                  ? wizardStep === STEPS.length - 1 ? THEME.gold : THEME.ink
+                  : THEME.border,
+                color: stepState.canContinue
+                  ? wizardStep === STEPS.length - 1 ? THEME.ink : '#FDFCF9'
+                  : THEME.textFaint,
+                boxShadow: stepState.canContinue ? '0 6px 18px -6px rgba(31,36,33,0.35)' : 'none',
+                opacity: stepState.canContinue ? 1 : 0.7,
                 cursor: stepState.canContinue ? 'pointer' : 'default',
               }}
             >
@@ -621,8 +645,8 @@ export default function OnboardingPage() {
     <Suspense fallback={
       <main className="min-h-screen flex items-center justify-center px-8">
         <div className="flex flex-col gap-4 w-full max-w-xl animate-pulse">
-          <div className="h-8 w-48 rounded-xl" style={{ background: 'rgba(255,255,255,0.07)' }} />
-          <div className="h-40 rounded-2xl mt-2" style={{ background: 'rgba(255,255,255,0.04)' }} />
+          <div className="h-8 w-48 rounded-xl" style={{ background: 'rgba(31,36,33,0.06)' }} />
+          <div className="h-40 rounded-2xl mt-2" style={{ background: 'rgba(31,36,33,0.04)' }} />
         </div>
       </main>
     }>
