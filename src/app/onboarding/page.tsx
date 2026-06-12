@@ -135,6 +135,7 @@ function StepSkeleton() {
 // ── Hero strip ────────────────────────────────────────────────────────────────
 function HeroStrip({ url, cityName }: { url: string | null; cityName: string | null }) {
   const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [url]);
   const showPhoto = !!url && !failed;
   return (
     <div
@@ -458,7 +459,8 @@ function OnboardingPageContent() {
                   exit={{ opacity: 0, x: -8 }}
                   onClick={goBack}
                   aria-label="Go back"
-                  className="w-8 h-8 rounded-full flex items-center justify-center hover-bg-subtle transition-colors"
+                  className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+                  whileHover={{ backgroundColor: 'rgba(196,162,106,0.12)' }}
                   style={{ color: THEME.textMuted, border: `1px solid ${THEME.border}` }}
                 >
                   ‹
