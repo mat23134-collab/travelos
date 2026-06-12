@@ -139,7 +139,7 @@ function CityChip({ city, country, selected, onToggle }: {
         className="absolute inset-0"
         style={{
           background: selected
-            ? 'linear-gradient(to top, rgba(9,31,54,0.92) 0%, rgba(158,54,58,0.36) 58%, rgba(9,31,54,0.14) 100%)'
+            ? 'linear-gradient(to top, rgba(9,31,54,0.92) 0%, rgba(9,31,54,0.35) 58%, rgba(9,31,54,0.14) 100%)'
             : 'linear-gradient(to top, rgba(9,31,54,0.88) 0%, rgba(9,31,54,0.40) 56%, rgba(9,31,54,0.16) 100%)',
         }}
       />
