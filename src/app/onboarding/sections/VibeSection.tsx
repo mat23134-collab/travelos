@@ -36,9 +36,9 @@ const GROUP_OPTIONS = [
 ] as const;
 
 const PACE_OPTIONS = [
-  { value: 'relaxed',  label: 'Slow & Intentional', sub: '2–3 stops a day, lots of breathing room' },
-  { value: 'moderate', label: 'Balanced Explorer',  sub: 'A measured mix of motion and pause'      },
-  { value: 'intense',  label: 'Full Throttle',      sub: 'Maximize the hours — no wasted moments' },
+  { value: 'relaxed',  label: 'Slow & Intentional', sub: '2–3 stops a day, room to breathe'        },
+  { value: 'moderate', label: 'A Measured Pace',    sub: 'A balanced mix of sights and downtime'   },
+  { value: 'intense',  label: 'See It All',         sub: 'Pack the days — make every hour count'   },
 ] as const;
 
 // ── Dynamics (style of travel within the chosen group type) ──────────────────
@@ -60,7 +60,7 @@ const COUPLE_DYN: Array<{ value: CoupleDynamics; label: string; sub: string }> =
 const GROUP_DYN: Array<{ value: GroupDyn; label: string; sub: string }> = [
   { value: 'best-friends', label: 'Inner Circle',       sub: 'Old friends, inside jokes'    },
   { value: 'mixed-ages',   label: 'Mixed Generations',  sub: 'Pace tuned to every age'      },
-  { value: 'work-crew',    label: 'The Crew',           sub: 'Polished, but unbuttoned'     },
+  { value: 'work-crew',    label: 'Colleagues',         sub: 'Coworkers, off the clock'     },
 ];
 
 function dynamicsForGroup(groupType: string) {

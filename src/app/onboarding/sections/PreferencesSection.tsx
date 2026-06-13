@@ -20,21 +20,21 @@ import type { LucideIcon } from 'lucide-react';
 const BUDGET_OPTIONS = [
   {
     value: 'budget',
-    label: 'Budget Explorer',
+    label: 'Lean & Local',
     icon:  Wallet as LucideIcon,
-    sub:   'Under $100/day · hostels, street food, free sights',
+    sub:   'Under $100/day · hostels, street eats, free sights',
   },
   {
     value: 'mid-range',
-    label: 'Smart Traveler',
+    label: 'Comfortable',
     icon:  CreditCard as LucideIcon,
-    sub:   '$100–$300/day · boutique hotels, local restaurants',
+    sub:   '$100–$300/day · boutique stays, local favourites',
   },
   {
     value: 'luxury',
-    label: 'Luxury Seeker',
+    label: 'Luxury',
     icon:  Gem as LucideIcon,
-    sub:   '$300+/day · 5-star, fine dining, private tours',
+    sub:   '$300+/day · five-star, fine dining, private tours',
   },
 ] as const;
 
