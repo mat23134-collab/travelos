@@ -17,11 +17,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { COUNTRIES, type Country, type TravelCity } from '@/lib/countries';
 import { getCityImage, getCountryImage, DEFAULT_HERO } from '@/lib/travelImagery';
 import { useOnboardingStore } from '@/state/onboardingStore';
-
-// ── Palette ───────────────────────────────────────────────────────────────────
-const RED  = '#9e363a';
-const RED2 = '#b5404a';
-const MUTED = '#3a7068';
+import { THEME, CARD } from '@/lib/onboardingTheme';
+import { MapPin, Map, Search, X } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 // ── Variants ──────────────────────────────────────────────────────────────────
 const reveal = {
@@ -68,13 +66,10 @@ function CountryCard({ country, selected, onClick }: {
       onClick={onClick}
       whileHover={{ scale: 1.03, y: -2 }}
       whileTap={{ scale: 0.96 }}
-      animate={selected
-        ? { boxShadow: `0 0 0 2px ${RED}, 0 12px 32px rgba(158,54,58,0.30)` }
-        : { boxShadow: '0 4px 20px rgba(0,0,0,0.35)' }}
       transition={{ type: 'spring', stiffness: 400, damping: 24 }}
       className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden text-center transition-colors block"
       style={{
-        border: selected ? `2px solid ${RED}` : '2px solid rgba(255,255,255,0.08)',
+        border: selected ? `2px solid ${THEME.gold}` : `2px solid ${THEME.border}`,
       }}
     >
       <img
@@ -97,12 +92,6 @@ function CountryCard({ country, selected, onClick }: {
             : 'linear-gradient(to top, rgba(9,31,54,0.88) 0%, rgba(9,31,54,0.40) 50%, rgba(9,31,54,0.20) 100%)',
         }}
       />
-      {selected && (
-        <span
-          className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black text-white z-10"
-          style={{ background: RED }}
-        >✓</span>
-      )}
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 z-10 px-2">
         <span className="text-2xl leading-none drop-shadow-lg">{country.flag}</span>
         <span className="text-[12px] font-black leading-tight text-white tracking-tight drop-shadow-md">
@@ -129,12 +118,9 @@ function CityChip({ city, country, selected, onToggle }: {
       onClick={onToggle}
       whileHover={{ scale: 1.03, y: -2 }}
       whileTap={{ scale: 0.94 }}
-      animate={selected
-        ? { boxShadow: `0 0 0 2px ${RED}, 0 10px 24px rgba(158,54,58,0.26)` }
-        : { boxShadow: '0 5px 18px rgba(0,0,0,0.24)' }}
       className="relative min-h-[76px] overflow-hidden rounded-2xl text-left transition-colors"
       style={{
-        border: selected ? `1.5px solid rgba(158,54,58,0.65)` : '1.5px solid rgba(255,255,255,0.10)',
+        border: selected ? `1.5px solid ${THEME.gold}` : `1.5px solid ${THEME.border}`,
       }}
     >
       <img
@@ -153,18 +139,10 @@ function CityChip({ city, country, selected, onToggle }: {
         className="absolute inset-0"
         style={{
           background: selected
-            ? 'linear-gradient(to top, rgba(9,31,54,0.92) 0%, rgba(158,54,58,0.36) 58%, rgba(9,31,54,0.14) 100%)'
+            ? 'linear-gradient(to top, rgba(9,31,54,0.92) 0%, rgba(9,31,54,0.35) 58%, rgba(9,31,54,0.14) 100%)'
             : 'linear-gradient(to top, rgba(9,31,54,0.88) 0%, rgba(9,31,54,0.40) 56%, rgba(9,31,54,0.16) 100%)',
         }}
       />
-      {selected && (
-        <span
-          className="absolute right-2 top-2 z-10 flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-black text-white"
-          style={{ background: RED }}
-        >
-          ✓
-        </span>
-      )}
       <span className="relative z-10 flex h-full min-h-[76px] items-end px-3 pb-2.5 text-[12px] font-black leading-tight text-white drop-shadow-md">
         {city.name}
       </span>
@@ -270,30 +248,23 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         className="flex items-center justify-between px-5 py-3.5 rounded-2xl"
-        style={{
-          background: 'rgba(255,255,255,0.72)',
-          border: '1px solid rgba(158,54,58,0.22)',
-        }}
+        style={CARD.base}
       >
         <div className="flex items-center gap-3">
-          <span
-            className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black text-white shrink-0"
-            style={{ background: RED }}
-          >✓</span>
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-bold" style={{ color: '#1a4a44' }}>
+            <span className="text-sm font-bold" style={{ color: THEME.textBody }}>
               {selectedCountry?.flag} {country}
             </span>
-            <span style={{ color: MUTED }} className="text-xs">·</span>
-            <span className="text-xs font-medium" style={{ color: MUTED }}>{typeLabel}</span>
-            <span style={{ color: MUTED }} className="text-xs">·</span>
-            <span className="text-xs font-semibold" style={{ color: '#1a4a44' }}>{cityLabel}</span>
+            <span style={{ color: THEME.textMuted }} className="text-xs">·</span>
+            <span className="text-xs font-medium" style={{ color: THEME.textMuted }}>{typeLabel}</span>
+            <span style={{ color: THEME.textMuted }} className="text-xs">·</span>
+            <span className="text-xs font-semibold" style={{ color: THEME.textBody }}>{cityLabel}</span>
           </div>
         </div>
         <button
           onClick={onEdit}
           className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors hover-bg-subtle"
-          style={{ color: '#3a7068', border: '1px solid rgba(90,173,165,0.30)' }}
+          style={{ color: THEME.textMuted, border: `1px solid ${THEME.border}` }}
         >
           Edit
         </button>
@@ -305,34 +276,24 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
   return (
     <div className="flex flex-col gap-6">
 
-      {/* Section header */}
-      <div className="flex items-center gap-3">
-        <span
-          className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black text-white shrink-0"
-          style={{ background: RED }}
-        >1</span>
-        <div>
-          <h2 className="text-xl font-black tracking-tight" style={{ color: '#0d2b27' }}>Where to?</h2>
-          <p className="text-xs mt-0.5" style={{ color: MUTED }}>Choose a country, then pick your cities</p>
-        </div>
-      </div>
-
       {/* Country search */}
       <div
         className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl"
-        style={{ background: 'rgba(255,255,255,0.80)', border: '1px solid rgba(90,173,165,0.28)' }}
+        style={{ background: THEME.surface, border: `1px solid ${THEME.border}` }}
       >
-        <span className="text-base">🔍</span>
+        <Search size={16} strokeWidth={1.75} style={{ color: THEME.textMuted }} className="shrink-0" />
         <input
           type="text"
           placeholder="Search countries…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="flex-1 bg-transparent text-sm outline-none"
-          style={{ color: '#1a4a44' }}
+          style={{ color: THEME.textBody }}
         />
         {search && (
-          <button onClick={() => setSearch('')} className="text-xs" style={{ color: MUTED }}>✕</button>
+          <button onClick={() => setSearch('')} className="text-xs" style={{ color: THEME.textMuted }}>
+            <X size={14} strokeWidth={1.75} />
+          </button>
         )}
       </div>
 
@@ -360,7 +321,7 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
           </motion.div>
         ))}
         {filtered.length === 0 && (
-          <p className="col-span-full text-sm text-center py-6" style={{ color: MUTED }}>
+          <p className="col-span-full text-sm text-center py-6" style={{ color: THEME.textMuted }}>
             No countries found for &ldquo;{search}&rdquo;
           </p>
         )}
@@ -378,15 +339,16 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
             exit="exit"
             className="flex flex-col gap-3"
           >
-            <div className="h-px" style={{ background: 'rgba(90,173,165,0.20)' }} />
-            <p className="text-sm font-semibold" style={{ color: '#1a4a44' }}>
+            <div className="h-px" style={{ background: THEME.border }} />
+            <p className="text-sm font-semibold" style={{ color: THEME.textBody }}>
               How would you like to explore {selectedCountry?.flag} {country}?
             </p>
             <div className="grid grid-cols-2 gap-3">
               {[
-                { value: 'single' as const, icon: '📍', label: 'Single city', sub: 'Dive deep into one destination', comingSoon: false },
-                { value: 'multi'  as const, icon: '🗺️', label: 'Multi-city tour', sub: 'Visit multiple cities', comingSoon: true },
-              ].map(({ value, icon, label, sub, comingSoon }) => {
+                { value: 'single' as const, icon: MapPin as LucideIcon, label: 'Single city', sub: 'Dive deep into one destination', comingSoon: false },
+                { value: 'multi'  as const, icon: Map as LucideIcon, label: 'Multi-city tour', sub: 'Visit multiple cities', comingSoon: true },
+              ].map((opt) => {
+                const { value, icon: Icon, label, sub, comingSoon } = opt;
                 const active = tripType === value;
                 return (
                   <motion.button
@@ -396,13 +358,9 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
                     aria-disabled={comingSoon}
                     whileHover={comingSoon ? undefined : { scale: 1.03 }}
                     whileTap={comingSoon ? undefined : { scale: 0.96 }}
-                    animate={active
-                      ? { boxShadow: `0 0 0 2px ${RED}, 0 8px 24px rgba(158,54,58,0.22)` }
-                      : { boxShadow: '0 2px 10px rgba(0,0,0,0.2)' }}
-                    className="relative flex flex-col items-start gap-2 p-4 rounded-2xl text-left"
+                    className="relative flex flex-col items-start gap-2 p-4 rounded-2xl text-left transition-colors"
                     style={{
-                      background: active ? 'rgba(158,54,58,0.16)' : 'rgba(255,255,255,0.65)',
-                      border: active ? `1.5px solid rgba(158,54,58,0.50)` : '1.5px solid rgba(90,173,165,0.28)',
+                      ...(active ? CARD.selected : CARD.base),
                       opacity: comingSoon ? 0.55 : 1,
                       cursor: comingSoon ? 'not-allowed' : 'pointer',
                     }}
@@ -410,15 +368,20 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
                     {comingSoon && (
                       <span
                         className="absolute top-2.5 right-2.5 text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-full"
-                        style={{ background: 'rgba(197,145,42,0.18)', color: '#e0b65a', border: '1px solid rgba(197,145,42,0.4)' }}
+                        style={{ background: THEME.surfaceSel, color: THEME.gold, border: `1px solid ${THEME.borderSel}` }}
                       >
                         Coming soon
                       </span>
                     )}
-                    <span className="text-2xl" style={comingSoon ? { filter: 'grayscale(0.5)' } : undefined}>{icon}</span>
+                    <Icon
+                      size={18}
+                      strokeWidth={1.75}
+                      style={{ color: active ? THEME.gold : THEME.textMuted, filter: comingSoon ? 'grayscale(0.5)' : undefined }}
+                      className="shrink-0"
+                    />
                     <div>
-                      <p className="text-sm font-bold" style={{ color: active ? '#ff9fa3' : '#1a4a44' }}>{label}</p>
-                      <p className="text-[11px] mt-0.5" style={{ color: MUTED }}>
+                      <p className="text-sm font-bold" style={{ color: active ? THEME.deepGreen : THEME.textBody }}>{label}</p>
+                      <p className="text-[11px] mt-0.5" style={{ color: THEME.textMuted }}>
                         {comingSoon ? 'In the works — single city for now' : sub}
                       </p>
                     </div>
@@ -442,11 +405,11 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
             exit="exit"
             className="flex flex-col gap-4"
           >
-            <div className="h-px" style={{ background: 'rgba(90,173,165,0.20)' }} />
+            <div className="h-px" style={{ background: THEME.border }} />
 
             {/* Popular cities */}
             <div>
-              <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: MUTED }}>
+              <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: THEME.textMuted }}>
                 Popular in {country}
               </p>
               <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
@@ -466,7 +429,7 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
             <div className="flex gap-2">
               <div
                 className="flex-1 flex items-center gap-2 px-3.5 py-2.5 rounded-xl"
-                style={{ background: 'rgba(255,255,255,0.80)', border: '1px solid rgba(90,173,165,0.28)' }}
+                style={{ background: THEME.surface, border: `1px solid ${THEME.border}` }}
               >
                 <input
                   type="text"
@@ -475,7 +438,7 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
                   onChange={(e) => setCustomInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleCustomCity()}
                   className="flex-1 bg-transparent text-sm outline-none"
-                  style={{ color: '#1a4a44' }}
+                  style={{ color: THEME.textBody }}
                 />
               </div>
               <motion.button
@@ -484,7 +447,7 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
                 whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.96 }}
                 className="px-4 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-40"
-                style={{ background: RED }}
+                style={{ background: THEME.gold }}
               >
                 {geocoding ? '…' : 'Add'}
               </motion.button>
@@ -501,26 +464,28 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
                   exit="exit"
                   className="flex flex-col gap-2"
                 >
-                  <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: MUTED }}>Your route</p>
+                  <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: THEME.textMuted }}>Your route</p>
                   <div className="flex items-center flex-wrap gap-1.5">
                     {cities.map((city, i) => (
                       <div key={city.name} className="flex items-center gap-1.5">
-                        {i > 0 && <span className="text-xs" style={{ color: MUTED }}>→</span>}
+                        {i > 0 && <span className="text-xs" style={{ color: THEME.textMuted }}>→</span>}
                         <motion.span
                           initial={{ opacity: 0, scale: 0.85 }}
                           animate={{ opacity: 1, scale: 1 }}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
                           style={{
-                            background: 'rgba(158,54,58,0.18)',
-                            border: '1px solid rgba(158,54,58,0.35)',
-                            color: '#ff9fa3',
+                            background: THEME.surfaceSel,
+                            border: `1px solid ${THEME.borderSel}`,
+                            color: THEME.deepGreen,
                           }}
                         >
                           {city.name}
                           <button
                             onClick={() => removeCity(city.name)}
                             className="opacity-60 hover:opacity-100 transition-opacity ml-0.5"
-                          >×</button>
+                          >
+                            <X size={12} strokeWidth={1.75} />
+                          </button>
                         </motion.span>
                       </div>
                     ))}

@@ -20,19 +20,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useOnboardingStore } from '@/state/onboardingStore';
+import { THEME } from '@/lib/onboardingTheme';
 import type { Landmark } from '@/app/api/landmarks/route';
 
 const MAX_NOTE_IMAGE_BYTES = 8 * 1024 * 1024; // 8 MB — matches /api/scan-notes cap
 const ACCEPTED_NOTE_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
-const IVORY        = '#0d2b27';
-const IVORY_DIM    = '#3a7068';
-const IVORY_FAINT  = '#5a908a';
-const ACCENT       = '#c4a26a';
-const SURFACE      = 'rgba(255,255,255,0.65)';
-const SURFACE_SEL  = 'rgba(255,255,255,0.88)';
-const BORDER       = '1px solid rgba(90,173,165,0.28)';
-const BORDER_SEL   = `1px solid ${ACCENT}`;
+const BORDER       = `1px solid ${THEME.border}`;
+const BORDER_SEL   = `1px solid ${THEME.borderSel}`;
 
 interface LandmarksByCategory {
   city: string;
@@ -75,20 +70,6 @@ export function TopSightsSection() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Header */}
-      <div>
-        <h2
-          className="font-serif text-[28px] leading-[1.1] tracking-[-0.015em]"
-          style={{ color: IVORY, fontWeight: 400 }}
-        >
-          Top sights for {destination || 'your trip'}
-        </h2>
-        <p className="mt-2 text-[13px] tracking-wide" style={{ color: IVORY_DIM }}>
-          Pick what you don&apos;t want to miss. We&apos;ll build the rest of the itinerary around them.
-          <span className="ml-1.5" style={{ color: IVORY_FAINT }}>Optional — feel free to skip.</span>
-        </p>
-      </div>
-
       {/* Status states */}
       {status === 'loading' && (
         <div className="flex flex-col gap-6">
@@ -100,13 +81,13 @@ export function TopSightsSection() {
 
       {(status === 'empty' || status === 'error') && (
         <div
-          className="rounded-3xl p-7 text-center backdrop-blur-xl"
-          style={{ background: SURFACE, border: BORDER }}
+          className="rounded-3xl p-7 text-center"
+          style={{ background: THEME.surface, border: BORDER }}
         >
-          <p className="font-serif text-[18px] leading-tight" style={{ color: IVORY }}>
+          <p className="font-serif text-[18px] leading-tight" style={{ color: THEME.deepGreen }}>
             We don&apos;t have curated picks for {destination || 'this city'} yet.
           </p>
-          <p className="mt-2 text-[12px] tracking-wide" style={{ color: IVORY_DIM }}>
+          <p className="mt-2 text-[12px] tracking-wide" style={{ color: THEME.textMuted }}>
             Skip this step — your itinerary will be built from your earlier answers and live web intelligence.
           </p>
         </div>
@@ -143,7 +124,7 @@ export function TopSightsSection() {
                 <div key={key}>
                   <p
                     className="text-[11px] uppercase tracking-[0.22em] mb-3"
-                    style={{ color: IVORY_DIM }}
+                    style={{ color: THEME.textMuted }}
                   >
                     {label}
                   </p>
@@ -189,7 +170,7 @@ function CuboidCard({
       transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
       className="relative flex flex-col text-left rounded-2xl overflow-hidden transition-colors"
       style={{
-        background: selected ? SURFACE_SEL : SURFACE,
+        background: selected ? THEME.surfaceSel : THEME.surface,
         border: selected ? BORDER_SEL : BORDER,
         // Architectural depth — bottom-heavy soft shadow, no glow.
         boxShadow: selected
@@ -240,7 +221,7 @@ function CuboidCard({
               exit={{ scale: 0, opacity: 0 }}
               className="absolute top-3 right-3 w-5 h-5 rounded-full flex items-center justify-center"
               style={{
-                background: ACCENT,
+                background: THEME.gold,
                 boxShadow: '0 4px 10px -2px rgba(196,162,106,0.45)',
               }}
             >
@@ -256,14 +237,14 @@ function CuboidCard({
       <div className="p-3.5 flex flex-col gap-1.5">
         <div
           className="font-serif text-[14.5px] leading-tight tracking-[-0.01em] line-clamp-1"
-          style={{ color: selected ? IVORY : '#1a4a44' }}
+          style={{ color: selected ? THEME.deepGreen : THEME.textBody }}
         >
           {landmark.name}
         </div>
         {landmark.description && (
           <div
             className="text-[11px] leading-snug tracking-wide line-clamp-2"
-            style={{ color: selected ? IVORY_DIM : IVORY_FAINT }}
+            style={{ color: selected ? THEME.textMuted : THEME.textFaint }}
           >
             {landmark.description}
           </div>
@@ -305,10 +286,9 @@ function LandmarkDetailPopup({
       <motion.div
         className="relative z-10 w-full max-w-sm rounded-3xl overflow-hidden flex flex-col"
         style={{
-          background: 'rgba(255,255,255,0.92)',
+          background: THEME.surface,
           border: BORDER,
           boxShadow: '0 24px 60px -12px rgba(0,0,0,0.35)',
-          backdropFilter: 'blur(20px)',
         }}
         initial={{ scale: 0.88, opacity: 0, y: 16 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
@@ -356,7 +336,7 @@ function LandmarkDetailPopup({
         <div className="px-5 pb-5 pt-4 flex flex-col gap-3">
           <h3
             className="font-serif text-[20px] leading-tight tracking-[-0.015em]"
-            style={{ color: IVORY }}
+            style={{ color: THEME.deepGreen }}
           >
             {landmark.name}
           </h3>
@@ -364,7 +344,7 @@ function LandmarkDetailPopup({
           {landmark.description && (
             <p
               className="text-[13px] leading-relaxed tracking-wide"
-              style={{ color: IVORY_DIM }}
+              style={{ color: THEME.textMuted }}
             >
               {landmark.description}
             </p>
@@ -377,8 +357,8 @@ function LandmarkDetailPopup({
             whileTap={{ scale: 0.97 }}
             className="mt-1 w-full py-3 rounded-2xl text-[13px] font-bold tracking-wide transition-colors"
             style={selected
-              ? { background: 'rgba(196,162,106,0.12)', color: ACCENT, border: `1px solid ${ACCENT}` }
-              : { background: IVORY, color: '#fff', border: `1px solid ${IVORY}` }
+              ? { background: 'rgba(196,162,106,0.12)', color: THEME.gold, border: `1px solid ${THEME.gold}` }
+              : { background: THEME.deepGreen, color: '#fff', border: `1px solid ${THEME.deepGreen}` }
             }
           >
             {selected ? '✓ Added to my picks · Tap to remove' : '+ Add to my picks'}
@@ -470,15 +450,15 @@ function NoteScanner({ destination }: { destination: string }) {
 
   return (
     <div
-      className="rounded-3xl p-6 backdrop-blur-xl"
-      style={{ background: SURFACE, border: BORDER }}
+      className="rounded-3xl p-6"
+      style={{ background: THEME.surface, border: BORDER }}
     >
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="font-serif text-[16px] leading-tight" style={{ color: IVORY }}>
+          <p className="font-serif text-[16px] leading-tight" style={{ color: THEME.deepGreen }}>
             Already have a list of your own?
           </p>
-          <p className="mt-1.5 text-[12px] leading-snug tracking-wide" style={{ color: IVORY_DIM }}>
+          <p className="mt-1.5 text-[12px] leading-snug tracking-wide" style={{ color: THEME.textMuted }}>
             Upload a photo of any notes — a screenshot, a handwritten list, anything — and
             we&apos;ll pull out the highlights and weave the ones that fit into your itinerary.
           </p>
@@ -488,7 +468,7 @@ function NoteScanner({ destination }: { destination: string }) {
             type="button"
             onClick={reset}
             className="shrink-0 text-[11px] tracking-wide underline underline-offset-2"
-            style={{ color: IVORY_FAINT }}
+            style={{ color: THEME.textFaint }}
           >
             Start over
           </button>
@@ -508,7 +488,7 @@ function NoteScanner({ destination }: { destination: string }) {
           type="button"
           onClick={() => inputRef.current?.click()}
           className="mt-4 flex items-center justify-center gap-2 w-full rounded-2xl py-4 text-[12px] tracking-wide transition-colors"
-          style={{ border: `1px dashed ${IVORY_FAINT}`, color: IVORY_DIM }}
+          style={{ border: `1px dashed ${THEME.textFaint}`, color: THEME.textMuted }}
         >
           <span aria-hidden="true">📷</span>
           Upload a photo of your notes
@@ -529,26 +509,26 @@ function NoteScanner({ destination }: { destination: string }) {
 
           <div className="flex-1 min-w-0">
             {(status === 'reading' || status === 'scanning') && (
-              <p className="text-[12px] tracking-wide animate-pulse" style={{ color: IVORY_DIM }}>
+              <p className="text-[12px] tracking-wide animate-pulse" style={{ color: THEME.textMuted }}>
                 {status === 'reading' ? 'Reading your photo…' : 'Scanning for things you mentioned…'}
               </p>
             )}
 
             {status === 'error' && (
-              <p className="text-[12px] tracking-wide" style={{ color: '#9e363a' }}>
+              <p className="text-[12px] tracking-wide" style={{ color: '#b43c3c' }}>
                 {errorMsg || 'Something went wrong — try again.'}
               </p>
             )}
 
             {status === 'empty' && (
-              <p className="text-[12px] tracking-wide" style={{ color: IVORY_DIM }}>
+              <p className="text-[12px] tracking-wide" style={{ color: THEME.textMuted }}>
                 We couldn&apos;t make out any specific places or activities in that photo. Try a clearer shot, or skip this.
               </p>
             )}
 
             {status === 'ready' && (
               <>
-                <p className="text-[11px] uppercase tracking-[0.22em] mb-2.5" style={{ color: IVORY_DIM }}>
+                <p className="text-[11px] uppercase tracking-[0.22em] mb-2.5" style={{ color: THEME.textMuted }}>
                   Found in your photo — tap to keep or remove
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -562,18 +542,18 @@ function NoteScanner({ destination }: { destination: string }) {
                         onClick={() => toggleMustHave(item)}
                         className="px-3.5 py-2 rounded-full text-[12px] tracking-wide transition-colors"
                         style={{
-                          background: selected ? SURFACE_SEL : 'transparent',
+                          background: selected ? THEME.surfaceSel : 'transparent',
                           border: selected ? BORDER_SEL : BORDER,
-                          color: selected ? IVORY : IVORY_DIM,
+                          color: selected ? THEME.deepGreen : THEME.textMuted,
                         }}
                       >
-                        {selected && <span className="mr-1.5" style={{ color: ACCENT }}>✓</span>}
+                        {selected && <span className="mr-1.5" style={{ color: THEME.gold }}>✓</span>}
                         {item}
                       </motion.button>
                     );
                   })}
                 </div>
-                <p className="mt-3 text-[11px] tracking-wide" style={{ color: IVORY_FAINT }}>
+                <p className="mt-3 text-[11px] tracking-wide" style={{ color: THEME.textFaint }}>
                   Kept items join your must-haves above — we&apos;ll fit them into the plan where they make sense.
                 </p>
               </>
@@ -590,7 +570,7 @@ function NoteScanner({ destination }: { destination: string }) {
 function CategorySkeleton({ label }: { label: string }) {
   return (
     <div>
-      <p className="text-[11px] uppercase tracking-[0.22em] mb-3" style={{ color: IVORY_DIM }}>
+      <p className="text-[11px] uppercase tracking-[0.22em] mb-3" style={{ color: THEME.textMuted }}>
         {label}
       </p>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -598,7 +578,7 @@ function CategorySkeleton({ label }: { label: string }) {
           <div
             key={i}
             className="rounded-2xl overflow-hidden animate-pulse"
-            style={{ background: SURFACE, border: BORDER }}
+            style={{ background: THEME.surface, border: BORDER }}
           >
             <div className="w-full" style={{ aspectRatio: '3 / 4', background: 'rgba(90,173,165,0.12)' }} />
             <div className="p-3.5 flex flex-col gap-2">

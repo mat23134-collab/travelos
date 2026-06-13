@@ -12,9 +12,11 @@ export function FinishingTouchesSection({ mode = 'all', stepBadge = 6 }: Props) 
   const {
     destination,
     dietaryRestrictions,
+    dietaryStrictness,
     mustHaveItems,
     mustHaveOther,
     toggleDietary,
+    setDietaryStrictness,
     toggleMustHave,
     setMustHaveOther,
   } = useOnboardingStore();
@@ -28,6 +30,8 @@ export function FinishingTouchesSection({ mode = 'all', stepBadge = 6 }: Props) 
       onToggleDietary={toggleDietary}
       onToggleMustHave={toggleMustHave}
       onMustHaveOtherChange={setMustHaveOther}
+      dietaryStrictness={dietaryStrictness}
+      onDietaryStrictnessChange={setDietaryStrictness}
       mode={mode}
       stepBadge={stepBadge}
     />

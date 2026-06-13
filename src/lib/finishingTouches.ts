@@ -1,11 +1,14 @@
-export const DIETARY_OPTIONS = [
-  { value: 'Vegetarian',  label: 'Vegetarian',  icon: '🥗' },
-  { value: 'Vegan',       label: 'Vegan',       icon: '🌱' },
-  { value: 'Kosher',      label: 'Kosher',      icon: '✡️' },
-  { value: 'Halal',       label: 'Halal',       icon: '☪️' },
-  { value: 'Gluten-Free', label: 'Gluten-Free', icon: '🌾' },
-  { value: 'Dairy-Free',  label: 'Dairy-Free',  icon: '🥛' },
-] as const;
+import { Salad, Sprout, BadgeCheck, WheatOff, Milk } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+
+export const DIETARY_OPTIONS: { value: string; label: string; sub: string; icon: LucideIcon }[] = [
+  { value: 'Vegetarian',  label: 'Vegetarian',  sub: 'No meat or fish',     icon: Salad },
+  { value: 'Vegan',       label: 'Vegan',       sub: 'No animal products',  icon: Sprout },
+  { value: 'Kosher',      label: 'Kosher',      sub: 'Jewish dietary law',  icon: BadgeCheck },
+  { value: 'Halal',       label: 'Halal',       sub: 'Islamic dietary law', icon: BadgeCheck },
+  { value: 'Gluten-Free', label: 'Gluten-Free', sub: 'No wheat or gluten',  icon: WheatOff },
+  { value: 'Dairy-Free',  label: 'Dairy-Free',  sub: 'No milk or dairy',    icon: Milk },
+];
 
 export type PickItem = {
   icon: string;
