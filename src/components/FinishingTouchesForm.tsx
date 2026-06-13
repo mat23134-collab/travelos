@@ -105,12 +105,15 @@ export function FinishingTouchesForm({
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 24 }}
-                className="flex items-center gap-2.5 px-3.5 py-3 rounded-xl border text-left transition-colors"
+                className="flex items-start gap-2.5 px-3.5 py-3 rounded-xl border text-left transition-colors"
                 style={sel ? CARD.selected : CARD.base}
               >
-                <Icon size={18} strokeWidth={1.75} style={{ color: sel ? THEME.gold : THEME.textMuted }} className="shrink-0" />
-                <span className="text-xs font-semibold leading-snug flex-1"
-                  style={{ color: sel ? THEME.deepGreen : THEME.textBody }}>{opt.label}</span>
+                <Icon size={18} strokeWidth={1.75} style={{ color: sel ? THEME.gold : THEME.textMuted }} className="shrink-0 mt-0.5" />
+                <span className="flex-1 min-w-0">
+                  <span className="block text-xs font-semibold leading-snug"
+                    style={{ color: sel ? THEME.deepGreen : THEME.textBody }}>{opt.label}</span>
+                  <span className="block text-[10px] mt-0.5 leading-snug" style={{ color: THEME.textFaint }}>{opt.sub}</span>
+                </span>
               </motion.button>
             );
           })}

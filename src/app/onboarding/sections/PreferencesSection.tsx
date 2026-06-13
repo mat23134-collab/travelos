@@ -38,15 +38,15 @@ const BUDGET_OPTIONS = [
   },
 ] as const;
 
-const INTEREST_OPTIONS: { value: string; label: string; icon: LucideIcon }[] = [
-  { value: 'culture',      label: 'Culture & History', icon: Landmark },
-  { value: 'food',         label: 'Food & Dining',     icon: UtensilsCrossed },
-  { value: 'adventure',    label: 'Adventure',          icon: Mountain },
-  { value: 'art',          label: 'Art & Museums',      icon: Palette },
-  { value: 'nightlife',    label: 'Nightlife',           icon: Moon },
-  { value: 'wellness',     label: 'Wellness & Spa',     icon: Flower2 },
-  { value: 'shopping',     label: 'Shopping',           icon: ShoppingBag },
-  { value: 'hidden-gems',  label: 'Hidden Gems',        icon: Gem },
+const INTEREST_OPTIONS: { value: string; label: string; sub: string; icon: LucideIcon }[] = [
+  { value: 'culture',      label: 'Culture & History', sub: 'Landmarks & local stories',  icon: Landmark },
+  { value: 'food',         label: 'Food & Dining',     sub: 'Markets & standout meals',   icon: UtensilsCrossed },
+  { value: 'adventure',    label: 'Adventure',         sub: 'Active, outdoorsy days',     icon: Mountain },
+  { value: 'art',          label: 'Art & Museums',     sub: 'Galleries & design stops',   icon: Palette },
+  { value: 'nightlife',    label: 'Nightlife',         sub: 'Bars & after-dark spots',    icon: Moon },
+  { value: 'wellness',     label: 'Wellness & Spa',    sub: 'Spas & slow mornings',       icon: Flower2 },
+  { value: 'shopping',     label: 'Shopping',          sub: 'Boutiques & markets',        icon: ShoppingBag },
+  { value: 'hidden-gems',  label: 'Hidden Gems',       sub: 'Lesser-known local picks',   icon: Gem },
 ];
 
 interface Props {
@@ -147,18 +147,23 @@ export function PreferencesSection({ isCompleted, onComplete, onEdit }: Props) {
                 onClick={() => toggleInterest(opt.value)}
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
-                className="flex items-center gap-2.5 px-3.5 py-3 rounded-xl border text-left transition-colors"
+                className="flex items-start gap-2.5 px-3.5 py-3 rounded-xl border text-left transition-colors"
                 style={sel ? CARD.selected : CARD.base}
               >
                 <opt.icon
                   size={18}
                   strokeWidth={1.75}
                   style={{ color: sel ? THEME.gold : THEME.textMuted }}
-                  className="shrink-0"
+                  className="shrink-0 mt-0.5"
                 />
-                <span className="text-xs font-semibold leading-snug flex-1"
-                  style={{ color: sel ? THEME.deepGreen : THEME.textBody }}>
-                  {opt.label}
+                <span className="flex-1 min-w-0">
+                  <span className="block text-xs font-semibold leading-snug"
+                    style={{ color: sel ? THEME.deepGreen : THEME.textBody }}>
+                    {opt.label}
+                  </span>
+                  <span className="block text-[10px] mt-0.5 leading-snug" style={{ color: THEME.textFaint }}>
+                    {opt.sub}
+                  </span>
                 </span>
               </motion.button>
             );
