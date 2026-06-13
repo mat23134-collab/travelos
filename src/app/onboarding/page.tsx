@@ -146,7 +146,7 @@ function OnboardingPageContent() {
     accommodation, hotelNightlyBudget, hotelLocationPref, hotelAmenities, hotelSkipped,
     groupType, groupDynamics, pace, budget, interests,
     familyAdults, familyChildAges, groupSize,
-    dietaryRestrictions, mustHaveItems, mustHaveOther,
+    dietaryRestrictions, dietaryStrictness, mustHaveItems, mustHaveOther,
     step: storeStep, goToStep, reset,
     setCountry, setTripType, setCities, setDestination,
   } = useOnboardingStore();
@@ -389,6 +389,7 @@ function OnboardingPageContent() {
 
     // Finishing touches
     if (dietaryRestrictions.length) params.set('dietary', dietaryRestrictions.join(','));
+    if (dietaryRestrictions.length && dietaryStrictness) params.set('dietaryStrict', dietaryStrictness);
     if (mustHaveItems.length)       params.set('mustHave', mustHaveItems.join(','));
     if (mustHaveOther.trim())       params.set('mustHaveOther', mustHaveOther.trim());
 

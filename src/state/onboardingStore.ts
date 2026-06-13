@@ -80,6 +80,7 @@ export interface OnboardingState {
 
   // Step 6: Finishing touches — dietary + must-haves
   dietaryRestrictions: string[];
+  dietaryStrictness:   'strict' | 'flexible' | '';
   mustHaveItems:       string[];
   mustHaveOther:       string;
 
@@ -115,6 +116,7 @@ export interface OnboardingState {
   setInterests:          (interests: string[]) => void;
   toggleInterest:        (interest: string) => void;
   toggleDietary:         (value: string) => void;
+  setDietaryStrictness:  (v: 'strict' | 'flexible' | '') => void;
   toggleMustHave:        (label: string) => void;
   setMustHaveOther:      (text: string) => void;
   nextStep:  () => void;
@@ -141,7 +143,7 @@ const INITIAL: Omit<
   | 'setGroupType' | 'setGroupDynamics' | 'setPace'
   | 'setFamilyAdults' | 'setFamilyChildCount' | 'setFamilyChildAge' | 'setGroupSize'
   | 'setBudget' | 'setInterests' | 'toggleInterest'
-  | 'toggleDietary' | 'toggleMustHave' | 'setMustHaveOther'
+  | 'toggleDietary' | 'setDietaryStrictness' | 'toggleMustHave' | 'setMustHaveOther'
   | 'nextStep' | 'prevStep' | 'goToStep' | 'reset'
 > = {
   step:           0,
@@ -174,6 +176,7 @@ const INITIAL: Omit<
   interests:          [],
   budget:             '',
   dietaryRestrictions: [],
+  dietaryStrictness:   '',
   mustHaveItems:       [],
   mustHaveOther:       '',
 };
@@ -289,6 +292,8 @@ export const useOnboardingStore = create<OnboardingState>()(
           : [...s.dietaryRestrictions, value],
       })),
 
+      setDietaryStrictness: (v) => set({ dietaryStrictness: v }),
+
       toggleMustHave: (label) => set((s) => ({
         mustHaveItems: s.mustHaveItems.includes(label)
           ? s.mustHaveItems.filter((i) => i !== label)
@@ -350,6 +355,7 @@ export const useOnboardingStore = create<OnboardingState>()(
         interests:          s.interests,
         budget:             s.budget,
         dietaryRestrictions: s.dietaryRestrictions,
+        dietaryStrictness:   s.dietaryStrictness,
         mustHaveItems:       s.mustHaveItems,
         mustHaveOther:       s.mustHaveOther,
       }),

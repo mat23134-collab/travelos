@@ -21,10 +21,18 @@ interface Props {
   onToggleDietary: (value: string) => void;
   onToggleMustHave: (label: string) => void;
   onMustHaveOtherChange: (text: string) => void;
+  /** Strict vs flexible interpretation of the dietary picks (optional). */
+  dietaryStrictness?: 'strict' | 'flexible' | '';
+  onDietaryStrictnessChange?: (v: 'strict' | 'flexible' | '') => void;
   mode?: 'all' | 'dietary' | 'recommendations';
   /** Show numbered step badge (onboarding section header) */
   stepBadge?: number;
 }
+
+const STRICTNESS_OPTIONS = [
+  { value: 'strict'   as const, label: 'Strict',   sub: 'Only fully-compliant places' },
+  { value: 'flexible' as const, label: 'Flexible', sub: 'A good option on the menu is enough' },
+];
 
 export function FinishingTouchesForm({
   destination,
@@ -34,6 +42,8 @@ export function FinishingTouchesForm({
   onToggleDietary,
   onToggleMustHave,
   onMustHaveOtherChange,
+  dietaryStrictness = '',
+  onDietaryStrictnessChange,
   mode = 'all',
   stepBadge,
 }: Props) {
@@ -118,6 +128,35 @@ export function FinishingTouchesForm({
             );
           })}
         </div>
+
+        {/* Strict vs flexible — only matters once at least one rule is set */}
+        {onDietaryStrictnessChange && dietary.length > 0 && (
+          <div className="mt-3">
+            <p className="text-[11px] mb-2" style={{ color: THEME.textFaint }}>
+              How strict should we be?
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {STRICTNESS_OPTIONS.map((o) => {
+                const sel = dietaryStrictness === o.value;
+                return (
+                  <motion.button
+                    key={o.value}
+                    type="button"
+                    onClick={() => onDietaryStrictnessChange(sel ? '' : o.value)}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="flex flex-col items-start gap-0.5 px-3.5 py-2.5 rounded-xl border text-left transition-colors"
+                    style={sel ? CARD.selected : CARD.base}
+                  >
+                    <span className="text-xs font-semibold leading-snug"
+                      style={{ color: sel ? THEME.deepGreen : THEME.textBody }}>{o.label}</span>
+                    <span className="text-[10px] leading-snug" style={{ color: THEME.textFaint }}>{o.sub}</span>
+                  </motion.button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>}
 
       {/* Must-haves */}
