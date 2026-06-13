@@ -29,7 +29,7 @@ import { useAuth } from '@/lib/auth-context';
 import { BrandWordmark } from '@/components/BrandWordmark';
 import { resolveBackgroundImage } from '@/lib/stepBackgrounds';
 import { COUNTRIES } from '@/lib/countries';
-import { THEME } from '@/lib/onboardingTheme';
+import { THEME, BACKDROP_VEIL } from '@/lib/onboardingTheme';
 import { getStepCopy } from '@/lib/stepCopy';
 
 // ── Chunk-load resilience ────────────────────────────────────────────────────
@@ -128,47 +128,6 @@ function StepSkeleton() {
       <div className="h-8 w-48 rounded-xl" style={{ background: 'rgba(31,36,33,0.06)' }} />
       <div className="h-4 w-64 rounded-lg" style={{ background: 'rgba(31,36,33,0.04)' }} />
       <div className="h-40 rounded-2xl mt-2" style={{ background: 'rgba(31,36,33,0.04)' }} />
-    </div>
-  );
-}
-
-// ── Hero strip ────────────────────────────────────────────────────────────────
-function HeroStrip({ url, cityName }: { url: string | null; cityName: string | null }) {
-  const [failed, setFailed] = useState(false);
-  useEffect(() => setFailed(false), [url]);
-  const showPhoto = !!url && !failed;
-  return (
-    <div
-      className="relative rounded-2xl overflow-hidden mb-2"
-      style={{ height: 140, background: showPhoto ? THEME.ink : '#EAE7DE' }}
-    >
-      <AnimatePresence mode="wait">
-        {showPhoto && (
-          <motion.img
-            key={url}
-            src={url!}
-            alt=""
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.6 }}
-            className="absolute inset-0 w-full h-full object-cover"
-            onError={() => setFailed(true)}
-          />
-        )}
-      </AnimatePresence>
-      <div
-        className="absolute inset-0"
-        style={{ background: 'linear-gradient(to top, rgba(13,20,18,0.55) 0%, transparent 55%)' }}
-      />
-      {cityName && (
-        <p
-          className="absolute bottom-3 left-4 font-serif text-[22px] tracking-[-0.01em]"
-          style={{ color: '#FDFCF9', fontWeight: 400 }}
-        >
-          {cityName}
-        </p>
-      )}
     </div>
   );
 }
@@ -444,7 +403,26 @@ function OnboardingPageContent() {
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <main className="min-h-screen relative" style={{ background: THEME.ivory }}>
+    <main
+      className="min-h-screen relative"
+      style={{
+        // Full-bleed destination photo for depth, softened by the airy
+        // teal→ivory veil so the form stays readable on the lower half.
+        backgroundImage: `${BACKDROP_VEIL}, url("${bgUrl}")`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
+        backgroundColor: THEME.ivory,
+      }}
+    >
+      {/* Warm gold halo over the photo — adds depth + ties to the palette */}
+      <div className="fixed inset-0 pointer-events-none z-0" aria-hidden="true">
+        <div
+          className="absolute top-0 left-0 right-0 h-72"
+          style={{ background: 'radial-gradient(ellipse 80% 100% at 50% -12%, rgba(196,162,106,0.20) 0%, transparent 70%)' }}
+        />
+      </div>
+
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <div className="relative z-10 max-w-xl mx-auto px-5 sm:px-8 pt-8">
         <div className="flex items-center justify-between mb-2">
@@ -471,11 +449,6 @@ function OnboardingPageContent() {
           </div>
           <ProgressBar step={wizardStep} total={STEPS.length} />
         </div>
-
-        <HeroStrip
-          url={bgUrl || null}
-          cityName={cities[0]?.name ?? (destination.trim() || null)}
-        />
 
         {/* Step label + headline */}
         <AnimatePresence mode="wait">

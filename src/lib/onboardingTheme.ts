@@ -19,7 +19,28 @@ export const THEME = {
   borderSel:  '#c4a26a',                    // selected card border (1px)
 } as const;
 
+/**
+ * Full-bleed backdrop veil — laid over the fixed destination photo so the
+ * page keeps depth (the airy teal wash + real photo show through up top)
+ * while settling to ivory where the form sits, keeping content readable.
+ */
+export const BACKDROP_VEIL =
+  'linear-gradient(to bottom,' +
+  ' rgba(199,222,219,0.58) 0%,' +   // airy eucalyptus/teal wash over the photo
+  ' rgba(205,225,221,0.46) 26%,' +  // thins out — photo reads through for depth
+  ' rgba(247,246,241,0.93) 60%,' +  // settles toward ivory for the form
+  ' rgba(253,252,249,1) 100%)';     // pure ivory ground at the bottom
+
 export const CARD = {
-  base:     { background: THEME.surface,    border: `1px solid ${THEME.border}` },
-  selected: { background: THEME.surfaceSel, border: `1px solid ${THEME.borderSel}` },
+  // Soft lift so opaque cards float above the photo backdrop (restores depth).
+  base: {
+    background: THEME.surface,
+    border: `1px solid ${THEME.border}`,
+    boxShadow: '0 1px 2px rgba(13,43,39,0.04), 0 10px 26px -18px rgba(13,43,39,0.22)',
+  },
+  selected: {
+    background: THEME.surfaceSel,
+    border: `1px solid ${THEME.borderSel}`,
+    boxShadow: '0 2px 6px rgba(196,162,106,0.12), 0 12px 30px -18px rgba(13,43,39,0.26)',
+  },
 } as const;
