@@ -319,9 +319,14 @@ export function useItinerary({
       try { sessionStorage.setItem('travelos_itinerary', JSON.stringify(updated)); } catch { /* ignore */ }
     }
     // Saved trips (with a DB id) sync edits back for everyone — owner and
-    // any collaborators who joined via the share link. Best-effort: failures
-    // (e.g. signed out, no access) leave the local view updated but unsynced.
-    if (updated._id && session?.access_token) {
+    // any collaborators who joined via the share link. The local view is
+    // already updated above; if the sync fails we surface a banner so the
+    // user knows the change didn't persist (instead of failing silently).
+    if (updated._id) {
+      if (!session?.access_token) {
+        showBanner('⚠️ Signed out — this change was not saved to the trip.');
+        return;
+      }
       fetch('/api/itinerary/update', {
         method: 'POST',
         headers: {
@@ -329,9 +334,20 @@ export function useItinerary({
           Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ itineraryId: updated._id, itinerary: updated }),
-      }).catch(() => { /* ignore — non-critical */ });
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            console.warn('[persistAndSet] save failed:', res.status, data?.error);
+            showBanner(`⚠️ ${data?.error || 'Could not save this change.'}`);
+          }
+        })
+        .catch((e) => {
+          console.warn('[persistAndSet] save failed:', e instanceof Error ? e.message : e);
+          showBanner('⚠️ Could not save this change — check your connection.');
+        });
     }
-  }, [sessionPersist, session]);
+  }, [sessionPersist, session, showBanner]);
 
   const handleNeighborhoodClick = useCallback((neighborhood: string) => {
     setFocusedNeighborhood(neighborhood);
