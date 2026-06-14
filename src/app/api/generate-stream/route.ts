@@ -30,7 +30,7 @@ import {
 import { normalizeBasecampHotels } from '@/lib/hotelNormalize';
 import { classifyActivity } from '@/lib/activityGenre';
 import { resolveAuthenticatedTraveler } from '@/lib/resolveAuthUser';
-import { ensureTransportationForCity, persistTripSessionRow, fetchCityMeta, upsertCityTips, type CityMeta } from '@/lib/tripTransport';
+import { ensureTransportationForCity, persistTripSessionRow } from '@/lib/tripTransport';
 import { gatherTransportExaSnippets } from '@/lib/transportExaIntel';
 import { persistVenuesToCache, linkPlacesToUserEvents } from '@/lib/venueCache';
 import { formatAvailableInventoryForSystemPrompt, getFilteredInventory } from '@/services/scoringEngine';
@@ -201,27 +201,6 @@ async function runPipeline(
 
   await send({ type: 'status', message: 'Analyzing your trip preferences…', icon: '🧠' });
 
-  // ── City meta prefetch (fast single DB read ~50 ms) ──────────────────────
-  // Fetches any cached transport guide, packing tips, and local tips for this
-  // city. Done before the parallel block so we can skip the Exa transport call
-  // when we already have a fresh guide in the DB.
-  const dbWrite = createDbWriteClient();
-  let cityMeta: CityMeta = { transportGuide: null, packingTips: null, localTips: null };
-  try {
-    cityMeta = await fetchCityMeta(dbWrite, profile.destination);
-    if (cityMeta.transportGuide) {
-      console.log(`[generate-stream] cityTransport cache HIT for "${profile.destination}" — skipping Exa transport call`);
-    }
-    if (cityMeta.packingTips) {
-      console.log(`[generate-stream] packingTips cache HIT for "${profile.destination}"`);
-    }
-    if (cityMeta.localTips) {
-      console.log(`[generate-stream] localTips cache HIT for "${profile.destination}"`);
-    }
-  } catch (e) {
-    console.warn('[generate-stream] fetchCityMeta failed (non-critical):', e instanceof Error ? e.message : e);
-  }
-
   // ── All pre-AI I/O in parallel ────────────────────────────────────────────
   // scored inventory (Supabase) + chain-of-thought web search + accommodation
   // provider router all fire simultaneously — total wait = slowest branch.
@@ -266,38 +245,19 @@ async function runPipeline(
           'accommodation router prefetch',
         )
       : Promise.resolve({ provider: null, hotels: [], attempts: [], fallback: false } as Awaited<ReturnType<typeof searchAccommodations>>),
-    // Skip the Exa transport API call when we already have a cached guide in DB
-    cityMeta.transportGuide
-      ? Promise.resolve('')
-      : withPrefetchTimeout(
-          gatherTransportExaSnippets(profile.destination).catch((e) => {
-            console.warn('[generate-stream] transit Exa snippets failed (non-critical):', e);
-            return '';
-          }),
-          GENERATE_PREFETCH_PER_BRANCH_MS,
-          '',
-          'transit Exa prefetch',
-        ),
+    withPrefetchTimeout(
+      gatherTransportExaSnippets(profile.destination).catch((e) => {
+        console.warn('[generate-stream] transit Exa snippets failed (non-critical):', e);
+        return '';
+      }),
+      GENERATE_PREFETCH_PER_BRANCH_MS,
+      '',
+      'transit Exa prefetch',
+    ),
   ]);
 
   const inventorySystemBlock = formatAvailableInventoryForSystemPrompt(filteredInventory);
-
-  // When a verified transport guide exists in the DB, tell the AI to skip
-  // generating the cityTransport section — we'll merge it in post-parse.
-  // This saves ~500–1000 output tokens and eliminates transport URL hallucinations.
-  const prebuiltTransportBlock = cityMeta.transportGuide
-    ? `\n\nPREBUILT_CITY_TRANSPORT: A verified transport guide for ${profile.destination} is already cached. Output \`"cityTransport": null\` in your JSON — the correct guide will be injected automatically. Do NOT generate cityTransport content.\n`
-    : '';
-
-  // Same for packing tips and local tips — if cached, tell AI to output empty arrays.
-  const prebuiltTipsBlock = (cityMeta.packingTips || cityMeta.localTips)
-    ? [
-        cityMeta.packingTips ? `PREBUILT_PACKING_TIPS: Cached. Output \`"packingTips": []\` — correct tips will be injected automatically.` : '',
-        cityMeta.localTips   ? `PREBUILT_LOCAL_TIPS: Cached. Output \`"bestLocalTips": []\` — correct tips will be injected automatically.` : '',
-      ].filter(Boolean).join('\n') + '\n'
-    : '';
-
-  const inventoryLockedSystemPrompt = `${SYSTEM_PROMPT}\n${inventorySystemBlock}${prebuiltTransportBlock}${prebuiltTipsBlock ? '\n' + prebuiltTipsBlock : ''}`;
+  const inventoryLockedSystemPrompt = `${SYSTEM_PROMPT}\n${inventorySystemBlock}`;
   console.log(`[generate-stream] inventory lock: ${filteredInventory.length} scored items`);
 
   if (classifiedResults.length > 0) {
@@ -446,24 +406,6 @@ async function runPipeline(
 
   normalizeBasecampHotels(itinerary.basecamp);
 
-  // ── Inject pre-built city meta (transport guide + tips) ───────────────────
-  // Override any AI-generated values with cached DB versions. For transport,
-  // the DB guide is ground-truth (real fares, real URLs); AI-generated transport
-  // is often hallucinated. For tips, the AI-generated values from the first
-  // generation for a city are used verbatim on all subsequent generations.
-  if (cityMeta.transportGuide) {
-    itinerary.cityTransport = cityMeta.transportGuide;
-    console.log('[generate-stream] cityTransport injected from DB cache');
-  }
-  if (cityMeta.packingTips?.length) {
-    itinerary.packingTips = cityMeta.packingTips;
-    console.log('[generate-stream] packingTips injected from DB cache');
-  }
-  if (cityMeta.localTips?.length) {
-    itinerary.bestLocalTips = cityMeta.localTips;
-    console.log('[generate-stream] bestLocalTips injected from DB cache');
-  }
-
   // ── Normalize coordinates (synchronous — runs before any awaits below) ─────
   for (const day of (itinerary.days ?? [])) {
     for (const slot of ['morning', 'afternoon', 'evening'] as const) {
@@ -600,8 +542,9 @@ async function runPipeline(
   })();
 
   // ── Main DB save — runs while streaming is in progress ────────────────────
-  // Note: dbWrite was already created above for the city meta prefetch.
   await send({ type: 'status', message: 'Saving your personalized trip…', icon: '💾' });
+
+  const dbWrite = createDbWriteClient();
 
   const resolved = await resolveAuthenticatedTraveler(req, dbWrite, bodyUserId);
   const userId = resolved.userId;
@@ -781,23 +724,6 @@ async function runPipeline(
       ]);
     } catch (e) {
       console.warn('[generate-stream] transportation scout failed (non-critical):', e instanceof Error ? e.message : e);
-    }
-
-    // ── Cache packing + local tips for future generations ───────────────────
-    // Only write the tips the AI just generated if they weren't already cached.
-    // The ensureTransportationForCity call above guarantees the transportation
-    // row exists before we try to upsert tips onto it.
-    const tipsToCache: { packingTips?: string[]; localTips?: string[] } = {};
-    if (!cityMeta.packingTips && Array.isArray(itinerary.packingTips) && itinerary.packingTips.length > 0) {
-      tipsToCache.packingTips = itinerary.packingTips as string[];
-    }
-    if (!cityMeta.localTips && Array.isArray(itinerary.bestLocalTips) && itinerary.bestLocalTips.length > 0) {
-      tipsToCache.localTips = itinerary.bestLocalTips as string[];
-    }
-    if (tipsToCache.packingTips || tipsToCache.localTips) {
-      upsertCityTips(dbWrite, destCity, tipsToCache).catch((e) => {
-        console.warn('[generate-stream] city tips upsert failed (non-critical):', e instanceof Error ? e.message : e);
-      });
     }
   }
 

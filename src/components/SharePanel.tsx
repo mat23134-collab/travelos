@@ -4,6 +4,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Itinerary, TravelerProfile } from '@/lib/types';
+import { downloadItineraryICS } from '@/lib/icsExport';
+import { downloadItineraryKML } from '@/lib/kmlExport';
 import { audienceTitle } from '@/lib/audienceCopy';
 import { normalizeUsername, validateUsernameShape } from '@/lib/username';
 import { useAuth } from '@/lib/auth-context';
@@ -44,6 +46,10 @@ export type SharePanelCopy = {
   copyLinkSub: string;
   pdf: string;
   pdfSub: string;
+  calendar: string;
+  calendarSub: string;
+  maps: string;
+  mapsSub: string;
   travelOsTitle: string;
   travelOsBody: string;
   travelOsHint: string;
@@ -59,6 +65,10 @@ const DEFAULT_SHARE_COPY: SharePanelCopy = {
   copyLinkSub: 'Copies the link — paste anywhere',
   pdf: 'Download PDF',
   pdfSub: 'Offline-friendly layout',
+  calendar: 'Add to Calendar',
+  calendarSub: 'Apple Calendar & Google Calendar (.ics)',
+  maps: 'Export to Google Maps',
+  mapsSub: 'Download .kml — import at mymaps.google.com',
   travelOsTitle: 'TravelOS users',
   travelOsBody:
     'Send this saved trip to someone’s dashboard by username — or use the link for anyone.',
@@ -98,7 +108,24 @@ export function SharePanel({ itinerary, profile, itineraryDbId, accessToken: acc
 
   const handlePrint = () => {
     setOpen(false);
-    setTimeout(() => window.print(), 150);
+    // Open the dedicated print/export view — a clean, light, linear layout
+    // of the full itinerary that the browser can save as a PDF offline.
+    // Falls back to printing the current page if we don't have a saved trip id.
+    if (itineraryDbId) {
+      window.open(`/itinerary/${itineraryDbId}/print`, '_blank', 'noopener,noreferrer');
+    } else {
+      setTimeout(() => window.print(), 150);
+    }
+  };
+
+  const handleAddToCalendar = () => {
+    downloadItineraryICS(itinerary, profile);
+    setOpen(false);
+  };
+
+  const handleExportToMaps = () => {
+    downloadItineraryKML(itinerary);
+    setOpen(false);
   };
 
   const handleWhatsApp = () => {
@@ -179,6 +206,22 @@ export function SharePanel({ itinerary, profile, itineraryDbId, accessToken: acc
       sub: c.pdfSub,
       gradient: 'linear-gradient(135deg, #ff5a5f 0%, #ff8c5a 100%)',
       action: handlePrint,
+    },
+    {
+      id: 'calendar',
+      icon: '📅',
+      label: c.calendar,
+      sub: c.calendarSub,
+      gradient: 'linear-gradient(135deg, #a78bfa 0%, #6366f1 100%)',
+      action: handleAddToCalendar,
+    },
+    {
+      id: 'maps',
+      icon: '🗺️',
+      label: c.maps,
+      sub: c.mapsSub,
+      gradient: 'linear-gradient(135deg, #34d399 0%, #059669 100%)',
+      action: handleExportToMaps,
     },
   ] as const;
 

@@ -238,6 +238,10 @@ export function itineraryUi(lang: TripUiLang) {
     shareLinkCopied: he ? 'הקישור הועתק!' : 'Link copied!',
     sharePdf: he ? 'גרסת PDF' : 'Download PDF',
     sharePdfSub: he ? 'נוח למטוס או בלי רשת' : 'Offline-friendly layout',
+    shareCalendar: he ? 'הוספה ליומן' : 'Add to Calendar',
+    shareCalendarSub: he ? 'אפל ו-Google Calendar (קובץ .ics)' : 'Apple Calendar & Google Calendar (.ics)',
+    shareMaps: he ? 'ייצוא ל-Google Maps' : 'Export to Google Maps',
+    shareMapsSub: he ? 'הורד .kml — ייבוא ב-mymaps.google.com' : 'Download .kml — import at mymaps.google.com',
     shareTravelOsTitle: he ? 'משתמשי TravelOS' : 'TravelOS users',
     shareTravelOsBody: he
       ? 'אפשר לשגר את השמירה לדשבורד של מישהו לפי שם משתמש — או להשתמש בקישור לכולם.'
