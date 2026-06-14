@@ -133,4 +133,68 @@ export default async function ItineraryByIdPage({ params }: PageProps) {
     try {
       transportFromDb = await fetchTransportGuideForCity(supabase, city);
     } catch (e) {
-      console.warn('[itinerary/id] transportat
+      console.warn('[itinerary/id] transportation fetch skipped:', e instanceof Error ? e.message : e);
+    }
+    if (!transportFromDb) {
+      // Scout is missing for this city — fire in the background so the next
+      // page load will have the data. Uses service-role client (bypasses RLS).
+      const scoutClient = createServiceRoleClient();
+      if (scoutClient) {
+        void ensureTransportationForCity(scoutClient, city).catch((e) =>
+          console.warn('[itinerary/id] background transport scout failed:', e instanceof Error ? e.message : e)
+        );
+      }
+    }
+  }
+
+  return (
+    <ItineraryClient
+      initialItinerary={itinerary}
+      initialProfile={_profile ?? null}
+      initialViewMode="final"
+      initialTransportFromDb={transportFromDb}
+      initialTripSummaryUsername={tripSummaryUsername}
+      ownerUserId={ownerUserId}
+      ownerUsername={ownerUsername}
+      collaborators={collaborators}
+    />
+  );
+}
+
+export async function generateMetadata({ params }: PageProps) {
+  const { id } = await params;
+  if (!UUID_RE.test(id ?? '')) return { title: 'TravelOS' };
+
+  try {
+    const { data } = await supabase
+      .from('itineraries')
+      .select('destination')
+      .eq('id', id)
+      .single();
+
+    const destination = data?.destination ?? 'Your Trip';
+    return {
+      title: `${destination} Itinerary — TravelOS`,
+      description: `AI-crafted itinerary for ${destination}, built by TravelOS.`,
+    };
+  } catch {
+    return { title: 'TravelOS' };
+  }
+}
+
+function NotFound() {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center" style={{ backgroundColor: '#091f36' }}>
+      <div className="text-4xl mb-4">🗺️</div>
+      <h2 className="text-xl font-bold text-white mb-2 tracking-tight">Itinerary not found</h2>
+      <p className="text-white/50 mb-6">This link may have expired or the trip no longer exists.</p>
+      <Link
+        href="/onboarding"
+        className="px-6 py-3 rounded-xl text-white font-semibold text-sm transition-colors"
+        style={{ background: '#9e363a' }}
+      >
+        Plan a New Trip ✈️
+      </Link>
+    </div>
+  );
+}

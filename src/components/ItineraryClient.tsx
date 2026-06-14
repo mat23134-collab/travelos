@@ -1548,4 +1548,29 @@ export function ItineraryClient({
         <div className="print:hidden">
           <FeedbackSurveyModal
             open={itin.feedbackOpen}
-            onSubmit={itin.handleFeedba
+            onSubmit={itin.handleFeedbackSubmit}
+            onDismiss={itin.handleFeedbackDismiss}
+          />
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+// ── Small helper ──────────────────────────────────────────────────────────────
+
+function BudgetCell({ label, accent = false }: { label: string; accent?: boolean }) {
+  return (
+    <div
+      className="text-center p-3 rounded-xl"
+      style={accent
+        ? { background: 'rgba(90,173,165,0.1)', border: '1px solid rgba(90,173,165,0.2)' }
+        : { background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.06)' }}
+    >
+      <p className="text-[13px] leading-snug" style={{ color: accent ? '#3a8a82' : '#444', fontWeight: accent ? 700 : 400 }}>
+        {label || '—'}
+      </p>
+    </div>
+  );
+}
