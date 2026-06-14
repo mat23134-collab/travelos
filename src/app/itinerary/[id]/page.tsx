@@ -115,8 +115,8 @@ export default async function ItineraryByIdPage({ params }: PageProps) {
       console.warn('[itinerary/id] collaborators rpc:', collabErr.message);
     } else {
       collaborators = (collabRows ?? [])
-        .filter((r) => typeof r.username === 'string' && r.username.trim())
-        .map((r) => ({ userId: r.user_id as string, username: r.username as string }));
+        .filter((r: { user_id: string; username: string | null }) => typeof r.username === 'string' && r.username.trim())
+        .map((r: { user_id: string; username: string | null }) => ({ userId: r.user_id, username: r.username as string }));
     }
   } catch (e) {
     console.warn('[itinerary/id] collaborators fetch skipped:', e instanceof Error ? e.message : e);
