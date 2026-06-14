@@ -261,6 +261,14 @@ export function itineraryUi(lang: TripUiLang) {
       ? 'שמות המקומות נשארים באנגלית — נוח למפות ולהזמנות.'
       : 'Place names stay in English — easier for maps & bookings.',
     tripStoryDayLabel: (n: number) => (he ? `יום ${n}` : `Day ${n}`),
+
+    bankReplaceButton: he ? 'החלפה' : 'Swap',
+    bankPickSlotTitle: he ? 'בחרו מה להחליף' : 'Choose what to replace',
+    bankPickSlotSubtitle: (place: string) => (he ? `בחרו שיבוץ עבור "${place}"` : `Pick a slot for "${place}"`),
+    bankPickSlotCancel: he ? 'ביטול' : 'Cancel',
+    bankPickSlotConfirm: he ? 'אישור החלפה' : 'Confirm swap',
+
+    daySummaryTitle: he ? '📋 תקציר היום' : "📋 Today's Plan",
   };
 }
 

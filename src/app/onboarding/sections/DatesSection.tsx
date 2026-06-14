@@ -13,12 +13,9 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useOnboardingStore } from '@/state/onboardingStore';
-
-// ── Palette ───────────────────────────────────────────────────────────────────
-const BLUE  = '#4a7bde';
-const RED   = '#9e363a';
-const RED2  = '#b5404a';
-const MUTED = '#3a7068';
+import { THEME, CARD } from '@/lib/onboardingTheme';
+import { Sunrise, Sun, Sunset, Moon, MoonStar, Plane, CalendarDays } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 // ── Calendar helpers ──────────────────────────────────────────────────────────
 // Format a Date as YYYY-MM-DD using its LOCAL calendar fields. Using
@@ -66,48 +63,43 @@ const PRESETS = [
 ];
 
 // ── Arrival / Departure time chips ────────────────────────────────────────────
-const ARRIVAL_OPTS = [
-  { label: 'Morning',   value: '09:00', emoji: '🌅' },
-  { label: 'Midday',    value: '13:00', emoji: '☀️' },
-  { label: 'Afternoon', value: '16:00', emoji: '🌤️' },
-  { label: 'Evening',   value: '19:00', emoji: '🌆' },
-  { label: 'Late',      value: '21:00', emoji: '🌙' },
-  { label: 'Night',     value: '23:30', emoji: '🌃' },
+const ARRIVAL_OPTS: { label: string; value: string; icon: LucideIcon }[] = [
+  { label: 'Morning',   value: '09:00', icon: Sunrise },
+  { label: 'Midday',    value: '13:00', icon: Sun },
+  { label: 'Afternoon', value: '16:00', icon: Sunset },
+  { label: 'Evening',   value: '19:00', icon: Moon },
+  { label: 'Late',      value: '21:00', icon: Moon },
+  { label: 'Night',     value: '23:30', icon: MoonStar },
 ];
-const DEPARTURE_OPTS = [
-  { label: 'Dawn',      value: '06:00', emoji: '🌄' },
-  { label: 'Morning',   value: '09:00', emoji: '🌅' },
-  { label: 'Midday',    value: '12:00', emoji: '☀️' },
-  { label: 'Afternoon', value: '15:00', emoji: '🌤️' },
-  { label: 'Evening',   value: '18:00', emoji: '🌆' },
-  { label: 'Night',     value: '22:00', emoji: '🌙' },
+const DEPARTURE_OPTS: { label: string; value: string; icon: LucideIcon }[] = [
+  { label: 'Dawn',      value: '06:00', icon: Sunrise },
+  { label: 'Morning',   value: '09:00', icon: Sunrise },
+  { label: 'Midday',    value: '12:00', icon: Sun },
+  { label: 'Afternoon', value: '15:00', icon: Sunset },
+  { label: 'Evening',   value: '18:00', icon: Moon },
+  { label: 'Night',     value: '22:00', icon: MoonStar },
 ];
 
 // ── Time chip ─────────────────────────────────────────────────────────────────
-function TimeChip({ opt, selected, accent, onSelect }: {
-  opt: { label: string; value: string; emoji: string };
+function TimeChip({ opt, selected, onSelect }: {
+  opt: { label: string; value: string; icon: LucideIcon };
   selected: boolean;
-  accent: string;
   onSelect: () => void;
 }) {
-  const rgb = accent === BLUE ? '74,123,222' : '249,115,22';
+  const Icon = opt.icon;
   return (
     <motion.button
       onClick={onSelect}
       whileHover={{ y: -2, scale: 1.06 }}
       whileTap={{ scale: 0.93 }}
-      animate={selected
-        ? { boxShadow: `0 0 0 1.5px rgba(${rgb},0.70)` }
-        : { boxShadow: '0 2px 6px rgba(0,0,0,0.18)' }}
-      className="flex flex-col items-center py-2 px-1 rounded-xl text-[10px] font-semibold"
+      className="flex flex-col items-center py-2 px-1 rounded-xl text-[10px] font-semibold transition-colors"
       style={{
-        background: selected ? `rgba(${rgb},0.22)` : 'rgba(255,255,255,0.55)',
-        border: selected ? `1.5px solid rgba(${rgb},0.55)` : '1.5px solid rgba(90,173,165,0.22)',
-        color: selected ? '#fff' : '#3a7068',
+        ...(selected ? CARD.selected : CARD.base),
+        color: selected ? THEME.deepGreen : THEME.textMuted,
         minWidth: 52,
       }}
     >
-      <span className="text-base mb-0.5">{opt.emoji}</span>
+      <Icon size={18} strokeWidth={1.75} className="mb-0.5" style={{ color: selected ? THEME.gold : THEME.textMuted }} />
       {opt.label}
     </motion.button>
   );
@@ -155,22 +147,22 @@ function CalendarRangePicker({ startDate, endDate, onChange }: {
 
   return (
     <div className="rounded-2xl overflow-hidden select-none"
-      style={{ background: 'rgba(255,255,255,0.75)', border: '1.5px solid rgba(90,173,165,0.35)' }}>
+      style={{ background: THEME.surface, border: `1.5px solid ${THEME.border}` }}>
       {/* Month nav */}
-      <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'rgba(90,173,165,0.20)' }}>
+      <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: THEME.border }}>
         <button onClick={prevMonth} aria-label="Previous month"
           className="w-8 h-8 rounded-full flex items-center justify-center text-sm hover-bg-subtle"
-          style={{ color: '#3a7068' }}>‹</button>
-        <span className="text-sm font-bold" style={{ color: '#0d2b27' }}>{MONTHS[viewMonth]} {viewYear}</span>
+          style={{ color: THEME.textMuted }}>‹</button>
+        <span className="text-sm font-bold" style={{ color: THEME.deepGreen }}>{MONTHS[viewMonth]} {viewYear}</span>
         <button onClick={nextMonth} aria-label="Next month"
           className="w-8 h-8 rounded-full flex items-center justify-center text-sm hover-bg-subtle"
-          style={{ color: '#3a7068' }}>›</button>
+          style={{ color: THEME.textMuted }}>›</button>
       </div>
       {/* Day headers */}
       <div className="grid grid-cols-7 px-2 pt-2">
         {DAY_LABELS.map(d => (
           <div key={d} className="text-center text-[10px] font-bold uppercase tracking-widest py-1"
-            style={{ color: '#5a908a' }}>{d}</div>
+            style={{ color: THEME.textFaint }}>{d}</div>
         ))}
       </div>
       {/* Day cells */}
@@ -185,25 +177,24 @@ function CalendarRangePicker({ startDate, endDate, onChange }: {
               onMouseEnter={() => picking === 'end' && setHoverDay(day)}
               onMouseLeave={() => setHoverDay(null)}>
               {inRange && (
-                <div className="absolute inset-y-0" style={{ left: isFirstCol ? '50%' : 0, right: isLastCol ? '50%' : 0, background: 'rgba(90,173,165,0.20)' }} />
+                <div className="absolute inset-y-0" style={{ left: isFirstCol ? '50%' : 0, right: isLastCol ? '50%' : 0, background: THEME.surfaceSel }} />
               )}
               {start && rangeEnd && rangeEnd !== startDate && (
-                <div className="absolute inset-y-0" style={{ left: '50%', right: isLastCol ? '50%' : 0, background: 'rgba(90,173,165,0.20)' }} />
+                <div className="absolute inset-y-0" style={{ left: '50%', right: isLastCol ? '50%' : 0, background: THEME.surfaceSel }} />
               )}
               {end && (
-                <div className="absolute inset-y-0" style={{ right: '50%', left: isFirstCol ? '50%' : 0, background: 'rgba(90,173,165,0.20)' }} />
+                <div className="absolute inset-y-0" style={{ right: '50%', left: isFirstCol ? '50%' : 0, background: THEME.surfaceSel }} />
               )}
               <button
                 onClick={() => handleDayClick(day)}
                 disabled={past}
                 className="relative z-10 w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all disabled:cursor-not-allowed"
                 style={{
-                  background: (start || end) ? BLUE : 'transparent',
-                  color: (start || end) ? '#fff' : past ? 'rgba(90,173,165,0.40)' : tod ? BLUE : '#1a4a44',
+                  background: (start || end) ? THEME.gold : 'transparent',
+                  color: (start || end) ? '#fff' : past ? THEME.textFaint : tod ? THEME.gold : THEME.textBody,
                   fontWeight: tod && !(start || end) ? 800 : 600,
-                  boxShadow: (start || end) ? `0 0 14px rgba(74,123,222,0.55)` : 'none',
                 }}
-                onMouseEnter={e => { if (!past && !(start || end)) (e.currentTarget as HTMLElement).style.background = 'rgba(74,123,222,0.25)'; }}
+                onMouseEnter={e => { if (!past && !(start || end)) (e.currentTarget as HTMLElement).style.background = THEME.surfaceSel; }}
                 onMouseLeave={e => { if (!(start || end)) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
               >
                 {new Date(day + 'T00:00:00').getDate()}
@@ -246,32 +237,30 @@ export function DatesSection({ isCompleted, onComplete, onEdit }: Props) {
       <motion.div
         initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
         className="flex items-center justify-between px-5 py-3.5 rounded-2xl"
-        style={{ background: 'rgba(255,255,255,0.72)', border: '1px solid rgba(90,173,165,0.28)' }}
+        style={CARD.base}
       >
         <div className="flex items-center gap-3">
-          <span className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black text-white shrink-0"
-            style={{ background: BLUE }}>✓</span>
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-bold" style={{ color: '#1a4a44' }}>
+            <span className="text-sm font-bold" style={{ color: THEME.textBody }}>
               {fmt(startDate)} → {fmt(endDate)}
             </span>
             {duration && (
               <>
-                <span style={{ color: MUTED }} className="text-xs">·</span>
-                <span className="text-xs font-medium" style={{ color: MUTED }}>{duration} nights</span>
+                <span style={{ color: THEME.textMuted }} className="text-xs">·</span>
+                <span className="text-xs font-medium" style={{ color: THEME.textMuted }}>{duration} nights</span>
               </>
             )}
             {arrivalTime && (
               <>
-                <span style={{ color: MUTED }} className="text-xs">·</span>
-                <span className="text-xs" style={{ color: MUTED }}>Arrives {arrivalTime}</span>
+                <span style={{ color: THEME.textMuted }} className="text-xs">·</span>
+                <span className="text-xs" style={{ color: THEME.textMuted }}>Arrives {arrivalTime}</span>
               </>
             )}
           </div>
         </div>
         <button onClick={onEdit}
           className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors hover-bg-subtle"
-          style={{ color: '#3a7068', border: '1px solid rgba(90,173,165,0.30)' }}>
+          style={{ color: THEME.textMuted, border: `1px solid ${THEME.border}` }}>
           Edit
         </button>
       </motion.div>
@@ -281,16 +270,6 @@ export function DatesSection({ isCompleted, onComplete, onEdit }: Props) {
   // ── Active form ──────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col gap-5">
-
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black text-white shrink-0"
-          style={{ background: BLUE }}>2</span>
-        <div>
-          <h2 className="text-xl font-black tracking-tight" style={{ color: '#0d2b27' }}>When?</h2>
-          <p className="text-xs mt-0.5" style={{ color: MUTED }}>Pick your travel dates</p>
-        </div>
-      </div>
 
       {/* Duration presets */}
       <div className="flex items-center gap-2 flex-wrap">
@@ -303,9 +282,9 @@ export function DatesSection({ isCompleted, onComplete, onEdit }: Props) {
             }}
             className="text-xs px-3.5 py-1.5 rounded-full font-semibold transition-colors"
             style={{
-              background: duration === days ? `rgba(74,123,222,0.18)` : 'rgba(255,255,255,0.65)',
-              border: duration === days ? `1.5px solid rgba(74,123,222,0.50)` : '1.5px solid rgba(90,173,165,0.28)',
-              color: duration === days ? '#4a7bde' : '#3a7068',
+              background: duration === days ? THEME.surfaceSel : THEME.surface,
+              border: duration === days ? `1.5px solid ${THEME.borderSel}` : `1.5px solid ${THEME.border}`,
+              color: duration === days ? THEME.gold : THEME.textMuted,
             }}
           >{label}</button>
         ))}
@@ -323,10 +302,10 @@ export function DatesSection({ isCompleted, onComplete, onEdit }: Props) {
         {duration && (
           <motion.div key="dur" variants={reveal} initial="hidden" animate="visible" exit="exit"
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl"
-            style={{ background: 'rgba(255,255,255,0.72)', border: '1px solid rgba(90,173,165,0.28)' }}>
-            <span className="text-base">📅</span>
-            <span className="text-sm font-semibold" style={{ color: '#1a4a44' }}>{duration} nights</span>
-            <span className="text-xs ml-1" style={{ color: MUTED }}>
+            style={CARD.base}>
+            <CalendarDays size={16} strokeWidth={1.75} style={{ color: THEME.textMuted }} className="shrink-0" />
+            <span className="text-sm font-semibold" style={{ color: THEME.textBody }}>{duration} nights</span>
+            <span className="text-xs ml-1" style={{ color: THEME.textMuted }}>
               {fmt(startDate)} — {fmt(endDate)}
             </span>
           </motion.div>
@@ -335,20 +314,20 @@ export function DatesSection({ isCompleted, onComplete, onEdit }: Props) {
 
       {/* Travel details accordion */}
       <div className="rounded-2xl overflow-hidden"
-        style={{ border: '1px solid rgba(90,173,165,0.28)', background: 'rgba(255,255,255,0.65)' }}>
+        style={CARD.base}>
         <button
           onClick={() => setShowDetails(d => !d)}
           className="w-full flex items-center justify-between px-4 py-3.5 text-sm font-semibold text-left"
-          style={{ color: showDetails ? '#1a4a44' : '#3a7068' }}
+          style={{ color: showDetails ? THEME.textBody : THEME.textMuted }}
         >
           <span className="flex items-center gap-2">
-            <span>✈️</span>
+            <Plane size={16} strokeWidth={1.75} style={{ color: THEME.textMuted }} />
             Travel details
-            <span className="text-[10px] ml-1 px-2 py-0.5 rounded-full" style={{ background: 'rgba(90,173,165,0.12)', color: MUTED }}>Optional</span>
+            <span className="text-[10px] ml-1 px-2 py-0.5 rounded-full" style={{ background: THEME.surfaceSel, color: THEME.textMuted }}>Optional</span>
           </span>
           <span
             className="transition-transform duration-200"
-            style={{ transform: showDetails ? 'rotate(180deg)' : 'rotate(0deg)', color: MUTED }}
+            style={{ transform: showDetails ? 'rotate(180deg)' : 'rotate(0deg)', color: THEME.textMuted }}
           >▾</span>
         </button>
 
@@ -361,28 +340,28 @@ export function DatesSection({ isCompleted, onComplete, onEdit }: Props) {
               exit={{ height: 0, opacity: 0, transition: { duration: 0.22 } }}
               className="overflow-hidden"
             >
-              <div className="px-4 pb-4 pt-1 flex flex-col gap-4 border-t" style={{ borderColor: 'rgba(90,173,165,0.20)' }}>
+              <div className="px-4 pb-4 pt-1 flex flex-col gap-4 border-t" style={{ borderColor: THEME.border }}>
                 {/* Arrival */}
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: MUTED }}>
+                  <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: THEME.textMuted }}>
                     Arrival time (first day)
                   </p>
                   <div className="flex gap-1.5 flex-wrap">
                     {ARRIVAL_OPTS.map(opt => (
                       <TimeChip key={opt.value} opt={opt} selected={arrivalTime === opt.value}
-                        accent={BLUE} onSelect={() => setArrivalTime(opt.value)} />
+                        onSelect={() => setArrivalTime(opt.value)} />
                     ))}
                   </div>
                 </div>
                 {/* Departure */}
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: MUTED }}>
+                  <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: THEME.textMuted }}>
                     Departure time (last day)
                   </p>
                   <div className="flex gap-1.5 flex-wrap">
                     {DEPARTURE_OPTS.map(opt => (
                       <TimeChip key={opt.value} opt={opt} selected={departureTime === opt.value}
-                        accent="#f97316" onSelect={() => setDepartureTime(opt.value)} />
+                        onSelect={() => setDepartureTime(opt.value)} />
                     ))}
                   </div>
                 </div>

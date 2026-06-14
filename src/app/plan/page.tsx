@@ -512,6 +512,10 @@ function PlanPage() {
     const preHotelSkipped        = searchParams.get('hotelSkipped') === '1';
     const preDietaryRaw = searchParams.get('dietary') ?? '';
     const preDietary = preDietaryRaw ? preDietaryRaw.split(',').filter(Boolean) : [];
+    const preDietaryStrictRaw = searchParams.get('dietaryStrict') ?? '';
+    const preDietaryStrict = preDietaryStrictRaw === 'strict' || preDietaryStrictRaw === 'flexible'
+      ? preDietaryStrictRaw
+      : '';
     const preMustHaveRaw = searchParams.get('mustHave') ?? '';
     const preMustHave = preMustHaveRaw ? preMustHaveRaw.split(',').filter(Boolean) : [];
     const preMustHaveOther = searchParams.get('mustHaveOther')?.trim() ?? '';
@@ -564,6 +568,7 @@ function PlanPage() {
       tripLanguage: initialTripLang,
       interests:           preInterests.length ? preInterests : [],
       dietaryRestrictions: preDietary,
+      dietaryStrictness:   preDietaryStrict,
       mustHaveItems:       preMustHave,
       mustHaveOther:       preMustHaveOther,
       destination:    preDestination,
@@ -834,7 +839,15 @@ function PlanPage() {
       hotelLocationPref: ((form.hotelLocationPref as TravelerProfile['hotelLocationPref']) || []),
       hotelAmenities: ((form.hotelAmenities as TravelerProfile['hotelAmenities']) || []),
       hotelSkipped: !!(form.hotelSkipped as boolean),
-      dietaryRestrictions: ((form.dietaryRestrictions as string[]) || []).join(', '),
+      dietaryRestrictions: (() => {
+        const items = (form.dietaryRestrictions as string[]) || [];
+        if (!items.length) return '';
+        const base = items.join(', ');
+        const strict = form.dietaryStrictness as string;
+        if (strict === 'flexible') return `${base} (flexible — venues that offer a suitable option are acceptable)`;
+        if (strict === 'strict')   return `${base} (strict — only fully-compliant venues)`;
+        return base;
+      })(),
       mustHave: [
         ...((form.mustHaveItems as string[]) || []),
         ...((form.mustHaveOther as string)?.trim()
@@ -1098,6 +1111,8 @@ function PlanPage() {
             onToggleDietary={toggleDietary}
             onToggleMustHave={toggleMustHave}
             onMustHaveOtherChange={(text) => setValue('mustHaveOther', text)}
+            dietaryStrictness={(form.dietaryStrictness as 'strict' | 'flexible' | '') || ''}
+            onDietaryStrictnessChange={(v) => setValue('dietaryStrictness', v)}
             stepBadge={6}
           />
         </div>
@@ -1538,6 +1553,8 @@ function PlanPage() {
                     onToggleDietary={toggleDietary}
                     onToggleMustHave={toggleMustHave}
                     onMustHaveOtherChange={(text) => setValue('mustHaveOther', text)}
+                    dietaryStrictness={(form.dietaryStrictness as 'strict' | 'flexible' | '') || ''}
+                    onDietaryStrictnessChange={(v) => setValue('dietaryStrictness', v)}
                   />
                 )}
 

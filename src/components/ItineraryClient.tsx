@@ -1343,6 +1343,8 @@ export function ItineraryClient({
             dayIndex={itin.selectedDayIndex}
             totalDays={days.length}
             itinerary={itin.itinerary}
+            itineraryId={itin.itinerary._id ?? null}
+            session={itin.session ?? null}
             profile={itin.profile}
             ui={itin.ui}
             mapLabels={itin.mapLabels}

@@ -11,6 +11,8 @@ export interface SwapPayload {
   itinerary_id?: string;
   dayIndex: number;
   slot: 'morning' | 'afternoon' | 'evening';
+  /** When the activity being replaced is actually a dining row, this names the day field to update. */
+  diningField?: 'breakfast' | 'lunch' | 'dinner';
   request?: string;
   /** When set, skips LLM and persists this activity (smart-swap picker). */
   replacementActivity?: Activity;
@@ -22,6 +24,7 @@ export interface SwapResult {
   activity: Activity;
   dayIndex: number;
   slot: 'morning' | 'afternoon' | 'evening';
+  diningField?: 'breakfast' | 'lunch' | 'dinner';
   summary: string;
 }
 
@@ -31,6 +34,11 @@ const SLOT_ORDER: Record<'morning' | 'afternoon' | 'evening', number> = {
   afternoon: 3,
   evening: 5,
 };
+const DINING_SLOT_ORDER: Record<'breakfast' | 'lunch' | 'dinner', number> = {
+  breakfast: 0,
+  lunch: 2,
+  dinner: 4,
+};
 
 async function persistSwap(
   itinerary: Itinerary,
@@ -39,8 +47,15 @@ async function persistSwap(
   slot: 'morning' | 'afternoon' | 'evening',
   rawActivity: Activity,
   requestMeta: string,
+  diningField?: 'breakfast' | 'lunch' | 'dinner',
 ): Promise<Activity> {
-  const existingItemId: string | undefined = itinerary.days[dayIndex]?.[slot]?.item_id;
+  // Dining rows are stored under their own day fields (breakfast/lunch/dinner),
+  // not under morning/afternoon/evening — `slot` is only used as the LLM-prompt
+  // anchor for those rows, never as the field to actually write.
+  const targetField: string = diningField ?? slot;
+  const itemOrder = diningField ? DINING_SLOT_ORDER[diningField] : SLOT_ORDER[slot];
+  const existingItemId: string | undefined =
+    (itinerary.days[dayIndex] as unknown as Record<string, { item_id?: string } | undefined>)?.[targetField]?.item_id;
   const newActivity: Activity = {
     ...rawActivity,
     item_id: existingItemId,
@@ -59,7 +74,7 @@ async function persistSwap(
         .from('itinerary_items')
         .update({
           name:           newActivity.name           ?? null,
-          category:       slot,
+          category:       targetField,
           description:    newActivity.description    ?? null,
           lat:            newActivity.latitude       != null ? Number(newActivity.latitude)  : null,
           lng:            newActivity.longitude      != null ? Number(newActivity.longitude) : null,
@@ -70,12 +85,12 @@ async function persistSwap(
         })
         .eq('itinerary_id', itinerary_id)
         .eq('day_number', dayNumber)
-        .eq('item_order', SLOT_ORDER[slot])
+        .eq('item_order', itemOrder)
         .select('id')
         .limit(1);
 
       const updatedDays = itinerary.days.map((day, i) =>
-        i !== dayIndex ? day : { ...day, [slot]: newActivity }
+        i !== dayIndex ? day : { ...day, [targetField]: newActivity }
       );
       const updatedBlob: Itinerary = { ...itinerary, days: updatedDays };
       await supabase
@@ -92,19 +107,19 @@ async function persistSwap(
             itinerary_item_id: updatedRows[0].id,
             event_type: 'swapped',
             place_name: newActivity.name ?? 'Unknown place',
-            place_category: slot,
+            place_category: targetField,
             lat: newActivity.latitude != null ? Number(newActivity.latitude) : null,
             lng: newActivity.longitude != null ? Number(newActivity.longitude) : null,
             metadata: {
               source: 'api/swap',
               day_number: dayNumber,
-              slot,
+              slot: targetField,
               request: requestMeta,
             },
           });
       }
 
-      console.log(`[swap] DB synced — itinerary ${itinerary_id} day${dayNumber} ${slot}`);
+      console.log(`[swap] DB synced — itinerary ${itinerary_id} day${dayNumber} ${targetField}`);
     } catch (dbErr) {
       console.warn('[swap] DB update failed (non-critical):', dbErr instanceof Error ? dbErr.message : dbErr);
     }
@@ -133,6 +148,7 @@ export async function POST(req: NextRequest) {
     itinerary_id,
     dayIndex,
     slot,
+    diningField,
     request = 'Suggest something better',
     replacementActivity,
     proposalSummary,
@@ -181,12 +197,13 @@ export async function POST(req: NextRequest) {
       requestMeta = request;
     }
 
-    const merged = await persistSwap(itinerary, itinerary_id, dayIndex, slot, rawActivity, requestMeta);
+    const merged = await persistSwap(itinerary, itinerary_id, dayIndex, slot, rawActivity, requestMeta, diningField);
 
     const result: SwapResult = {
       activity: merged,
       dayIndex,
       slot,
+      diningField,
       summary,
     };
 

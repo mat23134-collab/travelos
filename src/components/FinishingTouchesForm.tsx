@@ -1,10 +1,17 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { Mountain, UtensilsCrossed, Landmark, Star } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { DIETARY_OPTIONS, getMustHaveGroups } from '@/lib/finishingTouches';
+import { THEME, CARD } from '@/lib/onboardingTheme';
 
-const ACCENT = '#9e363a';
-const MUTED  = '#3a7068';
+const CATEGORY_ICON: Record<string, LucideIcon> = {
+  attractions: Mountain,
+  restaurants: UtensilsCrossed,
+  historical:  Landmark,
+  popular:     Star,
+};
 
 interface Props {
   destination: string;
@@ -14,10 +21,18 @@ interface Props {
   onToggleDietary: (value: string) => void;
   onToggleMustHave: (label: string) => void;
   onMustHaveOtherChange: (text: string) => void;
+  /** Strict vs flexible interpretation of the dietary picks (optional). */
+  dietaryStrictness?: 'strict' | 'flexible' | '';
+  onDietaryStrictnessChange?: (v: 'strict' | 'flexible' | '') => void;
   mode?: 'all' | 'dietary' | 'recommendations';
   /** Show numbered step badge (onboarding section header) */
   stepBadge?: number;
 }
+
+const STRICTNESS_OPTIONS = [
+  { value: 'strict'   as const, label: 'Strict',   sub: 'Only fully-compliant places' },
+  { value: 'flexible' as const, label: 'Flexible', sub: 'A good option on the menu is enough' },
+];
 
 export function FinishingTouchesForm({
   destination,
@@ -27,6 +42,8 @@ export function FinishingTouchesForm({
   onToggleDietary,
   onToggleMustHave,
   onMustHaveOtherChange,
+  dietaryStrictness = '',
+  onDietaryStrictnessChange,
   mode = 'all',
   stepBadge,
 }: Props) {
@@ -49,42 +66,47 @@ export function FinishingTouchesForm({
     },
   }[mode];
 
+  // The onboarding shell renders the step headline + sub for dietary /
+  // recommendations modes — suppress this component's own header there.
+  const showHeader = mode === 'all';
+
   return (
     <div className="flex flex-col gap-6">
 
-      {stepBadge != null ? (
+      {showHeader && (stepBadge != null ? (
         <div className="flex items-center gap-3">
           <span
-            className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black text-white shrink-0"
-            style={{ background: ACCENT }}
+            className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shrink-0"
+            style={{ background: THEME.gold, color: THEME.ink }}
           >
             {stepBadge}
           </span>
           <div>
-            <h2 className="text-xl font-black tracking-tight" style={{ color: '#0d2b27' }}>{headerCopy.title}</h2>
-            <p className="text-xs mt-0.5" style={{ color: MUTED }}>
+            <h2 className="text-xl font-black tracking-tight" style={{ color: THEME.deepGreen }}>{headerCopy.title}</h2>
+            <p className="text-xs mt-0.5" style={{ color: THEME.textMuted }}>
               {headerCopy.body}
             </p>
           </div>
         </div>
       ) : (
         <div>
-          <h2 className="text-xl font-black tracking-tight" style={{ color: '#0d2b27' }}>{headerCopy.title}</h2>
-          <p className="text-xs mt-0.5" style={{ color: MUTED }}>
+          <h2 className="text-xl font-black tracking-tight" style={{ color: THEME.deepGreen }}>{headerCopy.title}</h2>
+          <p className="text-xs mt-0.5" style={{ color: THEME.textMuted }}>
             {headerCopy.body}
           </p>
         </div>
-      )}
+      ))}
 
       {/* Dietary */}
       {showDietary && <div className="flex flex-col gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: MUTED }}>
+        <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: THEME.textMuted }}>
           Dietary preferences{' '}
-          <span style={{ color: 'rgba(255,255,255,0.20)' }}>(optional — pick any)</span>
+          <span style={{ color: THEME.textFaint }}>(optional — pick any)</span>
         </p>
         <div className="grid grid-cols-2 gap-2">
           {DIETARY_OPTIONS.map((opt) => {
             const sel = dietary.includes(opt.value);
+            const Icon = opt.icon;
             return (
               <motion.button
                 key={opt.value}
@@ -92,52 +114,73 @@ export function FinishingTouchesForm({
                 onClick={() => onToggleDietary(opt.value)}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                animate={sel
-                  ? { boxShadow: `0 0 0 2px ${ACCENT}, 0 8px 28px -6px rgba(158,54,58,0.22)` }
-                  : { boxShadow: 'none' }
-                }
                 transition={{ type: 'spring', stiffness: 400, damping: 24 }}
-                className="flex items-center gap-2.5 px-3.5 py-3 rounded-xl border text-left transition-colors"
-                style={sel
-                  ? { borderColor: ACCENT, background: 'rgba(158,54,58,0.10)', color: '#e07078' }
-                  : { borderColor: 'rgba(90,173,165,0.28)', background: 'rgba(255,255,255,0.65)', color: '#1a4a44' }
-                }
+                className="flex items-start gap-2.5 px-3.5 py-3 rounded-xl border text-left transition-colors"
+                style={sel ? CARD.selected : CARD.base}
               >
-                <span className="text-base shrink-0 leading-none">{opt.icon}</span>
-                <span className="text-xs font-semibold leading-snug flex-1">{opt.label}</span>
-                {sel && (
-                  <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }}
-                    className="text-[10px] font-black shrink-0" style={{ color: ACCENT }}>✓</motion.span>
-                )}
+                <Icon size={18} strokeWidth={1.75} style={{ color: sel ? THEME.gold : THEME.textMuted }} className="shrink-0 mt-0.5" />
+                <span className="flex-1 min-w-0">
+                  <span className="block text-xs font-semibold leading-snug"
+                    style={{ color: sel ? THEME.deepGreen : THEME.textBody }}>{opt.label}</span>
+                  <span className="block text-[10px] mt-0.5 leading-snug" style={{ color: THEME.textFaint }}>{opt.sub}</span>
+                </span>
               </motion.button>
             );
           })}
         </div>
+
+        {/* Strict vs flexible — only matters once at least one rule is set */}
+        {onDietaryStrictnessChange && dietary.length > 0 && (
+          <div className="mt-3">
+            <p className="text-[11px] mb-2" style={{ color: THEME.textFaint }}>
+              How strict should we be?
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {STRICTNESS_OPTIONS.map((o) => {
+                const sel = dietaryStrictness === o.value;
+                return (
+                  <motion.button
+                    key={o.value}
+                    type="button"
+                    onClick={() => onDietaryStrictnessChange(sel ? '' : o.value)}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="flex flex-col items-start gap-0.5 px-3.5 py-2.5 rounded-xl border text-left transition-colors"
+                    style={sel ? CARD.selected : CARD.base}
+                  >
+                    <span className="text-xs font-semibold leading-snug"
+                      style={{ color: sel ? THEME.deepGreen : THEME.textBody }}>{o.label}</span>
+                    <span className="text-[10px] leading-snug" style={{ color: THEME.textFaint }}>{o.sub}</span>
+                  </motion.button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>}
 
       {/* Must-haves */}
       {showRecommendations && <div>
-        <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: MUTED }}>
+        <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: THEME.textMuted }}>
           Our picks for {destination || 'your trip'}{' '}
-          <span style={{ color: 'rgba(255,255,255,0.18)' }}>(optional)</span>
+          <span style={{ color: THEME.textFaint }}>(optional)</span>
         </p>
-        <p className="text-xs mb-3 leading-relaxed" style={{ color: 'rgba(255,255,255,0.36)' }}>
+        <p className="text-xs mb-3 leading-relaxed" style={{ color: THEME.textFaint }}>
           Choose specific places you want us to build around. These names are sent directly into the itinerary prompt.
         </p>
         {hasCityPicks && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-            {mustHaveGroups.map((group) => (
+            {mustHaveGroups.map((group) => {
+              const CategoryIcon = CATEGORY_ICON[group.key] ?? Star;
+              return (
               <div
                 key={group.key}
                 className="rounded-2xl border p-2.5"
-                style={{
-                  borderColor: 'rgba(90,173,165,0.28)',
-                  background: 'rgba(255,255,255,0.65)',
-                }}
+                style={CARD.base}
               >
                 <p
                   className="text-[10px] font-black uppercase tracking-widest px-1 pb-2"
-                  style={{ color: 'rgba(255,255,255,0.34)' }}
+                  style={{ color: THEME.textFaint }}
                 >
                   {group.title}
                 </p>
@@ -151,42 +194,27 @@ export function FinishingTouchesForm({
                         onClick={() => onToggleMustHave(pick.label)}
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
-                        animate={sel
-                          ? { boxShadow: `0 0 0 2px ${ACCENT}, 0 8px 28px -6px rgba(158,54,58,0.22)` }
-                          : { boxShadow: 'none' }
-                        }
                         transition={{ type: 'spring', stiffness: 400, damping: 24 }}
                         className="flex items-start gap-2.5 px-3.5 py-3 rounded-xl border text-left transition-colors"
-                        style={sel
-                          ? { borderColor: ACCENT, background: 'rgba(158,54,58,0.10)', color: '#e07078' }
-                          : { borderColor: 'rgba(90,173,165,0.28)', background: 'rgba(255,255,255,0.65)', color: '#1a4a44' }
-                        }
+                        style={sel ? CARD.selected : CARD.base}
                       >
-                        <span className="text-base shrink-0 leading-none mt-0.5">{pick.icon}</span>
+                        <CategoryIcon size={18} strokeWidth={1.75} style={{ color: sel ? THEME.gold : THEME.textMuted }} className="shrink-0 mt-0.5" />
                         <span className="flex-1 min-w-0">
-                          <span className="block text-xs font-bold leading-snug">{pick.label}</span>
+                          <span className="block text-xs font-bold leading-snug"
+                            style={{ color: sel ? THEME.deepGreen : THEME.textBody }}>{pick.label}</span>
                           {(pick.area || pick.note) && (
-                            <span className="block text-[10px] leading-snug mt-0.5" style={{ color: sel ? 'rgba(255,190,195,0.72)' : 'rgba(255,255,255,0.34)' }}>
+                            <span className="block text-[10px] leading-snug mt-0.5" style={{ color: THEME.textFaint }}>
                               {[pick.area, pick.note].filter(Boolean).join(' · ')}
                             </span>
                           )}
                         </span>
-                        {sel && (
-                          <motion.span
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            className="text-[10px] font-black shrink-0"
-                            style={{ color: ACCENT }}
-                          >
-                            ✓
-                          </motion.span>
-                        )}
                       </motion.button>
                     );
                   })}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
         <input
@@ -196,16 +224,16 @@ export function FinishingTouchesForm({
           onChange={(e) => onMustHaveOtherChange(e.target.value)}
           className="w-full px-4 py-3.5 rounded-xl border focus:outline-none text-sm transition-all"
           style={{
-            borderColor: 'rgba(90,173,165,0.28)',
-            background: 'rgba(255,255,255,0.65)',
-            color: '#1a4a44',
+            borderColor: THEME.border,
+            background: THEME.surface,
+            color: THEME.textBody,
           }}
           onFocus={(e) => {
-            e.currentTarget.style.borderColor = ACCENT;
-            e.currentTarget.style.boxShadow = `0 0 0 2px rgba(158,54,58,0.15)`;
+            e.currentTarget.style.borderColor = THEME.borderSel;
+            e.currentTarget.style.boxShadow = `0 0 0 2px ${THEME.goldSoft}`;
           }}
           onBlur={(e) => {
-            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)';
+            e.currentTarget.style.borderColor = THEME.border;
             e.currentTarget.style.boxShadow = 'none';
           }}
         />

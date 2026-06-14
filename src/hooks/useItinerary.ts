@@ -15,6 +15,7 @@ import { parseTransportGuideJson } from '@/lib/transportGuideParse';
 import { STEP_BACKGROUNDS } from '@/lib/stepBackgrounds';
 import { useAuth } from '@/lib/auth-context';
 import { formatTripDateRange } from '@/lib/formatTripDateRange';
+import type { Session } from '@supabase/supabase-js';
 
 // ─── Public interfaces ────────────────────────────────────────────────────────
 
@@ -87,6 +88,9 @@ export interface UseItineraryReturn {
   ) => Promise<void>;
   handleQuickEditUpdate: (updated: Itinerary, summary: string) => void;
   handleDraftUpdate: (updated: Itinerary) => void;
+
+  // Auth
+  session: Session | null;
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -370,17 +374,19 @@ export function useItinerary({
         itinerary_id: itinerary._id ?? undefined,
         dayIndex,
         slot,
+        diningField,
         replacementActivity,
         proposalSummary: proposalSummary.trim() || undefined,
       }),
     });
     const data: SwapResult & { error?: string } = await res.json();
     if (!res.ok || data.error) throw new Error(data.error || 'Swap failed');
+    // Dining rows live under their own day field (breakfast/lunch/dinner) —
+    // `slot` is only the LLM-prompt anchor for those, never the field to write.
     const updatedDays = itinerary.days.map((day, i) => {
       if (i !== dayIndex) return day;
-      const updatedDay = { ...day, [slot]: data.activity };
-      if (diningField) (updatedDay as Record<string, unknown>)[diningField] = undefined;
-      return updatedDay;
+      if (diningField) return { ...day, [diningField]: data.activity };
+      return { ...day, [slot]: data.activity };
     });
     persistAndSet({ ...itinerary, days: updatedDays });
     showBanner(data.summary);
@@ -405,5 +411,6 @@ export function useItinerary({
     feedbackOpen, handleFeedbackDismiss, handleFeedbackSubmit,
     persistAndSet, handleSlotSwap, handleCommitActivitySwap,
     handleQuickEditUpdate, handleDraftUpdate,
+    session,
   };
 }
