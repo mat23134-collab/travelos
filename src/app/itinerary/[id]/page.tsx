@@ -82,8 +82,9 @@ export default async function ItineraryByIdPage({ params }: PageProps) {
   }
 
   // ── Shared-trip collaborators ──────────────────────────────────────────────
-  // Uses the service-role client (bypasses RLS) purely for read-only display
-  // of "who's on this trip" — owner + everyone who joined via the share link.
+  // owner info via tripsClient (public read policies); collaborator list via
+  // a SECURITY DEFINER RPC (see get_itinerary_collaborators) so it works for
+  // every visitor without depending on the service-role key being configured.
   try {
     const { data: ownerRow, error: ownerErr } = await tripsClient
       .from('itineraries')
@@ -105,25 +106,17 @@ export default async function ItineraryByIdPage({ params }: PageProps) {
       ownerUsername = ownerProfile?.username ?? null;
     }
 
-    const { data: shareRows, error: shareErr } = await tripsClient
-      .from('itinerary_shares')
-      .select('shared_with_user_id')
-      .eq('itinerary_id', id);
-    if (shareErr) {
-      console.warn('[itinerary/id] itinerary_shares select:', shareErr.message);
+    // Uses a SECURITY DEFINER RPC (bypasses RLS) so this works for every
+    // visitor — including anonymous ones — without depending on the
+    // service-role key being configured.
+    const { data: collabRows, error: collabErr } = await supabase
+      .rpc('get_itinerary_collaborators', { p_itinerary_id: id });
+    if (collabErr) {
+      console.warn('[itinerary/id] collaborators rpc:', collabErr.message);
     } else {
-      const collaboratorIds = (shareRows ?? [])
-        .map((r) => r.shared_with_user_id as string | null)
-        .filter((v): v is string => !!v);
-      if (collaboratorIds.length > 0) {
-        const { data: profileRows } = await tripsClient
-          .from('profiles')
-          .select('id, username')
-          .in('id', collaboratorIds);
-        collaborators = (profileRows ?? [])
-          .filter((p) => typeof p.username === 'string' && p.username.trim())
-          .map((p) => ({ userId: p.id as string, username: p.username as string }));
-      }
+      collaborators = (collabRows ?? [])
+        .filter((r) => typeof r.username === 'string' && r.username.trim())
+        .map((r) => ({ userId: r.user_id as string, username: r.username as string }));
     }
   } catch (e) {
     console.warn('[itinerary/id] collaborators fetch skipped:', e instanceof Error ? e.message : e);
