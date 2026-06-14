@@ -411,4 +411,19 @@ export function useItinerary({
   }, [persistAndSet, showBanner]);
 
   const handleDraftUpdate = useCallback((updated: Itinerary) => {
-    persistAndSet
+    persistAndSet(updated);
+  }, [persistAndSet]);
+
+  return {
+    itinerary, profile, ui, displayCityTransport, basecampMarker,
+    tripDatesLabel, shareCopy, mapLabels, transportLoading, isAdmin,
+    viewMode, setViewMode, selectedDayIndex, setSelectedDayIndex,
+    bgIdx, editBanner, expandedHotel, setExpandedHotel,
+    focusedNeighborhood, mobileMapOpen, setMobileMapOpen, handleNeighborhoodClick, handleMapClose,
+    tripStoryOpen, setTripStoryOpen,
+    feedbackOpen, handleFeedbackDismiss, handleFeedbackSubmit,
+    persistAndSet, handleSlotSwap, handleCommitActivitySwap,
+    handleQuickEditUpdate, handleDraftUpdate,
+    session,
+  };
+}
