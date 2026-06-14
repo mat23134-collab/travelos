@@ -38,6 +38,7 @@ import { DayCarousel } from '@/components/DayCarousel';
 import { DayDetailPanel } from '@/components/DayDetailPanel';
 import { HotelSelectionCard } from '@/components/HotelSelectionCard';
 import { formatTripDateRange } from '@/lib/formatTripDateRange';
+import { TripCollaborators, type TripCollaborator } from '@/components/TripCollaborators';
 
 const ItineraryMap = dynamic(
   () => import('@/components/ItineraryMap').then((m) => m.ItineraryMap),
@@ -1243,6 +1244,11 @@ interface Props {
   initialTransportFromDb?: CityTransportGuide | null;
   /** From `public.trips.username` — personalized trip summary welcome. */
   initialTripSummaryUsername?: string | null;
+  /** Owner of the saved itinerary row — used to detect "Join this trip". */
+  ownerUserId?: string | null;
+  ownerUsername?: string | null;
+  /** Everyone who joined this trip via the share link. */
+  collaborators?: TripCollaborator[];
 }
 
 export function ItineraryClient({
@@ -1251,6 +1257,9 @@ export function ItineraryClient({
   initialViewMode = 'draft',
   initialTransportFromDb = null,
   initialTripSummaryUsername = null,
+  ownerUserId = null,
+  ownerUsername = null,
+  collaborators = [],
 }: Props) {
   const { session } = useAuth();
   const itin = useItinerary({
@@ -1331,6 +1340,15 @@ export function ItineraryClient({
           onBackToOverview={() => itin.setSelectedDayIndex(-1)}
           onBackToDraft={initialViewMode !== 'final' ? () => itin.setViewMode('draft') : undefined}
           initialViewMode={initialViewMode}
+        />
+
+        {/* ── Shared-trip collaborators / join CTA ─────────────────────────── */}
+        <TripCollaborators
+          itineraryId={itin.itinerary._id ?? null}
+          ownerUserId={ownerUserId}
+          ownerUsername={ownerUsername}
+          collaborators={collaborators}
+          session={session}
         />
 
         {/* ── Trending ticker ─────────────────────────────────────────────── */}
@@ -1530,29 +1548,4 @@ export function ItineraryClient({
         <div className="print:hidden">
           <FeedbackSurveyModal
             open={itin.feedbackOpen}
-            onSubmit={itin.handleFeedbackSubmit}
-            onDismiss={itin.handleFeedbackDismiss}
-          />
-        </div>
-
-      </div>
-    </div>
-  );
-}
-
-// ── Small helper ──────────────────────────────────────────────────────────────
-
-function BudgetCell({ label, accent = false }: { label: string; accent?: boolean }) {
-  return (
-    <div
-      className="text-center p-3 rounded-xl"
-      style={accent
-        ? { background: 'rgba(90,173,165,0.1)', border: '1px solid rgba(90,173,165,0.2)' }
-        : { background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.06)' }}
-    >
-      <p className="text-[13px] leading-snug" style={{ color: accent ? '#3a8a82' : '#444', fontWeight: accent ? 700 : 400 }}>
-        {label || '—'}
-      </p>
-    </div>
-  );
-}
+            onSubmit={itin.handleFeedba

@@ -318,7 +318,20 @@ export function useItinerary({
     if (sessionPersist) {
       try { sessionStorage.setItem('travelos_itinerary', JSON.stringify(updated)); } catch { /* ignore */ }
     }
-  }, [sessionPersist]);
+    // Saved trips (with a DB id) sync edits back for everyone — owner and
+    // any collaborators who joined via the share link. Best-effort: failures
+    // (e.g. signed out, no access) leave the local view updated but unsynced.
+    if (updated._id && session?.access_token) {
+      fetch('/api/itinerary/update', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ itineraryId: updated._id, itinerary: updated }),
+      }).catch(() => { /* ignore — non-critical */ });
+    }
+  }, [sessionPersist, session]);
 
   const handleNeighborhoodClick = useCallback((neighborhood: string) => {
     setFocusedNeighborhood(neighborhood);
@@ -398,19 +411,4 @@ export function useItinerary({
   }, [persistAndSet, showBanner]);
 
   const handleDraftUpdate = useCallback((updated: Itinerary) => {
-    persistAndSet(updated);
-  }, [persistAndSet]);
-
-  return {
-    itinerary, profile, ui, displayCityTransport, basecampMarker,
-    tripDatesLabel, shareCopy, mapLabels, transportLoading, isAdmin,
-    viewMode, setViewMode, selectedDayIndex, setSelectedDayIndex,
-    bgIdx, editBanner, expandedHotel, setExpandedHotel,
-    focusedNeighborhood, mobileMapOpen, setMobileMapOpen, handleNeighborhoodClick, handleMapClose,
-    tripStoryOpen, setTripStoryOpen,
-    feedbackOpen, handleFeedbackDismiss, handleFeedbackSubmit,
-    persistAndSet, handleSlotSwap, handleCommitActivitySwap,
-    handleQuickEditUpdate, handleDraftUpdate,
-    session,
-  };
-}
+    persistAndSet
