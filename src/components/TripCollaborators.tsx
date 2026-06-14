@@ -63,13 +63,15 @@ export function TripCollaborators({ itineraryId, ownerUserId, ownerUsername, col
   return (
     <div className="px-4 sm:px-6 max-w-5xl mx-auto mt-3 flex flex-col gap-2 print:hidden">
       {people.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap text-xs text-white/60">
-          <span className="opacity-70">🧑‍🤝‍🧑 On this trip:</span>
+        <div className="flex items-center gap-2 flex-wrap text-xs">
+          <span className="text-white/90 font-medium" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.25)' }}>
+            🧑‍🤝‍🧑 On this trip:
+          </span>
           {people.map((p, i) => (
             <span
               key={p.userId ?? i}
-              className="px-2.5 py-1 rounded-full"
-              style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}
+              className="px-2.5 py-1 rounded-full text-white font-medium"
+              style={{ background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.18)' }}
             >
               @{p.username}{p.isOwner ? ' · owner' : ''}
             </span>
