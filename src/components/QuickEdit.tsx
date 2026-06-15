@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Itinerary, DayPlan } from '@/lib/types';
 import { useAuth } from '@/lib/auth-context';
+import { AuthGateModal } from '@/components/AuthGateModal';
 
 const SUGGESTIONS = [
   'Make Day 1 more budget-friendly',
@@ -20,6 +21,7 @@ interface Props {
 export function QuickEdit({ itinerary, onUpdate }: Props) {
   const { session } = useAuth();
   const [open, setOpen] = useState(false);
+  const [showAuthGate, setShowAuthGate] = useState(false);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState('');
@@ -89,9 +91,17 @@ export function QuickEdit({ itinerary, onUpdate }: Props) {
         </div>
       )}
 
+      {/* Sign-in gate for visitors who aren't signed in */}
+      <AuthGateModal
+        open={showAuthGate}
+        onCancel={() => setShowAuthGate(false)}
+        title="Sign in to edit this trip"
+        message="Anyone with the link can view this trip, but you'll need to log in or create a free account to make changes."
+      />
+
       {/* Floating trigger — matches itinerary teal / luxury gold (not coral FAB) */}
       <button
-        onClick={() => setOpen(true)}
+        onClick={() => (session ? setOpen(true) : setShowAuthGate(true))}
         type="button"
         className="fixed bottom-6 left-6 z-40 flex items-center gap-2 px-4 py-2.5 rounded-full text-xs font-medium transition-all duration-200 hover:-translate-y-0.5 print:hidden"
         style={{

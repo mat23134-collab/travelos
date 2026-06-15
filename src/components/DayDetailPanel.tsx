@@ -10,6 +10,7 @@ import { PlaceDetailCube } from '@/components/PlaceDetailCube';
 import { AlternativePickerPanel } from '@/components/AlternativePickerPanel';
 import { AttractionsBank } from '@/components/AttractionsBank';
 import { useAttractionBank, type BankItem } from '@/hooks/useAttractionBank';
+import { AuthGateModal } from '@/components/AuthGateModal';
 import type { DayPlan, Itinerary, TravelerProfile, Activity } from '@/lib/types';
 import type { ItineraryUiStrings } from '@/lib/tripUiCopy';
 import type { ItineraryMapLabels } from '@/components/ItineraryMap';
@@ -68,7 +69,16 @@ export function DayDetailPanel({
   const [activePlace, setActivePlace] = useState<TimelineRow | null>(null);
   const [activeSwap, setActiveSwap] = useState<SwapTarget | null>(null);
   const [pendingSlot, setPendingSlot] = useState<SwapTarget | null>(null);
+  const [showAuthGate, setShowAuthGate] = useState(false);
   const bank = useAttractionBank({ itineraryId, destination, itinerary, session });
+
+  const requireAuth = (action: () => void) => {
+    if (!session) {
+      setShowAuthGate(true);
+      return;
+    }
+    action();
+  };
 
   const handleCommit = (activity: Activity, summary: string, diningField?: 'breakfast' | 'lunch' | 'dinner') => {
     if (!activeSwap) return;
@@ -78,6 +88,10 @@ export function DayDetailPanel({
   };
 
   const handleScheduleFromBank = async (item: BankItem, target: SwapTarget) => {
+    if (!session) {
+      setShowAuthGate(true);
+      return;
+    }
     const replacementActivity: Activity = {
       name: item.name,
       description: item.description ?? '',
@@ -165,7 +179,7 @@ export function DayDetailPanel({
                 onSwapSlot={onSwapSlot}
                 onNeighborhoodClick={onNeighborhoodClick}
                 onExplore={(row) => setActivePlace(row)}
-                onFindAlternative={(target) => { setActiveSwap(target); setPendingSlot(target); }}
+                onFindAlternative={(target) => requireAuth(() => { setActiveSwap(target); setPendingSlot(target); })}
               />
 
               {/* Mobile map button */}
@@ -243,6 +257,13 @@ export function DayDetailPanel({
           onClose={() => { setActiveSwap(null); setPendingSlot(null); }}
         />
       )}
+
+      <AuthGateModal
+        open={showAuthGate}
+        onCancel={() => setShowAuthGate(false)}
+        title="Sign in to edit this trip"
+        message="Anyone with the link can view this trip, but you'll need to log in or create a free account to make changes."
+      />
     </>
   );
 }
