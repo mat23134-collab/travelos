@@ -37,6 +37,7 @@ import { ItineraryHeader } from '@/components/ItineraryHeader';
 import { DayCarousel } from '@/components/DayCarousel';
 import { DayDetailPanel } from '@/components/DayDetailPanel';
 import { HotelSelectionCard } from '@/components/HotelSelectionCard';
+import { AssistantChat } from '@/components/AssistantChat';
 import { formatTripDateRange } from '@/lib/formatTripDateRange';
 import { TripCollaborators, type TripCollaborator } from '@/components/TripCollaborators';
 
@@ -1554,6 +1555,13 @@ export function ItineraryClient({
         </div>
 
       </div>
+
+      <AssistantChat
+        itinerary={itin.itinerary}
+        profile={itin.profile}
+        onCommitSwap={itin.handleCommitActivitySwap}
+        sessionAccessToken={itin.session?.access_token}
+      />
     </div>
   );
 }
