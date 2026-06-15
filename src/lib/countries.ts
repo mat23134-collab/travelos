@@ -207,6 +207,17 @@ export const COUNTRIES: Country[] = [
       { name: 'Ha Long Bay',     lat:  20.9101, lng: 107.1839 },
     ],
   },
+  {
+    name: 'Taiwan', flag: '🇹🇼', code: 'TW', region: 'Asia',
+    cities: [
+      { name: 'Taipei',        lat:  25.0330, lng: 121.5654 },
+      { name: 'Taichung',      lat:  24.1477, lng: 120.6736 },
+      { name: 'Tainan',        lat:  22.9997, lng: 120.2270 },
+      { name: 'Kaohsiung',     lat:  22.6273, lng: 120.3014 },
+      { name: 'Hualien',       lat:  23.9871, lng: 121.6015 },
+      { name: 'Sun Moon Lake', lat:  23.8569, lng: 120.9155 },
+    ],
+  },
   // ── Americas ──────────────────────────────────────────────────────────────
   {
     name: 'USA', flag: '🇺🇸', code: 'US', region: 'Americas',
