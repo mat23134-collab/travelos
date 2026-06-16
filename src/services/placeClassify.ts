@@ -75,3 +75,24 @@ export function defaultOpeningHours(category: string): Record<string, unknown> |
   if (!h) return null;
   return { mon: h, tue: h, wed: h, thu: h, fri: h, sat: h, sun: h, source: 'default' };
 }
+
+/**
+ * Category-default group_suitability (scout's vocabulary), mirroring the SQL
+ * backfill. Used when ingesting venues that have no per-venue suitability tags
+ * (e.g. fresh scout rows). Hotels → [].
+ */
+export function deriveGroupSuitability(category: string): string[] {
+  switch (lc(category)) {
+    case 'restaurant':   return ['solo', 'romantic-couple', 'groups', 'families', 'friends'];
+    case 'cafe':         return ['solo', 'romantic-couple', 'groups', 'families', 'friends', 'remote-work'];
+    case 'bar':          return ['solo', 'romantic-couple', 'groups', 'friends'];
+    case 'nightlife':    return ['romantic-couple', 'groups', 'friends'];
+    case 'attraction':
+    case 'tourism_site': return ['solo', 'romantic-couple', 'groups', 'families', 'kids', 'friends'];
+    case 'market':
+    case 'nature':       return ['solo', 'romantic-couple', 'groups', 'families', 'friends'];
+    case 'shopping':     return ['solo', 'romantic-couple', 'groups', 'friends'];
+    case 'hotel':        return [];
+    default:             return ['solo', 'romantic-couple', 'groups', 'families', 'friends'];
+  }
+}

@@ -49,6 +49,7 @@ export interface AssemblerPlace {
   opening_hours: OpeningHours | null;
   website_url: string | null;
   photo_url: string | null;
+  status?: string | null;   // janitor verification status (e.g. flagged-closed)
 }
 
 export interface AssemblerProfile {
@@ -140,6 +141,8 @@ export function assembleItinerary(
   const passesProfile = (p: AssemblerPlace) => {
     if (!hasGeo(p)) return false;
     if (lc(p.category) === 'hotel') return false;
+    // Skip venues the janitor flagged as closed/renovating during re-verification.
+    if (['flagged-closed', 'flagged-renovating'].includes(lc(p.status))) return false;
     if (p.group_suitability?.length && !intersects(p.group_suitability, groupTokens)) return false;
     if (p.price_tier != null && !allowedTiers.includes(p.price_tier)) return false;
     return true;

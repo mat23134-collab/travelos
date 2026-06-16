@@ -1,0 +1,80 @@
+name: Refresh places (assembler cache)
+
+# Monthly, bounded refresh of the warm `places` cache that powers the
+# deterministic assembler (ADR-001):
+#   • Janitor: re-verify the N oldest-stale rows (closures / hours / status).
+#   • Scout:   add new venues for one rotating under-covered city.
+# Runs in a CI runner (no load on the web app). Uses Gemini/Exa/Google — no
+# Claude tokens. All cost is bounded by the --limit cap and one city per run.
+
+on:
+  schedule:
+    - cron: '0 6 1 * *'        # 1st of each month, 06:00 UTC
+  workflow_dispatch:           # manual runs (e.g. bulk-adding cities)
+    inputs:
+      mode:
+        description: 'What to run'
+        type: choice
+        options: [both, janitor, scout]
+        default: both
+      city:
+        description: 'City to scout (scout/both). Blank = auto-rotate from the list.'
+        required: false
+      limit:
+        description: 'Janitor batch cap (oldest-stale first)'
+        default: '50'
+
+concurrency:
+  group: refresh-places
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_PUBLIC_SUPABASE_URL:  ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      GEMINI_API_KEY:            ${{ secrets.GEMINI_API_KEY }}
+      EXA_API_KEY:               ${{ secrets.EXA_API_KEY }}
+      TAVILY_API_KEY:            ${{ secrets.TAVILY_API_KEY }}
+      GOOGLE_PLACES_API_KEY:     ${{ secrets.GOOGLE_PLACES_API_KEY }}
+      YOUTUBE_API_KEY:           ${{ secrets.YOUTUBE_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+
+      - name: Refresh
+        run: |
+          set -uo pipefail
+          MODE="${{ github.event.inputs.mode || 'both' }}"
+          LIMIT="${{ github.event.inputs.limit || '50' }}"
+          CITY="${{ github.event.inputs.city }}"
+
+          # Coverage targets — deepen thin cities + add new ones. Edit freely.
+          CITIES=(Berlin Bali Seoul Melbourne "Kuala Lumpur" "Hong Kong" "Mexico City" \
+                  Bangkok Hanoi Porto Santorini Istanbul Dubrovnik \
+                  Barcelona Lisbon Prague Madrid Florence Venice Singapore Marrakech)
+
+          if [ -z "$CITY" ]; then
+            WEEK=$(date +%V)                       # ISO week number
+            IDX=$(( 10#$WEEK % ${#CITIES[@]} ))    # 10# avoids octal parsing
+            CITY="${CITIES[$IDX]}"
+          fi
+          echo "Mode=$MODE  Limit=$LIMIT  City=$CITY"
+
+          if [ "$MODE" = "both" ] || [ "$MODE" = "janitor" ]; then
+            echo "::group::Janitor (re-verify oldest $LIMIT stale rows)"
+            npx tsx scripts/scout-agent.ts --janitor --limit "$LIMIT" || echo "⚠ janitor step failed (continuing)"
+            echo "::endgroup::"
+          fi
+
+          if [ "$MODE" = "both" ] || [ "$MODE" = "scout" ]; then
+            echo "::group::Scout $CITY (new venues, live only)"
+            npx tsx scripts/scout-agent.ts "$CITY" --live-only || echo "⚠ scout step failed (continuing)"
+            echo "::endgroup::"
+          fi

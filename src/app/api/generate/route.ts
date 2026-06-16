@@ -275,7 +275,7 @@ async function loadCityAssemblerPlaces(
   const { data, error } = await db
     .from('places')
     .select(
-      'id,name,city,category,subcategory,description,lat,lng,category_emoji,price_tier,meal_slots,group_suitability,vibe,culinary_focus,vibe_label,top_pick_category,popularity_rank,google_rating,opening_hours,website_url,photo_url',
+      'id,name,city,category,subcategory,description,lat,lng,category_emoji,price_tier,meal_slots,group_suitability,vibe,culinary_focus,vibe_label,top_pick_category,popularity_rank,google_rating,opening_hours,website_url,photo_url,status',
     )
     .ilike('city', cityOnly)
     .limit(500);
