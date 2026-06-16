@@ -13,6 +13,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Activity, DiningSpot, TravelerProfile } from '@/lib/types';
 import { classifyActivity } from '@/lib/activityGenre';
+import { deriveSubcategory, deriveMealSlots, derivePriceTier, defaultOpeningHours } from '@/services/placeClassify';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -54,6 +55,11 @@ export interface PlaceSeed {
   vibe:              string[];
   group_suitability: string[];
   culinary_focus:    string[];
+  // Assembler columns (ADR-001) — derived free so AI venues are reusable offline.
+  subcategory:    string;
+  meal_slots:     string[];
+  price_tier:     number | null;
+  opening_hours:  Record<string, unknown> | null;
 }
 
 // ── Seed builders ─────────────────────────────────────────────────────────────
@@ -98,6 +104,10 @@ export function activityToPlaceSeed(
     vibe:              tags.vibe,
     group_suitability: tags.group_suitability,
     culinary_focus:    tags.culinary_focus,
+    subcategory:       deriveSubcategory(name, category),
+    meal_slots:        deriveMealSlots(category),
+    price_tier:        derivePriceTier(category, `${name} ${desc} ${typeof activity.vibeLabel === 'string' ? activity.vibeLabel : ''}`),
+    opening_hours:     defaultOpeningHours(category),
   };
 }
 
@@ -140,6 +150,10 @@ export function diningToPlaceSeed(
     vibe:              tags.vibe,
     group_suitability: tags.group_suitability,
     culinary_focus:    culinary,
+    subcategory:       meal === 'breakfast' ? 'cafe' : 'restaurant',
+    meal_slots:        meal === 'breakfast' ? ['breakfast', 'brunch', 'lunch'] : ['lunch', 'dinner'],
+    price_tier:        derivePriceTier(meal === 'breakfast' ? 'cafe' : 'restaurant', `${name} ${description} ${cuisine}`),
+    opening_hours:     defaultOpeningHours(meal === 'breakfast' ? 'cafe' : 'restaurant'),
   };
 }
 

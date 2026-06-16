@@ -22,6 +22,7 @@ import { gatherTransportExaSnippets } from '@/lib/transportExaIntel';
 import { persistVenuesToCache, linkPlacesToUserEvents } from '@/lib/venueCache';
 import { formatAvailableInventoryForSystemPrompt, getFilteredInventory } from '@/services/scoringEngine';
 import { buildFallbackItinerary, validateItineraryOrThrow, type GenerationProvider } from '@/services/itineraryFallback';
+import { assembleItinerary, type AssemblerPlace } from '@/services/assembler';
 import {
   buildAccommodationContext,
   searchAccommodations,
@@ -264,6 +265,27 @@ async function callClaude(userPrompt: string, systemPrompt: string): Promise<str
 const GENERATE_RATE_LIMIT   = 10;
 const GENERATE_RATE_WINDOW  = 10 * 60 * 1000;
 
+/** Load a city's classified places for the deterministic assembler gate. */
+async function loadCityAssemblerPlaces(
+  db: ReturnType<typeof createDbWriteClient>,
+  destination: string,
+): Promise<AssemblerPlace[]> {
+  const cityOnly = (destination ?? '').split(',')[0].trim();
+  if (!cityOnly) return [];
+  const { data, error } = await db
+    .from('places')
+    .select(
+      'id,name,city,category,subcategory,description,lat,lng,category_emoji,price_tier,meal_slots,group_suitability,vibe,culinary_focus,vibe_label,top_pick_category,popularity_rank,google_rating,opening_hours,website_url,photo_url',
+    )
+    .ilike('city', cityOnly)
+    .limit(500);
+  if (error || !data) {
+    if (error) console.warn('[generate] assembler places load failed (non-critical):', error.message);
+    return [];
+  }
+  return data as unknown as AssemblerPlace[];
+}
+
 export async function POST(req: NextRequest) {
   try {
     // ── Rate limiting (blocks scripted abuse without requiring login) ───────────
@@ -386,7 +408,49 @@ export async function POST(req: NextRequest) {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let itinerary: any = null;
+    let usedAssembler = false;
+
+    // ── Assembler gate (ADR-001) — try a zero-LLM build from the warm cache ─────
+    // For a well-covered city this returns a complete itinerary and we skip the
+    // LLM entirely; otherwise it returns null and we fall through to the AI path.
     try {
+      const asmDb = createDbWriteClient();
+      const asmPlaces = await loadCityAssemblerPlaces(asmDb, profile.destination);
+      const asm = assembleItinerary(
+        {
+          destination: profile.destination,
+          duration: profile.duration,
+          groupType: profile.groupType,
+          budget: profile.budget,
+          pace: profile.pace,
+          interests: profile.interests,
+          startDate: profile.startDate,
+          hotelLat: typeof profile.hotelLat === 'number' ? profile.hotelLat : undefined,
+          hotelLng: typeof profile.hotelLng === 'number' ? profile.hotelLng : undefined,
+        },
+        asmPlaces,
+      );
+      if (asm.itinerary) {
+        // Reuse the fallback builder purely for hotel / transport / budget
+        // scaffolding, then graft the assembler's (better) days on top.
+        const scaffold = buildFallbackItinerary(profile, filteredInventory, 'assembler-hit', accommodationResult.hotels);
+        itinerary = asm.itinerary;
+        if (!profile.hotelSkipped) itinerary.basecamp = scaffold.basecamp;
+        itinerary.budgetSummary = itinerary.budgetSummary ?? scaffold.budgetSummary;
+        itinerary.cityTransport = scaffold.cityTransport;
+        itinerary.packingTips = scaffold.packingTips;
+        itinerary.bestLocalTips = scaffold.bestLocalTips;
+        usedAssembler = true;
+        provider = 'assembler';
+        console.log(`[generate] ASSEMBLER HIT for ${profile.destination} — skipping LLM`, asm.meta);
+      } else {
+        console.log(`[generate] assembler miss for ${profile.destination}: ${asm.reason}`);
+      }
+    } catch (asmErr) {
+      console.warn('[generate] assembler error (non-critical) — using LLM:', asmErr instanceof Error ? asmErr.message : asmErr);
+    }
+
+    if (!usedAssembler) try {
       if (process.env.GEMINI_API_KEY?.trim()) {
         try {
           raw = await withRetry(() => callGemini(userPrompt, inventoryLockedSystemPrompt), GENERATE_LLM_MAX_ATTEMPTS);
@@ -447,7 +511,8 @@ export async function POST(req: NextRequest) {
     let jitChecked = 0;
     let jitFlagged = 0;
 
-    if (exaKey) {
+    // Assembler venues come from the already-verified warm cache — skip re-verify.
+    if (!usedAssembler && exaKey) {
       try {
         // Collect all (day, slot, activity) triples that have a name
         type ActivityRef = { dayIdx: number; slot: 'morning' | 'afternoon' | 'evening'; name: string };
@@ -520,7 +585,7 @@ export async function POST(req: NextRequest) {
     let placesGpsCorrected = 0;
     let placesPhotosFilled = 0;
     let placesWebsitesFilled = 0;
-    if (process.env.GOOGLE_PLACES_API_KEY) {
+    if (!usedAssembler && process.env.GOOGLE_PLACES_API_KEY) {
       try {
         const slots = collectVenueSlots(itinerary);
         const cityForVerify = String(itinerary.destination || profile.destination || '').trim();

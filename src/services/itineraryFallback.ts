@@ -23,7 +23,7 @@ function destinationCoords(destination: string): { lat: number; lng: number } {
   return { lat: 0, lng: 0 };
 }
 
-export type GenerationProvider = 'gemini' | 'claude' | 'fallback';
+export type GenerationProvider = 'gemini' | 'claude' | 'fallback' | 'assembler';
 
 /** Map a live provider Hotel (Booking / Airbnb / etc.) into a HotelRecommendation card. */
 function hotelToRecommendation(h: Hotel): HotelRecommendation {
