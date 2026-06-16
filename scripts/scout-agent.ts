@@ -44,6 +44,13 @@
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import {
+  deriveSubcategory,
+  deriveMealSlots,
+  derivePriceTier,
+  defaultOpeningHours,
+  deriveGroupSuitability,
+} from '../src/services/placeClassify';
 
 // ── Env loader (reads .env.local before any client is created) ────────────────
 
@@ -1305,6 +1312,13 @@ async function upsertPlaces(
       // Top Picks metadata (only set when this place won a rank slot)
       top_pick_category:  meta._top_pick_category ?? null,
       popularity_rank:    meta._popularity_rank   ?? null,
+      // Assembler columns (ADR-001) — derived free so new cities are
+      // immediately usable by the deterministic assembler.
+      subcategory:        deriveSubcategory(place.name, place.category),
+      meal_slots:         deriveMealSlots(place.category),
+      price_tier:         derivePriceTier(place.category, `${place.name} ${place.description} ${place.vibe_label}`),
+      opening_hours:      defaultOpeningHours(place.category),
+      group_suitability:  deriveGroupSuitability(place.category),
     }]);
 
     if (insertErr) {
@@ -1338,7 +1352,7 @@ interface StalePlace {
   status: string | null;
 }
 
-async function runJanitor(filterCity: string | undefined, dryRun: boolean): Promise<void> {
+async function runJanitor(filterCity: string | undefined, dryRun: boolean, limit?: number): Promise<void> {
   const apiKey = process.env.EXA_API_KEY ?? '';
   if (!apiKey || apiKey.includes('your_')) {
     console.error('✗ Janitor mode requires EXA_API_KEY to be set in .env.local');
@@ -1363,6 +1377,11 @@ async function runJanitor(filterCity: string | undefined, dryRun: boolean): Prom
 
   if (filterCity) {
     query = query.ilike('city', filterCity);
+  }
+  // Cap the batch per run (oldest-stale first, via the order above) so a
+  // scheduled job has a predictable, bounded cost.
+  if (limit && limit > 0) {
+    query = query.limit(limit);
   }
 
   const { data: stalePlaces, error } = await query;
@@ -1579,6 +1598,8 @@ async function main(): Promise<void> {
   const args        = process.argv.slice(2);
   const isJanitor   = args.includes('--janitor');
   const dryRun      = args.includes('--dry-run');
+  const limitIdx    = args.indexOf('--limit');
+  const janitorLimit = limitIdx !== -1 ? Number(args[limitIdx + 1]) : undefined;
   const forceMock   = args.includes('--mock');
   // Tavily is now the primary engine. --exa opts back into the legacy Exa path.
   // --tavily is kept as a harmless explicit-default for backward compatibility.
@@ -1670,7 +1691,7 @@ async function main(): Promise<void> {
     console.log(`   City   : ${city ?? 'ALL cities'}`);
     console.log(`   Dry-run: ${dryRun ? 'YES (no writes)' : 'no'}`);
     console.log('');
-    await runJanitor(city, dryRun);
+    await runJanitor(city, dryRun, janitorLimit);
     return;
   }
 
