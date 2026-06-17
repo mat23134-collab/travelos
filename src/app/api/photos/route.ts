@@ -1,8 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pickMoodUnsplashPair } from '@/lib/moodImageFallback';
+import { getDestinationImage, type ImageOrientation } from '@/lib/pexels';
 
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get('q') ?? 'travel landscape';
+  const orientationParam = req.nextUrl.searchParams.get('orientation');
+  const imageOrientation: ImageOrientation =
+    orientationParam === 'portrait' || orientationParam === 'square' ? orientationParam : 'landscape';
+
+  // ── Pexels first (cache → Pexels), per the TravelOS imagery spec ──────────
+  try {
+    const pexels = await getDestinationImage({ searchQuery: q, imageOrientation });
+    if (pexels?.image_url) {
+      return NextResponse.json(
+        {
+          url: pexels.image_url,
+          thumb: pexels.image_url,
+          credit: pexels.photographer,
+          creditUrl: pexels.photographer_url,
+          source: 'pexels',
+        },
+        { headers: { 'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=604800' } },
+      );
+    }
+  } catch { /* fall through to Unsplash */ }
+
   const query = encodeURIComponent(q);
   const key = process.env.UNSPLASH_ACCESS_KEY;
 

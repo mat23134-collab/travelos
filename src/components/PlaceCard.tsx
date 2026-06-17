@@ -317,7 +317,7 @@ interface CubePhotoPayload {
   thumb: string;
   credit: string | null;
   creditUrl: string | null;
-  source: 'unsplash' | 'picsum';
+  source: 'unsplash' | 'picsum' | 'pexels';
 }
 
 function PlacePhotoHeader({ data, height }: PhotoHeaderProps) {
@@ -428,7 +428,7 @@ function PlacePhotoHeader({ data, height }: PhotoHeaderProps) {
         <div className="absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-black/75 via-black/20 to-transparent pointer-events-none" />
       )}
 
-      {photo?.source === 'unsplash' && photo.credit && imgLoaded && (
+      {(photo?.source === 'unsplash' || photo?.source === 'pexels') && photo.credit && imgLoaded && (
         <a
           href={photo.creditUrl ?? '#'}
           target="_blank"
@@ -436,7 +436,7 @@ function PlacePhotoHeader({ data, height }: PhotoHeaderProps) {
           className="absolute bottom-1 right-2 z-[12] text-[9px] text-white/55 hover:text-white/80 transition-colors max-w-[55%] truncate"
           onClick={(e) => e.stopPropagation()}
         >
-          {photo.credit} / Unsplash
+          {photo.credit} / {photo.source === 'pexels' ? 'Pexels' : 'Unsplash'}
         </a>
       )}
 
