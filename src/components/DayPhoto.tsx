@@ -8,7 +8,7 @@ interface PhotoData {
   thumb: string;
   credit: string | null;
   creditUrl: string | null;
-  source: 'unsplash' | 'picsum';
+  source: 'unsplash' | 'picsum' | 'pexels';
 }
 
 interface Props {
@@ -55,15 +55,15 @@ export function DayPhoto({ query, alt, height = 180, dark = false }: Props) {
       {/* Gradient overlay so text above it remains readable */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
 
-      {/* Unsplash credit (required by their guidelines) */}
-      {photo.source === 'unsplash' && photo.credit && (
+      {/* Photographer attribution (required by Unsplash & Pexels) */}
+      {photo.credit && (photo.source === 'unsplash' || photo.source === 'pexels') && (
         <a
           href={photo.creditUrl ?? '#'}
           target="_blank"
           rel="noopener noreferrer"
           className="absolute bottom-1.5 right-2 text-[9px] text-white/50 hover:text-white/80 transition-colors"
         >
-          Photo: {photo.credit} / Unsplash
+          Photo: {photo.credit} / {photo.source === 'pexels' ? 'Pexels' : 'Unsplash'}
         </a>
       )}
     </div>
