@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Cormorant_Garamond, Inter } from 'next/font/google';
+import { Cormorant_Garamond, Fraunces, Inter } from 'next/font/google';
 import Link from 'next/link';
 import './globals.css';
 import { VersionStamp } from '@/components/VersionStamp';
@@ -25,6 +25,14 @@ const brandSerif = Cormorant_Garamond({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
   variable: '--font-brand-serif',
+  display: 'swap',
+});
+
+const display = Fraunces({
+  subsets: ['latin'],
+  axes: ['opsz'],
+  style: ['normal', 'italic'],
+  variable: '--font-display',
   display: 'swap',
 });
 
@@ -69,7 +77,7 @@ function Footer() {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${brandSerif.variable} h-full`}>
+    <html lang="en" className={`${inter.variable} ${brandSerif.variable} ${display.variable} h-full`}>
       <body className="min-h-full antialiased">
         <SiteBackground />
         <MotionProvider>

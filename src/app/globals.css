@@ -39,6 +39,28 @@
   --color-success:      #10b981;
   --color-warning:      #f59e0b;
   --color-danger:       #ef4444;
+
+  /* ── Display / editorial serif ───────────────────────────────────────────── */
+  --font-display: var(--font-display), 'Fraunces', ui-serif, Georgia, 'Times New Roman', serif;
+  /* Makes the existing (currently broken) `font-serif` markup resolve to the display face */
+  --font-serif:   var(--font-display);
+
+  /* ── Warm editorial surfaces (light sections) ────────────────────────────── */
+  --color-paper:        #f7f1e7;  /* warm off-white — replaces cool mint overlay */
+  --color-paper-sunk:   #efe6d6;  /* deeper paper for insets */
+  --color-ink-warm:     #2b2622;  /* warm near-black body text on paper */
+  --color-ink-warm-mut: #6b6358;  /* warm muted text */
+
+  /* ── Sunrise accent (pulled from photography) ────────────────────────────── */
+  --color-sunrise:      #e0a44b;
+  --color-sunrise-soft: #f0c98a;
+  --color-sunrise-deep: #b8772e;  /* text-on-paper safe */
+}
+
+/* ── Soft editorial shadows (replace neon glows on light sections) ─────────── */
+:root {
+  --shadow-soft: 0 10px 30px -12px rgba(43,38,34,0.18);
+  --shadow-card: 0 4px 16px rgba(43,38,34,0.08);
 }
 
 * { box-sizing: border-box; }
@@ -58,6 +80,13 @@ body {
   font-family: var(--font-brand-serif), ui-serif, Georgia, 'Times New Roman', serif;
   font-weight: 500;
   letter-spacing: -0.03em;
+}
+
+/* Editorial display headings — Fraunces */
+.font-display {
+  font-family: var(--font-display), ui-serif, Georgia, 'Times New Roman', serif;
+  letter-spacing: -0.02em;
+  font-optical-sizing: auto;
 }
 
 /* ── Typography ─────────────────────────────────────────────────────────────── */
