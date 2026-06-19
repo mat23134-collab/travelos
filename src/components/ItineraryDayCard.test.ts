@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { deriveDayBullets } from './ItineraryDayCard';
 import type { DayPlan } from '../lib/types';
 
-// Full day → 3 bullets from morning/afternoon/evening
+// Activities only (no meals) → activity names in order
 const full: DayPlan = {
   day: 1,
   theme: 'Welcome',
@@ -24,12 +24,27 @@ assert.deepEqual(deriveDayBullets(partial), ['Vatican', 'Aperitivo']);
 const empty: DayPlan = { day: 3 };
 assert.deepEqual(deriveDayBullets(empty), []);
 
-// Falls back to lunch/dinner names when morning/afternoon/evening missing
+// Dining shown (with emoji) even alongside no activities
 const diningOnly: DayPlan = {
   day: 4,
   lunch: { name: 'Trattoria Da Enzo' },
   dinner: { name: 'La Pergola' },
 };
-assert.deepEqual(deriveDayBullets(diningOnly), ['Trattoria Da Enzo', 'La Pergola']);
+assert.deepEqual(deriveDayBullets(diningOnly), ['🍽️ Trattoria Da Enzo', '🍷 La Pergola']);
 
-console.log('✓ deriveDayBullets: all 4 assertions passed');
+// Full day with meals → chronological mix incl. restaurants, capped at 4
+const fullWithMeals: DayPlan = {
+  day: 5,
+  breakfast: { name: 'Soy Milk King' },
+  morning: { name: 'Temple' },
+  lunch: { name: 'Din Tai Fung' },
+  afternoon: { name: 'Market' },
+  dinner: { name: 'Night Market' },
+  evening: { name: 'Rooftop Bar' },
+};
+assert.deepEqual(
+  deriveDayBullets(fullWithMeals),
+  ['☕ Soy Milk King', 'Temple', '🍽️ Din Tai Fung', 'Market'],
+);
+
+console.log('✓ deriveDayBullets: all 5 assertions passed');

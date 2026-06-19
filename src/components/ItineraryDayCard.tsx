@@ -7,16 +7,16 @@ import type { DayPlan } from '@/lib/types';
 // ── Pure helper (exported for tests) ──────────────────────────────────────────
 
 export function deriveDayBullets(day: DayPlan): string[] {
-  const activityNames = [
-    day.morning?.name,
-    day.afternoon?.name,
-    day.evening?.name,
-  ].filter(Boolean) as string[];
-
-  if (activityNames.length > 0) return activityNames.slice(0, 3);
-
-  // Fallback: use dining spot names
-  return [day.lunch?.name, day.dinner?.name].filter(Boolean) as string[];
+  // Chronological mix of activities AND dining so meals are visible in the
+  // day summary too (dining marked with an emoji to distinguish it).
+  const ordered: string[] = [];
+  if (day.breakfast?.name) ordered.push(`☕ ${day.breakfast.name}`);
+  if (day.morning?.name) ordered.push(day.morning.name);
+  if (day.lunch?.name) ordered.push(`🍽️ ${day.lunch.name}`);
+  if (day.afternoon?.name) ordered.push(day.afternoon.name);
+  if (day.dinner?.name) ordered.push(`🍷 ${day.dinner.name}`);
+  if (day.evening?.name) ordered.push(day.evening.name);
+  return ordered.slice(0, 4);
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
