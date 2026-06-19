@@ -1,10 +1,30 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { useEffect, useRef, useState } from 'react';
+import { motion, useInView, animate } from 'framer-motion';
 
 export interface StatItem {
   value: number | string;
   label: string;
+}
+
+/** Animates a number from 0 → `to` the first time it scrolls into view. */
+function CountUp({ to }: { to: number }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true, amount: 0.6 });
+  const [val, setVal] = useState(0);
+
+  useEffect(() => {
+    if (!inView) return;
+    const controls = animate(0, to, {
+      duration: 1.1,
+      ease: 'easeOut',
+      onUpdate: (v) => setVal(Math.round(v)),
+    });
+    return () => controls.stop();
+  }, [inView, to]);
+
+  return <span ref={ref}>{val}</span>;
 }
 
 /** Floating stat strip that overlaps the hero above it. Hidden items (falsy value) are dropped. */
@@ -29,7 +49,7 @@ export function TripStats({ items }: { items: StatItem[] }) {
               className="font-display text-2xl sm:text-3xl leading-none tabular-nums"
               style={{ color: 'var(--color-ink-warm)' }}
             >
-              {it.value}
+              {typeof it.value === 'number' ? <CountUp to={it.value} /> : it.value}
             </div>
             <div
               className="mt-1.5 text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider"

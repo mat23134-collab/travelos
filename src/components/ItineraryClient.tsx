@@ -1511,8 +1511,7 @@ export function ItineraryClient({
               <motion.div whileHover={{ y: -3 }} whileTap={{ scale: 0.95 }}>
                 <Link
                   href="/onboarding"
-                  className="inline-flex items-center gap-2 px-8 py-3 rounded-full text-white font-semibold text-sm"
-                  style={{ background: '#b8552e', boxShadow: 'var(--shadow-soft)' }}
+                  className="cta-warm inline-flex items-center gap-2 px-8 py-3 rounded-full text-white font-semibold text-sm"
                 >
                   {itin.ui.planNewTripButton}
                   <span aria-hidden>↗</span>
@@ -1615,11 +1614,17 @@ function BudgetCell({ label, accent = false }: { label: string; accent?: boolean
  *  "magazine" rhythm that replaces stacked boxes with a continuous flow. */
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mx-3 sm:mx-12 mt-12 mb-4 flex items-center gap-4">
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.8 }}
+      transition={{ type: 'spring', stiffness: 240, damping: 26 }}
+      className="mx-3 sm:mx-12 mt-12 mb-4 flex items-center gap-4"
+    >
       <h2 className="font-display italic leading-none text-[24px] sm:text-[28px]" style={{ color: 'var(--color-ink-warm)' }}>
         {children}
       </h2>
       <span aria-hidden className="flex-1 h-px" style={{ background: 'rgba(43,38,34,0.14)' }} />
-    </div>
+    </motion.div>
   );
 }

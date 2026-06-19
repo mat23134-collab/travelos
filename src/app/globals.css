@@ -273,6 +273,29 @@ p { line-height: 1.65; }
 .animate-glow-pulse { animation: glow-pulse 2s ease-in-out infinite; }
 .animate-orb-float  { animation: orb-float 12s ease-in-out infinite; }
 
+/* ── Cinematic Ken Burns — slow drift-zoom that brings hero imagery to life ─── */
+@keyframes kenburns {
+  from { transform: scale(1.04); }
+  to   { transform: scale(1.15); }
+}
+.kenburns {
+  width: 100%;
+  height: 100%;
+  animation: kenburns 26s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+/* ── Warm sunset CTA — energy & joy for primary actions ────────────────────── */
+.cta-warm {
+  background: linear-gradient(135deg, #e08a3e 0%, #c4502a 100%);
+  box-shadow: 0 8px 22px -6px rgba(196,80,42,0.5);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.cta-warm:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 32px -6px rgba(196,80,42,0.68);
+}
+
 /* ── Scrollbar hide ─────────────────────────────────────────────────────────── */
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }

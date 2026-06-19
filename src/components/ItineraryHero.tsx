@@ -23,39 +23,55 @@ export function ItineraryHero({
   return (
     <div className="mx-3 sm:mx-12 mb-2">
       <div className="relative rounded-[28px] overflow-hidden" style={{ boxShadow: 'var(--shadow-soft)' }}>
-        {/* Background photo (DayPhoto provides scrim + lazy load) */}
-        <DayPhoto query={`${destination} skyline`} alt={destination} height={380} dark />
+        {/* Cinematic photo with a slow Ken Burns drift */}
+        <div className="kenburns">
+          <DayPhoto query={`${destination} skyline golden hour`} alt={destination} height={460} dark />
+        </div>
 
-        {/* Category pill — top start */}
-        <div className="absolute top-4 start-4">
+        {/* Extra bottom gradient for drama / legibility */}
+        <div
+          aria-hidden
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: 'linear-gradient(to top, rgba(20,12,8,0.74) 0%, rgba(20,12,8,0.18) 44%, transparent 72%)' }}
+        />
+
+        {/* Eyebrow pill — top start */}
+        <div className="absolute top-5 start-5">
           <span
-            className="inline-block px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest text-white"
-            style={{ background: 'rgba(0,0,0,0.32)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.18)' }}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest text-white"
+            style={{ background: 'rgba(0,0,0,0.30)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.20)' }}
           >
-            Your Itinerary
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#e08a3e' }} />
+            Your journey
           </span>
         </div>
 
-        {/* Headline + dates — bottom, over the scrim */}
-        <div className="absolute inset-x-0 bottom-0 p-5 sm:p-7">
-          <motion.h1
-            initial={{ opacity: 0, y: 18 }}
+        {/* Headline + dates + CTA — bottom, over the scrim */}
+        <div className="absolute inset-x-0 bottom-0 p-6 sm:p-9">
+          <motion.p
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ type: 'spring', stiffness: 220, damping: 26 }}
-            className="font-display italic text-white text-3xl sm:text-5xl leading-tight drop-shadow"
+            transition={{ delay: 0.05, duration: 0.6 }}
+            className="font-display italic text-white/85 text-lg sm:text-2xl leading-none"
+          >
+            Your escape to
+          </motion.p>
+          <motion.h1
+            initial={{ opacity: 0, y: 22 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 200, damping: 24, delay: 0.12 }}
+            className="font-display italic text-white text-4xl sm:text-6xl leading-[1.04] mt-1 drop-shadow-lg"
           >
             {destination}
           </motion.h1>
-          <p className="mt-1.5 text-white/80 text-sm sm:text-base font-medium">
-            {[dateRange, `${totalDays} ${totalDays === 1 ? 'day' : 'days'}`].filter(Boolean).join(' · ')}
-          </p>
 
-          {/* Glass CTA card — bottom end */}
-          <div className="mt-4 flex justify-end">
+          <div className="mt-4 flex items-end justify-between gap-4 flex-wrap">
+            <p className="text-white/85 text-sm sm:text-base font-medium">
+              {[dateRange, `${totalDays} ${totalDays === 1 ? 'day' : 'days'}`].filter(Boolean).join('  ·  ')}
+            </p>
             <Link
               href={ctaHref}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold text-white"
-              style={{ background: 'rgba(0,0,0,0.34)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.22)' }}
+              className="cta-warm inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold text-white"
             >
               {ctaLabel}
               <span aria-hidden>↗</span>
