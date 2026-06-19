@@ -1312,11 +1312,16 @@ export function ItineraryClient({
         />
       </AnimatePresence>
 
-      {/* ── Light teal overlay (NEW — replaces old dark gradient) ─────────── */}
+      {/* ── Clean warm-paper background (near-opaque — hides the busy photo for
+             a calm, professional, editorial surface) ───────────────────────── */}
       <div
         aria-hidden
         className="fixed inset-0 pointer-events-none"
-        style={{ zIndex: -1, background: 'rgba(247,241,231,0.88)' }}
+        style={{
+          zIndex: -1,
+          background:
+            'linear-gradient(180deg, rgba(250,246,239,0.99) 0%, rgba(243,235,223,0.995) 55%, rgba(247,241,231,0.99) 100%)',
+        }}
       />
 
       {/* ── Film grain ─────────────────────────────────────────────────────── */}
