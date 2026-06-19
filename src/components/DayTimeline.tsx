@@ -68,6 +68,40 @@ export interface SwapTarget {
   neighborhood?: string;
 }
 
+/** Clear, human "what is this" label for a row: a meal name, Hotel, or Attraction. */
+export function rowTypeLabel(row: TimelineRow): string {
+  if (row.type === 'dining') return row.slot.charAt(0).toUpperCase() + row.slot.slice(1);
+  if (row.activity && isHotelCheckIn(row.activity)) return 'Hotel';
+  return 'Attraction';
+}
+
+/** Compact "day at a glance" text schedule — a scannable overview of the whole
+ *  day (time · type · name) to complement the big image cards below. */
+export function DayGlance({ day, title = 'Day at a glance' }: { day: DayPlan; title?: string }) {
+  const rows = buildTimelineRows(day);
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="rounded-2xl p-4" style={{ background: 'var(--color-paper)', boxShadow: 'var(--shadow-card)' }}>
+      <h4 className="font-display text-[16px] mb-2" style={{ color: 'var(--color-ink-warm)' }}>{title}</h4>
+      <ol>
+        {rows.map((row, i) => (
+          <li
+            key={`${row.slot}-${i}`}
+            className="flex items-center gap-2.5 py-1.5"
+            style={{ borderTop: i ? '1px solid rgba(43,38,34,0.07)' : 'none' }}
+          >
+            <span className="w-5 flex-shrink-0 text-center text-[14px]">{row.emoji}</span>
+            <span className="w-[64px] flex-shrink-0 font-mono text-[11px]" style={{ color: 'var(--color-ink-warm-mut)' }}>{row.time}</span>
+            <span className="flex-1 truncate text-[13px] font-medium" style={{ color: 'var(--color-ink-warm)' }}>{row.name}</span>
+            <span className="flex-shrink-0 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--color-sunrise-deep)' }}>{rowTypeLabel(row)}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 interface DayTimelineProps {
@@ -176,8 +210,14 @@ function TimelineItem({
           )}
         </div>
 
-        {/* Bottom: name + neighborhood over the scrim */}
+        {/* Bottom: type tag + name + neighborhood over the scrim */}
         <div className="absolute inset-x-0 bottom-0 p-3.5">
+          <span
+            className="inline-block mb-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider text-white"
+            style={{ background: 'rgba(184,119,46,0.92)' }}
+          >
+            {rowTypeLabel(row)}
+          </span>
           <h4 className="font-display text-white text-lg sm:text-xl leading-tight drop-shadow">{row.name}</h4>
           {neighborhood && (
             <button

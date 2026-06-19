@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import { DayPhoto } from '@/components/DayPhoto';
 import { DaySummaryCard } from '@/components/DaySummaryCard';
-import { DayTimeline, type TimelineRow, type SwapTarget } from '@/components/DayTimeline';
+import { DayTimeline, DayGlance, type TimelineRow, type SwapTarget } from '@/components/DayTimeline';
 import { PlaceDetailCube } from '@/components/PlaceDetailCube';
 import { AlternativePickerPanel } from '@/components/AlternativePickerPanel';
 import { AttractionsBank } from '@/components/AttractionsBank';
@@ -161,13 +161,15 @@ export function DayDetailPanel({
                 <DayPhoto query={photoQuery} alt={day.theme ?? destination} height={200} />
               </div>
 
-              <div className="flex items-center gap-4 px-4 py-3 rounded-2xl bg-white" style={{ boxShadow: '0 3px 12px rgba(0,0,0,0.08)' }}>
+              <div className="flex items-center gap-4 px-4 py-3 rounded-2xl" style={{ background: 'var(--color-paper)', boxShadow: 'var(--shadow-card)' }}>
                 <span className="text-3xl">{weatherEmoji}</span>
                 <div>
-                  <div className="text-[22px] font-black text-[#222] leading-none">—°</div>
-                  <div className="text-[11px] text-[#888] mt-0.5">Typical weather · {destination}</div>
+                  <div className="text-[22px] font-black leading-none" style={{ color: 'var(--color-ink-warm)' }}>—°</div>
+                  <div className="text-[11px] mt-0.5" style={{ color: 'var(--color-ink-warm-mut)' }}>Typical weather · {destination}</div>
                 </div>
               </div>
+
+              <DayGlance day={day} />
 
               <DaySummaryCard day={day} dayIndex={dayIndex} ui={ui} />
 
