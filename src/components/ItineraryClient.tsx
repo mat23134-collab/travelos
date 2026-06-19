@@ -1320,7 +1320,7 @@ export function ItineraryClient({
         style={{
           zIndex: -1,
           background:
-            'linear-gradient(180deg, rgba(250,246,239,0.99) 0%, rgba(243,235,223,0.995) 55%, rgba(247,241,231,0.99) 100%)',
+            'linear-gradient(180deg, #f2e7d2 0%, #e9dcc2 52%, #efe3cd 100%)',
         }}
       />
 
@@ -1432,8 +1432,8 @@ export function ItineraryClient({
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.15, type: 'spring', stiffness: 280, damping: 26 }}
-                className="mx-3 sm:mx-12 mt-10 mb-2 rounded-3xl p-5 grid sm:grid-cols-3 gap-3"
-                style={{ background: 'rgba(247,241,231,0.55)', border: '1px solid rgba(43,38,34,0.08)' }}
+                className="mx-3 sm:mx-12 mt-10 mb-2 rounded-3xl p-1 grid sm:grid-cols-3 gap-3"
+                style={{ background: 'transparent' }}
               >
                 <BudgetCell label={itin.itinerary.budgetSummary.dailyAverage ? itin.ui.budgetDailyLine(itin.itinerary.budgetSummary.dailyAverage) : '—'} />
                 <BudgetCell label={itin.itinerary.budgetSummary.totalEstimate ? itin.ui.budgetTotalLine(itin.itinerary.budgetSummary.totalEstimate) : '—'} accent />
@@ -1470,7 +1470,7 @@ export function ItineraryClient({
 
             {/* Packing tips */}
             {(itin.itinerary.packingTips?.length ?? 0) > 0 && (
-              <div className="mx-3 sm:mx-12 mb-2 rounded-2xl p-5" style={{ background: 'rgba(247,241,231,0.55)', border: '1px solid rgba(43,38,34,0.08)' }}>
+              <div className="mx-3 sm:mx-12 mb-2 rounded-2xl px-1 py-3" style={{ background: 'transparent' }}>
                 <h3 className="font-display font-semibold mb-3 flex items-center gap-2 text-[18px]" style={{ color: 'var(--color-ink-warm)' }}>
                   🎒 {itin.ui.packingTitle(itin.ui.audienceTitle(itin.profile?.groupType))}
                 </h3>
@@ -1486,7 +1486,7 @@ export function ItineraryClient({
 
             {/* Best local tips */}
             {(itin.itinerary.bestLocalTips?.length ?? 0) > 0 && (
-              <div className="mx-3 sm:mx-12 mb-2 rounded-2xl p-5" style={{ background: 'rgba(247,241,231,0.55)', border: '1px solid rgba(43,38,34,0.08)' }}>
+              <div className="mx-3 sm:mx-12 mb-2 rounded-2xl px-1 py-3" style={{ background: 'transparent' }}>
                 <h3 className="font-display font-semibold mb-3 flex items-center gap-2 text-[18px]" style={{ color: 'var(--color-ink-warm)' }}>
                   🗝️ {itin.ui.insiderIntel}
                 </h3>

@@ -46,8 +46,8 @@
   --font-serif:   var(--font-display);
 
   /* ── Warm editorial surfaces (light sections) ────────────────────────────── */
-  --color-paper:        #f7f1e7;  /* warm off-white — replaces cool mint overlay */
-  --color-paper-sunk:   #efe6d6;  /* deeper paper for insets */
+  --color-paper:        #efe3cd;  /* richer warm sand (deeper, less pastel) */
+  --color-paper-sunk:   #e4d4b8;  /* deeper sand for insets */
   --color-ink-warm:     #2b2622;  /* warm near-black body text on paper */
   --color-ink-warm-mut: #6b6358;  /* warm muted text */
 

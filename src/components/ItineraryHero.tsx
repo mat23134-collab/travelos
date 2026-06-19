@@ -21,11 +21,11 @@ export function ItineraryHero({
   ctaLabel = 'Plan another trip',
 }: Props) {
   return (
-    <div className="mx-3 sm:mx-12 mb-2">
-      <div className="relative rounded-[28px] overflow-hidden" style={{ boxShadow: 'var(--shadow-soft)' }}>
+    <div className="mx-0 sm:mx-6 mb-2">
+      <div className="relative sm:rounded-[28px] overflow-hidden" style={{ boxShadow: 'var(--shadow-soft)' }}>
         {/* Cinematic photo with a slow Ken Burns drift */}
         <div className="kenburns">
-          <DayPhoto query={`${destination} skyline golden hour`} alt={destination} height={460} dark />
+          <DayPhoto query={`${destination} skyline golden hour`} alt={destination} height={540} dark />
         </div>
 
         {/* Extra bottom gradient for drama / legibility */}
