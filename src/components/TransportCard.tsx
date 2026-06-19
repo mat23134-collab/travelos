@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
+import { DayPhoto } from '@/components/DayPhoto';
 import type { CityTransportGuide } from '@/lib/types';
 import type { ItineraryUiStrings } from '@/lib/tripUiCopy';
 import { hasTransportContent } from '@/lib/transportGuideParse';
@@ -115,22 +116,19 @@ export function TransportCard({
       <section className="mb-8 print:hidden" dir={ui.dir} lang={ui.htmlLang}>
         <div
           className="relative rounded-3xl overflow-hidden animate-pulse"
-          style={{
-            minHeight: 280,
-            background: 'linear-gradient(145deg, rgba(45,84,94,0.5) 0%, rgba(18,52,59,0.95) 55%, #0f2a30 100%)',
-            border: '1px solid rgba(255,255,255,0.08)',
-          }}
+          style={{ background: 'var(--color-paper)', boxShadow: 'var(--shadow-card)' }}
         >
-          <div className="p-6 sm:p-8 space-y-4">
-            <div className="h-3 w-28 rounded bg-white/10" />
-            <div className="h-6 w-[min(100%,24rem)] rounded bg-white/15" />
+          <div className="h-[180px] w-full bg-[#1a1d26]" />
+          <div className="p-5 sm:p-7 space-y-4">
+            <div className="h-3 w-28 rounded" style={{ background: 'var(--color-paper-sunk)' }} />
+            <div className="h-6 w-[min(100%,24rem)] rounded" style={{ background: 'var(--color-paper-sunk)' }} />
             <div className="grid grid-cols-3 gap-3 pt-2">
-              <div className="h-16 rounded-2xl bg-white/5" />
-              <div className="h-16 rounded-2xl bg-white/5" />
-              <div className="h-16 rounded-2xl bg-white/5" />
+              <div className="h-16 rounded-2xl" style={{ background: 'var(--color-paper-sunk)' }} />
+              <div className="h-16 rounded-2xl" style={{ background: 'var(--color-paper-sunk)' }} />
+              <div className="h-16 rounded-2xl" style={{ background: 'var(--color-paper-sunk)' }} />
             </div>
-            <div className="h-20 rounded-2xl bg-white/5" />
-            <p className="text-xs text-white/35">{ui.transportLoadingCard}</p>
+            <div className="h-20 rounded-2xl" style={{ background: 'var(--color-paper-sunk)' }} />
+            <p className="text-xs" style={{ color: 'var(--color-ink-warm-mut)' }}>{ui.transportLoadingCard}</p>
           </div>
         </div>
       </section>
@@ -148,29 +146,40 @@ export function TransportCard({
       lang={ui.htmlLang}
     >
       <div
-        className="relative rounded-3xl overflow-hidden"
-        style={{
-          background: 'linear-gradient(145deg, rgba(45,84,94,0.48) 0%, rgba(18,52,59,0.94) 52%, #12343b 100%)',
-          border: '1px solid rgba(255,255,255,0.10)',
-          boxShadow: '0 20px 56px -12px rgba(0,0,0,0.45)',
-        }}
+        className="relative rounded-3xl overflow-hidden group"
+        style={{ background: 'var(--color-paper)', boxShadow: 'var(--shadow-card)' }}
       >
-        <div className="absolute top-0 right-0 w-72 h-72 bg-[#2d545e]/28 rounded-full blur-[90px] pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-56 h-56 bg-[#C9A84C]/10 rounded-full blur-[70px] pointer-events-none" />
-
-        <div className="relative z-10 p-5 sm:p-7">
-          <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-[#a89254] mb-1">🚌 {ui.cityTransportTitle}</p>
-              <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight leading-snug">
-                {ui.cityTransportSubtitle(city)}
-              </h2>
-            </div>
+        {/* Editorial photo header with serif overlay title */}
+        <div className="relative h-[200px] sm:h-[224px] overflow-hidden">
+          <div className="absolute inset-0 transition-transform duration-700 group-hover:scale-105">
+            <DayPhoto query={`${city} metro public transport`} alt={city} height={224} dark />
           </div>
 
+          {/* Eyebrow pill (start) */}
+          <div className="absolute top-3 inset-x-3 flex items-start justify-between">
+            <span
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold text-white"
+              style={{ background: 'rgba(0,0,0,0.42)', backdropFilter: 'blur(6px)' }}
+            >
+              <span aria-hidden="true">🚌</span>{ui.cityTransportTitle}
+            </span>
+          </div>
+
+          {/* Serif title over the scrim */}
+          <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5">
+            <h2 className="font-display text-white text-xl sm:text-2xl leading-tight drop-shadow">
+              {ui.cityTransportSubtitle(city)}
+            </h2>
+          </div>
+        </div>
+
+        <div className="p-5 sm:p-7">
           {!rich && (
-            <div className="rounded-2xl p-4 mb-5" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.72)' }}>
+            <div
+              className="rounded-2xl p-4 mb-5"
+              style={{ background: 'var(--color-paper-sunk)' }}
+            >
+              <p className="text-sm leading-relaxed" style={{ color: 'var(--color-ink-warm)' }}>
                 {ui.cityTransportFallbackBody(city)}
               </p>
             </div>
@@ -179,25 +188,25 @@ export function TransportCard({
           {rich && (
             <>
               {guide?.intro?.trim() && (
-                <p className="text-sm leading-relaxed mb-5" style={{ color: 'rgba(255,255,255,0.78)' }}>
+                <p className="text-[15px] leading-relaxed mb-6" style={{ color: 'var(--color-ink-warm)' }}>
                   {guide.intro.trim()}
                 </p>
               )}
 
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-[#C9A84C] mb-2">
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-2.5" style={{ color: 'var(--color-sunrise-deep)' }}>
                 {ui.cityTransportPriceLabel}
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
                 {priceGrid.map((cell) => (
                   <div
                     key={cell.key}
-                    className="rounded-2xl px-4 py-3"
-                    style={{ background: 'rgba(0,0,0,0.22)', border: '1px solid rgba(255,255,255,0.06)' }}
+                    className="rounded-2xl px-4 py-3.5"
+                    style={{ background: 'var(--color-paper-sunk)' }}
                   >
-                    <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'rgba(255,255,255,0.42)' }}>
+                    <p className="text-[10px] font-bold uppercase tracking-wide mb-1.5" style={{ color: 'var(--color-ink-warm-mut)' }}>
                       {cell.label}
                     </p>
-                    <p className="text-base font-bold tabular-nums tracking-tight" style={{ color: '#C9A84C' }}>
+                    <p className="text-lg font-bold tabular-nums tracking-tight" style={{ color: 'var(--color-ink-warm)' }}>
                       {cell.value}
                     </p>
                   </div>
@@ -206,33 +215,33 @@ export function TransportCard({
 
               {guide?.scoutTipPayment?.trim() && (
                 <div
-                  className="rounded-2xl px-4 py-3 mb-5"
+                  className="rounded-2xl px-4 py-3.5 mb-6"
                   style={{
-                    background: 'rgba(127,29,29,0.12)',
-                    border: '1px solid rgba(248,113,113,0.38)',
-                    boxShadow: 'inset 0 0 0 1px rgba(248,113,113,0.12)',
+                    background: 'rgba(184,119,46,0.10)',
+                    boxShadow: 'inset 0 0 0 1px rgba(184,119,46,0.28)',
                   }}
                 >
-                  <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: 'rgba(252,165,165,0.95)' }}>
+                  <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: 'var(--color-sunrise-deep)' }}>
                     {ui.transportScoutTipEyebrow}
                   </p>
-                  <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,237,237,0.92)' }}>
+                  <p className="text-sm leading-relaxed" style={{ color: 'var(--color-ink-warm)' }}>
                     {guide.scoutTipPayment.trim()}
                   </p>
                 </div>
               )}
 
               {guide?.transportApp?.name?.trim() && (
-                <div className="mb-5">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-[#C9A84C] mb-2">{ui.transportOfficialApp}</p>
-                  <p className="text-sm font-semibold text-white/90 mb-2">{guide.transportApp.name.trim()}</p>
+                <div className="mb-6">
+                  <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--color-sunrise-deep)' }}>{ui.transportOfficialApp}</p>
+                  <p className="text-base font-bold mb-2.5" style={{ color: 'var(--color-ink-warm)' }}>{guide.transportApp.name.trim()}</p>
                   <div className="flex flex-wrap gap-2">
                     {guide.transportApp.iosUrl && (
                       <a
                         href={guide.transportApp.iosUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex px-3 py-1.5 rounded-xl text-xs font-semibold border border-white/15 bg-white/5 text-white/85 hover:bg-white/10"
+                        className="inline-flex px-3.5 py-2 rounded-full text-xs font-semibold transition-colors hover:opacity-90"
+                        style={{ background: 'var(--color-paper-sunk)', color: 'var(--color-ink-warm)' }}
                       >
                         {ui.transportIos} ↗
                       </a>
@@ -242,7 +251,8 @@ export function TransportCard({
                         href={guide.transportApp.androidUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex px-3 py-1.5 rounded-xl text-xs font-semibold border border-white/15 bg-white/5 text-white/85 hover:bg-white/10"
+                        className="inline-flex px-3.5 py-2 rounded-full text-xs font-semibold transition-colors hover:opacity-90"
+                        style={{ background: 'var(--color-paper-sunk)', color: 'var(--color-ink-warm)' }}
                       >
                         {ui.transportAndroid} ↗
                       </a>
@@ -252,9 +262,9 @@ export function TransportCard({
               )}
 
               {(guide?.options?.length ?? 0) > 0 && (
-                <div className="mb-5">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-[#C9A84C] mb-3">{ui.cityTransportOptionsHeading}</p>
-                  <div className="grid gap-2 sm:grid-cols-2">
+                <div className="mb-6">
+                  <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--color-sunrise-deep)' }}>{ui.cityTransportOptionsHeading}</p>
+                  <div className="grid gap-2.5 sm:grid-cols-2">
                     {(guide!.options ?? []).map((opt, i) => {
                       const daily = opt.dailyAverage?.trim() || opt.typicalPrice?.trim() || '—';
                       const tripTotal = opt.tripTotalEstimate?.trim();
@@ -262,24 +272,24 @@ export function TransportCard({
                       return (
                         <div
                           key={`${opt.mode}-${i}`}
-                          className="rounded-xl p-3"
-                          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+                          className="rounded-2xl p-3.5"
+                          style={{ background: 'var(--color-paper-sunk)' }}
                         >
-                          <p className="font-semibold text-white text-xs mb-0.5">{opt.mode}</p>
-                          <p className="text-[11px] leading-snug mb-2" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                          <p className="font-bold text-sm mb-1" style={{ color: 'var(--color-ink-warm)' }}>{opt.mode}</p>
+                          <p className="text-[12px] leading-snug mb-2.5" style={{ color: 'var(--color-ink-warm-mut)' }}>
                             {opt.summary}
                           </p>
-                          <div className="flex flex-wrap gap-2 text-[10px]">
-                            <span className="text-[#C9A84C] font-semibold tabular-nums">{ui.cityTransportDailyAvgLabel}: {daily}</span>
-                            <span className="text-[#e8d9b4]/90 font-semibold tabular-nums">{ui.cityTransportTripTotalLabel(tripDayCount)}: {tripTotal ?? '—'}</span>
+                          <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
+                            <span className="font-bold tabular-nums" style={{ color: 'var(--color-sunrise-deep)' }}>{ui.cityTransportDailyAvgLabel}: {daily}</span>
+                            <span className="font-bold tabular-nums" style={{ color: 'var(--color-ink-warm)' }}>{ui.cityTransportTripTotalLabel(tripDayCount)}: {tripTotal ?? '—'}</span>
                           </div>
                           {optLink && (
                             <a
                               href={optLink}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-block mt-1.5 text-[11px] font-semibold underline-offset-2 hover:underline"
-                              style={{ color: '#93c5d8' }}
+                              className="inline-block mt-2 text-[11px] font-bold underline-offset-2 hover:underline"
+                              style={{ color: 'var(--color-sunrise-deep)' }}
                             >
                               {opt.optionLinkLabel?.trim() || ui.cityTransportOptionSite} ↗
                             </a>
@@ -294,7 +304,7 @@ export function TransportCard({
           )}
 
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-[#C9A84C] mb-3">
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--color-sunrise-deep)' }}>
               {rich && safeLinks.length > 0 ? ui.cityTransportLinksHeading : ui.cityTransportFallbackTitle}
             </p>
             <div className="flex flex-col sm:flex-row flex-wrap gap-2">
@@ -305,12 +315,8 @@ export function TransportCard({
                     href={link.href!}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex flex-col sm:flex-1 min-w-0 px-4 py-3 rounded-xl text-sm font-semibold transition-colors border"
-                    style={{
-                      background: 'rgba(201,168,76,0.10)',
-                      borderColor: 'rgba(201,168,76,0.28)',
-                      color: '#f0e6d4',
-                    }}
+                    className="inline-flex flex-col sm:flex-1 min-w-0 px-4 py-3 rounded-2xl text-sm font-bold transition-colors hover:opacity-90"
+                    style={{ background: 'var(--color-ink-warm)', color: 'var(--color-paper)' }}
                   >
                     <span className="truncate">{link.label} ↗</span>
                     {link.description?.trim() && (
@@ -323,12 +329,8 @@ export function TransportCard({
                 href={ticketsHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center px-4 py-3 rounded-xl text-sm font-semibold border transition-colors"
-                style={{
-                  background: 'rgba(255,255,255,0.06)',
-                  borderColor: 'rgba(255,255,255,0.12)',
-                  color: 'rgba(255,255,255,0.88)',
-                }}
+                className="inline-flex items-center justify-center px-4 py-3 rounded-full text-sm font-bold transition-colors hover:opacity-90"
+                style={{ background: 'var(--color-paper-sunk)', color: 'var(--color-ink-warm)' }}
               >
                 {ui.transportSearchOfficialTickets} ↗
               </a>
@@ -336,12 +338,8 @@ export function TransportCard({
                 href={transitHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center px-4 py-3 rounded-xl text-sm font-semibold border transition-colors"
-                style={{
-                  background: 'rgba(255,255,255,0.06)',
-                  borderColor: 'rgba(255,255,255,0.12)',
-                  color: 'rgba(255,255,255,0.88)',
-                }}
+                className="inline-flex items-center justify-center px-4 py-3 rounded-full text-sm font-bold transition-colors hover:opacity-90"
+                style={{ background: 'var(--color-paper-sunk)', color: 'var(--color-ink-warm)' }}
               >
                 {ui.transportTransitToCity} ↗
               </a>
