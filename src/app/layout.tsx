@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Cormorant_Garamond, Fraunces, Inter } from 'next/font/google';
+import { Assistant, Cormorant_Garamond, Fraunces, Inter } from 'next/font/google';
 import Link from 'next/link';
 import './globals.css';
 import { VersionStamp } from '@/components/VersionStamp';
@@ -33,6 +33,15 @@ const display = Fraunces({
   axes: ['opsz'],
   style: ['normal', 'italic'],
   variable: '--font-display',
+  display: 'swap',
+});
+
+// Body typeface — Assistant: an elegant Hebrew-first humanist sans (Latin +
+// Hebrew), warmer and more characterful than Inter, pairs with Fraunces.
+const body = Assistant({
+  subsets: ['latin', 'hebrew'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-body',
   display: 'swap',
 });
 
@@ -77,7 +86,7 @@ function Footer() {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${brandSerif.variable} ${display.variable} h-full`}>
+    <html lang="en" className={`${inter.variable} ${body.variable} ${brandSerif.variable} ${display.variable} h-full`}>
       <body className="min-h-full antialiased">
         <SiteBackground />
         <MotionProvider>

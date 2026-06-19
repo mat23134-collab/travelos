@@ -57,12 +57,14 @@ export function TransportCard({
   const [routeLabel, setRouteLabel] = useState<string | null>(null);
 
   const rich = hasTransportContent(guide);
+  // Keep only the 2–3 most relevant official links — drop the long tail.
   const safeLinks = (guide?.links ?? [])
     .map((l) => ({ ...l, href: safeHttpsUrl(l.url) }))
-    .filter((l) => l.href);
-  // The "official tickets" href is derived from the same links list, so only show
-  // its own button when it isn't already one of the links above (avoids duplicates).
-  const showTicketsLink = !safeLinks.some((l) => l.href === ticketsHref);
+    .filter((l) => l.href)
+    .slice(0, 3);
+  // Only offer the generic "official tickets" search as a fallback when we have
+  // no curated official links at all.
+  const showTicketsLink = safeLinks.length === 0;
 
   useEffect(() => {
     if (!hotelAnchor || !Number.isFinite(hotelAnchor.lat) || !Number.isFinite(hotelAnchor.lng) || !destination.trim()) {
