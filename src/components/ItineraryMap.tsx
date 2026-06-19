@@ -39,6 +39,8 @@ interface MarkerData {
   lng: number;
   label: string;
   dayIndex: number;
+  /** 1-based position within its own day (Morning=1, then Afternoon, Evening…). */
+  order: number;
   time: string;
   neighborhood: string;
 }
@@ -122,6 +124,7 @@ function buildMarkers(days: DayPlan[]): MarkerData[] {
       { act: day.evening,   time: 'Evening'   },
     ] as const;
 
+    let order = 0; // 1-based sequence within this day
     slots.forEach(({ act, time }) => {
       const lat = act ? Number(act.latitude) : NaN;
       const lng = act ? Number(act.longitude) : NaN;
@@ -130,12 +133,14 @@ function buildMarkers(days: DayPlan[]): MarkerData[] {
         Number.isFinite(lat) &&
         Number.isFinite(lng)
       ) {
+        order += 1;
         out.push({
           id:           `day${di}-${time.toLowerCase()}-${(act.name ?? '').replace(/\s+/g, '-').toLowerCase()}`,
           lat,
           lng,
           label:        act.name ?? time,
           dayIndex:     di,
+          order,
           time,
           neighborhood: act.neighborhood ?? '',
         });
@@ -171,7 +176,7 @@ const DayPin = memo(function DayPin({
         transition: 'box-shadow 0.2s',
       }}
     >
-      {marker.dayIndex + 1}
+      {marker.order}
     </div>
   );
 });
