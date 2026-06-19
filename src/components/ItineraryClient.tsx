@@ -35,6 +35,9 @@ import { parseTransportGuideJson } from '@/lib/transportGuideParse';
 import { useItinerary } from '@/hooks/useItinerary';
 import { ItineraryHeader } from '@/components/ItineraryHeader';
 import { DayCarousel } from '@/components/DayCarousel';
+import { ItineraryHero } from '@/components/ItineraryHero';
+import { TripStats } from '@/components/TripStats';
+import { deriveTripStats } from '@/lib/tripStats';
 import { DayDetailPanel } from '@/components/DayDetailPanel';
 import { HotelSelectionCard } from '@/components/HotelSelectionCard';
 import { AssistantChat } from '@/components/AssistantChat';
@@ -1284,6 +1287,7 @@ export function ItineraryClient({
   }
 
   const days = itin.itinerary.days ?? [];
+  const tripStats = deriveTripStats(itin.itinerary);
   const selectedDay = itin.selectedDayIndex >= 0 ? days[itin.selectedDayIndex] ?? null : null;
 
   return (
@@ -1382,14 +1386,24 @@ export function ItineraryClient({
         ) : (
           /* ══ OVERVIEW ════════════════════════════════════════════════════ */
           <div className="max-w-5xl mx-auto py-4">
+            <ItineraryHero
+              destination={itin.itinerary.destination}
+              dateRange={formatTripDateRange(itin.profile?.startDate, itin.profile?.endDate)}
+              totalDays={days.length}
+              ctaLabel={itin.ui.planNewTripButton}
+            />
+
+            <TripStats
+              items={[
+                { value: tripStats.days, label: 'Days' },
+                { value: tripStats.attractions, label: 'Attractions' },
+                { value: tripStats.neighborhoods, label: 'Neighborhoods' },
+                { value: tripStats.meals, label: 'Meals' },
+              ]}
+            />
+
             <p
-              className="font-display text-center text-2xl sm:text-3xl italic px-4 pt-6 pb-3"
-              style={{ color: 'var(--color-ink-warm)' }}
-            >
-              Your {days.length}-Day Itinerary
-            </p>
-            <p
-              className="text-center text-[11px] font-bold uppercase tracking-[0.12em] pb-3"
+              className="text-center text-[11px] font-bold uppercase tracking-[0.12em] pt-8 pb-3"
               style={{ color: 'var(--color-ink-warm-mut)' }}
             >
               tap a day to explore
