@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { DayPhoto } from '@/components/DayPhoto';
 import type { DayPlan, Activity, DiningSpot } from '@/lib/types';
 import type { ItineraryUiStrings } from '@/lib/tripUiCopy';
 
@@ -101,7 +102,7 @@ export function DayTimeline({
   }
 
   return (
-    <div className="rounded-2xl overflow-hidden bg-white" style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}>
+    <div className="flex flex-col gap-3">
       {rows.map((row, i) => {
         const slot = row.type === 'activity'
           ? (row.slot as 'morning' | 'afternoon' | 'evening')
@@ -114,7 +115,7 @@ export function DayTimeline({
           <TimelineItem
             key={`${row.slot}-${i}`}
             row={row}
-            isLast={i === rows.length - 1}
+            index={i}
             destination={destination}
             onExplore={() => onExplore(row)}
             onFindAlternative={() => onFindAlternative(swapTarget)}
@@ -127,10 +128,10 @@ export function DayTimeline({
 }
 
 function TimelineItem({
-  row, isLast, destination, onExplore, onFindAlternative, onNeighborhoodClick,
+  row, index, destination, onExplore, onFindAlternative, onNeighborhoodClick,
 }: {
   row: TimelineRow;
-  isLast: boolean;
+  index: number;
   destination: string;
   onExplore: () => void;
   onFindAlternative: () => void;
@@ -139,64 +140,85 @@ function TimelineItem({
   const isCheckIn = row.type === 'activity' && row.activity && isHotelCheckIn(row.activity);
   const neighborhood = row.activity?.neighborhood ?? row.dining?.neighborhood;
   const mapsUrl = buildMapsDirectionsUrl(row.name, neighborhood, destination);
+  const photoQuery = [row.name, neighborhood, destination].filter(Boolean).join(' ');
 
   return (
-    <div
-      className="flex items-start gap-3 px-4 py-3.5"
-      style={{ borderBottom: isLast ? 'none' : '1px solid rgba(0,0,0,0.06)' }}
+    <motion.div
+      initial={{ opacity: 0, y: 18 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.3 }}
+      transition={{ delay: Math.min(index, 5) * 0.05, type: 'spring', stiffness: 260, damping: 26 }}
+      className="rounded-2xl overflow-hidden group"
+      style={{ background: 'var(--color-paper)', boxShadow: 'var(--shadow-card)' }}
     >
-      <span className="text-[13px] font-bold flex-shrink-0 w-[52px] pt-0.5" style={{ color: '#5aada5' }}>
-        {row.time}
-      </span>
-      <span className="w-8 h-8 rounded-full flex items-center justify-center text-[14px] flex-shrink-0 mt-0.5" style={{ background: '#e8f4f2', border: '1px solid rgba(90,173,165,0.25)' }}>
-        {row.emoji}
-      </span>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-start gap-2 flex-wrap mb-1.5">
-          <span className="text-[13px] font-bold text-[#222]">{row.name}</span>
+      {/* Photo header */}
+      <div className="relative h-[164px] overflow-hidden">
+        <div className="absolute inset-0 transition-transform duration-700 group-hover:scale-105">
+          <DayPhoto query={photoQuery} alt={row.name} height={164} dark />
+        </div>
+
+        {/* Top row: time + emoji (start), Hidden Gem (end) */}
+        <div className="absolute top-2.5 inset-x-2.5 flex items-start justify-between">
+          <span
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold text-white"
+            style={{ background: 'rgba(0,0,0,0.42)', backdropFilter: 'blur(6px)' }}
+          >
+            <span>{row.emoji}</span>{row.time}
+          </span>
           {row.activity?.isHiddenGem && (
-            <span className="text-[9px] font-black px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: 'rgba(197,145,42,0.15)', color: '#b8860b', border: '1px solid rgba(197,145,42,0.25)' }}>
+            <span className="px-2 py-0.5 rounded-full text-[9px] font-black text-white" style={{ background: 'rgba(184,119,46,0.92)' }}>
               💎 Hidden Gem
             </span>
           )}
         </div>
-        {neighborhood && (
-          <button type="button" onClick={() => onNeighborhoodClick(neighborhood)} className="text-[11px] text-[#5aada5] hover:underline mb-2 block text-left">
-            📍 {neighborhood}
-          </button>
-        )}
-        <div className="flex flex-wrap gap-1.5 items-center">
-          {isCheckIn ? (
-            <>
-              <TlBtn onClick={onExplore}>Hotel Details</TlBtn>
-              <TlBtn onClick={onFindAlternative} primary>Change Hotel</TlBtn>
-            </>
-          ) : row.type === 'dining' ? (
-            <>
-              <TlBtn onClick={onFindAlternative} primary>Find Alternative</TlBtn>
-              <TlBtn onClick={onExplore}>Explore Details</TlBtn>
-            </>
-          ) : (
-            <>
-              <TlBtn onClick={onFindAlternative} primary>Modify</TlBtn>
-              <TlBtn onClick={onExplore}>Explore Details</TlBtn>
-            </>
+
+        {/* Bottom: name + neighborhood over the scrim */}
+        <div className="absolute inset-x-0 bottom-0 p-3.5">
+          <h4 className="font-display text-white text-lg sm:text-xl leading-tight drop-shadow">{row.name}</h4>
+          {neighborhood && (
+            <button
+              type="button"
+              onClick={() => onNeighborhoodClick(neighborhood)}
+              className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-white/85 hover:text-white"
+            >
+              📍 {neighborhood}
+            </button>
           )}
-          <a
-            href={mapsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-colors hover:bg-blue-50"
-            style={{ background: '#fff', border: '1px solid rgba(66,133,244,0.35)', color: '#4285f4' }}
-          >
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#4285f4"/>
-            </svg>
-            Navigate
-          </a>
         </div>
       </div>
-    </div>
+
+      {/* Actions on warm paper */}
+      <div className="flex flex-wrap gap-1.5 items-center p-3">
+        {isCheckIn ? (
+          <>
+            <TlBtn onClick={onExplore}>Hotel Details</TlBtn>
+            <TlBtn onClick={onFindAlternative} primary>Change Hotel</TlBtn>
+          </>
+        ) : row.type === 'dining' ? (
+          <>
+            <TlBtn onClick={onFindAlternative} primary>Find Alternative</TlBtn>
+            <TlBtn onClick={onExplore}>Explore Details</TlBtn>
+          </>
+        ) : (
+          <>
+            <TlBtn onClick={onFindAlternative} primary>Modify</TlBtn>
+            <TlBtn onClick={onExplore}>Explore Details</TlBtn>
+          </>
+        )}
+        <a
+          href={mapsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg transition-colors hover:bg-blue-50"
+          style={{ background: '#fff', border: '1px solid rgba(66,133,244,0.35)', color: '#4285f4' }}
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#4285f4"/>
+          </svg>
+          Navigate
+        </a>
+      </div>
+    </motion.div>
   );
 }
 
