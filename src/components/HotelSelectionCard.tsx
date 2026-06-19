@@ -155,7 +155,8 @@ function HotelColumn({
   isSelected: boolean;
   onClick: () => void;
 }) {
-  const photoQuery = [hotel.name, hotel.neighborhood, destination].filter(Boolean).join(' ');
+  // Hotel photo: the hotel itself only — no neighborhood/destination dilution.
+  const photoQuery = hotel.name;
 
   return (
     <motion.button

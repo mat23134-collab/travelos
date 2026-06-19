@@ -140,7 +140,11 @@ function TimelineItem({
   const isCheckIn = row.type === 'activity' && row.activity && isHotelCheckIn(row.activity);
   const neighborhood = row.activity?.neighborhood ?? row.dining?.neighborhood;
   const mapsUrl = buildMapsDirectionsUrl(row.name, neighborhood, destination);
-  const photoQuery = [row.name, neighborhood, destination].filter(Boolean).join(' ');
+  // Dining: a cinematic cuisine/atmosphere shot of the destination — NOT the specific
+  // restaurant (those photos are generic/poor). Activities: the actual place photo.
+  const photoQuery = row.type === 'dining'
+    ? [destination, row.dining?.cuisine, 'cuisine food cinematic'].filter(Boolean).join(' ')
+    : [row.name, neighborhood, destination].filter(Boolean).join(' ');
 
   return (
     <motion.div
