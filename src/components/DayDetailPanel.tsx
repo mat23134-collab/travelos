@@ -23,7 +23,7 @@ const ItineraryMap = dynamic(
     loading: () => (
       <div
         className="w-full h-full rounded-2xl animate-pulse"
-        style={{ background: 'rgba(90,173,165,0.12)', border: '1px solid rgba(90,173,165,0.2)', minHeight: 400 }}
+        style={{ background: 'rgba(184,85,46,0.12)', border: '1px solid rgba(184,85,46,0.2)', minHeight: 400 }}
       />
     ),
   },
@@ -135,7 +135,7 @@ export function DayDetailPanel({
               onClick={onPrevDay}
               disabled={dayIndex === 0}
               className="flex items-center gap-1 text-sm font-semibold transition-opacity disabled:opacity-30"
-              style={{ color: '#3a8a82' }}
+              style={{ color: '#8f4220' }}
             >
               {dayIndex === 0 ? '← Previous' : `← Day ${dayIndex}`}
             </button>
@@ -147,7 +147,7 @@ export function DayDetailPanel({
               onClick={onNextDay}
               disabled={dayIndex === totalDays - 1}
               className="flex items-center gap-1 text-sm font-semibold transition-opacity disabled:opacity-30"
-              style={{ color: '#3a8a82' }}
+              style={{ color: '#8f4220' }}
             >
               {dayIndex === totalDays - 1 ? 'Next →' : `Day ${dayIndex + 2} →`}
             </button>
@@ -190,7 +190,7 @@ export function DayDetailPanel({
                   type="button"
                   onClick={onOpenMobileMap}
                   className="sm:hidden w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold"
-                  style={{ background: '#e8f4f2', color: '#3a8a82', border: '1px solid rgba(90,173,165,0.3)' }}
+                  style={{ background: '#f6e7df', color: '#8f4220', border: '1px solid rgba(184,85,46,0.3)' }}
                 >
                   🗺 View Day {dayIndex + 1} on Map
                 </button>
@@ -200,8 +200,8 @@ export function DayDetailPanel({
             {/* Right: Map + Attractions Bank */}
             <div className="flex flex-col gap-3">
               <div
-                className="rounded-2xl overflow-hidden bg-white"
-                style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.08)', minHeight: 380 }}
+                className="rounded-2xl overflow-hidden"
+                style={{ background: 'var(--color-paper)', boxShadow: 'var(--shadow-card)', minHeight: 380 }}
               >
                 <div className="px-4 py-3 flex items-center justify-between border-b" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
                   <div>
@@ -278,8 +278,8 @@ function ActionBtn({ children, onClick, primary = false }: { children: React.Rea
       whileTap={{ scale: 0.96 }}
       className="px-5 py-2.5 rounded-xl text-[13px] font-bold transition-all"
       style={primary
-        ? { background: '#5aada5', color: '#fff', boxShadow: '0 4px 12px rgba(90,173,165,0.4)' }
-        : { background: '#fff', color: '#3a8a82', border: '1px solid rgba(90,173,165,0.3)', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
+        ? { background: '#b8552e', color: '#fff', boxShadow: '0 4px 12px rgba(184,85,46,0.4)' }
+        : { background: 'var(--color-paper)', color: '#8f4220', border: '1px solid rgba(184,85,46,0.3)', boxShadow: 'var(--shadow-card)' }}
     >
       {children}
     </motion.button>

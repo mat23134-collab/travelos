@@ -50,7 +50,7 @@ export function ItineraryHeader({
             exit={{ y: -40, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
             className="fixed top-0 inset-x-0 z-[60] text-sm py-2.5 px-6 text-center shadow-lg print:hidden"
-            style={{ background: '#3a8a82', color: '#fff' }}
+            style={{ background: '#8f4220', color: '#fff' }}
           >
             ✓ {editBanner}
           </motion.div>
@@ -59,7 +59,7 @@ export function ItineraryHeader({
 
       <nav
   className={`sticky z-50 print:hidden transition-all ${editBanner ? 'top-10' : 'top-0'}`}
-  style={{ background: '#5aada5', boxShadow: '0 2px 12px rgba(0,0,0,0.12)' }}
+  style={{ background: '#b8552e', boxShadow: '0 2px 12px rgba(0,0,0,0.12)' }}
 >
   {/* ── Row 1: Brand + Back + Actions ─────────────────────────────────── */}
   <div className="flex items-center gap-2 px-4 sm:px-6 h-12 sm:h-14">

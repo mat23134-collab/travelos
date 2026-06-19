@@ -1512,7 +1512,7 @@ export function ItineraryClient({
                 <Link
                   href="/onboarding"
                   className="inline-flex items-center gap-2 px-8 py-3 rounded-full text-white font-semibold text-sm"
-                  style={{ background: '#5aada5', boxShadow: 'var(--shadow-soft)' }}
+                  style={{ background: '#b8552e', boxShadow: 'var(--shadow-soft)' }}
                 >
                   {itin.ui.planNewTripButton}
                   <span aria-hidden>↗</span>
@@ -1530,7 +1530,7 @@ export function ItineraryClient({
           transition={{ delay: 0.6, type: 'spring', stiffness: 300, damping: 26 }}
           whileTap={{ scale: 0.90 }}
           className="sm:hidden fixed bottom-20 right-4 z-30 flex items-center gap-2 px-4 py-3 rounded-full text-white text-sm font-semibold print:hidden"
-          style={{ background: 'rgba(90,173,165,0.92)', border: '1px solid rgba(255,255,255,0.25)', boxShadow: 'var(--shadow-soft)' }}
+          style={{ background: 'rgba(184,85,46,0.92)', border: '1px solid rgba(255,255,255,0.25)', boxShadow: 'var(--shadow-soft)' }}
         >
           <span>🗺</span> {itin.ui.mapFab}
         </motion.button>

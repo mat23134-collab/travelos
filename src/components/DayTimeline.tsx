@@ -129,7 +129,7 @@ export function DayTimeline({
 
   if (rows.length === 0) {
     return (
-      <div className="p-6 text-center text-sm text-[#888] bg-white rounded-2xl" style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}>
+      <div className="p-6 text-center text-sm text-[#888] rounded-2xl" style={{ background: 'var(--color-paper)', boxShadow: 'var(--shadow-card)' }}>
         No activities planned for this day yet.
       </div>
     );
@@ -274,8 +274,8 @@ function TlBtn({ children, onClick, primary = false }: { children: React.ReactNo
       whileTap={{ scale: 0.93 }}
       className="text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-colors"
       style={primary
-        ? { background: '#5aada5', color: '#fff', border: '1px solid #5aada5' }
-        : { background: '#e8f4f2', color: '#3a8a82', border: '1px solid rgba(90,173,165,0.3)' }}
+        ? { background: '#b8552e', color: '#fff', border: '1px solid #b8552e' }
+        : { background: '#f6e7df', color: '#8f4220', border: '1px solid rgba(184,85,46,0.3)' }}
     >
       {children}
     </motion.button>

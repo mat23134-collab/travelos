@@ -55,6 +55,11 @@
   --color-sunrise:      #e0a44b;
   --color-sunrise-soft: #f0c98a;
   --color-sunrise-deep: #b8772e;  /* text-on-paper safe */
+
+  /* ── Terracotta — primary warm UI accent (replaces the cool teal) ────────── */
+  --color-terracotta:      #b8552e;  /* primary accent — buttons, active states */
+  --color-terracotta-deep: #8f4220;  /* accent text / links on paper */
+  --color-terracotta-soft: #f6e7df;  /* light terracotta tint (chip / button bg) */
 }
 
 /* ── Soft editorial shadows (replace neon glows on light sections) ─────────── */

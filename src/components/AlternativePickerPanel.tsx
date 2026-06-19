@@ -124,7 +124,7 @@ export function AlternativePickerPanel({
 
         <motion.div
           className="relative w-full sm:max-w-md rounded-t-[28px] sm:rounded-[24px] overflow-hidden z-10 flex flex-col"
-          style={{ background: '#fff', boxShadow: '0 32px 80px -16px rgba(0,0,0,0.4)', maxHeight: '88dvh' }}
+          style={{ background: 'var(--color-paper)', boxShadow: '0 32px 80px -16px rgba(0,0,0,0.4)', maxHeight: '88dvh' }}
           initial={{ y: '100%', scale: 0.97 }}
           animate={{ y: 0, scale: 1 }}
           exit={{ y: '60%', opacity: 0, scale: 0.95 }}
@@ -139,7 +139,7 @@ export function AlternativePickerPanel({
           <div className="flex-shrink-0 px-5 pt-4 pb-3 border-b" style={{ borderColor: 'rgba(0,0,0,0.07)' }}>
             <div className="flex items-start justify-between">
               <div>
-                <div className="text-[10px] font-black uppercase tracking-widest text-[#5aada5] mb-1">Find Alternative</div>
+                <div className="text-[10px] font-black uppercase tracking-widest text-[#b8552e] mb-1">Find Alternative</div>
                 <h3 className="text-[15px] font-black text-[#222]">Replace: {target.currentName}</h3>
                 {locationHint && <p className="text-[12px] text-[#888] mt-0.5">📍 {locationHint}</p>}
               </div>
@@ -158,7 +158,7 @@ export function AlternativePickerPanel({
           <div className="flex-1 overflow-y-auto">
             {panelState === 'loading' && (
               <div className="flex flex-col items-center justify-center gap-3 py-12 px-5">
-                <div className="w-8 h-8 rounded-full border-2 animate-spin" style={{ borderColor: 'rgba(90,173,165,0.2)', borderTopColor: '#5aada5' }} />
+                <div className="w-8 h-8 rounded-full border-2 animate-spin" style={{ borderColor: 'rgba(184,85,46,0.2)', borderTopColor: '#b8552e' }} />
                 <p className="text-[13px] text-[#888]">Finding the best options near {locationHint || 'your location'}…</p>
               </div>
             )}
@@ -173,8 +173,8 @@ export function AlternativePickerPanel({
                     whileTap={{ scale: 0.98 }}
                     className="w-full text-left rounded-2xl p-4 transition-all"
                     style={{
-                      border: selectedIdx === idx ? '2px solid #5aada5' : '2px solid rgba(90,173,165,0.2)',
-                      background: selectedIdx === idx ? '#e8f4f2' : 'rgba(240,250,249,0.4)',
+                      border: selectedIdx === idx ? '2px solid #b8552e' : '2px solid rgba(184,85,46,0.2)',
+                      background: selectedIdx === idx ? '#f6e7df' : 'rgba(240,250,249,0.4)',
                     }}
                   >
                     <div className="flex items-start gap-3 mb-2">
@@ -185,11 +185,11 @@ export function AlternativePickerPanel({
                           {[alt.activity.neighborhood, alt.activity.estimatedCost].filter(Boolean).join(' · ')}
                         </div>
                       </div>
-                      {selectedIdx === idx && <span className="text-[#5aada5] text-base flex-shrink-0">✓</span>}
+                      {selectedIdx === idx && <span className="text-[#b8552e] text-base flex-shrink-0">✓</span>}
                     </div>
-                    <div className="flex items-start gap-2 rounded-xl px-3 py-2" style={{ background: 'rgba(90,173,165,0.08)', border: '1px solid rgba(90,173,165,0.15)' }}>
+                    <div className="flex items-start gap-2 rounded-xl px-3 py-2" style={{ background: 'rgba(184,85,46,0.08)', border: '1px solid rgba(184,85,46,0.15)' }}>
                       <span className="text-[12px] flex-shrink-0">💡</span>
-                      <p className="text-[11px] text-[#3a8a82] leading-relaxed">{alt.whyItFitsYou}</p>
+                      <p className="text-[11px] text-[#8f4220] leading-relaxed">{alt.whyItFitsYou}</p>
                     </div>
                   </motion.button>
                 ))}
@@ -217,7 +217,7 @@ export function AlternativePickerPanel({
                     rows={2}
                     placeholder="e.g. vegetarian-friendly, under €15, closer to the hotel…"
                     className="flex-1 rounded-xl px-3 py-2 text-[13px] text-[#333] outline-none resize-none"
-                    style={{ border: '1px solid rgba(90,173,165,0.35)', background: '#fafffe', fontFamily: 'inherit' }}
+                    style={{ border: '1px solid rgba(184,85,46,0.35)', background: '#fafffe', fontFamily: 'inherit' }}
                   />
                   <motion.button
                     type="button"
@@ -225,7 +225,7 @@ export function AlternativePickerPanel({
                     disabled={!customText.trim() || customLoading}
                     whileTap={{ scale: 0.9 }}
                     className="w-9 h-9 rounded-xl flex items-center justify-center text-white flex-shrink-0 disabled:opacity-40"
-                    style={{ background: '#5aada5' }}
+                    style={{ background: '#b8552e' }}
                   >
                     {customLoading
                       ? <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin inline-block" />
@@ -244,7 +244,7 @@ export function AlternativePickerPanel({
                 onClick={handleConfirm}
                 whileTap={{ scale: 0.97 }}
                 className="w-full py-3 rounded-xl text-[14px] font-black text-white"
-                style={{ background: '#5aada5', boxShadow: '0 4px 14px rgba(90,173,165,0.45)' }}
+                style={{ background: '#b8552e', boxShadow: '0 4px 14px rgba(184,85,46,0.45)' }}
               >
                 ✓ Use {alternatives[selectedIdx]?.activity.name ?? 'selected option'}
               </motion.button>
