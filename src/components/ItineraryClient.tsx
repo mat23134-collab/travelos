@@ -1407,12 +1407,7 @@ export function ItineraryClient({
               ]}
             />
 
-            <p
-              className="text-center text-[11px] font-bold uppercase tracking-[0.12em] pt-8 pb-3"
-              style={{ color: 'var(--color-ink-warm-mut)' }}
-            >
-              tap a day to explore
-            </p>
+            <SectionLabel>Your days</SectionLabel>
 
             <DayCarousel
               days={days}
@@ -1437,8 +1432,8 @@ export function ItineraryClient({
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.15, type: 'spring', stiffness: 280, damping: 26 }}
-                className="mx-3 sm:mx-12 mb-6 rounded-3xl p-5 grid sm:grid-cols-3 gap-3"
-                style={{ background: 'var(--color-paper)', boxShadow: 'var(--shadow-card)' }}
+                className="mx-3 sm:mx-12 mt-10 mb-2 rounded-3xl p-5 grid sm:grid-cols-3 gap-3"
+                style={{ background: 'rgba(247,241,231,0.55)', border: '1px solid rgba(43,38,34,0.08)' }}
               >
                 <BudgetCell label={itin.itinerary.budgetSummary.dailyAverage ? itin.ui.budgetDailyLine(itin.itinerary.budgetSummary.dailyAverage) : '—'} />
                 <BudgetCell label={itin.itinerary.budgetSummary.totalEstimate ? itin.ui.budgetTotalLine(itin.itinerary.budgetSummary.totalEstimate) : '—'} accent />
@@ -1447,7 +1442,7 @@ export function ItineraryClient({
             )}
 
             {/* Full trip map */}
-            <section className="mx-3 sm:mx-12 mb-6 hidden sm:block print:hidden">
+            <section className="mx-3 sm:mx-12 mt-10 mb-2 hidden sm:block print:hidden">
               <ItineraryMap
                 days={itin.itinerary.days}
                 destination={itin.itinerary.destination}
@@ -1458,7 +1453,7 @@ export function ItineraryClient({
             </section>
 
             {/* Transport card */}
-            <div className="mx-3 sm:mx-12 mb-6">
+            <div className="mx-3 sm:mx-12 mt-10 mb-2">
               <TransportCard
                 destination={itin.itinerary.destination}
                 guide={itin.displayCityTransport}
@@ -1469,15 +1464,19 @@ export function ItineraryClient({
               />
             </div>
 
+            {((itin.itinerary.packingTips?.length ?? 0) > 0 || (itin.itinerary.bestLocalTips?.length ?? 0) > 0) && (
+              <SectionLabel>Before you go</SectionLabel>
+            )}
+
             {/* Packing tips */}
             {(itin.itinerary.packingTips?.length ?? 0) > 0 && (
-              <div className="mx-3 sm:mx-12 mb-6 rounded-2xl p-5" style={{ background: 'var(--color-paper)', boxShadow: 'var(--shadow-card)' }}>
+              <div className="mx-3 sm:mx-12 mb-2 rounded-2xl p-5" style={{ background: 'rgba(247,241,231,0.55)', border: '1px solid rgba(43,38,34,0.08)' }}>
                 <h3 className="font-display font-semibold mb-3 flex items-center gap-2 text-[18px]" style={{ color: 'var(--color-ink-warm)' }}>
                   🎒 {itin.ui.packingTitle(itin.ui.audienceTitle(itin.profile?.groupType))}
                 </h3>
                 <ul className="flex flex-col gap-1.5">
                   {(itin.itinerary.packingTips ?? []).map((tip, i) => (
-                    <li key={i} className="flex gap-2 text-[13px] text-[#555]">
+                    <li key={i} className="flex gap-2 text-[13px]" style={{ color: 'var(--color-ink-warm-mut)' }}>
                       <span className="flex-shrink-0 mt-0.5" style={{ color: 'var(--color-sunrise-deep)' }}>✓</span>{tip}
                     </li>
                   ))}
@@ -1487,13 +1486,13 @@ export function ItineraryClient({
 
             {/* Best local tips */}
             {(itin.itinerary.bestLocalTips?.length ?? 0) > 0 && (
-              <div className="mx-3 sm:mx-12 mb-6 rounded-2xl p-5" style={{ background: 'var(--color-paper)', boxShadow: 'var(--shadow-card)' }}>
+              <div className="mx-3 sm:mx-12 mb-2 rounded-2xl p-5" style={{ background: 'rgba(247,241,231,0.55)', border: '1px solid rgba(43,38,34,0.08)' }}>
                 <h3 className="font-display font-semibold mb-3 flex items-center gap-2 text-[18px]" style={{ color: 'var(--color-ink-warm)' }}>
                   🗝️ {itin.ui.insiderIntel}
                 </h3>
                 <ul className="flex flex-col gap-1.5">
                   {(itin.itinerary.bestLocalTips ?? []).map((tip, i) => (
-                    <li key={i} className="flex gap-2 text-[13px] text-[#555]">
+                    <li key={i} className="flex gap-2 text-[13px]" style={{ color: 'var(--color-ink-warm-mut)' }}>
                       <span className="flex-shrink-0 mt-0.5" style={{ color: 'var(--color-sunrise-deep)' }}>✦</span>{tip}
                     </li>
                   ))}
@@ -1599,12 +1598,28 @@ function BudgetCell({ label, accent = false }: { label: string; accent?: boolean
     <div
       className="text-center p-3 rounded-xl"
       style={accent
-        ? { background: 'rgba(90,173,165,0.1)', border: '1px solid rgba(90,173,165,0.2)' }
-        : { background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.06)' }}
+        ? { background: 'rgba(184,119,46,0.10)', border: '1px solid rgba(184,119,46,0.22)' }
+        : { background: 'rgba(43,38,34,0.04)', border: '1px solid rgba(43,38,34,0.08)' }}
     >
-      <p className="text-[13px] leading-snug" style={{ color: accent ? '#3a8a82' : '#444', fontWeight: accent ? 700 : 400 }}>
+      <p
+        className="text-[13px] leading-snug"
+        style={{ color: accent ? 'var(--color-sunrise-deep)' : 'var(--color-ink-warm-mut)', fontWeight: accent ? 700 : 400 }}
+      >
         {label || '—'}
       </p>
+    </div>
+  );
+}
+
+/** Left-aligned editorial section heading with a trailing hairline rule — the
+ *  "magazine" rhythm that replaces stacked boxes with a continuous flow. */
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mx-3 sm:mx-12 mt-12 mb-4 flex items-center gap-4">
+      <h2 className="font-display italic leading-none text-[24px] sm:text-[28px]" style={{ color: 'var(--color-ink-warm)' }}>
+        {children}
+      </h2>
+      <span aria-hidden className="flex-1 h-px" style={{ background: 'rgba(43,38,34,0.14)' }} />
     </div>
   );
 }
