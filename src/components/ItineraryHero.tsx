@@ -1,25 +1,15 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import Link from 'next/link';
 import { DayPhoto } from '@/components/DayPhoto';
 
 interface Props {
   destination: string;
   dateRange?: string | null;
   totalDays: number;
-  /** Optional CTA target; defaults to /onboarding. */
-  ctaHref?: string;
-  ctaLabel?: string;
 }
 
-export function ItineraryHero({
-  destination,
-  dateRange,
-  totalDays,
-  ctaHref = '/onboarding',
-  ctaLabel = 'Plan another trip',
-}: Props) {
+export function ItineraryHero({ destination, dateRange, totalDays }: Props) {
   return (
     <div className="mx-0 sm:mx-6 mb-2">
       <div className="relative sm:rounded-[28px] overflow-hidden" style={{ boxShadow: 'var(--shadow-soft)' }}>
@@ -46,7 +36,7 @@ export function ItineraryHero({
           </span>
         </div>
 
-        {/* Headline + dates + CTA — bottom, over the scrim */}
+        {/* Headline + dates — bottom, over the scrim */}
         <div className="absolute inset-x-0 bottom-0 p-6 sm:p-9">
           <motion.p
             initial={{ opacity: 0, y: 10 }}
@@ -64,19 +54,9 @@ export function ItineraryHero({
           >
             {destination}
           </motion.h1>
-
-          <div className="mt-4 flex items-end justify-between gap-4 flex-wrap">
-            <p className="text-white/85 text-sm sm:text-base font-medium">
-              {[dateRange, `${totalDays} ${totalDays === 1 ? 'day' : 'days'}`].filter(Boolean).join('  ·  ')}
-            </p>
-            <Link
-              href={ctaHref}
-              className="cta-warm inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold text-white"
-            >
-              {ctaLabel}
-              <span aria-hidden>↗</span>
-            </Link>
-          </div>
+          <p className="mt-3 text-white/85 text-sm sm:text-base font-medium">
+            {[dateRange, `${totalDays} ${totalDays === 1 ? 'day' : 'days'}`].filter(Boolean).join('  ·  ')}
+          </p>
         </div>
       </div>
     </div>

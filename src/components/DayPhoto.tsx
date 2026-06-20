@@ -16,9 +16,11 @@ interface Props {
   alt: string;
   height?: number;
   dark?: boolean;
+  /** Hide the photographer credit (for faint decorative backgrounds). */
+  hideCredit?: boolean;
 }
 
-export function DayPhoto({ query, alt, height = 180, dark = false }: Props) {
+export function DayPhoto({ query, alt, height = 180, dark = false, hideCredit = false }: Props) {
   const [photo, setPhoto] = useState<PhotoData | null>(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -56,7 +58,7 @@ export function DayPhoto({ query, alt, height = 180, dark = false }: Props) {
       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
 
       {/* Photographer attribution (required by Unsplash & Pexels) */}
-      {photo.credit && (photo.source === 'unsplash' || photo.source === 'pexels') && (
+      {!hideCredit && photo.credit && (photo.source === 'unsplash' || photo.source === 'pexels') && (
         <a
           href={photo.creditUrl ?? '#'}
           target="_blank"

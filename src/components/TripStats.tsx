@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useInView, animate } from 'framer-motion';
+import { DayPhoto } from '@/components/DayPhoto';
 
 export interface StatDetailRow {
   name: string;
@@ -22,6 +23,8 @@ export interface StatDetail {
 export interface StatItem {
   value: number | string;
   label: string;
+  /** Decorative emoji watermarked into the card. */
+  icon?: string;
   /** When present (and non-empty), the card is clickable and opens a list panel. */
   detail?: StatDetail;
 }
@@ -117,7 +120,7 @@ function StatModal({ detail, onClose }: { detail: StatDetail; onClose: () => voi
 }
 
 /** Floating stat strip that overlaps the hero above it. Clickable cards open a list panel. */
-export function TripStats({ items }: { items: StatItem[] }) {
+export function TripStats({ items, photoQuery }: { items: StatItem[]; photoQuery?: string }) {
   const shown = items.filter((it) => it.value !== 0 && it.value !== '' && it.value != null);
   const [open, setOpen] = useState<StatDetail | null>(null);
   if (shown.length === 0) return null;
@@ -140,15 +143,36 @@ export function TripStats({ items }: { items: StatItem[] }) {
                 transition={{ delay: i * 0.06, type: 'spring', stiffness: 260, damping: 24 }}
                 whileHover={clickable ? { y: -3 } : undefined}
                 whileTap={clickable ? { scale: 0.97 } : undefined}
-                className={`rounded-2xl px-4 py-4 text-center ${clickable ? 'cursor-pointer' : 'cursor-default'}`}
+                className={`relative overflow-hidden rounded-2xl text-center ${clickable ? 'cursor-pointer' : 'cursor-default'}`}
                 style={{ background: 'var(--color-paper)', boxShadow: 'var(--shadow-card)' }}
               >
-                <div className="font-display text-2xl sm:text-3xl leading-none tabular-nums" style={{ color: 'var(--color-ink-warm)' }}>
-                  {typeof it.value === 'number' ? <CountUp to={it.value} /> : it.value}
-                </div>
-                <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--color-ink-warm-mut)' }}>
-                  {it.label}
-                  {clickable && <span aria-hidden style={{ color: 'var(--color-terracotta-deep)' }}>›</span>}
+                {/* Faint cinematic destination photo */}
+                {photoQuery && (
+                  <div className="absolute inset-0">
+                    <DayPhoto query={photoQuery} alt="" height={120} dark hideCredit />
+                  </div>
+                )}
+                {/* Warm scrim — keeps it a warm card, photo reads as subtle texture */}
+                <div
+                  aria-hidden
+                  className="absolute inset-0"
+                  style={{ background: 'linear-gradient(155deg, rgba(239,227,205,0.80) 0%, rgba(228,212,184,0.90) 100%)' }}
+                />
+                {/* Icon watermark fills the empty space */}
+                {it.icon && (
+                  <span aria-hidden className="absolute -bottom-3 end-1.5 text-[58px] leading-none opacity-[0.10] select-none pointer-events-none">
+                    {it.icon}
+                  </span>
+                )}
+
+                <div className="relative px-4 py-4">
+                  <div className="font-display text-2xl sm:text-3xl leading-none tabular-nums" style={{ color: 'var(--color-terracotta-deep)' }}>
+                    {typeof it.value === 'number' ? <CountUp to={it.value} /> : it.value}
+                  </div>
+                  <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--color-ink-warm)' }}>
+                    {it.label}
+                    {clickable && <span aria-hidden style={{ color: 'var(--color-terracotta-deep)' }}>›</span>}
+                  </div>
                 </div>
               </motion.button>
             );

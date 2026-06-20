@@ -1396,25 +1396,28 @@ export function ItineraryClient({
               destination={itin.itinerary.destination}
               dateRange={formatTripDateRange(itin.profile?.startDate, itin.profile?.endDate)}
               totalDays={days.length}
-              ctaLabel={itin.ui.planNewTripButton}
             />
 
             <TripStats
+              photoQuery={`${itin.itinerary.destination} skyline golden hour`}
               items={[
-                { value: tripStats.days, label: 'Days' },
+                { value: tripStats.days, label: 'Days', icon: '📅' },
                 {
                   value: tripStats.attractions,
                   label: 'Attractions',
+                  icon: '🏛️',
                   detail: { title: 'Attractions', rows: statLists.attractions },
                 },
                 {
                   value: tripStats.neighborhoods,
                   label: 'Neighborhoods',
+                  icon: '🧭',
                   detail: { title: 'Neighborhoods', rows: statLists.neighborhoods },
                 },
                 {
                   value: tripStats.meals,
                   label: 'Meals',
+                  icon: '🍴',
                   detail: { title: 'Meals', rows: statLists.meals },
                 },
               ]}
