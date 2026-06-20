@@ -38,6 +38,7 @@ import { DayCarousel } from '@/components/DayCarousel';
 import { ItineraryHero } from '@/components/ItineraryHero';
 import { TripStats } from '@/components/TripStats';
 import { deriveTripStats, deriveTripStatLists } from '@/lib/tripStats';
+import { budgetToUsd } from '@/lib/currency';
 import { DayDetailPanel } from '@/components/DayDetailPanel';
 import { HotelSelectionCard } from '@/components/HotelSelectionCard';
 import { AssistantChat } from '@/components/AssistantChat';
@@ -1444,17 +1445,20 @@ export function ItineraryClient({
 
             {/* Budget summary */}
             {itin.itinerary.budgetSummary && (
+              <>
+              <SectionLabel>Budget</SectionLabel>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.15, type: 'spring', stiffness: 280, damping: 26 }}
-                className="mx-3 sm:mx-12 mt-10 mb-2 rounded-3xl p-1 grid sm:grid-cols-3 gap-3"
+                className="mx-3 sm:mx-12 mb-2 rounded-3xl p-1 grid sm:grid-cols-3 gap-3"
                 style={{ background: 'transparent' }}
               >
                 <BudgetCell label={itin.itinerary.budgetSummary.dailyAverage ? itin.ui.budgetDailyLine(itin.itinerary.budgetSummary.dailyAverage) : '—'} />
                 <BudgetCell label={itin.itinerary.budgetSummary.totalEstimate ? itin.ui.budgetTotalLine(itin.itinerary.budgetSummary.totalEstimate) : '—'} accent />
                 <BudgetCell label={itin.itinerary.budgetSummary.includes ? itin.ui.budgetIncludesLine(itin.itinerary.budgetSummary.includes) : '—'} />
               </motion.div>
+              </>
             )}
 
             {/* Full trip map */}
@@ -1611,16 +1615,20 @@ export function ItineraryClient({
 function BudgetCell({ label, accent = false }: { label: string; accent?: boolean }) {
   return (
     <div
-      className="text-center p-3 rounded-xl"
-      style={accent
-        ? { background: 'rgba(184,119,46,0.10)', border: '1px solid rgba(184,119,46,0.22)' }
-        : { background: 'rgba(43,38,34,0.04)', border: '1px solid rgba(43,38,34,0.08)' }}
+      className="relative overflow-hidden text-center px-4 py-5 rounded-2xl"
+      style={{
+        background: accent
+          ? 'linear-gradient(150deg, #b8552e 0%, #8f4220 100%)'
+          : 'linear-gradient(150deg, rgba(247,241,231,0.94) 0%, rgba(228,212,184,0.96) 100%)',
+        boxShadow: 'var(--shadow-card)',
+      }}
     >
+      <span aria-hidden className="absolute -bottom-3 end-1 text-[54px] leading-none opacity-[0.12] select-none pointer-events-none">💰</span>
       <p
-        className="text-[13px] leading-snug"
-        style={{ color: accent ? 'var(--color-sunrise-deep)' : 'var(--color-ink-warm-mut)', fontWeight: accent ? 700 : 400 }}
+        className="relative text-[13px] leading-snug"
+        style={{ color: accent ? 'rgba(255,250,243,0.96)' : 'var(--color-ink-warm)', fontWeight: accent ? 700 : 500 }}
       >
-        {label || '—'}
+        {budgetToUsd(label) || '—'}
       </p>
     </div>
   );

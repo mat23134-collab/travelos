@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { DayPhoto } from '@/components/DayPhoto';
 import { tiktokSearchUrl, instagramSearchUrl } from '@/lib/socialSearch';
+import { budgetToUsd } from '@/lib/currency';
 import type { DayPlan, Activity, DiningSpot } from '@/lib/types';
 import type { ItineraryUiStrings } from '@/lib/tripUiCopy';
 
@@ -84,7 +85,17 @@ export function DayGlance({ day, title = 'Day at a glance' }: { day: DayPlan; ti
 
   return (
     <div className="rounded-2xl p-4" style={{ background: 'var(--color-paper)', boxShadow: 'var(--shadow-card)' }}>
-      <h4 className="font-display text-[16px] mb-2" style={{ color: 'var(--color-ink-warm)' }}>{title}</h4>
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <h4 className="font-display text-[16px]" style={{ color: 'var(--color-ink-warm)' }}>{title}</h4>
+        {day.estimatedDailyCost?.trim() && (
+          <span
+            className="text-[11px] font-bold px-2.5 py-1 rounded-full whitespace-nowrap"
+            style={{ background: 'var(--color-paper-sunk)', color: 'var(--color-terracotta-deep)' }}
+          >
+            💰 {budgetToUsd(day.estimatedDailyCost)}
+          </span>
+        )}
+      </div>
       <ol>
         {rows.map((row, i) => (
           <li
