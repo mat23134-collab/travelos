@@ -197,8 +197,9 @@ export function DayDetailPanel({
               )}
             </div>
 
-            {/* Right: Map + Attractions Bank */}
-            <div className="flex flex-col gap-3">
+            {/* Right: Map + Attractions Bank — sticky so it stays in view while
+                the (taller) activity list scrolls, filling the empty column. */}
+            <div className="flex flex-col gap-3 sm:self-start sm:sticky sm:top-20">
               <div
                 className="rounded-2xl overflow-hidden"
                 style={{ background: 'var(--color-paper)', boxShadow: 'var(--shadow-card)', minHeight: 380 }}
