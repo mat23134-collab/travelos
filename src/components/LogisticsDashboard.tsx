@@ -6,51 +6,64 @@ import type { LogisticsData } from '@/app/api/logistics/route';
 import { useAuth } from '@/lib/auth-context';
 
 function Skeleton() {
-  return <div className="h-4 bg-[#f0ede4] rounded-lg animate-pulse w-full" />;
+  return <div className="h-4 rounded-lg animate-pulse w-full" style={{ background: 'var(--color-paper-sunk)' }} />;
+}
+
+function CardShell({ emoji, title, children }: { emoji: string; title: string; children: React.ReactNode }) {
+  return (
+    <div
+      className="rounded-2xl p-6"
+      style={{ background: 'var(--color-paper)', boxShadow: 'var(--shadow-card)' }}
+    >
+      <div className="flex items-center gap-2.5 mb-4">
+        <span className="text-xl">{emoji}</span>
+        <h3 className="font-display text-base font-semibold" style={{ color: 'var(--color-ink-warm)' }}>{title}</h3>
+      </div>
+      {children}
+    </div>
+  );
 }
 
 function WeatherCard({ w }: { w: LogisticsData['weather'] }) {
   return (
-    <div className="bg-white rounded-2xl border border-[#e5e7eb] p-5">
-      <div className="flex items-center gap-2 mb-4">
-        <span className="text-xl">🌤</span>
-        <h3 className="font-bold text-[#111827] text-sm">Expected Weather</h3>
-      </div>
-      <p className="text-sm text-[#374151] leading-relaxed mb-3">{w.summary}</p>
+    <CardShell emoji="🌤" title="Expected Weather">
+      <p className="text-sm leading-relaxed mb-4" style={{ color: 'var(--color-ink-warm)' }}>{w.summary}</p>
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between text-xs">
-          <span className="text-[#9ca3af]">Temperature</span>
-          <span className="font-medium text-[#111827]">{w.tempRange}</span>
+          <span style={{ color: 'var(--color-ink-warm-mut)' }}>Temperature</span>
+          <span className="font-semibold" style={{ color: 'var(--color-ink-warm)' }}>{w.tempRange}</span>
         </div>
         <div className="flex items-center justify-between text-xs">
-          <span className="text-[#9ca3af]">Precipitation</span>
-          <span className="font-medium text-[#111827]">{w.rainChance}</span>
+          <span style={{ color: 'var(--color-ink-warm-mut)' }}>Precipitation</span>
+          <span className="font-semibold" style={{ color: 'var(--color-ink-warm)' }}>{w.rainChance}</span>
         </div>
-        <div className="mt-2 px-3 py-2 rounded-lg bg-blue-50 border border-blue-100 text-xs text-blue-700 leading-relaxed">
+        <div
+          className="mt-2.5 px-3.5 py-2.5 rounded-xl text-xs leading-relaxed"
+          style={{ background: 'var(--color-paper-sunk)', color: 'var(--color-ink-warm)' }}
+        >
           🧳 {w.packingNote}
         </div>
-        <p className="text-[10px] text-[#9ca3af] mt-1 italic">{w.disclaimer}</p>
+        <p className="text-[10px] mt-1.5 italic" style={{ color: 'var(--color-ink-warm-mut)' }}>{w.disclaimer}</p>
       </div>
-    </div>
+    </CardShell>
   );
 }
 
 function CurrencyCard({ c }: { c: LogisticsData['currency'] }) {
   return (
-    <div className="bg-white rounded-2xl border border-[#e5e7eb] p-5">
-      <div className="flex items-center gap-2 mb-4">
-        <span className="text-xl">💱</span>
-        <h3 className="font-bold text-[#111827] text-sm">Currency</h3>
-      </div>
-      <div className="text-2xl font-bold text-[#ff5a5f] mb-1">{c.formatted}</div>
-      <div className="text-xs text-[#9ca3af] mb-3">{c.localCurrency} · {c.source}</div>
-      <div className="px-3 py-2.5 rounded-xl bg-[#fff0f0] border border-[#fecaca]">
-        <div className="text-[10px] font-semibold uppercase tracking-wide text-[#ff5a5f] mb-0.5">
+    <CardShell emoji="💱" title="Currency">
+      <div className="font-display text-3xl font-semibold mb-1" style={{ color: 'var(--color-sunrise-deep)' }}>{c.formatted}</div>
+      <div className="text-xs mb-4" style={{ color: 'var(--color-ink-warm-mut)' }}>{c.localCurrency} · {c.source}</div>
+      <div
+        className="px-3.5 py-3 rounded-xl"
+        style={{ background: 'var(--color-paper-sunk)' }}
+      >
+        <div className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--color-sunrise-deep)' }}>
           Your budget in local currency
         </div>
-        <div className="text-sm font-bold text-[#111827]">{c.dailyBudgetLocal}</div>
+        <div className="text-sm font-bold" style={{ color: 'var(--color-ink-warm)' }}>{c.dailyBudgetLocal}</div>
       </div>
-    </div>
+    </CardShell>
   );
 }
 
@@ -63,27 +76,29 @@ function SafetyCard({ s }: { s: LogisticsData['safetyVisa'] }) {
   const c = colorMap[s.safetyColor];
 
   return (
-    <div className="bg-white rounded-2xl border border-[#e5e7eb] p-5">
-      <div className="flex items-center gap-2 mb-4">
-        <span className="text-xl">🛡</span>
-        <h3 className="font-bold text-[#111827] text-sm">Safety & Entry</h3>
-      </div>
+    <CardShell emoji="🛡" title="Safety & Entry">
       <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold mb-3 ${c.bg} ${c.border} border ${c.text}`}>
         <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
         {s.safetyLevel}
       </div>
-      <p className="text-sm text-[#374151] leading-relaxed mb-3">{s.visaNote}</p>
+      <p className="text-sm leading-relaxed mb-3" style={{ color: 'var(--color-ink-warm)' }}>{s.visaNote}</p>
       {s.groupTip && (
-        <div className="text-xs text-[#6b7280] bg-[#f8f7f2] rounded-lg px-3 py-2 mb-2 leading-relaxed">
+        <div
+          className="text-xs rounded-xl px-3.5 py-2.5 mb-2 leading-relaxed"
+          style={{ background: 'var(--color-paper-sunk)', color: 'var(--color-ink-warm-mut)' }}
+        >
           👥 {s.groupTip}
         </div>
       )}
       {s.healthTip && (
-        <div className="text-xs text-[#6b7280] bg-[#f8f7f2] rounded-lg px-3 py-2 leading-relaxed">
+        <div
+          className="text-xs rounded-xl px-3.5 py-2.5 leading-relaxed"
+          style={{ background: 'var(--color-paper-sunk)', color: 'var(--color-ink-warm-mut)' }}
+        >
           💉 {s.healthTip}
         </div>
       )}
-    </div>
+    </CardShell>
   );
 }
 
@@ -135,17 +150,17 @@ export function LogisticsDashboard({ profile }: { profile: TravelerProfile }) {
   return (
     <section className="mb-8">
       <div className="flex items-center gap-3 mb-5">
-        <h2 className="text-xl font-bold text-[#111827]">Before You Go</h2>
-        <div className="flex-1 h-px bg-[#e5e7eb]" />
+        <h2 className="font-display text-2xl font-semibold" style={{ color: 'var(--color-ink-warm)' }}>Before You Go</h2>
+        <div className="flex-1 h-px" style={{ background: 'var(--color-paper-sunk)' }} />
       </div>
 
       {loading && (
         <div className="grid sm:grid-cols-3 gap-4">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="bg-white rounded-2xl border border-[#e5e7eb] p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-6 h-6 bg-[#f0ede4] rounded-full animate-pulse" />
-                <div className="h-4 bg-[#f0ede4] rounded w-24 animate-pulse" />
+            <div key={i} className="rounded-2xl p-6" style={{ background: 'var(--color-paper)', boxShadow: 'var(--shadow-card)' }}>
+              <div className="flex items-center gap-2.5 mb-4">
+                <div className="w-6 h-6 rounded-full animate-pulse" style={{ background: 'var(--color-paper-sunk)' }} />
+                <div className="h-4 rounded w-24 animate-pulse" style={{ background: 'var(--color-paper-sunk)' }} />
               </div>
               <div className="flex flex-col gap-2">
                 <Skeleton /><Skeleton /><Skeleton />
@@ -157,10 +172,11 @@ export function LogisticsDashboard({ profile }: { profile: TravelerProfile }) {
 
       {error && !loading && (
         <div className="flex flex-col items-center gap-3 py-6 text-center">
-          <p className="text-sm text-[#9ca3af]">{error}</p>
+          <p className="text-sm" style={{ color: 'var(--color-ink-warm-mut)' }}>{error}</p>
           <button
             onClick={() => setAttempt((n) => n + 1)}
-            className="px-4 py-2 text-xs font-semibold rounded-xl border border-[#e5e7eb] text-[#6b7280] hover:bg-[#f3f4f6] transition-colors"
+            className="px-4 py-2 text-xs font-semibold rounded-xl transition-colors"
+            style={{ background: 'var(--color-paper)', boxShadow: 'var(--shadow-card)', color: 'var(--color-ink-warm)' }}
           >
             Retry
           </button>

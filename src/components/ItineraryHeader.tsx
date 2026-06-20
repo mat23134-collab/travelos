@@ -50,7 +50,7 @@ export function ItineraryHeader({
             exit={{ y: -40, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
             className="fixed top-0 inset-x-0 z-[60] text-sm py-2.5 px-6 text-center shadow-lg print:hidden"
-            style={{ background: '#3a8a82', color: '#fff' }}
+            style={{ background: '#8f4220', color: '#fff' }}
           >
             ✓ {editBanner}
           </motion.div>
@@ -59,7 +59,12 @@ export function ItineraryHeader({
 
       <nav
   className={`sticky z-50 print:hidden transition-all ${editBanner ? 'top-10' : 'top-0'}`}
-  style={{ background: '#5aada5', boxShadow: '0 2px 12px rgba(0,0,0,0.12)' }}
+  style={{
+    background: 'rgba(239,227,205,0.82)',
+    backdropFilter: 'blur(16px)',
+    WebkitBackdropFilter: 'blur(16px)',
+    borderBottom: '1px solid rgba(43,38,34,0.10)',
+  }}
 >
   {/* ── Row 1: Brand + Back + Actions ─────────────────────────────────── */}
   <div className="flex items-center gap-2 px-4 sm:px-6 h-12 sm:h-14">
@@ -68,15 +73,16 @@ export function ItineraryHeader({
       <motion.button
         onClick={onBackToOverview}
         whileTap={{ scale: 0.93 }}
-        className="flex items-center gap-1 text-white/80 hover:text-white text-sm font-semibold transition-colors flex-shrink-0"
+        className="flex items-center gap-1 text-sm font-semibold transition-colors flex-shrink-0"
+        style={{ color: 'var(--color-ink-warm)' }}
       >
         ←
       </motion.button>
     )}
 
     {/* Brand */}
-    <Link href="/" className="flex-shrink-0">
-      <BrandWordmark accent="rgba(255,255,255,0.9)" className="text-base text-white" />
+    <Link href="/" className="flex-shrink-0" style={{ color: 'var(--color-ink-warm)' }}>
+      <BrandWordmark accent="var(--color-terracotta-deep)" className="text-base" />
     </Link>
 
     {/* Desktop chips — inline on sm+ */}
@@ -97,7 +103,7 @@ export function ItineraryHeader({
         <motion.button
           onClick={onBackToDraft}
           whileTap={{ scale: 0.92 }}
-          className="hidden sm:inline-flex text-xs font-medium px-3 py-1.5 rounded-lg border border-white/25 text-white/70 hover:text-white hover:border-white/50 transition-colors"
+          className="hidden sm:inline-flex text-xs font-medium px-3 py-1.5 rounded-lg border border-[#8f422047] bg-[#fffbf5b3] text-[#8f4220] hover:text-[#b8552e] hover:border-[#8f422080] shadow-sm transition-colors"
         >
           {ui.draft}
         </motion.button>
@@ -113,14 +119,14 @@ export function ItineraryHeader({
       {isAdmin && dest && (
         <Link
           href={`/explore/${encodeURIComponent(dest)}`}
-          className="hidden sm:inline-flex text-xs font-medium px-3 py-1.5 rounded-lg border border-white/25 text-white/70 hover:text-white transition-colors"
+          className="hidden sm:inline-flex text-xs font-medium px-3 py-1.5 rounded-lg border border-[#8f422047] bg-[#fffbf5b3] text-[#8f4220] hover:text-[#b8552e] shadow-sm transition-colors"
         >
           {ui.scoutPicks}
         </Link>
       )}
       <Link
         href="/onboarding"
-        className="text-xs font-medium px-2.5 py-1.5 rounded-lg border border-white/25 text-white/70 hover:text-white transition-colors"
+        className="text-xs font-medium px-2.5 py-1.5 rounded-lg border border-[#8f422047] bg-[#fffbf5b3] text-[#8f4220] hover:text-[#b8552e] shadow-sm transition-colors"
       >
         {ui.newTrip}
       </Link>
@@ -142,10 +148,12 @@ export function ItineraryHeader({
 function Chip({ children }: { children: React.ReactNode }) {
   return (
     <span
-      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold text-white whitespace-nowrap flex-shrink-0"
+      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0"
       style={{
-        background: 'rgba(255,255,255,0.18)',
-        border: '1px solid rgba(255,255,255,0.25)',
+        background: 'rgba(255,251,245,0.72)',
+        border: '1px solid rgba(143,66,32,0.16)',
+        color: 'var(--color-ink-warm)',
+        boxShadow: '0 2px 8px rgba(43,38,34,0.07), inset 0 1px 0 rgba(255,255,255,0.5)',
       }}
     >
       {children}

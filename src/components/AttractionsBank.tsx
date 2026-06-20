@@ -68,7 +68,7 @@ export function AttractionsBank({ items, loading, pendingSlot, day, dayIndex, ui
   };
 
   return (
-    <div className="rounded-2xl bg-white overflow-hidden" style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}>
+    <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--color-paper)', boxShadow: 'var(--shadow-card)' }}>
       {/* Header */}
       <div className="px-4 py-3 border-b" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
         <div className="flex items-center justify-between">
@@ -91,8 +91,8 @@ export function AttractionsBank({ items, loading, pendingSlot, day, dayIndex, ui
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <div className="px-4 py-2.5 flex items-center justify-between gap-2" style={{ background: 'rgba(90,173,165,0.12)', borderBottom: '1px solid rgba(90,173,165,0.25)' }}>
-              <span className="text-[12px] font-semibold" style={{ color: '#3a8a82' }}>
+            <div className="px-4 py-2.5 flex items-center justify-between gap-2" style={{ background: 'rgba(184,85,46,0.12)', borderBottom: '1px solid rgba(184,85,46,0.25)' }}>
+              <span className="text-[12px] font-semibold" style={{ color: '#8f4220' }}>
                 בחרו מקום שיחליף את &quot;{pendingSlot.currentName}&quot; ({SLOT_LABEL[pendingSlot.slot]})
               </span>
               <button type="button" onClick={onCancelPending} className="text-[11px] font-bold flex-shrink-0" style={{ color: '#888' }}>
@@ -135,14 +135,14 @@ export function AttractionsBank({ items, loading, pendingSlot, day, dayIndex, ui
           onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
           placeholder="הוסיפו מקום בעצמכם…"
           className="flex-1 text-[12px] px-3 py-2 rounded-xl border outline-none"
-          style={{ borderColor: 'rgba(0,0,0,0.12)', background: '#ffffff', color: '#222' }}
+          style={{ borderColor: 'rgba(0,0,0,0.12)', background: 'var(--color-paper)', color: '#222' }}
         />
         <button
           type="button"
           onClick={handleAdd}
           disabled={!draft.trim() || submitting}
           className="text-[12px] font-bold px-3 py-2 rounded-xl disabled:opacity-40"
-          style={{ background: '#5aada5', color: 'white' }}
+          style={{ background: '#b8552e', color: 'white' }}
         >
           הוספה
         </button>
@@ -173,7 +173,7 @@ function TabBtn({ active, onClick, children }: { active: boolean; onClick: () =>
       onClick={onClick}
       className="text-[11px] font-bold px-2.5 py-1 rounded-full transition-colors"
       style={active
-        ? { background: '#5aada5', color: 'white' }
+        ? { background: '#b8552e', color: 'white' }
         : { background: '#f2f2f2', color: '#888' }}
     >
       {children}
@@ -191,7 +191,7 @@ function BankItemCard({ item, pending, replaceLabel, onRemove, onSchedule, onRep
 }) {
   return (
     <div className="px-4 py-3 flex items-center gap-3">
-      <span className="w-9 h-9 rounded-full flex items-center justify-center text-[15px] flex-shrink-0" style={{ background: '#e8f4f2', border: '1px solid rgba(90,173,165,0.25)' }}>
+      <span className="w-9 h-9 rounded-full flex items-center justify-center text-[15px] flex-shrink-0" style={{ background: '#f6e7df', border: '1px solid rgba(184,85,46,0.25)' }}>
         {item.category_emoji ?? '📍'}
       </span>
       <div className="flex-1 min-w-0">
@@ -200,7 +200,7 @@ function BankItemCard({ item, pending, replaceLabel, onRemove, onSchedule, onRep
           <span
             className="text-[8px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0 uppercase tracking-wide"
             style={item.source === 'ai'
-              ? { background: 'rgba(90,173,165,0.15)', color: '#3a8a82' }
+              ? { background: 'rgba(184,85,46,0.15)', color: '#8f4220' }
               : { background: 'rgba(197,145,42,0.15)', color: '#b8860b' }}
           >
             {item.source === 'ai' ? 'AI' : 'שלכם'}
@@ -216,7 +216,7 @@ function BankItemCard({ item, pending, replaceLabel, onRemove, onSchedule, onRep
             type="button"
             onClick={onSchedule}
             className="text-[11px] font-bold px-2.5 py-1.5 rounded-xl flex-shrink-0"
-            style={{ background: '#5aada5', color: 'white' }}
+            style={{ background: '#b8552e', color: 'white' }}
           >
             שיבוץ →
           </button>
@@ -225,7 +225,7 @@ function BankItemCard({ item, pending, replaceLabel, onRemove, onSchedule, onRep
           type="button"
           onClick={onReplace}
           className="text-[11px] font-bold px-2.5 py-1.5 rounded-xl flex-shrink-0"
-          style={{ background: '#f2f2f2', color: '#3a8a82', border: '1px solid rgba(90,173,165,0.3)' }}
+          style={{ background: '#f2f2f2', color: '#8f4220', border: '1px solid rgba(184,85,46,0.3)' }}
         >
           {replaceLabel}
         </button>
@@ -276,8 +276,8 @@ function SlotPickerSheet({ item, day, dayIndex, ui, confirming, onPick, onClose 
       onClick={onClose}
     >
       <motion.div
-        className="w-full max-w-md rounded-2xl bg-white overflow-hidden"
-        style={{ boxShadow: '0 24px 64px rgba(0,0,0,0.35)' }}
+        className="w-full max-w-md rounded-2xl overflow-hidden"
+        style={{ background: 'var(--color-paper)', boxShadow: '0 24px 64px rgba(0,0,0,0.35)' }}
         initial={{ scale: 0.95, opacity: 0, y: 12 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.96, opacity: 0, y: 8 }}
@@ -300,19 +300,19 @@ function SlotPickerSheet({ item, day, dayIndex, ui, confirming, onPick, onClose 
                 disabled={confirming}
                 onClick={() => setSelectedIdx(isSelected ? null : i)}
                 className="w-full flex items-center gap-3 px-4 py-3 text-right transition-colors disabled:opacity-60"
-                style={isSelected ? { background: 'rgba(90,173,165,0.12)' } : undefined}
+                style={isSelected ? { background: 'rgba(184,85,46,0.12)' } : undefined}
               >
-                <span className="text-[13px] font-bold flex-shrink-0 w-[52px]" style={{ color: '#5aada5' }}>
+                <span className="text-[13px] font-bold flex-shrink-0 w-[52px]" style={{ color: '#b8552e' }}>
                   {row.time}
                 </span>
-                <span className="w-8 h-8 rounded-full flex items-center justify-center text-[14px] flex-shrink-0" style={{ background: '#e8f4f2', border: '1px solid rgba(90,173,165,0.25)' }}>
+                <span className="w-8 h-8 rounded-full flex items-center justify-center text-[14px] flex-shrink-0" style={{ background: '#f6e7df', border: '1px solid rgba(184,85,46,0.25)' }}>
                   {row.emoji}
                 </span>
                 <span className="text-[12.5px] font-bold text-[#222] truncate flex-1">{row.name}</span>
                 <span
                   className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[11px]"
                   style={isSelected
-                    ? { background: '#5aada5', color: '#fff' }
+                    ? { background: '#b8552e', color: '#fff' }
                     : { border: '1.5px solid rgba(0,0,0,0.15)' }}
                 >
                   {isSelected ? '✓' : ''}
@@ -337,7 +337,7 @@ function SlotPickerSheet({ item, day, dayIndex, ui, confirming, onPick, onClose 
             onClick={() => { if (selectedIdx !== null) onPick(targets[selectedIdx]); }}
             disabled={selectedIdx === null || confirming}
             className="flex-1 text-[12px] font-bold px-3 py-2 rounded-xl disabled:opacity-40"
-            style={{ background: '#5aada5', color: 'white' }}
+            style={{ background: '#b8552e', color: 'white' }}
           >
             {confirming ? '…' : ui.bankPickSlotConfirm}
           </button>

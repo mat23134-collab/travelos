@@ -35,6 +35,10 @@ import { parseTransportGuideJson } from '@/lib/transportGuideParse';
 import { useItinerary } from '@/hooks/useItinerary';
 import { ItineraryHeader } from '@/components/ItineraryHeader';
 import { DayCarousel } from '@/components/DayCarousel';
+import { ItineraryHero } from '@/components/ItineraryHero';
+import { TripStats } from '@/components/TripStats';
+import { deriveTripStats, deriveTripStatLists } from '@/lib/tripStats';
+import { budgetToUsd } from '@/lib/currency';
 import { DayDetailPanel } from '@/components/DayDetailPanel';
 import { HotelSelectionCard } from '@/components/HotelSelectionCard';
 import { AssistantChat } from '@/components/AssistantChat';
@@ -1284,6 +1288,8 @@ export function ItineraryClient({
   }
 
   const days = itin.itinerary.days ?? [];
+  const tripStats = deriveTripStats(itin.itinerary);
+  const statLists = deriveTripStatLists(itin.itinerary);
   const selectedDay = itin.selectedDayIndex >= 0 ? days[itin.selectedDayIndex] ?? null : null;
 
   return (
@@ -1308,11 +1314,16 @@ export function ItineraryClient({
         />
       </AnimatePresence>
 
-      {/* ── Light teal overlay (NEW — replaces old dark gradient) ─────────── */}
+      {/* ── Clean warm-paper background (near-opaque — hides the busy photo for
+             a calm, professional, editorial surface) ───────────────────────── */}
       <div
         aria-hidden
         className="fixed inset-0 pointer-events-none"
-        style={{ zIndex: -1, background: 'rgba(180,228,222,0.82)' }}
+        style={{
+          zIndex: -1,
+          background:
+            'linear-gradient(180deg, #f2e7d2 0%, #e9dcc2 52%, #efe3cd 100%)',
+        }}
       />
 
       {/* ── Film grain ─────────────────────────────────────────────────────── */}
@@ -1382,12 +1393,38 @@ export function ItineraryClient({
         ) : (
           /* ══ OVERVIEW ════════════════════════════════════════════════════ */
           <div className="max-w-5xl mx-auto py-4">
-            <p
-              className="text-center text-[11px] font-bold uppercase tracking-[0.12em] px-4 py-3"
-              style={{ color: 'rgba(60,120,114,0.7)' }}
-            >
-              Your {days.length}-Day Itinerary · tap a day to explore
-            </p>
+            <ItineraryHero
+              destination={itin.itinerary.destination}
+              dateRange={formatTripDateRange(itin.profile?.startDate, itin.profile?.endDate)}
+              totalDays={days.length}
+            />
+
+            <TripStats
+              photoQuery={`${itin.itinerary.destination} skyline golden hour`}
+              items={[
+                { value: tripStats.days, label: 'Days', icon: '📅' },
+                {
+                  value: tripStats.attractions,
+                  label: 'Attractions',
+                  icon: '🏛️',
+                  detail: { title: 'Attractions', rows: statLists.attractions },
+                },
+                {
+                  value: tripStats.neighborhoods,
+                  label: 'Neighborhoods',
+                  icon: '🧭',
+                  detail: { title: 'Neighborhoods', rows: statLists.neighborhoods },
+                },
+                {
+                  value: tripStats.meals,
+                  label: 'Meals',
+                  icon: '🍴',
+                  detail: { title: 'Meals', rows: statLists.meals },
+                },
+              ]}
+            />
+
+            <SectionLabel>Your days</SectionLabel>
 
             <DayCarousel
               days={days}
@@ -1408,21 +1445,24 @@ export function ItineraryClient({
 
             {/* Budget summary */}
             {itin.itinerary.budgetSummary && (
+              <>
+              <SectionLabel>Budget</SectionLabel>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.15, type: 'spring', stiffness: 280, damping: 26 }}
-                className="mx-3 sm:mx-12 mb-6 rounded-3xl p-5 grid sm:grid-cols-3 gap-3 bg-white"
-                style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.07)' }}
+                className="mx-3 sm:mx-12 mb-2 rounded-3xl p-1 grid sm:grid-cols-3 gap-3"
+                style={{ background: 'transparent' }}
               >
                 <BudgetCell label={itin.itinerary.budgetSummary.dailyAverage ? itin.ui.budgetDailyLine(itin.itinerary.budgetSummary.dailyAverage) : '—'} />
                 <BudgetCell label={itin.itinerary.budgetSummary.totalEstimate ? itin.ui.budgetTotalLine(itin.itinerary.budgetSummary.totalEstimate) : '—'} accent />
                 <BudgetCell label={itin.itinerary.budgetSummary.includes ? itin.ui.budgetIncludesLine(itin.itinerary.budgetSummary.includes) : '—'} />
               </motion.div>
+              </>
             )}
 
             {/* Full trip map */}
-            <section className="mx-3 sm:mx-12 mb-6 hidden sm:block print:hidden">
+            <section className="mx-3 sm:mx-12 mt-10 mb-2 hidden sm:block print:hidden">
               <ItineraryMap
                 days={itin.itinerary.days}
                 destination={itin.itinerary.destination}
@@ -1433,7 +1473,7 @@ export function ItineraryClient({
             </section>
 
             {/* Transport card */}
-            <div className="mx-3 sm:mx-12 mb-6">
+            <div className="mx-3 sm:mx-12 mt-10 mb-2">
               <TransportCard
                 destination={itin.itinerary.destination}
                 guide={itin.displayCityTransport}
@@ -1444,16 +1484,20 @@ export function ItineraryClient({
               />
             </div>
 
+            {((itin.itinerary.packingTips?.length ?? 0) > 0 || (itin.itinerary.bestLocalTips?.length ?? 0) > 0) && (
+              <SectionLabel>Before you go</SectionLabel>
+            )}
+
             {/* Packing tips */}
             {(itin.itinerary.packingTips?.length ?? 0) > 0 && (
-              <div className="mx-3 sm:mx-12 mb-6 rounded-2xl p-5 bg-white" style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.07)' }}>
-                <h3 className="font-bold text-[#222] mb-3 flex items-center gap-2 text-[14px]">
+              <div className="mx-3 sm:mx-12 mb-2 rounded-2xl px-1 py-3" style={{ background: 'transparent' }}>
+                <h3 className="font-display font-semibold mb-3 flex items-center gap-2 text-[18px]" style={{ color: 'var(--color-ink-warm)' }}>
                   🎒 {itin.ui.packingTitle(itin.ui.audienceTitle(itin.profile?.groupType))}
                 </h3>
                 <ul className="flex flex-col gap-1.5">
                   {(itin.itinerary.packingTips ?? []).map((tip, i) => (
-                    <li key={i} className="flex gap-2 text-[13px] text-[#555]">
-                      <span className="flex-shrink-0 mt-0.5 text-[#5aada5]">✓</span>{tip}
+                    <li key={i} className="flex gap-2 text-[13px]" style={{ color: 'var(--color-ink-warm-mut)' }}>
+                      <span className="flex-shrink-0 mt-0.5" style={{ color: 'var(--color-sunrise-deep)' }}>✓</span>{tip}
                     </li>
                   ))}
                 </ul>
@@ -1462,14 +1506,14 @@ export function ItineraryClient({
 
             {/* Best local tips */}
             {(itin.itinerary.bestLocalTips?.length ?? 0) > 0 && (
-              <div className="mx-3 sm:mx-12 mb-6 rounded-2xl p-5 bg-white" style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.07)' }}>
-                <h3 className="font-bold text-[#222] mb-3 flex items-center gap-2 text-[14px]">
+              <div className="mx-3 sm:mx-12 mb-2 rounded-2xl px-1 py-3" style={{ background: 'transparent' }}>
+                <h3 className="font-display font-semibold mb-3 flex items-center gap-2 text-[18px]" style={{ color: 'var(--color-ink-warm)' }}>
                   🗝️ {itin.ui.insiderIntel}
                 </h3>
                 <ul className="flex flex-col gap-1.5">
                   {(itin.itinerary.bestLocalTips ?? []).map((tip, i) => (
-                    <li key={i} className="flex gap-2 text-[13px] text-[#555]">
-                      <span className="flex-shrink-0 mt-0.5 text-[#5aada5]">✦</span>{tip}
+                    <li key={i} className="flex gap-2 text-[13px]" style={{ color: 'var(--color-ink-warm-mut)' }}>
+                      <span className="flex-shrink-0 mt-0.5" style={{ color: 'var(--color-sunrise-deep)' }}>✦</span>{tip}
                     </li>
                   ))}
                 </ul>
@@ -1482,15 +1526,15 @@ export function ItineraryClient({
             </div>
 
             {/* Footer CTA */}
-            <div className="text-center py-8 mx-3 sm:mx-12 print:hidden" style={{ borderTop: '1px solid rgba(90,173,165,0.2)' }}>
-              <p className="text-sm mb-4 text-[#3a8a82]">{itin.ui.footerPrompt(itin.profile?.groupType)}</p>
+            <div className="text-center py-8 mx-3 sm:mx-12 print:hidden" style={{ borderTop: '1px solid rgba(184,119,46,0.22)' }}>
+              <p className="text-sm mb-4" style={{ color: 'var(--color-ink-warm-mut)' }}>{itin.ui.footerPrompt(itin.profile?.groupType)}</p>
               <motion.div whileHover={{ y: -3 }} whileTap={{ scale: 0.95 }}>
                 <Link
                   href="/onboarding"
-                  className="inline-flex items-center gap-2 px-8 py-3 rounded-xl text-white font-semibold text-sm"
-                  style={{ background: '#5aada5', boxShadow: '0 6px 24px -4px rgba(90,173,165,0.5)' }}
+                  className="cta-warm inline-flex items-center gap-2 px-8 py-3 rounded-full text-white font-semibold text-sm"
                 >
                   {itin.ui.planNewTripButton}
+                  <span aria-hidden>↗</span>
                 </Link>
               </motion.div>
             </div>
@@ -1504,8 +1548,8 @@ export function ItineraryClient({
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.6, type: 'spring', stiffness: 300, damping: 26 }}
           whileTap={{ scale: 0.90 }}
-          className="sm:hidden fixed bottom-20 right-4 z-30 flex items-center gap-2 px-4 py-3 rounded-full text-white text-sm font-semibold shadow-xl print:hidden"
-          style={{ background: 'rgba(90,173,165,0.92)', border: '1px solid rgba(255,255,255,0.25)' }}
+          className="sm:hidden fixed bottom-20 right-4 z-30 flex items-center gap-2 px-4 py-3 rounded-full text-white text-sm font-semibold print:hidden"
+          style={{ background: 'rgba(184,85,46,0.92)', border: '1px solid rgba(255,255,255,0.25)', boxShadow: 'var(--shadow-soft)' }}
         >
           <span>🗺</span> {itin.ui.mapFab}
         </motion.button>
@@ -1571,14 +1615,40 @@ export function ItineraryClient({
 function BudgetCell({ label, accent = false }: { label: string; accent?: boolean }) {
   return (
     <div
-      className="text-center p-3 rounded-xl"
-      style={accent
-        ? { background: 'rgba(90,173,165,0.1)', border: '1px solid rgba(90,173,165,0.2)' }
-        : { background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.06)' }}
+      className="relative overflow-hidden text-center px-4 py-5 rounded-2xl"
+      style={{
+        background: accent
+          ? 'linear-gradient(150deg, #b8552e 0%, #8f4220 100%)'
+          : 'linear-gradient(150deg, rgba(247,241,231,0.94) 0%, rgba(228,212,184,0.96) 100%)',
+        boxShadow: 'var(--shadow-card)',
+      }}
     >
-      <p className="text-[13px] leading-snug" style={{ color: accent ? '#3a8a82' : '#444', fontWeight: accent ? 700 : 400 }}>
-        {label || '—'}
+      <span aria-hidden className="absolute -bottom-3 end-1 text-[54px] leading-none opacity-[0.12] select-none pointer-events-none">💰</span>
+      <p
+        className="relative text-[13px] leading-snug"
+        style={{ color: accent ? 'rgba(255,250,243,0.96)' : 'var(--color-ink-warm)', fontWeight: accent ? 700 : 500 }}
+      >
+        {budgetToUsd(label) || '—'}
       </p>
     </div>
+  );
+}
+
+/** Left-aligned editorial section heading with a trailing hairline rule — the
+ *  "magazine" rhythm that replaces stacked boxes with a continuous flow. */
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.8 }}
+      transition={{ type: 'spring', stiffness: 240, damping: 26 }}
+      className="mx-3 sm:mx-12 mt-12 mb-4 flex items-center gap-4"
+    >
+      <h2 className="font-display italic leading-none text-[24px] sm:text-[28px]" style={{ color: 'var(--color-ink-warm)' }}>
+        {children}
+      </h2>
+      <span aria-hidden className="flex-1 h-px" style={{ background: 'rgba(43,38,34,0.14)' }} />
+    </motion.div>
   );
 }

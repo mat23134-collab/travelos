@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { DayPhoto } from '@/components/DayPhoto';
 import type { TimelineRow } from '@/components/DayTimeline';
 import { buildMapsDirectionsUrl } from '@/components/DayTimeline';
+import { tiktokSearchUrl, instagramSearchUrl } from '@/lib/socialSearch';
 
 interface PlaceDetailCubeProps {
   row: TimelineRow;
@@ -46,7 +47,7 @@ export function PlaceDetailCube({ row, destination, onClose }: PlaceDetailCubePr
 
         <motion.div
           className="relative w-full sm:max-w-md rounded-t-[28px] sm:rounded-[24px] overflow-hidden z-10 flex flex-col"
-          style={{ background: '#fff', boxShadow: '0 32px 80px -16px rgba(0,0,0,0.4)', maxHeight: '88dvh' }}
+          style={{ background: 'var(--color-paper)', boxShadow: '0 32px 80px -16px rgba(0,0,0,0.4)', maxHeight: '88dvh' }}
           initial={{ y: '100%', scale: 0.97 }}
           animate={{ y: 0, scale: 1 }}
           exit={{ y: '60%', opacity: 0, scale: 0.95 }}
@@ -76,8 +77,8 @@ export function PlaceDetailCube({ row, destination, onClose }: PlaceDetailCubePr
           <div className="flex-1 overflow-y-auto">
             <div className="p-5 flex flex-col gap-4">
               {/* Why we chose this */}
-              <div className="rounded-xl p-4" style={{ background: '#f0faf9', border: '1px solid rgba(90,173,165,0.18)' }}>
-                <div className="text-[10px] font-black uppercase tracking-widest text-[#5aada5] mb-2">💡 Why we chose this</div>
+              <div className="rounded-xl p-4" style={{ background: 'var(--color-paper)', border: '1px solid rgba(184,85,46,0.18)' }}>
+                <div className="text-[10px] font-black uppercase tracking-widest text-[#b8552e] mb-2">💡 Why we chose this</div>
                 <p className="text-[13px] text-[#333] leading-relaxed">{whyText}</p>
               </div>
 
@@ -103,12 +104,41 @@ export function PlaceDetailCube({ row, destination, onClose }: PlaceDetailCubePr
               {tags.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {tags.map((tag) => (
-                    <span key={tag} className="text-[11px] font-semibold px-3 py-1 rounded-full" style={{ background: '#e8f4f2', color: '#3a8a82' }}>
+                    <span key={tag} className="text-[11px] font-semibold px-3 py-1 rounded-full" style={{ background: '#f6e7df', color: '#8f4220' }}>
                       {tag}
                     </span>
                   ))}
                 </div>
               )}
+
+              {/* See it on social — short-form video/photos of this place */}
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color: '#8f4220' }}>
+                  🎥 See it on
+                </div>
+                <div className="flex gap-2">
+                  <a
+                    href={tiktokSearchUrl(name, destination)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`Watch ${name} on TikTok`}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[13px] font-bold text-white"
+                    style={{ background: '#000' }}
+                  >
+                    🎵 TikTok
+                  </a>
+                  <a
+                    href={instagramSearchUrl(name, destination)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`See ${name} on Instagram`}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[13px] font-bold text-white"
+                    style={{ background: 'linear-gradient(135deg,#f9ce34 0%,#ee2a7b 50%,#6228d7 100%)' }}
+                  >
+                    📷 Instagram
+                  </a>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -132,7 +162,7 @@ export function PlaceDetailCube({ row, destination, onClose }: PlaceDetailCubePr
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[13px] font-bold text-white"
-                style={{ background: '#5aada5' }}
+                style={{ background: '#b8552e' }}
               >
                 🌐 Official Site
               </a>

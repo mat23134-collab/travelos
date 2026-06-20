@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import { DayPhoto } from '@/components/DayPhoto';
 import type { Basecamp, HotelRecommendation, TravelerProfile } from '@/lib/types';
 import type { ItineraryUiStrings } from '@/lib/tripUiCopy';
 
@@ -84,7 +85,7 @@ function HotelSelectionLayout({
   hotels,
   selectedIndex,
   onSelect,
-  destination: _destination,
+  destination,
   ui,
   onExpandHotel,
 }: HotelSelectionLayoutProps) {
@@ -95,31 +96,40 @@ function HotelSelectionLayout({
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: 'easeOut' }}
-      className="rounded-[20px] overflow-hidden"
-      style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06)' }}
+      className="rounded-3xl overflow-hidden"
+      style={{ background: 'var(--color-paper)', boxShadow: 'var(--shadow-card)' }}
     >
-      {/* Teal header bar */}
-      <div
-        className="flex items-center justify-between px-5 py-3"
-        style={{ background: '#5aada5' }}
-      >
-        <span className="text-white text-[15px] font-bold tracking-tight">
-          {ui.hotelModalBadge ?? '🏨 Your Accommodation'}
-        </span>
+      {/* Editorial header */}
+      <div className="flex items-center justify-between px-5 pt-5 pb-4">
+        <div className="flex flex-col gap-0.5">
+          <span
+            className="text-[11px] font-bold uppercase tracking-[0.18em]"
+            style={{ color: 'var(--color-sunrise-deep)' }}
+          >
+            {ui.hotelModalBadge ?? '🏨 Your Accommodation'}
+          </span>
+          <h3
+            className="font-display italic text-[22px] leading-tight"
+            style={{ color: 'var(--color-ink-warm)' }}
+          >
+            Where you&rsquo;ll stay
+          </h3>
+        </div>
         <span
-          className="text-[12px] font-semibold px-2 py-0.5 rounded-full"
-          style={{ background: 'rgba(255,255,255,0.2)', color: 'white' }}
+          className="text-[12px] font-bold px-2.5 py-1 rounded-full"
+          style={{ background: 'var(--color-paper-sunk)', color: 'var(--color-ink-warm-mut)' }}
         >
           {displayHotels.length}
         </span>
       </div>
 
-      {/* Hotel columns */}
-      <div className="bg-white grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-black/[0.06]">
+      {/* Hotel cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 px-4 pb-5">
         {displayHotels.map((hotel, i) => (
           <HotelColumn
             key={`${hotel.name}-${i}`}
             hotel={hotel}
+            destination={destination}
             isSelected={i === selectedIndex}
             onClick={() => {
               onSelect(i);
@@ -136,59 +146,109 @@ function HotelSelectionLayout({
 
 function HotelColumn({
   hotel,
+  destination,
   isSelected,
   onClick,
 }: {
   hotel: HotelRecommendation;
+  destination: string;
   isSelected: boolean;
   onClick: () => void;
 }) {
+  // Hotel photo: the hotel itself only — no neighborhood/destination dilution.
+  const photoQuery = hotel.name;
+
   return (
-    <button
+    <motion.button
       type="button"
       onClick={onClick}
-      className="flex-1 text-left px-4 py-4 transition-colors hover:bg-[#f0f9f8] focus:outline-none"
-      style={{ background: isSelected ? '#e8f4f2' : undefined }}
+      whileHover={{ y: -3 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 24 }}
+      className="group text-left rounded-2xl overflow-hidden focus:outline-none"
+      style={{
+        background: 'var(--color-paper)',
+        boxShadow: isSelected
+          ? '0 0 0 2px var(--color-sunrise-deep), var(--shadow-card)'
+          : 'var(--shadow-soft)',
+      }}
     >
-      {/* Hotel name */}
-      <p className="text-[14px] font-bold text-[#222] leading-snug line-clamp-2 mb-1">
-        {hotel.name}
-      </p>
+      {/* Photo with overlay */}
+      <div className="relative h-[180px] overflow-hidden">
+        <div className="absolute inset-0 transition-transform duration-700 group-hover:scale-105">
+          <DayPhoto query={photoQuery} alt={hotel.name} height={180} dark />
+        </div>
 
-      {/* Star rating */}
-      {hotel.ratingStars != null && (
-        <div className="flex items-center gap-0.5 mb-1">
-          {Array.from({ length: Math.round(hotel.ratingStars) }, (_, i) => (
-            <span key={i} className="text-[#f59e0b] text-[11px]">★</span>
-          ))}
-          {hotel.ratingSource && (
-            <span className="text-[10px] text-[#888] ml-1">{hotel.ratingSource}</span>
+        {/* Top row: rating (start), Selected (end) */}
+        <div className="absolute top-2.5 inset-x-2.5 flex items-start justify-between">
+          {hotel.ratingStars != null ? (
+            <span
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold text-white"
+              style={{ background: 'rgba(0,0,0,0.42)', backdropFilter: 'blur(6px)' }}
+            >
+              <span style={{ color: '#f5c451' }}>★</span>
+              {hotel.ratingStars.toFixed(1)}
+              {hotel.ratingSource && (
+                <span className="font-medium text-white/70">{hotel.ratingSource}</span>
+              )}
+            </span>
+          ) : (
+            <span />
+          )}
+          {isSelected && (
+            <span
+              className="px-2 py-0.5 rounded-full text-[9px] font-black text-white"
+              style={{ background: 'rgba(184,119,46,0.92)' }}
+            >
+              ✓ Selected
+            </span>
           )}
         </div>
-      )}
 
-      {/* Neighborhood */}
-      <p className="text-[12px] text-[#5aada5] font-medium mb-1 truncate">
-        {hotel.neighborhood}
-      </p>
-
-      {/* Price */}
-      {hotel.priceRange && (
-        <p className="text-[12px] text-[#666]">
-          {hotel.priceRange}
-          <span className="text-[10px] text-[#999] ml-1">/night</span>
-        </p>
-      )}
-
-      {/* Selected indicator */}
-      {isSelected && (
-        <div
-          className="mt-2 text-[10px] font-semibold px-2 py-0.5 rounded-full inline-block"
-          style={{ background: '#5aada5', color: 'white' }}
-        >
-          Selected
+        {/* Bottom: location label + title over the scrim */}
+        <div className="absolute inset-x-0 bottom-0 p-3.5">
+          {hotel.neighborhood && (
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-white/90 drop-shadow mb-0.5">
+              📍 {hotel.neighborhood}
+            </span>
+          )}
+          <h4 className="font-display text-white text-lg leading-tight drop-shadow line-clamp-2">
+            {hotel.name}
+          </h4>
         </div>
-      )}
-    </button>
+      </div>
+
+      {/* Warm-paper footer: vibe + price */}
+      <div className="px-3.5 py-3" style={{ background: 'var(--color-paper)' }}>
+        {hotel.neighborhoodVibe && (
+          <p
+            className="text-[12px] leading-snug line-clamp-2 mb-2"
+            style={{ color: 'var(--color-ink-warm-mut)' }}
+          >
+            {hotel.neighborhoodVibe}
+          </p>
+        )}
+        <div className="flex items-center justify-between gap-2">
+          {hotel.priceRange ? (
+            <span
+              className="text-[13px] font-bold"
+              style={{ color: 'var(--color-ink-warm)' }}
+            >
+              {hotel.priceRange}
+              <span className="text-[10px] font-medium ml-1" style={{ color: 'var(--color-ink-warm-mut)' }}>
+                /night
+              </span>
+            </span>
+          ) : (
+            <span />
+          )}
+          <span
+            className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full transition-colors"
+            style={{ background: 'var(--color-paper-sunk)', color: 'var(--color-sunrise-deep)' }}
+          >
+            Details →
+          </span>
+        </div>
+      </div>
+    </motion.button>
   );
 }
