@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { DayPhoto } from '@/components/DayPhoto';
 import type { TimelineRow } from '@/components/DayTimeline';
 import { buildMapsDirectionsUrl } from '@/components/DayTimeline';
+import { tiktokSearchUrl, instagramSearchUrl } from '@/lib/socialSearch';
 
 interface PlaceDetailCubeProps {
   row: TimelineRow;
@@ -109,6 +110,35 @@ export function PlaceDetailCube({ row, destination, onClose }: PlaceDetailCubePr
                   ))}
                 </div>
               )}
+
+              {/* See it on social — short-form video/photos of this place */}
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color: '#8f4220' }}>
+                  🎥 See it on
+                </div>
+                <div className="flex gap-2">
+                  <a
+                    href={tiktokSearchUrl(name, destination)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`Watch ${name} on TikTok`}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[13px] font-bold text-white"
+                    style={{ background: '#000' }}
+                  >
+                    🎵 TikTok
+                  </a>
+                  <a
+                    href={instagramSearchUrl(name, destination)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`See ${name} on Instagram`}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[13px] font-bold text-white"
+                    style={{ background: 'linear-gradient(135deg,#f9ce34 0%,#ee2a7b 50%,#6228d7 100%)' }}
+                  >
+                    📷 Instagram
+                  </a>
+                </div>
+              </div>
             </div>
           </div>
 
