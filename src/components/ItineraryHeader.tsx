@@ -59,7 +59,12 @@ export function ItineraryHeader({
 
       <nav
   className={`sticky z-50 print:hidden transition-all ${editBanner ? 'top-10' : 'top-0'}`}
-  style={{ background: '#b8552e', boxShadow: '0 2px 12px rgba(0,0,0,0.12)' }}
+  style={{
+    background: 'rgba(239,227,205,0.82)',
+    backdropFilter: 'blur(16px)',
+    WebkitBackdropFilter: 'blur(16px)',
+    borderBottom: '1px solid rgba(43,38,34,0.10)',
+  }}
 >
   {/* ── Row 1: Brand + Back + Actions ─────────────────────────────────── */}
   <div className="flex items-center gap-2 px-4 sm:px-6 h-12 sm:h-14">
@@ -68,15 +73,16 @@ export function ItineraryHeader({
       <motion.button
         onClick={onBackToOverview}
         whileTap={{ scale: 0.93 }}
-        className="flex items-center gap-1 text-white/80 hover:text-white text-sm font-semibold transition-colors flex-shrink-0"
+        className="flex items-center gap-1 text-sm font-semibold transition-colors flex-shrink-0"
+        style={{ color: 'var(--color-ink-warm)' }}
       >
         ←
       </motion.button>
     )}
 
     {/* Brand */}
-    <Link href="/" className="flex-shrink-0">
-      <BrandWordmark accent="rgba(255,255,255,0.9)" className="text-base text-white" />
+    <Link href="/" className="flex-shrink-0" style={{ color: 'var(--color-ink-warm)' }}>
+      <BrandWordmark accent="var(--color-terracotta-deep)" className="text-base" />
     </Link>
 
     {/* Desktop chips — inline on sm+ */}
@@ -97,7 +103,7 @@ export function ItineraryHeader({
         <motion.button
           onClick={onBackToDraft}
           whileTap={{ scale: 0.92 }}
-          className="hidden sm:inline-flex text-xs font-medium px-3 py-1.5 rounded-lg border border-white/25 text-white/70 hover:text-white hover:border-white/50 transition-colors"
+          className="hidden sm:inline-flex text-xs font-medium px-3 py-1.5 rounded-lg border border-[#8f422047] text-[#8f4220] hover:text-[#b8552e] hover:border-[#8f422080] transition-colors"
         >
           {ui.draft}
         </motion.button>
@@ -113,14 +119,14 @@ export function ItineraryHeader({
       {isAdmin && dest && (
         <Link
           href={`/explore/${encodeURIComponent(dest)}`}
-          className="hidden sm:inline-flex text-xs font-medium px-3 py-1.5 rounded-lg border border-white/25 text-white/70 hover:text-white transition-colors"
+          className="hidden sm:inline-flex text-xs font-medium px-3 py-1.5 rounded-lg border border-[#8f422047] text-[#8f4220] hover:text-[#b8552e] transition-colors"
         >
           {ui.scoutPicks}
         </Link>
       )}
       <Link
         href="/onboarding"
-        className="text-xs font-medium px-2.5 py-1.5 rounded-lg border border-white/25 text-white/70 hover:text-white transition-colors"
+        className="text-xs font-medium px-2.5 py-1.5 rounded-lg border border-[#8f422047] text-[#8f4220] hover:text-[#b8552e] transition-colors"
       >
         {ui.newTrip}
       </Link>
@@ -142,10 +148,11 @@ export function ItineraryHeader({
 function Chip({ children }: { children: React.ReactNode }) {
   return (
     <span
-      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold text-white whitespace-nowrap flex-shrink-0"
+      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0"
       style={{
-        background: 'rgba(255,255,255,0.18)',
-        border: '1px solid rgba(255,255,255,0.25)',
+        background: 'rgba(43,38,34,0.05)',
+        border: '1px solid rgba(43,38,34,0.12)',
+        color: 'var(--color-ink-warm)',
       }}
     >
       {children}
