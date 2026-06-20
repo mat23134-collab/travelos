@@ -103,7 +103,7 @@ export function ItineraryHeader({
         <motion.button
           onClick={onBackToDraft}
           whileTap={{ scale: 0.92 }}
-          className="hidden sm:inline-flex text-xs font-medium px-3 py-1.5 rounded-lg border border-[#8f422047] text-[#8f4220] hover:text-[#b8552e] hover:border-[#8f422080] transition-colors"
+          className="hidden sm:inline-flex text-xs font-medium px-3 py-1.5 rounded-lg border border-[#8f422047] bg-[#fffbf5b3] text-[#8f4220] hover:text-[#b8552e] hover:border-[#8f422080] shadow-sm transition-colors"
         >
           {ui.draft}
         </motion.button>
@@ -119,14 +119,14 @@ export function ItineraryHeader({
       {isAdmin && dest && (
         <Link
           href={`/explore/${encodeURIComponent(dest)}`}
-          className="hidden sm:inline-flex text-xs font-medium px-3 py-1.5 rounded-lg border border-[#8f422047] text-[#8f4220] hover:text-[#b8552e] transition-colors"
+          className="hidden sm:inline-flex text-xs font-medium px-3 py-1.5 rounded-lg border border-[#8f422047] bg-[#fffbf5b3] text-[#8f4220] hover:text-[#b8552e] shadow-sm transition-colors"
         >
           {ui.scoutPicks}
         </Link>
       )}
       <Link
         href="/onboarding"
-        className="text-xs font-medium px-2.5 py-1.5 rounded-lg border border-[#8f422047] text-[#8f4220] hover:text-[#b8552e] transition-colors"
+        className="text-xs font-medium px-2.5 py-1.5 rounded-lg border border-[#8f422047] bg-[#fffbf5b3] text-[#8f4220] hover:text-[#b8552e] shadow-sm transition-colors"
       >
         {ui.newTrip}
       </Link>
@@ -148,11 +148,12 @@ export function ItineraryHeader({
 function Chip({ children }: { children: React.ReactNode }) {
   return (
     <span
-      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0"
+      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0"
       style={{
-        background: 'rgba(43,38,34,0.05)',
-        border: '1px solid rgba(43,38,34,0.12)',
+        background: 'rgba(255,251,245,0.72)',
+        border: '1px solid rgba(143,66,32,0.16)',
         color: 'var(--color-ink-warm)',
+        boxShadow: '0 2px 8px rgba(43,38,34,0.07), inset 0 1px 0 rgba(255,255,255,0.5)',
       }}
     >
       {children}
