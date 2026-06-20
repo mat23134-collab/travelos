@@ -37,7 +37,7 @@ import { ItineraryHeader } from '@/components/ItineraryHeader';
 import { DayCarousel } from '@/components/DayCarousel';
 import { ItineraryHero } from '@/components/ItineraryHero';
 import { TripStats } from '@/components/TripStats';
-import { deriveTripStats } from '@/lib/tripStats';
+import { deriveTripStats, deriveTripStatLists } from '@/lib/tripStats';
 import { DayDetailPanel } from '@/components/DayDetailPanel';
 import { HotelSelectionCard } from '@/components/HotelSelectionCard';
 import { AssistantChat } from '@/components/AssistantChat';
@@ -1288,6 +1288,7 @@ export function ItineraryClient({
 
   const days = itin.itinerary.days ?? [];
   const tripStats = deriveTripStats(itin.itinerary);
+  const statLists = deriveTripStatLists(itin.itinerary);
   const selectedDay = itin.selectedDayIndex >= 0 ? days[itin.selectedDayIndex] ?? null : null;
 
   return (
@@ -1401,9 +1402,21 @@ export function ItineraryClient({
             <TripStats
               items={[
                 { value: tripStats.days, label: 'Days' },
-                { value: tripStats.attractions, label: 'Attractions' },
-                { value: tripStats.neighborhoods, label: 'Neighborhoods' },
-                { value: tripStats.meals, label: 'Meals' },
+                {
+                  value: tripStats.attractions,
+                  label: 'Attractions',
+                  detail: { title: 'Attractions', rows: statLists.attractions },
+                },
+                {
+                  value: tripStats.neighborhoods,
+                  label: 'Neighborhoods',
+                  detail: { title: 'Neighborhoods', rows: statLists.neighborhoods },
+                },
+                {
+                  value: tripStats.meals,
+                  label: 'Meals',
+                  detail: { title: 'Meals', rows: statLists.meals },
+                },
               ]}
             />
 

@@ -33,3 +33,60 @@ export function deriveTripStats(itinerary: Itinerary): TripStats {
     meals,
   };
 }
+
+// ── Detailed lists (for the clickable stat cards) ────────────────────────────
+
+export interface StatListItem {
+  name: string;
+  /** 1-based day this item belongs to. */
+  day: number;
+  /** Slot/kind label, e.g. "Morning" or "Dinner". */
+  sub?: string;
+}
+
+export interface NeighborhoodListItem {
+  name: string;
+  /** Sorted 1-based day numbers this neighborhood appears on. */
+  days: number[];
+}
+
+export interface TripStatLists {
+  attractions: StatListItem[];
+  meals: StatListItem[];
+  neighborhoods: NeighborhoodListItem[];
+}
+
+/** Full per-item lists with their day, powering the floating stat panels. Pure. */
+export function deriveTripStatLists(itinerary: Itinerary): TripStatLists {
+  const days = itinerary.days ?? [];
+  const attractions: StatListItem[] = [];
+  const meals: StatListItem[] = [];
+  const neighborhoodMap = new Map<string, { name: string; days: Set<number> }>();
+
+  days.forEach((day, i) => {
+    const dayNum = i + 1;
+
+    ([['Morning', day.morning], ['Afternoon', day.afternoon], ['Evening', day.evening]] as const)
+      .forEach(([slot, act]) => {
+        if (!act) return;
+        if (act.name?.trim()) attractions.push({ name: act.name.trim(), day: dayNum, sub: slot });
+        const n = act.neighborhood?.trim();
+        if (n) {
+          const key = n.toLowerCase();
+          if (!neighborhoodMap.has(key)) neighborhoodMap.set(key, { name: n, days: new Set() });
+          neighborhoodMap.get(key)!.days.add(dayNum);
+        }
+      });
+
+    ([['Breakfast', day.breakfast], ['Lunch', day.lunch], ['Dinner', day.dinner]] as const)
+      .forEach(([kind, meal]) => {
+        if (meal?.name?.trim()) meals.push({ name: meal.name.trim(), day: dayNum, sub: kind });
+      });
+  });
+
+  const neighborhoods = [...neighborhoodMap.values()]
+    .map((v) => ({ name: v.name, days: [...v.days].sort((a, b) => a - b) }))
+    .sort((a, b) => a.days[0] - b.days[0]);
+
+  return { attractions, meals, neighborhoods };
+}
