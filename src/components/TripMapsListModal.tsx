@@ -192,7 +192,7 @@ export function TripMapsListModal({ open, onClose, itinerary }: Props) {
                           {mealSlots.map(({ key, item }) => (
                             <a
                               key={key}
-                              href={mapsUrl(item!.name, item!.latitude, item!.longitude, dest)}
+                              href={mapsUrl(item!.name ?? '', item!.latitude, item!.longitude, dest)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="flex items-start gap-3 p-2.5 rounded-xl transition-colors group"
