@@ -64,7 +64,7 @@ const DEFAULT_SHARE_COPY: SharePanelCopy = {
   copyLinkCopied: 'Link copied!',
   copyLinkSub: 'Copies the link — paste anywhere',
   pdf: 'Download PDF',
-  pdfSub: 'Offline-friendly layout',
+  pdfSub: 'Editorial travel pack — maps, photos, offline',
   calendar: 'Add to Calendar',
   calendarSub: 'Apple Calendar & Google Calendar (.ics)',
   maps: 'Export to Google Maps',
@@ -92,6 +92,7 @@ export function SharePanel({ itinerary, profile, itineraryDbId, accessToken: acc
   const [shareUsername, setShareUsername] = useState('');
   const [shareBusy, setShareBusy] = useState(false);
   const [shareMsg, setShareMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [pdfBusy, setPdfBusy] = useState(false);
 
   // Pull session directly so SharePanel works even if the parent forgot to
   // pass accessToken, or if the session loaded after the first render.
@@ -106,15 +107,28 @@ export function SharePanel({ itinerary, profile, itineraryDbId, accessToken: acc
     setPortalEl(document.body);
   }, []);
 
-  const handlePrint = () => {
-    setOpen(false);
-    // Open the dedicated print/export view — a clean, light, linear layout
-    // of the full itinerary that the browser can save as a PDF offline.
-    // Falls back to printing the current page if we don't have a saved trip id.
-    if (itineraryDbId) {
-      window.open(`/itinerary/${itineraryDbId}/print`, '_blank', 'noopener,noreferrer');
-    } else {
-      setTimeout(() => window.print(), 150);
+  const handlePrint = async () => {
+    if (pdfBusy) return;
+    setPdfBusy(true);
+    try {
+      // Generate the "Editorial Light" Sarto travel pack — a real, selectable,
+      // offline PDF (cover → day-by-day with maps + photos → where-to-eat →
+      // packing/local tips). Lazy-loaded so the PDF engine stays out of the
+      // main bundle until the user actually exports.
+      const { downloadItineraryPDF } = await import('@/lib/pdfTravelPack');
+      await downloadItineraryPDF(itinerary, profile);
+      setOpen(false);
+    } catch (err) {
+      // Fallback to the dedicated print/export view if PDF generation fails.
+      if (typeof console !== 'undefined') console.error('PDF export failed; falling back to print view', err);
+      if (itineraryDbId) {
+        window.open(`/itinerary/${itineraryDbId}/print`, '_blank', 'noopener,noreferrer');
+      } else {
+        setTimeout(() => window.print(), 150);
+      }
+      setOpen(false);
+    } finally {
+      setPdfBusy(false);
     }
   };
 
@@ -381,27 +395,4 @@ export function SharePanel({ itinerary, profile, itineraryDbId, accessToken: acc
                         // Auth is still being restored from storage — spinner
                         <div className="flex items-center gap-2 text-white/30 text-[11px]">
                           <span className="inline-block w-3 h-3 rounded-full border-2 border-white/20 border-t-white/60 animate-spin" />
-                          Checking login…
-                        </div>
-                      ) : !resolvedToken ? (
-                        // Not logged in at all
-                        <p className="text-white/25 text-[11px] leading-relaxed">
-                          Log in to send this trip to another TravelOS user.
-                        </p>
-                      ) : (
-                        // Logged in but no itineraryDbId — shouldn't happen
-                        <p className="text-white/25 text-[11px] leading-relaxed">
-                          {c.travelOsHint}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </motion.div>
-              </motion.div>
-            )}
-          </AnimatePresence>,
-          portalEl,
-        )}
-    </div>
-  );
-}
+          Checking login…
