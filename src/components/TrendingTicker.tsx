@@ -42,10 +42,13 @@ export function TrendingTicker({
   const track = [...items, ...items];
 
   return (
-    <div className="relative overflow-hidden bg-[#12343b] border-b border-[rgba(225,179,130,0.12)] py-2 print:hidden">
+    <div
+      className="relative overflow-hidden py-2 print:hidden"
+      style={{ background: 'linear-gradient(90deg, #33241a 0%, #241d17 100%)', borderBottom: '1px solid rgba(184,119,46,0.20)' }}
+    >
       {/* fade edges */}
-      <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-16 z-10 bg-gradient-to-r from-[#12343b] to-transparent" />
-      <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-16 z-10 bg-gradient-to-l from-[#12343b] to-transparent" />
+      <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-16 z-10" style={{ background: 'linear-gradient(to right, #2b2017, transparent)' }} />
+      <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-16 z-10" style={{ background: 'linear-gradient(to left, #2b2017, transparent)' }} />
 
       <motion.div
         className="flex gap-10 whitespace-nowrap"
@@ -55,11 +58,11 @@ export function TrendingTicker({
         {track.map((item, i) => (
           <span
             key={i}
-            className="text-[10px] font-semibold tracking-wide flex-shrink-0"
-            style={{ color: 'rgba(255,255,255,0.35)' }}
+            className="text-[11px] font-semibold tracking-wide flex-shrink-0"
+            style={{ color: 'rgba(244,233,214,0.62)' }}
           >
             {item}
-            <span className="mx-5 opacity-20">·</span>
+            <span className="mx-5" style={{ color: 'rgba(224,138,62,0.55)' }}>•</span>
           </span>
         ))}
       </motion.div>

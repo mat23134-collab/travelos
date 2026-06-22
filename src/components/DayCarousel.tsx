@@ -56,8 +56,8 @@ function NavArrow({ dir, onClick }: { dir: 'left' | 'right'; onClick: () => void
       style={{
         [dir === 'left' ? 'left' : 'right']: 4,
         background: 'rgba(255,255,255,0.75)',
-        border: '1px solid rgba(90,173,165,0.3)',
-        color: '#5aada5',
+        border: '1px solid rgba(184,85,46,0.3)',
+        color: '#b8552e',
         boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
       }}
     >

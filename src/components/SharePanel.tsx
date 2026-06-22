@@ -247,9 +247,9 @@ export function SharePanel({ itinerary, profile, itineraryDbId, accessToken: acc
         whileTap={{ scale: 0.97, transition: { type: 'spring', stiffness: 600, damping: 18 } }}
         className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors hover-share-btn"
         style={{
-          borderColor: 'rgba(255,255,255,0.12)',
-          color: 'rgba(255,255,255,0.78)',
-          background: 'rgba(255,255,255,0.05)',
+          borderColor: 'rgba(143,66,32,0.28)',
+          color: 'var(--color-terracotta-deep)',
+          background: 'rgba(43,38,34,0.04)',
         }}
       >
         {c.openButton}

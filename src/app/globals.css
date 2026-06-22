@@ -39,6 +39,33 @@
   --color-success:      #10b981;
   --color-warning:      #f59e0b;
   --color-danger:       #ef4444;
+
+  /* ── Display / editorial serif ───────────────────────────────────────────── */
+  --font-display: var(--font-display), 'Fraunces', ui-serif, Georgia, 'Times New Roman', serif;
+  /* Makes the existing (currently broken) `font-serif` markup resolve to the display face */
+  --font-serif:   var(--font-display);
+
+  /* ── Warm editorial surfaces (light sections) ────────────────────────────── */
+  --color-paper:        #efe3cd;  /* richer warm sand (deeper, less pastel) */
+  --color-paper-sunk:   #e4d4b8;  /* deeper sand for insets */
+  --color-ink-warm:     #2b2622;  /* warm near-black body text on paper */
+  --color-ink-warm-mut: #6b6358;  /* warm muted text */
+
+  /* ── Sunrise accent (pulled from photography) ────────────────────────────── */
+  --color-sunrise:      #e0a44b;
+  --color-sunrise-soft: #f0c98a;
+  --color-sunrise-deep: #b8772e;  /* text-on-paper safe */
+
+  /* ── Terracotta — primary warm UI accent (replaces the cool teal) ────────── */
+  --color-terracotta:      #b8552e;  /* primary accent — buttons, active states */
+  --color-terracotta-deep: #8f4220;  /* accent text / links on paper */
+  --color-terracotta-soft: #f6e7df;  /* light terracotta tint (chip / button bg) */
+}
+
+/* ── Soft editorial shadows (replace neon glows on light sections) ─────────── */
+:root {
+  --shadow-soft: 0 10px 30px -12px rgba(43,38,34,0.18);
+  --shadow-card: 0 4px 16px rgba(43,38,34,0.08);
 }
 
 * { box-sizing: border-box; }
@@ -48,9 +75,11 @@ html { scroll-behavior: smooth; }
 body {
   background-color: #091f36;
   color: #ffffff;
-  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--font-body), var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
-  line-height: 1.6;
+  text-rendering: optimizeLegibility;
+  letter-spacing: -0.006em;
+  line-height: 1.62;
 }
 
 /* Logotype — Cormorant Garamond (loaded in layout.tsx) */
@@ -58,6 +87,13 @@ body {
   font-family: var(--font-brand-serif), ui-serif, Georgia, 'Times New Roman', serif;
   font-weight: 500;
   letter-spacing: -0.03em;
+}
+
+/* Editorial display headings — Fraunces */
+.font-display {
+  font-family: var(--font-display), ui-serif, Georgia, 'Times New Roman', serif;
+  letter-spacing: -0.02em;
+  font-optical-sizing: auto;
 }
 
 /* ── Typography ─────────────────────────────────────────────────────────────── */
@@ -238,6 +274,29 @@ p { line-height: 1.65; }
 .animate-bounce-pin { animation: bounce-pin 0.7s ease-in-out; }
 .animate-glow-pulse { animation: glow-pulse 2s ease-in-out infinite; }
 .animate-orb-float  { animation: orb-float 12s ease-in-out infinite; }
+
+/* ── Cinematic Ken Burns — slow drift-zoom that brings hero imagery to life ─── */
+@keyframes kenburns {
+  from { transform: scale(1.04); }
+  to   { transform: scale(1.15); }
+}
+.kenburns {
+  width: 100%;
+  height: 100%;
+  animation: kenburns 26s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+/* ── Warm sunset CTA — energy & joy for primary actions ────────────────────── */
+.cta-warm {
+  background: linear-gradient(135deg, #e08a3e 0%, #c4502a 100%);
+  box-shadow: 0 8px 22px -6px rgba(196,80,42,0.5);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.cta-warm:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 32px -6px rgba(196,80,42,0.68);
+}
 
 /* ── Scrollbar hide ─────────────────────────────────────────────────────────── */
 .scrollbar-hide::-webkit-scrollbar { display: none; }
