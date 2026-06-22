@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Itinerary, TravelerProfile } from '@/lib/types';
 import { downloadItineraryICS } from '@/lib/icsExport';
-import { downloadItineraryKML } from '@/lib/kmlExport';
+import { openItineraryInGoogleMaps } from '@/lib/kmlExport';
 import { audienceTitle } from '@/lib/audienceCopy';
 import { normalizeUsername, validateUsernameShape } from '@/lib/username';
 import { useAuth } from '@/lib/auth-context';
@@ -67,8 +67,8 @@ const DEFAULT_SHARE_COPY: SharePanelCopy = {
   pdfSub: 'Editorial travel pack — maps, photos, offline',
   calendar: 'Add to Calendar',
   calendarSub: 'Apple Calendar & Google Calendar (.ics)',
-  maps: 'Export to Google Maps',
-  mapsSub: 'Download .kml — import at mymaps.google.com',
+  maps: 'Open in Google Maps',
+  mapsSub: 'View all stops as a route — opens directly in Maps',
   travelOsTitle: 'TravelOS users',
   travelOsBody:
     'Send this saved trip to someone’s dashboard by username — or use the link for anyone.',
@@ -138,7 +138,7 @@ export function SharePanel({ itinerary, profile, itineraryDbId, accessToken: acc
   };
 
   const handleExportToMaps = () => {
-    downloadItineraryKML(itinerary);
+    openItineraryInGoogleMaps(itinerary);
     setOpen(false);
   };
 
