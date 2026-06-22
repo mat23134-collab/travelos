@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Itinerary, TravelerProfile } from '@/lib/types';
 import { downloadItineraryICS } from '@/lib/icsExport';
-import { openItineraryInGoogleMaps } from '@/lib/kmlExport';
+import { TripMapsListModal } from '@/components/TripMapsListModal';
 import { audienceTitle } from '@/lib/audienceCopy';
 import { normalizeUsername, validateUsernameShape } from '@/lib/username';
 import { useAuth } from '@/lib/auth-context';
@@ -67,8 +67,8 @@ const DEFAULT_SHARE_COPY: SharePanelCopy = {
   pdfSub: 'Editorial travel pack — maps, photos, offline',
   calendar: 'Add to Calendar',
   calendarSub: 'Apple Calendar & Google Calendar (.ics)',
-  maps: 'Open in Google Maps',
-  mapsSub: 'View all stops as a route — opens directly in Maps',
+  maps: 'View on Google Maps',
+  mapsSub: 'All places by day — tap any stop to open it in Maps',
   travelOsTitle: 'TravelOS users',
   travelOsBody:
     'Send this saved trip to someone’s dashboard by username — or use the link for anyone.',
@@ -93,6 +93,7 @@ export function SharePanel({ itinerary, profile, itineraryDbId, accessToken: acc
   const [shareBusy, setShareBusy] = useState(false);
   const [shareMsg, setShareMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [showMapsList, setShowMapsList] = useState(false);
 
   // Pull session directly so SharePanel works even if the parent forgot to
   // pass accessToken, or if the session loaded after the first render.
@@ -107,29 +108,17 @@ export function SharePanel({ itinerary, profile, itineraryDbId, accessToken: acc
     setPortalEl(document.body);
   }, []);
 
-  const handlePrint = async () => {
+  const handlePrint = () => {
     if (pdfBusy) return;
-    setPdfBusy(true);
-    try {
-      // Generate the "Editorial Light" Sarto travel pack — a real, selectable,
-      // offline PDF (cover → day-by-day with maps + photos → where-to-eat →
-      // packing/local tips). Lazy-loaded so the PDF engine stays out of the
-      // main bundle until the user actually exports.
-      const { downloadItineraryPDF } = await import('@/lib/pdfTravelPack');
-      await downloadItineraryPDF(itinerary, profile);
-      setOpen(false);
-    } catch (err) {
-      // Fallback to the dedicated print/export view if PDF generation fails.
-      if (typeof console !== 'undefined') console.error('PDF export failed; falling back to print view', err);
-      if (itineraryDbId) {
-        window.open(`/itinerary/${itineraryDbId}/print`, '_blank', 'noopener,noreferrer');
-      } else {
-        setTimeout(() => window.print(), 150);
-      }
-      setOpen(false);
-    } finally {
-      setPdfBusy(false);
+    // Open the dedicated print/export view in a new tab. The user can then use
+    // their browser's built-in "Print → Save as PDF" to get a clean, offline PDF.
+    if (itineraryDbId) {
+      window.open(`/itinerary/${itineraryDbId}/print`, '_blank', 'noopener,noreferrer');
+    } else {
+      // No saved id — print the current page directly.
+      setTimeout(() => window.print(), 150);
     }
+    setOpen(false);
   };
 
   const handleAddToCalendar = () => {
@@ -138,8 +127,8 @@ export function SharePanel({ itinerary, profile, itineraryDbId, accessToken: acc
   };
 
   const handleExportToMaps = () => {
-    openItineraryInGoogleMaps(itinerary);
     setOpen(false);
+    setShowMapsList(true);
   };
 
   const handleWhatsApp = () => {
@@ -241,6 +230,11 @@ export function SharePanel({ itinerary, profile, itineraryDbId, accessToken: acc
 
   return (
     <div className="relative print:hidden">
+      <TripMapsListModal
+        open={showMapsList}
+        onClose={() => setShowMapsList(false)}
+        itinerary={itinerary}
+      />
       <motion.button
         onClick={() => setOpen(true)}
         whileHover={{ scale: 1.02 }}
