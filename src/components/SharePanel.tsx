@@ -395,4 +395,27 @@ export function SharePanel({ itinerary, profile, itineraryDbId, accessToken: acc
                         // Auth is still being restored from storage — spinner
                         <div className="flex items-center gap-2 text-white/30 text-[11px]">
                           <span className="inline-block w-3 h-3 rounded-full border-2 border-white/20 border-t-white/60 animate-spin" />
-          Checking login…
+          Checking login…
+        </div>
+      ) : !resolvedToken ? (
+        // Not logged in at all
+        <p className="text-white/25 text-[11px] leading-relaxed">
+          Log in to send this trip to another TravelOS user.
+        </p>
+      ) : (
+        // Logged in but no itineraryDbId — shouldn't happen
+        <p className="text-white/25 text-[11px] leading-relaxed">
+          {c.travelOsHint}
+        </p>
+      )}
+                    </div>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          portalEl,
+        )}
+    </div>
+  );
+}
