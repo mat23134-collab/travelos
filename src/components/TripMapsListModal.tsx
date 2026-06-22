@@ -1,7 +1,7 @@
 'use client';
 
 import { createPortal } from 'react-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Itinerary } from '@/lib/types';
 
@@ -39,10 +39,34 @@ const SLOT_LABEL: Record<string, string> = {
   dinner: '🍽️ Dinner',
 };
 
+function buildTextList(itinerary: Itinerary): string {
+  const lines: string[] = [`📍 ${itinerary.destination} — ${itinerary.totalDays}-day itinerary`, ''];
+  for (const day of itinerary.days) {
+    lines.push(`DAY ${day.day}${day.theme ? ` — ${day.theme}` : ''}${day.date ? ` (${day.date})` : ''}`);
+    if (day.morning?.name)   lines.push(`  🌅 Morning:   ${day.morning.name}`);
+    if (day.afternoon?.name) lines.push(`  ☀️ Afternoon: ${day.afternoon.name}`);
+    if (day.evening?.name)   lines.push(`  🌙 Evening:   ${day.evening.name}`);
+    if (day.breakfast?.name) lines.push(`  ☕ Breakfast: ${day.breakfast.name}`);
+    if (day.lunch?.name)     lines.push(`  🥪 Lunch:     ${day.lunch.name}`);
+    if (day.dinner?.name)    lines.push(`  🍽️ Dinner:    ${day.dinner.name}`);
+    lines.push('');
+  }
+  return lines.join('\n');
+}
+
 export function TripMapsListModal({ open, onClose, itinerary }: Props) {
   const [portalEl, setPortalEl] = useState<HTMLElement | null>(null);
+  const [copied, setCopied] = useState(false);
   useEffect(() => { setPortalEl(document.body); }, []);
   const dest = itinerary.destination ?? '';
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(buildTextList(itinerary));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* ignore */ }
+  }, [itinerary]);
 
   if (!portalEl) return null;
 
@@ -84,6 +108,19 @@ export function TripMapsListModal({ open, onClose, itinerary }: Props) {
                   Tap any place to open it in Google Maps
                 </p>
               </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleCopy}
+                  className="px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-colors"
+                  style={{
+                    background: copied ? 'rgba(52,211,153,0.18)' : 'rgba(255,255,255,0.08)',
+                    color: copied ? '#34d399' : 'rgba(255,255,255,0.6)',
+                    border: `1px solid ${copied ? 'rgba(52,211,153,0.3)' : 'rgba(255,255,255,0.1)'}`,
+                  }}
+                >
+                  {copied ? '✓ Copied' : '📋 Copy list'}
+                </button>
               <button
                 type="button"
                 onClick={onClose}
@@ -91,6 +128,7 @@ export function TripMapsListModal({ open, onClose, itinerary }: Props) {
               >
                 ✕
               </button>
+              </div>
             </div>
 
             {/* Scrollable list */}

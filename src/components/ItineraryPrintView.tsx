@@ -68,6 +68,9 @@ export function ItineraryPrintView({ itinerary }: { itinerary: Itinerary }) {
 
   useEffect(() => {
     setPrintedAt(new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }));
+    // Give the page a moment to render, then open the print dialog automatically.
+    const t = setTimeout(() => window.print(), 800);
+    return () => clearTimeout(t);
   }, []);
 
   const hotelName = itinerary.basecamp?.type === 'booked'
