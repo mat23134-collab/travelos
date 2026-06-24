@@ -14,8 +14,11 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useOnboardingStore } from '@/state/onboardingStore';
 import { THEME, CARD } from '@/lib/onboardingTheme';
+import { readTripLanguagePref } from '@/lib/tripLanguagePref';
 import { Sunrise, Sun, Sunset, Moon, MoonStar, Plane, CalendarDays } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+
+const isHe = () => (readTripLanguagePref() ?? 'en') === 'he';
 
 // ── Calendar helpers ──────────────────────────────────────────────────────────
 // Format a Date as YYYY-MM-DD using its LOCAL calendar fields. Using
@@ -49,40 +52,43 @@ function addDays(str: string, n: number) {
 }
 function fmt(str: string) {
   const d = toDateObj(str);
-  return d ? d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—';
+  return d ? d.toLocaleDateString(isHe() ? 'he-IL' : 'en-GB', { day: 'numeric', month: 'short' }) : '—';
 }
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MONTHS_HE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
 const DAY_LABELS = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+const DAY_LABELS_HE = ['א','ב','ג','ד','ה','ו','ש'];
 const PRESETS = [
-  { label: '3 days', days: 3 },
-  { label: '5 days', days: 5 },
-  { label: '1 week', days: 7 },
-  { label: '10 days', days: 10 },
-  { label: '2 weeks', days: 14 },
+  { label: '3 days',  labelHe: '3 ימים',  days: 3 },
+  { label: '5 days',  labelHe: '5 ימים',  days: 5 },
+  { label: '1 week',  labelHe: 'שבוע',    days: 7 },
+  { label: '10 days', labelHe: '10 ימים', days: 10 },
+  { label: '2 weeks', labelHe: 'שבועיים', days: 14 },
 ];
 
 // ── Arrival / Departure time chips ────────────────────────────────────────────
-const ARRIVAL_OPTS: { label: string; value: string; icon: LucideIcon }[] = [
-  { label: 'Morning',   value: '09:00', icon: Sunrise },
-  { label: 'Midday',    value: '13:00', icon: Sun },
-  { label: 'Afternoon', value: '16:00', icon: Sunset },
-  { label: 'Evening',   value: '19:00', icon: Moon },
-  { label: 'Late',      value: '21:00', icon: Moon },
-  { label: 'Night',     value: '23:30', icon: MoonStar },
+type TimeOpt = { label: string; labelHe: string; value: string; icon: LucideIcon };
+const ARRIVAL_OPTS: TimeOpt[] = [
+  { label: 'Morning',   labelHe: 'בוקר',          value: '09:00', icon: Sunrise },
+  { label: 'Midday',    labelHe: 'צהריים',        value: '13:00', icon: Sun },
+  { label: 'Afternoon', labelHe: 'אחר הצהריים',   value: '16:00', icon: Sunset },
+  { label: 'Evening',   labelHe: 'ערב',           value: '19:00', icon: Moon },
+  { label: 'Late',      labelHe: 'מאוחר',         value: '21:00', icon: Moon },
+  { label: 'Night',     labelHe: 'לילה',          value: '23:30', icon: MoonStar },
 ];
-const DEPARTURE_OPTS: { label: string; value: string; icon: LucideIcon }[] = [
-  { label: 'Dawn',      value: '06:00', icon: Sunrise },
-  { label: 'Morning',   value: '09:00', icon: Sunrise },
-  { label: 'Midday',    value: '12:00', icon: Sun },
-  { label: 'Afternoon', value: '15:00', icon: Sunset },
-  { label: 'Evening',   value: '18:00', icon: Moon },
-  { label: 'Night',     value: '22:00', icon: MoonStar },
+const DEPARTURE_OPTS: TimeOpt[] = [
+  { label: 'Dawn',      labelHe: 'שחר',           value: '06:00', icon: Sunrise },
+  { label: 'Morning',   labelHe: 'בוקר',          value: '09:00', icon: Sunrise },
+  { label: 'Midday',    labelHe: 'צהריים',        value: '12:00', icon: Sun },
+  { label: 'Afternoon', labelHe: 'אחר הצהריים',   value: '15:00', icon: Sunset },
+  { label: 'Evening',   labelHe: 'ערב',           value: '18:00', icon: Moon },
+  { label: 'Night',     labelHe: 'לילה',          value: '22:00', icon: MoonStar },
 ];
 
 // ── Time chip ─────────────────────────────────────────────────────────────────
 function TimeChip({ opt, selected, onSelect }: {
-  opt: { label: string; value: string; icon: LucideIcon };
+  opt: TimeOpt;
   selected: boolean;
   onSelect: () => void;
 }) {
@@ -100,7 +106,7 @@ function TimeChip({ opt, selected, onSelect }: {
       }}
     >
       <Icon size={18} strokeWidth={1.75} className="mb-0.5" style={{ color: selected ? THEME.gold : THEME.textMuted }} />
-      {opt.label}
+      {isHe() ? opt.labelHe : opt.label}
     </motion.button>
   );
 }
@@ -150,17 +156,17 @@ function CalendarRangePicker({ startDate, endDate, onChange }: {
       style={{ background: THEME.surface, border: `1.5px solid ${THEME.border}` }}>
       {/* Month nav */}
       <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: THEME.border }}>
-        <button onClick={prevMonth} aria-label="Previous month"
+        <button onClick={prevMonth} aria-label={isHe() ? 'חודש קודם' : 'Previous month'}
           className="w-8 h-8 rounded-full flex items-center justify-center text-sm hover-bg-subtle"
           style={{ color: THEME.textMuted }}>‹</button>
-        <span className="text-sm font-bold" style={{ color: THEME.deepGreen }}>{MONTHS[viewMonth]} {viewYear}</span>
-        <button onClick={nextMonth} aria-label="Next month"
+        <span className="text-sm font-bold" style={{ color: THEME.deepGreen }}>{(isHe() ? MONTHS_HE : MONTHS)[viewMonth]} {viewYear}</span>
+        <button onClick={nextMonth} aria-label={isHe() ? 'חודש הבא' : 'Next month'}
           className="w-8 h-8 rounded-full flex items-center justify-center text-sm hover-bg-subtle"
           style={{ color: THEME.textMuted }}>›</button>
       </div>
       {/* Day headers */}
       <div className="grid grid-cols-7 px-2 pt-2">
-        {DAY_LABELS.map(d => (
+        {(isHe() ? DAY_LABELS_HE : DAY_LABELS).map(d => (
           <div key={d} className="text-center text-[10px] font-bold uppercase tracking-widest py-1"
             style={{ color: THEME.textFaint }}>{d}</div>
         ))}
@@ -230,6 +236,7 @@ export function DatesSection({ isCompleted, onComplete, onEdit }: Props) {
   } = useOnboardingStore();
 
   const [showDetails, setShowDetails] = useState(false);
+  const he = isHe();
   const duration = tripDuration(startDate, endDate);
   // ── Completed summary bar ────────────────────────────────────────────────
   if (isCompleted) {
@@ -247,22 +254,20 @@ export function DatesSection({ isCompleted, onComplete, onEdit }: Props) {
             {duration && (
               <>
                 <span style={{ color: THEME.textMuted }} className="text-xs">·</span>
-                <span className="text-xs font-medium" style={{ color: THEME.textMuted }}>{duration} nights</span>
+                <span className="text-xs font-medium" style={{ color: THEME.textMuted }}>{duration} {he ? 'לילות' : 'nights'}</span>
               </>
             )}
             {arrivalTime && (
               <>
                 <span style={{ color: THEME.textMuted }} className="text-xs">·</span>
-                <span className="text-xs" style={{ color: THEME.textMuted }}>Arrives {arrivalTime}</span>
+                <span className="text-xs" style={{ color: THEME.textMuted }}>{he ? 'מגיע' : 'Arrives'} {arrivalTime}</span>
               </>
             )}
           </div>
         </div>
         <button onClick={onEdit}
           className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors hover-bg-subtle"
-          style={{ color: THEME.textMuted, border: `1px solid ${THEME.border}` }}>
-          Edit
-        </button>
+          style={{ color: THEME.textMuted, border: `1px solid ${THEME.border}` }}>{he ? 'עריכה' : 'Edit'}</button>
       </motion.div>
     );
   }
@@ -273,7 +278,7 @@ export function DatesSection({ isCompleted, onComplete, onEdit }: Props) {
 
       {/* Duration presets */}
       <div className="flex items-center gap-2 flex-wrap">
-        {PRESETS.map(({ label, days }) => (
+        {PRESETS.map(({ label, labelHe, days }) => (
           <button
             key={label}
             onClick={() => {
@@ -286,7 +291,7 @@ export function DatesSection({ isCompleted, onComplete, onEdit }: Props) {
               border: duration === days ? `1.5px solid ${THEME.borderSel}` : `1.5px solid ${THEME.border}`,
               color: duration === days ? THEME.gold : THEME.textMuted,
             }}
-          >{label}</button>
+          >{he ? labelHe : label}</button>
         ))}
       </div>
 
@@ -304,7 +309,7 @@ export function DatesSection({ isCompleted, onComplete, onEdit }: Props) {
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl"
             style={CARD.base}>
             <CalendarDays size={16} strokeWidth={1.75} style={{ color: THEME.textMuted }} className="shrink-0" />
-            <span className="text-sm font-semibold" style={{ color: THEME.textBody }}>{duration} nights</span>
+            <span className="text-sm font-semibold" style={{ color: THEME.textBody }}>{duration} {he ? 'לילות' : 'nights'}</span>
             <span className="text-xs ml-1" style={{ color: THEME.textMuted }}>
               {fmt(startDate)} — {fmt(endDate)}
             </span>
@@ -322,8 +327,8 @@ export function DatesSection({ isCompleted, onComplete, onEdit }: Props) {
         >
           <span className="flex items-center gap-2">
             <Plane size={16} strokeWidth={1.75} style={{ color: THEME.textMuted }} />
-            Travel details
-            <span className="text-[10px] ml-1 px-2 py-0.5 rounded-full" style={{ background: THEME.surfaceSel, color: THEME.textMuted }}>Optional</span>
+            {he ? 'פרטי טיסה' : 'Travel details'}
+            <span className="text-[10px] ml-1 px-2 py-0.5 rounded-full" style={{ background: THEME.surfaceSel, color: THEME.textMuted }}>{he ? 'אופציונלי' : 'Optional'}</span>
           </span>
           <span
             className="transition-transform duration-200"
@@ -344,7 +349,7 @@ export function DatesSection({ isCompleted, onComplete, onEdit }: Props) {
                 {/* Arrival */}
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: THEME.textMuted }}>
-                    Arrival time (first day)
+                    {he ? 'שעת הגעה (יום ראשון)' : 'Arrival time (first day)'}
                   </p>
                   <div className="flex gap-1.5 flex-wrap">
                     {ARRIVAL_OPTS.map(opt => (
@@ -356,7 +361,7 @@ export function DatesSection({ isCompleted, onComplete, onEdit }: Props) {
                 {/* Departure */}
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: THEME.textMuted }}>
-                    Departure time (last day)
+                    {he ? 'שעת יציאה (יום אחרון)' : 'Departure time (last day)'}
                   </p>
                   <div className="flex gap-1.5 flex-wrap">
                     {DEPARTURE_OPTS.map(opt => (
