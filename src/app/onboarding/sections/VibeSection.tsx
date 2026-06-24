@@ -19,6 +19,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { useOnboardingStore } from '@/state/onboardingStore';
+import { readTripLanguagePref } from '@/lib/tripLanguagePref';
 import type {
   SoloDynamics, CoupleDynamics, GroupDynamics as GroupDyn,
   GroupDynamicsPayload,

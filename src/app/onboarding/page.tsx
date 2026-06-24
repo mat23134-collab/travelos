@@ -31,6 +31,7 @@ import { resolveBackgroundImage } from '@/lib/stepBackgrounds';
 import { COUNTRIES } from '@/lib/countries';
 import { THEME, BACKDROP_VEIL } from '@/lib/onboardingTheme';
 import { getStepCopy } from '@/lib/stepCopy';
+import { onboardingUi } from '@/lib/onboardingUi';
 
 // ── Chunk-load resilience ────────────────────────────────────────────────────
 // Mobile networks + post-deploy chunk-hash changes make a single dynamic import
@@ -271,70 +272,68 @@ function OnboardingPageContent() {
     ? Math.round((new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000)
     : null;
 
+  const tripLang = readTripLanguagePref() ?? 'en';
+  const ui = onboardingUi(tripLang);
+
   const stepCopy = getStepCopy(wizardStep, {
     cityName:  cities[0]?.name ?? (destination.trim() || null),
     nights:    nightCount,
     groupType: groupType || null,
-  });
+  }, tripLang);
 
   const stepState: { canContinue: boolean; label: string } = (() => {
     switch (wizardStep) {
       case 0:
-        if (!country)        return { canContinue: false, label: 'Pick a country' };
-        if (!tripType)       return { canContinue: false, label: 'Single or multi-city?' };
-        if (!cities.length)  return { canContinue: false, label: 'Select at least one city' };
+        if (!country)        return { canContinue: false, label: ui.pickCountry };
+        if (!tripType)       return { canContinue: false, label: ui.singleOrMulti };
+        if (!cities.length)  return { canContinue: false, label: ui.selectCity };
         return {
           canContinue: true,
           label: cities.length > 1
-            ? `Plan ${cities.length}-city tour →`
-            : `Plan ${cities[0]?.name ?? country} →`,
+            ? ui.planCityTour(cities.length)
+            : ui.planTrip(cities[0]?.name ?? country),
         };
       case 1:
-        if (!startDate || !endDate) return { canContinue: false, label: 'Pick your travel dates' };
-        return { canContinue: true, label: nightCount ? `${nightCount} nights · Continue →` : 'Continue →' };
+        if (!startDate || !endDate) return { canContinue: false, label: ui.pickDates };
+        return { canContinue: true, label: nightCount ? ui.nightsContinue(nightCount) : ui.continueArrow };
       case 2:
-        if (!budget) return { canContinue: false, label: 'Pick a budget level' };
-        return { canContinue: true, label: 'Next: travel style →' };
+        if (!budget) return { canContinue: false, label: ui.pickBudget };
+        return { canContinue: true, label: ui.nextTravelStyle };
       case 3: {
-        if (!groupType) return { canContinue: false, label: "Who's coming?" };
+        if (!groupType) return { canContinue: false, label: ui.whoComing };
         if (groupType === 'family') {
-          if (!familyAdults || familyAdults < 1) return { canContinue: false, label: 'Add at least one adult' };
+          if (!familyAdults || familyAdults < 1) return { canContinue: false, label: ui.addAdult };
         }
         if (groupType === 'group' && (!groupSize || groupSize < 3)) {
-          return { canContinue: false, label: 'Pick your group size' };
+          return { canContinue: false, label: ui.pickGroupSize };
         }
         // Dynamics required for everyone except Family (whose composition acts as its dynamics).
         const needsDyn = groupType === 'solo' || groupType === 'couple' || groupType === 'group';
-        if (needsDyn && !groupDynamics) return { canContinue: false, label: 'Pick your style of travel' };
-        if (!pace) return { canContinue: false, label: 'Choose your pace' };
-        return { canContinue: true, label: 'Continue' };
+        if (needsDyn && !groupDynamics) return { canContinue: false, label: ui.pickStyle };
+        if (!pace) return { canContinue: false, label: ui.choosePace };
+        return { canContinue: true, label: ui.continue };
       }
       case 4:
         // Path A: hotel geocoded and confirmed
-        if (hotelAddress) return { canContinue: true, label: 'Next: dining rules →' };
+        if (hotelAddress) return { canContinue: true, label: ui.nextDiningRules };
         // Path B: all three required blocks complete (amenities are optional)
         if (accommodation && hotelNightlyBudget && hotelLocationPref.length > 0)
-          return { canContinue: true, label: 'Next: dining rules →' };
+          return { canContinue: true, label: ui.nextDiningRules };
         // Path B partial — tell user exactly what's missing
         if (accommodation && hotelNightlyBudget)
-          return { canContinue: false, label: 'Pick your location preference' };
+          return { canContinue: false, label: ui.pickLocationPref };
         if (accommodation)
-          return { canContinue: false, label: 'Pick nightly budget' };
+          return { canContinue: false, label: ui.pickNightlyBudget };
         // Nothing selected — user must complete a path or tap Skip
-        return { canContinue: false, label: 'Select an option or skip' };
+        return { canContinue: false, label: ui.selectOrSkip };
       case 5:
-        return { canContinue: true, label: 'Next: our recommendations →' };
+        return { canContinue: true, label: ui.nextRecommendations };
       case 6: {
         const picks = mustHaveItems.length;
-        const label = picks === 0
-          ? 'Skip & generate'
-          : picks === 1
-            ? 'Generate with 1 pick'
-            : `Generate with ${picks} picks`;
-        return { canContinue: true, label };
+        return { canContinue: true, label: picks === 0 ? ui.skipGenerate : ui.generateWithPicks(picks) };
       }
       default:
-        return { canContinue: false, label: 'Continue' };
+        return { canContinue: false, label: ui.continue };
     }
   })();
 
@@ -405,6 +404,7 @@ function OnboardingPageContent() {
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <main
+      dir={ui.dir}
       className="min-h-screen relative"
       style={{
         // Full-bleed destination photo for depth, softened by the airy
@@ -577,7 +577,7 @@ function OnboardingPageContent() {
                   color: THEME.textMuted,
                 }}
               >
-                ‹ Back
+                ‹ {ui.back}
               </motion.button>
             )}
           </AnimatePresence>
