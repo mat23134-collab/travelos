@@ -19,14 +19,36 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { useOnboardingStore } from '@/state/onboardingStore';
-import { THEME } from '@/lib/onboardingTheme';
 import type {
   SoloDynamics, CoupleDynamics, GroupDynamics as GroupDyn,
   GroupDynamicsPayload,
 } from '@/lib/types';
 
-const BORDER = `1px solid ${THEME.border}`;
-const BORDER_SEL = `1px solid ${THEME.borderSel}`;
+/**
+ * Editorial Warmth pilot — VibeSection reads the results-page warmth tokens
+ * (paper / sunrise / ink-warm from globals.css) directly instead of the shared
+ * onboardingTheme. Same shape as THEME so a green-lit rollout is just copying
+ * these values into onboardingTheme.ts.
+ */
+const WARM = {
+  gold:       'var(--color-sunrise-deep)',         // accent: selection dot (contrast-safe on paper)
+  goldSoft:   'rgba(184,119,46,0.45)',             // faint accent (chevrons)
+  ink:        'var(--color-ink-warm)',             // strongest text
+  deepGreen:  'var(--color-ink-warm)',             // headlines
+  textBody:   'var(--color-ink-warm)',             // card option titles
+  textMuted:  'var(--color-ink-warm-mut)',         // sub-labels
+  textFaint:  '#9a8f7e',                           // hints, tertiary copy (warm faint)
+  ivory:      'var(--color-paper)',                // page ground
+  surface:    '#fffdf7',                           // warm-white card on paper
+  surfaceSel: '#f6ead2',                           // sunrise-tinted selected card
+  border:     'rgba(43,38,34,0.12)',               // unselected border (warm ink, faint)
+  borderSel:  'var(--color-sunrise-deep)',         // selected border
+} as const;
+
+const CARD_SHADOW = 'var(--shadow-card)';
+
+const BORDER = `1px solid ${WARM.border}`;
+const BORDER_SEL = `1px solid ${WARM.borderSel}`;
 
 const GROUP_OPTIONS = [
   { value: 'solo',   label: 'Solo',   sub: 'Just me'      },
@@ -103,27 +125,27 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
         initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
         className="flex items-center justify-between px-6 py-4 rounded-2xl"
         style={{
-          background: THEME.surface,
+          background: WARM.surface,
           border: BORDER,
-          boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+          boxShadow: CARD_SHADOW,
         }}
       >
         <div className="flex items-baseline gap-3 flex-wrap">
-          <span className="font-serif text-base tracking-tight" style={{ color: THEME.deepGreen }}>
+          <span className="font-serif text-base tracking-tight" style={{ color: WARM.deepGreen }}>
             {groupOpt?.label}
           </span>
           {compositionLine && (
-            <span className="text-xs tracking-wide" style={{ color: THEME.textMuted }}>
+            <span className="text-xs tracking-wide" style={{ color: WARM.textMuted }}>
               · {compositionLine}
             </span>
           )}
           {dynamicsOpt && (
-            <span className="text-xs tracking-wide" style={{ color: THEME.textMuted }}>
+            <span className="text-xs tracking-wide" style={{ color: WARM.textMuted }}>
               · {dynamicsOpt.label}
             </span>
           )}
           {paceOpt && (
-            <span className="text-xs tracking-wide" style={{ color: THEME.textMuted }}>
+            <span className="text-xs tracking-wide" style={{ color: WARM.textMuted }}>
               · {paceOpt.label}
             </span>
           )}
@@ -131,7 +153,7 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
         <button
           onClick={onEdit}
           className="text-[11px] uppercase tracking-[0.18em] px-3 py-1.5 rounded-full transition-colors"
-          style={{ color: THEME.textMuted, border: BORDER }}
+          style={{ color: WARM.textMuted, border: BORDER }}
         >
           Edit
         </button>
@@ -146,9 +168,9 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
       <div
         className="rounded-3xl p-3"
         style={{
-          background: THEME.surface,
+          background: WARM.surface,
           border: BORDER,
-          boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+          boxShadow: CARD_SHADOW,
         }}
       >
         <div className="grid grid-cols-2 gap-2">
@@ -162,19 +184,19 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
                 transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
                 className="relative px-5 py-5 rounded-2xl text-left transition-colors"
                 style={{
-                  background: sel ? THEME.surfaceSel : THEME.surface,
+                  background: sel ? WARM.surfaceSel : WARM.surface,
                   border: sel ? BORDER_SEL : BORDER,
                 }}
               >
                 <div
                   className="font-serif text-[19px] leading-none tracking-[-0.01em]"
-                  style={{ color: sel ? THEME.deepGreen : THEME.textBody }}
+                  style={{ color: sel ? WARM.deepGreen : WARM.textBody }}
                 >
                   {opt.label}
                 </div>
                 <div
                   className="mt-2 text-[11px] tracking-wide"
-                  style={{ color: sel ? THEME.textMuted : THEME.textFaint }}
+                  style={{ color: sel ? WARM.textMuted : WARM.textFaint }}
                 >
                   {opt.sub}
                 </div>
@@ -182,7 +204,7 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
                   <motion.span
                     layoutId="vibe-group-dot"
                     className="absolute top-4 right-4 w-1.5 h-1.5 rounded-full"
-                    style={{ background: THEME.gold }}
+                    style={{ background: WARM.gold }}
                   />
                 )}
               </motion.button>
@@ -201,12 +223,12 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
             exit={{ opacity: 0, y: -6, transition: { duration: 0.18 } }}
             className="rounded-3xl p-6"
             style={{
-              background: THEME.surface,
+              background: WARM.surface,
               border: BORDER,
-              boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+              boxShadow: CARD_SHADOW,
             }}
           >
-            <p className="text-[11px] uppercase tracking-[0.22em] mb-5" style={{ color: THEME.textMuted }}>
+            <p className="text-[11px] uppercase tracking-[0.22em] mb-5" style={{ color: WARM.textMuted }}>
               Family composition
             </p>
 
@@ -244,9 +266,9 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
                     animate={{ opacity: 1, y: 0, transition: { duration: 0.28 } }}
                     exit={{ opacity: 0, y: -4, transition: { duration: 0.15 } }}
                     className="pt-2 border-t flex flex-col gap-3"
-                    style={{ borderColor: THEME.border }}
+                    style={{ borderColor: WARM.border }}
                   >
-                    <p className="text-[11px] uppercase tracking-[0.22em] pt-3" style={{ color: THEME.textMuted }}>
+                    <p className="text-[11px] uppercase tracking-[0.22em] pt-3" style={{ color: WARM.textMuted }}>
                       Children&apos;s ages
                     </p>
                     {familyChildAges.map((age, idx) => (
@@ -276,12 +298,12 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
             exit={{ opacity: 0, y: -6, transition: { duration: 0.18 } }}
             className="rounded-3xl p-6"
             style={{
-              background: THEME.surface,
+              background: WARM.surface,
               border: BORDER,
-              boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+              boxShadow: CARD_SHADOW,
             }}
           >
-            <p className="text-[11px] uppercase tracking-[0.22em] mb-5" style={{ color: THEME.textMuted }}>
+            <p className="text-[11px] uppercase tracking-[0.22em] mb-5" style={{ color: WARM.textMuted }}>
               Group size
             </p>
             <FieldRow label="Total travelers">
@@ -307,7 +329,7 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
             animate={{ opacity: 1, y: 0, transition: { duration: 0.34, ease: [0.22, 1, 0.36, 1] } }}
             exit={{ opacity: 0, y: -6, transition: { duration: 0.18 } }}
           >
-            <p className="text-[11px] uppercase tracking-[0.22em] mb-3" style={{ color: THEME.textMuted }}>
+            <p className="text-[11px] uppercase tracking-[0.22em] mb-3" style={{ color: WARM.textMuted }}>
               {groupType === 'solo'  && 'Style of travel'}
               {groupType === 'couple' && 'Style of travel'}
               {groupType === 'group'  && 'Group vibe'}
@@ -323,20 +345,20 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
                     transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
                     className="flex items-center justify-between px-5 py-4 rounded-2xl text-left transition-colors"
                     style={{
-                      background: sel ? THEME.surfaceSel : THEME.surface,
+                      background: sel ? WARM.surfaceSel : WARM.surface,
                       border: sel ? BORDER_SEL : BORDER,
                     }}
                   >
                     <div>
                       <div
                         className="font-serif text-[16px] leading-tight tracking-[-0.01em]"
-                        style={{ color: sel ? THEME.deepGreen : THEME.textBody }}
+                        style={{ color: sel ? WARM.deepGreen : WARM.textBody }}
                       >
                         {opt.label}
                       </div>
                       <div
                         className="text-[11px] mt-1 tracking-wide"
-                        style={{ color: sel ? THEME.textMuted : THEME.textFaint }}
+                        style={{ color: sel ? WARM.textMuted : WARM.textFaint }}
                       >
                         {opt.sub}
                       </div>
@@ -345,7 +367,7 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
                       <motion.span
                         layoutId="vibe-dynamics-dot"
                         className="w-1.5 h-1.5 rounded-full shrink-0 ml-3"
-                        style={{ background: THEME.gold }}
+                        style={{ background: WARM.gold }}
                       />
                     )}
                   </motion.button>
@@ -365,7 +387,7 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
             animate={{ opacity: 1, y: 0, transition: { duration: 0.36, ease: [0.22, 1, 0.36, 1] } }}
             exit={{ opacity: 0 }}
           >
-            <p className="text-[11px] uppercase tracking-[0.22em] mb-3" style={{ color: THEME.textMuted }}>
+            <p className="text-[11px] uppercase tracking-[0.22em] mb-3" style={{ color: WARM.textMuted }}>
               Pace
             </p>
             <div className="flex flex-col gap-2">
@@ -379,20 +401,20 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
                     transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
                     className="flex items-center justify-between px-5 py-4 rounded-2xl text-left transition-colors"
                     style={{
-                      background: sel ? THEME.surfaceSel : THEME.surface,
+                      background: sel ? WARM.surfaceSel : WARM.surface,
                       border: sel ? BORDER_SEL : BORDER,
                     }}
                   >
                     <div>
                       <div
                         className="font-serif text-[16px] leading-tight tracking-[-0.01em]"
-                        style={{ color: sel ? THEME.deepGreen : THEME.textBody }}
+                        style={{ color: sel ? WARM.deepGreen : WARM.textBody }}
                       >
                         {opt.label}
                       </div>
                       <div
                         className="text-[11px] mt-1 tracking-wide"
-                        style={{ color: sel ? THEME.textMuted : THEME.textFaint }}
+                        style={{ color: sel ? WARM.textMuted : WARM.textFaint }}
                       >
                         {opt.sub}
                       </div>
@@ -401,7 +423,7 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
                       <motion.span
                         layoutId="vibe-pace-dot"
                         className="w-1.5 h-1.5 rounded-full shrink-0 ml-3"
-                        style={{ background: THEME.gold }}
+                        style={{ background: WARM.gold }}
                       />
                     )}
                   </motion.button>
@@ -430,7 +452,7 @@ function FieldRow({
     <div className={`flex items-center justify-between ${compact ? '' : ''}`}>
       <label
         className="text-[13px] tracking-wide"
-        style={{ color: compact ? THEME.textMuted : THEME.deepGreen }}
+        style={{ color: compact ? WARM.textMuted : WARM.deepGreen }}
       >
         {label}
       </label>
@@ -455,21 +477,21 @@ function QuietSelect({
         onChange={(e) => onChange(e.target.value)}
         className="appearance-none bg-transparent text-[13px] pr-7 pl-3 py-2 rounded-lg transition-colors cursor-pointer"
         style={{
-          color: THEME.textBody,
+          color: WARM.textBody,
           border: BORDER,
-          background: THEME.surface,
+          background: WARM.surface,
           minWidth: 160,
         }}
       >
         {options.map((o) => (
-          <option key={o.value} value={o.value} style={{ background: '#fff', color: THEME.textBody }}>
+          <option key={o.value} value={o.value} style={{ background: '#fff', color: WARM.textBody }}>
             {o.label}
           </option>
         ))}
       </select>
       <span
         className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px]"
-        style={{ color: THEME.goldSoft }}
+        style={{ color: WARM.goldSoft }}
       >
         ▾
       </span>
