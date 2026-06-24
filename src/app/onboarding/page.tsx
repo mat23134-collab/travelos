@@ -599,9 +599,9 @@ function OnboardingPageContent() {
                   ? wizardStep === STEPS.length - 1 ? THEME.gold : THEME.ink
                   : THEME.border,
                 color: stepState.canContinue
-                  ? wizardStep === STEPS.length - 1 ? THEME.ink : '#FDFCF9'
+                  ? wizardStep === STEPS.length - 1 ? THEME.ink : '#faf3e8'
                   : THEME.textFaint,
-                boxShadow: stepState.canContinue ? '0 6px 18px -6px rgba(31,36,33,0.35)' : 'none',
+                boxShadow: stepState.canContinue ? '0 6px 18px -6px rgba(43,38,34,0.35)' : 'none',
                 opacity: stepState.canContinue ? 1 : 0.7,
                 cursor: stepState.canContinue ? 'pointer' : 'default',
               }}

@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/auth-context';
 import { BrandWordmark } from '@/components/BrandWordmark';
 import { supabaseAuth } from '@/lib/supabase';
+import { resolveBackgroundImage } from '@/lib/stepBackgrounds';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -28,22 +29,6 @@ function hotelInfoText(v: TripRow['hotel_info']): string {
 // ── Grain texture ─────────────────────────────────────────────────────────────
 const GRAIN = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
 
-// ── City emoji map ─────────────────────────────────────────────────────────────
-const CITY_EMOJI: Record<string, string> = {
-  rome: '🏛️', paris: '🗼', london: '🎡', tokyo: '⛩️', barcelona: '🌊',
-  nyc: '🗽', 'new york': '🗽', dubai: '🌆', bali: '🌴', amsterdam: '🚲',
-  athens: '🏺', budapest: '♨️', lisbon: '🛤️', marrakech: '🕌', kyoto: '⛩️',
-  singapore: '🌃', sydney: '🦘', istanbul: '🕌', prague: '🏰', vienna: '🎶',
-};
-
-function cityEmoji(destination: string): string {
-  const key = destination.toLowerCase();
-  for (const [city, emoji] of Object.entries(CITY_EMOJI)) {
-    if (key.includes(city)) return emoji;
-  }
-  return '✈️';
-}
-
 function formatDate(iso: string | null): string {
   if (!iso) return '';
   try {
@@ -59,10 +44,12 @@ function useTripPhoto(destination: string) {
 
   useEffect(() => {
     let cancelled = false;
-    const params = new URLSearchParams({ name: destination, city: destination });
-    fetch(`/api/place-photo?${params}`)
+    // /api/photos is Pexels-backed (cache → live) and covers every city, unlike
+    // /api/place-photo which needs a Google key that isn't configured.
+    const params = new URLSearchParams({ q: `${destination} skyline`, orientation: 'landscape' });
+    fetch(`/api/photos?${params}`)
       .then((r) => r.json())
-      .then((d) => { if (!cancelled) { setPhotoUrl(d.photoUrl ?? null); setLoading(false); } })
+      .then((d) => { if (!cancelled) { setPhotoUrl(d.url ?? null); setLoading(false); } })
       .catch(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [destination]);
@@ -74,10 +61,11 @@ function useTripPhoto(destination: string) {
 
 function TripCard({ trip, index }: { trip: TripRow; index: number }) {
   const shared = trip.shared === true;
-  const { photoUrl, loading } = useTripPhoto(trip.destination);
+  const { photoUrl } = useTripPhoto(trip.destination);
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError,  setImgError]  = useState(false);
-  const emoji = cityEmoji(trip.destination);
+  // Guaranteed curated city photo (city → country → rotating fallback) — never an emoji.
+  const fallbackPhoto = resolveBackgroundImage(trip.destination, index);
 
   return (
     <motion.div
@@ -86,24 +74,20 @@ function TripCard({ trip, index }: { trip: TripRow; index: number }) {
       transition={{ delay: index * 0.07, type: 'spring', stiffness: 340, damping: 28 }}
       className="rounded-3xl overflow-hidden flex flex-col group"
       style={{
-        background: 'rgba(255,255,255,0.035)',
-        border: '1px solid rgba(255,255,255,0.08)',
-        boxShadow: '0 4px 24px -8px rgba(0,0,0,0.5)',
+        background: '#fffdf7',
+        border: '1px solid rgba(43,38,34,0.08)',
+        boxShadow: '0 4px 16px rgba(43,38,34,0.08)',
       }}
     >
       {/* Photo header */}
       <div className="relative overflow-hidden" style={{ height: 160 }}>
-        {/* Skeleton */}
-        {loading && (
-          <div
-            className="absolute inset-0 animate-shimmer"
-            style={{
-              background: 'linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.07) 50%, rgba(255,255,255,0.03) 100%)',
-              backgroundSize: '200% 100%',
-            }}
-          />
-        )}
-        {/* Real photo */}
+        {/* Base — guaranteed curated city photo (never an emoji) */}
+        <img
+          src={fallbackPhoto}
+          alt={trip.destination}
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        {/* Enhancement — live place photo fades in over the base when available */}
         {photoUrl && !imgError && (
           <motion.img
             src={photoUrl}
@@ -116,19 +100,8 @@ function TripCard({ trip, index }: { trip: TripRow; index: number }) {
             onError={() => setImgError(true)}
           />
         )}
-        {/* Emoji fallback */}
-        {!loading && (!photoUrl || imgError) && (
-          <div
-            className="absolute inset-0 flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, rgba(158,54,58,0.14), rgba(15,40,98,0.22))' }}
-          >
-            <span className="text-6xl select-none">{emoji}</span>
-          </div>
-        )}
-        {/* Bottom gradient */}
-        {photoUrl && imgLoaded && !imgError && (
-          <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/80 to-transparent" />
-        )}
+        {/* Bottom gradient — always present for text readability */}
+        <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/80 to-transparent" />
         {/* Destination overlay */}
         <div className="absolute inset-x-0 bottom-0 px-4 pb-3 z-10">
           {shared && (
@@ -149,27 +122,27 @@ function TripCard({ trip, index }: { trip: TripRow; index: number }) {
         {/* Top neon rule */}
         <div
           className="absolute top-0 inset-x-0 h-px z-10"
-          style={{ background: 'linear-gradient(90deg, transparent 5%, rgba(158,54,58,0.7) 50%, transparent 95%)' }}
+          style={{ background: 'linear-gradient(90deg, transparent 5%, rgba(184,85,46,0.7) 50%, transparent 95%)' }}
         />
       </div>
 
       {/* Card body */}
       <div className="flex-1 p-4 flex flex-col gap-3">
         {hotelInfoText(trip.hotel_info) && (
-          <p className="text-[11px] text-white/35 flex items-center gap-1.5">
+          <p className="text-[11px] text-[#6b6358] flex items-center gap-1.5">
             <span>🏨</span>
             <span className="truncate">{hotelInfoText(trip.hotel_info)}</span>
           </p>
         )}
-        <p className="text-[10px] text-white/20 mt-auto">
+        <p className="text-[10px] text-[#9a8f7e] mt-auto">
           Saved {new Date(trip.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
         </p>
         <Link
           href={`/itinerary/${trip.id}`}
-          className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-xs font-bold text-white transition-all hover:brightness-115"
+          className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-xs font-bold text-[#8f4220] transition-all hover:brightness-105"
           style={{
-            background: 'linear-gradient(135deg, rgba(158,54,58,0.18), rgba(15,40,98,0.28))',
-            border: '1px solid rgba(158,54,58,0.28)',
+            background: 'linear-gradient(135deg, rgba(184,85,46,0.18), rgba(240,201,138,0.28))',
+            border: '1px solid rgba(184,85,46,0.28)',
           }}
         >
           View Trip →
@@ -266,28 +239,28 @@ export default function DashboardPage() {
   return (
     <main
       className="min-h-screen relative"
-      style={{ backgroundColor: '#0b1220' }}
+      style={{ backgroundColor: '#efe3cd' }}
     >
 
       {/* ── Header ────────────────────────────────────────────────────────────── */}
       <header
-        className="sticky top-0 z-40 flex items-center justify-between px-6 py-4 border-b border-white/6"
-        style={{ background: 'rgba(11,18,32,0.90)', backdropFilter: 'blur(16px)' }}
+        className="sticky top-0 z-40 flex items-center justify-between px-6 py-4 border-b border-[rgba(43,38,34,0.08)]"
+        style={{ background: 'rgba(247,241,231,0.92)', backdropFilter: 'blur(16px)' }}
       >
-        <Link href="/" className="text-lg text-white tracking-tight">
-          <BrandWordmark accent="#9e363a" className="text-lg" />
+        <Link href="/" className="text-lg text-[#2b2622] tracking-tight">
+          <BrandWordmark accent="#b8552e" className="text-lg" />
         </Link>
 
         <div className="flex items-center gap-3">
-          <span className="hidden sm:block text-xs text-white/60 truncate max-w-[180px]">
+          <span className="hidden sm:block text-xs text-[#6b6358] truncate max-w-[180px]">
             {user.email}
           </span>
           <Link
             href="/onboarding"
             className="px-4 py-2 rounded-xl text-xs font-bold text-white transition-all"
             style={{
-              background: 'linear-gradient(135deg, #9e363a, #b5404a)',
-              boxShadow: '0 4px 16px -4px rgba(158,54,58,0.40)',
+              background: 'linear-gradient(135deg, #b8552e, #cf6a3f)',
+              boxShadow: '0 4px 16px -4px rgba(184,85,46,0.40)',
             }}
           >
             + New Trip
@@ -295,8 +268,8 @@ export default function DashboardPage() {
           <button
             onClick={handleSignOut}
             disabled={signingOut}
-            className="px-3 py-2 rounded-xl text-xs font-semibold text-white/80 hover:text-white transition-colors"
-            style={{ border: '1px solid rgba(255,255,255,0.25)' }}
+            className="px-3 py-2 rounded-xl text-xs font-semibold text-[#6b6358] hover:text-[#2b2622] transition-colors"
+            style={{ border: '1px solid rgba(43,38,34,0.25)' }}
           >
             {signingOut ? '…' : 'Sign Out'}
           </button>
@@ -308,10 +281,10 @@ export default function DashboardPage() {
 
         {/* Page title */}
         <div className="mb-10">
-          <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight mb-1">
+          <h1 className="text-3xl sm:text-4xl font-black text-[#2b2622] tracking-tight mb-1">
             My Trips
           </h1>
-          <p className="text-white/35 text-sm">
+          <p className="text-[#6b6358] text-sm">
             {fetching ? 'Loading…' : fetchError ? 'Could not load your trips' : trips.length === 0
               ? 'No saved trips yet — generate your first one!'
               : `${trips.length} trip${trips.length !== 1 ? 's' : ''} saved`}
@@ -326,12 +299,12 @@ export default function DashboardPage() {
             className="flex flex-col items-center text-center py-24"
           >
             <div className="text-5xl mb-5">⚠️</div>
-            <h2 className="text-lg font-bold text-white mb-2">Couldn't load your trips</h2>
-            <p className="text-white/35 text-sm mb-8 max-w-xs">{fetchError}</p>
+            <h2 className="text-lg font-bold text-[#2b2622] mb-2">Couldn't load your trips</h2>
+            <p className="text-[#6b6358] text-sm mb-8 max-w-xs">{fetchError}</p>
             <button
               onClick={() => user && fetchTrips(user.id)}
               className="px-8 py-3 rounded-2xl text-sm font-bold text-white"
-              style={{ background: 'linear-gradient(135deg, #9e363a, #b5404a)', boxShadow: '0 8px 32px -4px rgba(158,54,58,0.40)' }}
+              style={{ background: 'linear-gradient(135deg, #b8552e, #cf6a3f)', boxShadow: '0 8px 32px -4px rgba(184,85,46,0.40)' }}
             >
               Retry
             </button>
@@ -346,12 +319,12 @@ export default function DashboardPage() {
               className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"
             >
               {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="rounded-3xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <div className="h-40 animate-shimmer" style={{ background: 'linear-gradient(90deg,rgba(255,255,255,0.03) 0%,rgba(255,255,255,0.07) 50%,rgba(255,255,255,0.03) 100%)', backgroundSize: '200% 100%' }} />
+                <div key={i} className="rounded-3xl overflow-hidden" style={{ background: 'rgba(43,38,34,0.03)', border: '1px solid rgba(43,38,34,0.06)' }}>
+                  <div className="h-40 animate-shimmer" style={{ background: 'linear-gradient(90deg,rgba(43,38,34,0.03) 0%,rgba(43,38,34,0.07) 50%,rgba(43,38,34,0.03) 100%)', backgroundSize: '200% 100%' }} />
                   <div className="p-4 space-y-3">
-                    <div className="h-4 rounded-full animate-pulse" style={{ background: 'rgba(255,255,255,0.06)', width: '60%' }} />
-                    <div className="h-3 rounded-full animate-pulse" style={{ background: 'rgba(255,255,255,0.04)', width: '40%' }} />
-                    <div className="h-9 rounded-xl animate-pulse" style={{ background: 'rgba(255,255,255,0.05)' }} />
+                    <div className="h-4 rounded-full animate-pulse" style={{ background: 'rgba(43,38,34,0.06)', width: '60%' }} />
+                    <div className="h-3 rounded-full animate-pulse" style={{ background: 'rgba(43,38,34,0.04)', width: '40%' }} />
+                    <div className="h-9 rounded-xl animate-pulse" style={{ background: 'rgba(43,38,34,0.05)' }} />
                   </div>
                 </div>
               ))}
@@ -367,16 +340,16 @@ export default function DashboardPage() {
             className="flex flex-col items-center text-center py-24"
           >
             <div className="text-6xl mb-6">🗺️</div>
-            <h2 className="text-xl font-bold text-white mb-2">No trips saved yet</h2>
-            <p className="text-white/35 text-sm mb-8 max-w-xs">
+            <h2 className="text-xl font-bold text-[#2b2622] mb-2">No trips saved yet</h2>
+            <p className="text-[#6b6358] text-sm mb-8 max-w-xs">
               Generate your first AI-crafted itinerary and it will appear here automatically.
             </p>
             <Link
               href="/onboarding"
               className="px-8 py-3.5 rounded-2xl text-sm font-bold text-white"
               style={{
-                background: 'linear-gradient(135deg, #9e363a, #b5404a)',
-                boxShadow: '0 8px 32px -4px rgba(158,54,58,0.40)',
+                background: 'linear-gradient(135deg, #b8552e, #cf6a3f)',
+                boxShadow: '0 8px 32px -4px rgba(184,85,46,0.40)',
               }}
             >
               Plan My First Trip ✈️

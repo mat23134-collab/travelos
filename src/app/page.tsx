@@ -18,11 +18,13 @@ import { resolveBackgroundImage } from '@/lib/stepBackgrounds';
 import { hasRequiredLegalConsent, requestLegalConsent } from '@/lib/legalConsent';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
-// Night palette — deep lounge, not pitch black
-const NIGHT   = '#0b1220';
-const NIGHT_2 = '#0f1929';
-const REDLINE = '#9e363a';
-const MUTED   = '#64748b';
+// Editorial Warmth palette — warm paper body, terracotta accent, ink text.
+// The cinematic hero stays dark (photo + scrim); the body sections are paper.
+const NIGHT   = '#efe3cd';   // warm paper — primary body section background
+const NIGHT_2 = '#e7dbc2';   // deeper warm sand — alternating section
+const REDLINE = '#b8552e';   // terracotta — primary warm accent (was maroon)
+const MUTED   = '#6b6358';   // warm muted text (ink-warm-mut)
+const INK     = '#2b2622';   // warm near-black — body text/headlines on paper
 
 function buildOnboardingHref(dest: Destination): string {
   const country = COUNTRIES.find((c) => c.cities.some((city) => city.name === dest.name));
@@ -195,7 +197,7 @@ export default function HomePage() {
   };
 
   return (
-    <main className="min-h-screen overflow-x-hidden" style={{ backgroundColor: NIGHT, color: '#fff' }}>
+    <main className="min-h-screen overflow-x-hidden" style={{ backgroundColor: NIGHT, color: INK }}>
 
       {/* ── Glassmorphism Nav ──────────────────────────────────────────────── */}
       <motion.nav
@@ -230,7 +232,7 @@ export default function HomePage() {
               <Link
                 href="/dashboard"
                 className="px-5 py-2.5 rounded-xl text-xs font-bold text-white transition-all duration-200 hover-lift-sm-brand"
-                style={{ background: REDLINE, boxShadow: `0 0 22px rgba(158,54,58,0.40)` }}
+                style={{ background: REDLINE, boxShadow: `0 0 22px rgba(184,85,46,0.40)` }}
               >
                 My Trips
               </Link>
@@ -312,7 +314,7 @@ export default function HomePage() {
               className="group inline-flex items-center gap-3 px-10 py-4 rounded-full font-bold text-sm text-white transition-all duration-200 hover-lift-brand"
               style={{
                 background: REDLINE,
-                boxShadow: `0 0 50px rgba(158,54,58,0.48), 0 4px 24px rgba(158,54,58,0.28)`,
+                boxShadow: `0 0 50px rgba(184,85,46,0.48), 0 4px 24px rgba(184,85,46,0.28)`,
                 letterSpacing: '-0.01em',
               }}
               onClick={openPlanningLanguageStep}
@@ -389,11 +391,11 @@ export default function HomePage() {
               </span>
             </div>
             <h2
-              className="font-black text-white mb-3"
+              className="font-black mb-3"
               style={{ fontSize: 'clamp(1.9rem, 4vw, 3rem)', letterSpacing: '-0.035em', maxWidth: 520 }}
             >
               Live the trip{' '}
-              <span style={{ color: 'rgba(255,255,255,0.18)' }}>you imagined.</span>
+              <span style={{ color: 'rgba(43,38,34,0.30)' }}>you imagined.</span>
             </h2>
             <p className="text-sm max-w-md leading-relaxed" style={{ color: MUTED }}>
               Pick a destination — each card is a real place, ready for your itinerary.
@@ -429,12 +431,12 @@ export default function HomePage() {
           </div>
 
           <h2
-            className="font-black text-white mb-16"
+            className="font-black mb-16"
             style={{ fontSize: 'clamp(1.9rem, 4vw, 3rem)', letterSpacing: '-0.035em' }}
           >
             From hotel to hero itinerary
             <br />
-            <span style={{ color: 'rgba(255,255,255,0.18)' }}>in three steps.</span>
+            <span style={{ color: 'rgba(43,38,34,0.30)' }}>in three steps.</span>
           </h2>
 
           <div className="grid sm:grid-cols-3 gap-12">
@@ -464,12 +466,12 @@ export default function HomePage() {
               >
                 <div
                   className="font-black font-mono mb-5 select-none"
-                  style={{ fontSize: '3.5rem', color: 'rgba(158,54,58,0.14)', letterSpacing: '-0.04em' }}
+                  style={{ fontSize: '3.5rem', color: 'rgba(184,85,46,0.14)', letterSpacing: '-0.04em' }}
                 >
                   {item.n}
                 </div>
                 <h3
-                  className="font-bold text-white mb-3"
+                  className="font-bold mb-3"
                   style={{ letterSpacing: '-0.015em' }}
                 >
                   {item.title}
@@ -498,7 +500,7 @@ export default function HomePage() {
           </div>
 
           <h2
-            className="font-black text-white mb-16"
+            className="font-black mb-16"
             style={{ fontSize: 'clamp(1.9rem, 4vw, 3rem)', letterSpacing: '-0.035em', maxWidth: 440 }}
           >
             Not another generic planner.
@@ -514,14 +516,14 @@ export default function HomePage() {
                 transition={{ delay: i * 0.08, type: 'spring', stiffness: 250, damping: 24 }}
                 className="p-8 rounded-3xl transition-all duration-300 cursor-default hover-feature-card"
                 style={{
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid rgba(255,255,255,0.06)',
-                  boxShadow: '0 4px 24px rgba(0,0,0,0.22)',
+                  background: '#fffdf7',
+                  border: '1px solid rgba(43,38,34,0.10)',
+                  boxShadow: '0 4px 16px rgba(43,38,34,0.08)',
                 }}
               >
                 <div className="text-3xl mb-5">{f.icon}</div>
                 <h3
-                  className="font-bold text-white mb-3"
+                  className="font-bold mb-3"
                   style={{ letterSpacing: '-0.015em' }}
                 >
                   {f.title}
@@ -543,12 +545,12 @@ export default function HomePage() {
         {/* Redline glow from below */}
         <div
           className="absolute inset-0 pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse 70% 50% at 50% 110%, rgba(158,54,58,0.15) 0%, transparent 65%)' }}
+          style={{ background: 'radial-gradient(ellipse 70% 50% at 50% 110%, rgba(184,85,46,0.15) 0%, transparent 65%)' }}
         />
         {/* Top hairline in Redline */}
         <div
           className="absolute top-0 inset-x-0 h-px"
-          style={{ background: 'linear-gradient(90deg, transparent 5%, rgba(158,54,58,0.45) 50%, transparent 95%)' }}
+          style={{ background: 'linear-gradient(90deg, transparent 5%, rgba(184,85,46,0.45) 50%, transparent 95%)' }}
         />
 
         <motion.div
@@ -570,12 +572,12 @@ export default function HomePage() {
           </div>
 
           <h2
-            className="font-black text-white mb-10 leading-[0.93]"
+            className="font-black mb-10 leading-[0.93]"
             style={{ fontSize: 'clamp(2.6rem, 6vw, 4.2rem)', letterSpacing: '-0.04em' }}
           >
             Travel smarter.
             <br />
-            <span style={{ color: 'rgba(255,255,255,0.18)' }}>Start in 60 seconds.</span>
+            <span style={{ color: 'rgba(43,38,34,0.30)' }}>Start in 60 seconds.</span>
           </h2>
 
           <Link
@@ -583,7 +585,7 @@ export default function HomePage() {
             className="inline-flex items-center gap-3 px-12 py-5 rounded-full font-bold text-sm text-white transition-all duration-200 hover-lift-brand-lg"
             style={{
               background: REDLINE,
-              boxShadow: `0 0 65px rgba(158,54,58,0.44), 0 4px 28px rgba(158,54,58,0.28)`,
+              boxShadow: `0 0 65px rgba(184,85,46,0.44), 0 4px 28px rgba(184,85,46,0.28)`,
               letterSpacing: '-0.01em',
             }}
             onClick={openPlanningLanguageStep}
@@ -601,12 +603,12 @@ export default function HomePage() {
       <footer
         className="flex flex-col sm:flex-row items-center justify-between px-8 py-8 gap-3"
         style={{
-          borderTop: '1px solid rgba(255,255,255,0.05)',
+          borderTop: '1px solid rgba(43,38,34,0.08)',
           backgroundColor: NIGHT,
         }}
       >
         <BrandWordmark accent={REDLINE} className="text-sm" />
-        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.18)' }}>
+        <p className="text-xs" style={{ color: MUTED }}>
           AI-powered travel intelligence · 2026
         </p>
       </footer>
@@ -637,9 +639,9 @@ export default function HomePage() {
               transition={{ type: 'spring', stiffness: 340, damping: 26 }}
               className="w-full max-w-md rounded-3xl p-8"
               style={{
-                background: NIGHT_2,
-                border: '1px solid rgba(255,255,255,0.08)',
-                boxShadow: '0 48px 100px rgba(0,0,0,0.60)',
+                background: '#fffdf7',
+                border: '1px solid rgba(43,38,34,0.10)',
+                boxShadow: '0 24px 60px -20px rgba(43,38,34,0.35)',
               }}
             >
               <h3
@@ -661,8 +663,8 @@ export default function HomePage() {
                 </Link>
                 <button
                   type="button"
-                  className="px-4 py-3 rounded-xl text-sm font-semibold text-white transition-colors hover-border-subtle"
-                  style={{ border: '1px solid rgba(255,255,255,0.12)' }}
+                  className="px-4 py-3 rounded-xl text-sm font-semibold transition-colors hover-border-subtle"
+                  style={{ border: '1px solid rgba(43,38,34,0.18)' }}
                   onClick={() => setShowAuthGate(false)}
                 >
                   Cancel
