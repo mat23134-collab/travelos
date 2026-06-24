@@ -208,7 +208,7 @@ function TimeAwareStep({
     >
       {/* Daily start time */}
       <div>
-        <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#9e363a' }}>
+        <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#b8552e' }}>
           When do you like to start exploring each day?
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -223,14 +223,14 @@ function TimeAwareStep({
                 whileTap={{ scale: 0.95 }}
                 animate={
                   sel
-                    ? { boxShadow: '0 0 0 2px #9e363a, 0 8px 24px -4px rgba(158,54,58,0.22)' }
+                    ? { boxShadow: '0 0 0 2px #b8552e, 0 8px 24px -4px rgba(184,85,46,0.22)' }
                     : { boxShadow: '0 4px 16px rgba(0,0,0,0.28)' }
                 }
                 transition={{ type: 'spring', stiffness: 450, damping: 22 }}
                 className="relative p-4 rounded-2xl border text-center transition-colors"
                 style={
                   sel
-                    ? { borderColor: '#9e363a', background: 'rgba(158,54,58,0.14)' }
+                    ? { borderColor: '#b8552e', background: 'rgba(184,85,46,0.14)' }
                     : { borderColor: 'rgba(255,255,255,0.10)', background: 'rgba(15,40,98,0.22)' }
                 }
               >
@@ -239,13 +239,13 @@ function TimeAwareStep({
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center"
-                    style={{ backgroundColor: '#9e363a' }}
+                    style={{ backgroundColor: '#b8552e' }}
                   >
                     <span className="text-white text-[9px] font-bold">✓</span>
                   </motion.div>
                 )}
                 <div className="text-2xl mb-1.5 leading-none">{opt.icon}</div>
-                <div className="text-xs font-semibold leading-tight" style={{ color: sel ? '#c05060' : 'rgba(255,255,255,0.85)' }}>
+                <div className="text-xs font-semibold leading-tight" style={{ color: sel ? '#cf6a3f' : 'rgba(255,255,255,0.85)' }}>
                   {opt.label}
                 </div>
                 <div className="text-[10px] mt-0.5" style={{ color: 'rgba(255,255,255,0.38)' }}>{opt.sub}</div>
@@ -265,7 +265,7 @@ function TimeAwareStep({
             boxShadow: '0 1px 6px rgba(0,0,0,0.20)',
           }}
         >
-          <label className="block text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#9e363a' }}>
+          <label className="block text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#b8552e' }}>
             נ›¬ Arrival time ג€” Day 1
           </label>
           <p className="text-[10px] mb-3 leading-relaxed" style={{ color: 'rgba(255,255,255,0.38)' }}>
@@ -281,7 +281,7 @@ function TimeAwareStep({
               background: 'rgba(255,255,255,0.06)',
               color: 'white',
             }}
-            onFocus={(e) => { e.currentTarget.style.borderColor = '#9e363a'; }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = '#b8552e'; }}
             onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'; }}
           />
         </div>
@@ -294,7 +294,7 @@ function TimeAwareStep({
             boxShadow: '0 1px 6px rgba(0,0,0,0.20)',
           }}
         >
-          <label className="block text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#9e363a' }}>
+          <label className="block text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#b8552e' }}>
             נ›« Departure time ג€” Last Day
           </label>
           <p className="text-[10px] mb-3 leading-relaxed" style={{ color: 'rgba(255,255,255,0.38)' }}>
@@ -310,7 +310,7 @@ function TimeAwareStep({
               background: 'rgba(255,255,255,0.06)',
               color: 'white',
             }}
-            onFocus={(e) => { e.currentTarget.style.borderColor = '#9e363a'; }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = '#b8552e'; }}
             onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'; }}
           />
         </div>
@@ -366,15 +366,15 @@ function AutoSubmitTripScreen({
       >
         {error ? (
           <>
-            <p className="text-sm font-bold mb-2" style={{ color: '#1a4a44' }}>Trip generation did not start</p>
-            <p className="text-xs leading-relaxed mb-5" style={{ color: '#3a6460' }}>
+            <p className="text-sm font-bold mb-2" style={{ color: '#2b2622' }}>Trip generation did not start</p>
+            <p className="text-xs leading-relaxed mb-5" style={{ color: '#6b6358' }}>
               {error}
             </p>
             <button
               type="button"
               onClick={onSubmit}
               className="w-full rounded-full px-5 py-3 text-sm font-black text-white"
-              style={{ background: 'linear-gradient(135deg, #9e363a, #b5404a)' }}
+              style={{ background: 'linear-gradient(135deg, #b8552e, #cf6a3f)' }}
             >
               Try building again →
             </button>
@@ -383,20 +383,20 @@ function AutoSubmitTripScreen({
           <>
             <motion.div
               className="mx-auto mb-5 h-14 w-14 rounded-2xl flex items-center justify-center text-2xl"
-              style={{ background: 'rgba(158,54,58,0.16)', border: '1px solid rgba(158,54,58,0.30)' }}
+              style={{ background: 'rgba(184,85,46,0.16)', border: '1px solid rgba(184,85,46,0.30)' }}
               animate={{ y: [0, -5, 0], rotate: [0, -3, 3, 0] }}
               transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
             >
               🧭
             </motion.div>
-            <p className="text-sm font-black" style={{ color: '#1a4a44' }}>Starting your trip build</p>
-            <p className="text-xs mt-2 leading-relaxed" style={{ color: '#3a6460' }}>
+            <p className="text-sm font-black" style={{ color: '#2b2622' }}>Starting your trip build</p>
+            <p className="text-xs mt-2 leading-relaxed" style={{ color: '#6b6358' }}>
               Preparing the AI request for {destination || 'your destination'}...
             </p>
             <div className="mt-5 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(90,173,165,0.20)' }}>
               <motion.div
                 className="h-full w-1/2 rounded-full"
-                style={{ background: 'linear-gradient(90deg, #9e363a, #b5404a)' }}
+                style={{ background: 'linear-gradient(90deg, #b8552e, #cf6a3f)' }}
                 animate={{ x: ['-110%', '230%'] }}
                 transition={{ duration: 1.3, repeat: Infinity, ease: 'easeInOut' }}
               />
@@ -1008,7 +1008,7 @@ function PlanPage() {
 
   const isFinishingStep = question.key === 'finishingTouches';
   const isLast = step === activeQuestions.length - 1;
-  const finishingAccent = '#9e363a';
+  const finishingAccent = '#b8552e';
 
   // Finishing step — same shell as onboarding (photo bg + glow + sticky footer)
   if (isFinishingStep) {
@@ -1087,8 +1087,8 @@ function PlanPage() {
             <div
               className="mb-6 rounded-2xl p-5"
               style={{
-                background: 'rgba(158,54,58,0.14)',
-                border: '1px solid rgba(158,54,58,0.40)',
+                background: 'rgba(184,85,46,0.14)',
+                border: '1px solid rgba(184,85,46,0.40)',
               }}
             >
               <p className="text-sm text-white mb-3">{genError}</p>
@@ -1096,7 +1096,7 @@ function PlanPage() {
                 type="button"
                 onClick={() => { setGenError(''); handleSubmit(); }}
                 className="w-full py-2.5 rounded-xl text-sm font-bold text-white"
-                style={{ background: 'linear-gradient(135deg, #9e363a, #b5404a)' }}
+                style={{ background: 'linear-gradient(135deg, #b8552e, #cf6a3f)' }}
               >
                 Try again →
               </button>
@@ -1132,7 +1132,7 @@ function PlanPage() {
               style={{
                 background: 'rgba(255,255,255,0.45)',
                 border: '1px solid rgba(90,173,165,0.35)',
-                color: '#3a6460',
+                color: '#6b6358',
               }}
             >
               ‹ Back
@@ -1144,8 +1144,8 @@ function PlanPage() {
               whileTap={{ scale: 0.97 }}
               className="flex-1 py-3.5 rounded-full text-sm font-black tracking-wide text-white"
               style={{
-                background: 'linear-gradient(135deg, #9e363a, #b5404a)',
-                boxShadow: '0 0 40px rgba(158,54,58,0.42), 0 8px 24px -4px rgba(158,54,58,0.28)',
+                background: 'linear-gradient(135deg, #b8552e, #cf6a3f)',
+                boxShadow: '0 0 40px rgba(184,85,46,0.42), 0 8px 24px -4px rgba(184,85,46,0.28)',
               }}
             >
               Generate My Itinerary ✨
@@ -1197,7 +1197,7 @@ function PlanPage() {
         style={{ background: 'rgba(90,173,165,0.90)', borderColor: 'rgba(255,255,255,0.20)' }}
       >
         <Link href="/" className="text-lg text-white tracking-tight">
-          <BrandWordmark accent="#9e363a" className="text-lg" />
+          <BrandWordmark accent="#b8552e" className="text-lg" />
         </Link>
         <span className="text-sm font-mono tabular-nums" style={{ color: 'rgba(255,255,255,0.4)' }}>
           {planStepNumber}<span style={{ color: 'rgba(255,255,255,0.18)' }}> / {planStepTotal}</span>
@@ -1208,7 +1208,7 @@ function PlanPage() {
       <div className="relative z-10 h-0.5" style={{ background: 'rgba(255,255,255,0.08)' }}>
         <motion.div
           className="h-full"
-          style={{ background: 'linear-gradient(90deg, #9e363a, #b5404a, #9e363a)' }}
+          style={{ background: 'linear-gradient(90deg, #b8552e, #cf6a3f, #b8552e)' }}
           animate={{ width: `${progress}%` }}
           transition={{ type: 'spring', stiffness: 200, damping: 30 }}
         />
@@ -1228,9 +1228,9 @@ function PlanPage() {
                 transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                 className="mb-6 rounded-2xl p-5"
                 style={{
-                  background: 'rgba(158,54,58,0.14)',
-                  border: '1px solid rgba(158,54,58,0.40)',
-                  boxShadow: '0 4px 24px -4px rgba(158,54,58,0.20)',
+                  background: 'rgba(184,85,46,0.14)',
+                  border: '1px solid rgba(184,85,46,0.40)',
+                  boxShadow: '0 4px 24px -4px rgba(184,85,46,0.20)',
                 }}
               >
                 <div className="flex items-start gap-3">
@@ -1251,8 +1251,8 @@ function PlanPage() {
                   whileTap={{ scale: 0.97 }}
                   className="mt-4 w-full py-2.5 rounded-xl text-sm font-bold text-white"
                   style={{
-                    background: 'linear-gradient(135deg, #9e363a 0%, #b5404a 100%)',
-                    boxShadow: '0 4px 16px -4px rgba(158,54,58,0.50)',
+                    background: 'linear-gradient(135deg, #b8552e 0%, #cf6a3f 100%)',
+                    boxShadow: '0 4px 16px -4px rgba(184,85,46,0.50)',
                   }}
                 >
                   Try again ג†’
@@ -1269,7 +1269,7 @@ function PlanPage() {
                 animate={{
                   width: i === step ? 20 : 6,
                   opacity: i <= step ? 1 : 0.4,
-                  backgroundColor: i <= step ? '#9e363a' : 'rgba(255,255,255,0.15)',
+                  backgroundColor: i <= step ? '#b8552e' : 'rgba(255,255,255,0.15)',
                 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 28 }}
                 className="h-1.5 rounded-full"
@@ -1294,7 +1294,7 @@ function PlanPage() {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.05 }}
                     className="text-xs font-semibold uppercase tracking-widest mb-2"
-                    style={{ color: '#9e363a' }}
+                    style={{ color: '#b8552e' }}
                   >
                     Step {planStepNumber}
                   </motion.div>
@@ -1332,7 +1332,7 @@ function PlanPage() {
                       borderColor: 'rgba(255,255,255,0.10)',
                       background: 'rgba(15,40,98,0.30)',
                     }}
-                    onFocus={(e) => { e.currentTarget.style.borderColor = '#9e363a'; e.currentTarget.style.boxShadow = '0 0 0 2px rgba(158,54,58,0.12)'; }}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = '#b8552e'; e.currentTarget.style.boxShadow = '0 0 0 2px rgba(184,85,46,0.12)'; }}
                     onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'; e.currentTarget.style.boxShadow = 'none'; }}
                   />
                 )}
@@ -1355,7 +1355,7 @@ function PlanPage() {
                             background: 'rgba(15,40,98,0.30)',
                             colorScheme: 'dark',
                           }}
-                          onFocus={(e) => { e.currentTarget.style.borderColor = '#9e363a'; }}
+                          onFocus={(e) => { e.currentTarget.style.borderColor = '#b8552e'; }}
                           onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'; }}
                           min={
                             key === 'endDate'
@@ -1419,21 +1419,21 @@ function PlanPage() {
                           whileTap={{ scale: 0.97 }}
                           animate={
                             selected
-                              ? { boxShadow: '0 0 0 2px #9e363a, 0 8px 24px -4px rgba(158,54,58,0.20)' }
+                              ? { boxShadow: '0 0 0 2px #b8552e, 0 8px 24px -4px rgba(184,85,46,0.20)' }
                               : { boxShadow: '0 4px 16px rgba(0,0,0,0.28)' }
                           }
                           transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                           className="text-left p-4 rounded-2xl border transition-colors"
                           style={
                             selected
-                              ? { borderColor: '#9e363a', background: 'rgba(158,54,58,0.14)' }
+                              ? { borderColor: '#b8552e', background: 'rgba(184,85,46,0.14)' }
                               : { borderColor: 'rgba(255,255,255,0.10)', background: 'rgba(15,40,98,0.22)' }
                           }
                         >
                           <div className="flex items-start gap-3">
                             {opt.icon && <span className="text-2xl mt-0.5 flex-shrink-0">{opt.icon}</span>}
                             <div>
-                              <div className="font-semibold text-sm" style={{ color: selected ? '#c05060' : 'rgba(255,255,255,0.92)' }}>
+                              <div className="font-semibold text-sm" style={{ color: selected ? '#cf6a3f' : 'rgba(255,255,255,0.92)' }}>
                                 {opt.label}
                               </div>
                               {opt.description && (
@@ -1445,7 +1445,7 @@ function PlanPage() {
                                 initial={{ scale: 0 }}
                                 animate={{ scale: 1 }}
                                 className="ml-auto w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
-                                style={{ backgroundColor: '#9e363a' }}
+                                style={{ backgroundColor: '#b8552e' }}
                               >
                                 <span className="text-white text-[10px]">✓</span>
                               </motion.div>
@@ -1481,19 +1481,19 @@ function PlanPage() {
                           whileTap={{ scale: 0.94 }}
                           animate={
                             selected
-                              ? { boxShadow: '0 0 0 2px #9e363a, 0 6px 20px -4px rgba(158,54,58,0.22)' }
+                              ? { boxShadow: '0 0 0 2px #b8552e, 0 6px 20px -4px rgba(184,85,46,0.22)' }
                               : { boxShadow: '0 4px 16px rgba(0,0,0,0.28)' }
                           }
                           transition={{ type: 'spring', stiffness: 450, damping: 22 }}
                           className="p-3 rounded-2xl border text-center transition-colors"
                           style={
                             selected
-                              ? { borderColor: '#9e363a', background: 'rgba(158,54,58,0.14)' }
+                              ? { borderColor: '#b8552e', background: 'rgba(184,85,46,0.14)' }
                               : { borderColor: 'rgba(255,255,255,0.10)', background: 'rgba(15,40,98,0.22)' }
                           }
                         >
                           <div className="text-xl mb-1.5">{opt.icon}</div>
-                          <div className="text-xs font-medium leading-tight" style={{ color: selected ? '#c05060' : 'rgba(255,255,255,0.70)' }}>
+                          <div className="text-xs font-medium leading-tight" style={{ color: selected ? '#cf6a3f' : 'rgba(255,255,255,0.70)' }}>
                             {opt.label}
                           </div>
                         </motion.button>
@@ -1512,7 +1512,7 @@ function PlanPage() {
                       borderColor: 'rgba(255,255,255,0.08)',
                       border: '1px solid rgba(255,255,255,0.08)',
                       background: 'rgba(15,40,98,0.28)',
-                      boxShadow: '0 8px 32px -8px rgba(158,54,58,0.08)',
+                      boxShadow: '0 8px 32px -8px rgba(184,85,46,0.08)',
                     }}
                   >
                     <div className="text-center mb-8">
@@ -1535,7 +1535,7 @@ function PlanPage() {
                       value={(form[question.key] as number) ?? 2}
                       onChange={(e) => setValue(question.key, Number(e.target.value))}
                       className="w-full cursor-pointer"
-                      style={{ accentColor: '#9e363a' }}
+                      style={{ accentColor: '#b8552e' }}
                     />
                     <div className="flex justify-between text-xs mt-2" style={{ color: 'rgba(255,255,255,0.35)' }}>
                       <span>{question.min}</span>
@@ -1570,7 +1570,7 @@ function PlanPage() {
                       borderColor: 'rgba(255,255,255,0.10)',
                       background: 'rgba(15,40,98,0.30)',
                     }}
-                    onFocus={(e) => { e.currentTarget.style.borderColor = '#9e363a'; e.currentTarget.style.boxShadow = '0 0 0 2px rgba(158,54,58,0.12)'; }}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = '#b8552e'; e.currentTarget.style.boxShadow = '0 0 0 2px rgba(184,85,46,0.12)'; }}
                     onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'; e.currentTarget.style.boxShadow = 'none'; }}
                   />
                 )}
@@ -1585,8 +1585,8 @@ function PlanPage() {
                     exit={{ opacity: 0, y: -8 }}
                     className="mb-4 px-4 py-3 rounded-xl text-sm"
                     style={{
-                      background: 'rgba(158,54,58,0.12)',
-                      border: '1px solid rgba(158,54,58,0.30)',
+                      background: 'rgba(184,85,46,0.12)',
+                      border: '1px solid rgba(184,85,46,0.30)',
                       color: '#ff8c8f',
                     }}
                   >
@@ -1617,8 +1617,8 @@ function PlanPage() {
                   whileTap={{ scale: continueDisabled ? 1 : 0.96 }}
                   className="relative px-8 py-3 rounded-full font-semibold text-sm text-white overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed"
                   style={{
-                    background: 'linear-gradient(135deg, #9e363a 0%, #7a2a2d 100%)',
-                    boxShadow: continueDisabled ? 'none' : '0 0 32px rgba(158,54,58,0.45), 0 8px 24px -4px rgba(158,54,58,0.35)',
+                    background: 'linear-gradient(135deg, #b8552e 0%, #7a2a2d 100%)',
+                    boxShadow: continueDisabled ? 'none' : '0 0 32px rgba(184,85,46,0.45), 0 8px 24px -4px rgba(184,85,46,0.35)',
                   }}
                 >
                   <span className="relative z-10">

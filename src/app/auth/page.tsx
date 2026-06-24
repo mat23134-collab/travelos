@@ -243,11 +243,11 @@ export default function AuthPage() {
       <Link
         href="/"
         className="absolute top-6 left-6 text-sm transition-colors flex items-center gap-1.5 z-10"
-        style={{ color: 'rgba(58,138,130,0.70)' }}
-        onMouseEnter={(e) => (e.currentTarget.style.color = 'rgba(58,138,130,1)')}
-        onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(58,138,130,0.70)')}
+        style={{ color: 'rgba(143,66,32,0.70)' }}
+        onMouseEnter={(e) => (e.currentTarget.style.color = 'rgba(143,66,32,1)')}
+        onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(143,66,32,0.70)')}
       >
-        ← <BrandWordmark accent="#9e363a" className="text-sm" />
+        ← <BrandWordmark accent="#b8552e" className="text-sm" />
       </Link>
 
       {/* Card */}
@@ -263,9 +263,9 @@ export default function AuthPage() {
             // Dark navy surface so the existing white form text stays readable
             // on top of the light teal/photo background. Teal border accent
             // preserves the new global theme.
-            background: 'rgba(9,31,54,0.92)',
+            background: 'rgba(38,30,24,0.92)',
             backdropFilter: 'blur(24px)',
-            border: '1px solid rgba(90,173,165,0.35)',
+            border: '1px solid rgba(184,85,46,0.35)',
             boxShadow: '0 32px 80px -16px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.06)',
           }}
         >
@@ -277,7 +277,7 @@ export default function AuthPage() {
           {/* Tab switcher */}
           <div
             className="flex rounded-xl p-1 mb-8"
-            style={{ background: 'rgba(90,173,165,0.14)', border: '1px solid rgba(90,173,165,0.28)' }}
+            style={{ background: 'rgba(184,85,46,0.14)', border: '1px solid rgba(184,85,46,0.28)' }}
           >
             {(['login', 'signup'] as Mode[]).map((m) => (
               <button
@@ -292,7 +292,7 @@ export default function AuthPage() {
                   <motion.div
                     layoutId="auth-tab-pill"
                     className="absolute inset-0 rounded-lg"
-                    style={{ background: 'rgba(158,54,58,0.22)', border: '1px solid rgba(158,54,58,0.35)' }}
+                    style={{ background: 'rgba(184,85,46,0.22)', border: '1px solid rgba(184,85,46,0.35)' }}
                     transition={{ type: 'spring', stiffness: 500, damping: 34 }}
                   />
                 )}
@@ -368,10 +368,10 @@ export default function AuthPage() {
                   style={{
                     color: '#222',
                     background: 'rgba(255,255,255,0.6)',
-                    border: '1px solid rgba(90,173,165,0.3)',
+                    border: '1px solid rgba(184,85,46,0.3)',
                   }}
-                  onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(90,173,165,0.7)'; e.currentTarget.style.background = 'rgba(255,255,255,0.85)'; }}
-                  onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(90,173,165,0.3)'; e.currentTarget.style.background = 'rgba(255,255,255,0.6)'; }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(184,85,46,0.7)'; e.currentTarget.style.background = 'rgba(255,255,255,0.85)'; }}
+                  onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(184,85,46,0.3)'; e.currentTarget.style.background = 'rgba(255,255,255,0.6)'; }}
                 />
               </div>
 
@@ -392,10 +392,10 @@ export default function AuthPage() {
                   style={{
                     color: '#222',
                     background: 'rgba(255,255,255,0.6)',
-                    border: '1px solid rgba(90,173,165,0.3)',
+                    border: '1px solid rgba(184,85,46,0.3)',
                   }}
-                  onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(90,173,165,0.7)'; e.currentTarget.style.background = 'rgba(255,255,255,0.85)'; }}
-                  onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(90,173,165,0.3)'; e.currentTarget.style.background = 'rgba(255,255,255,0.6)'; }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(184,85,46,0.7)'; e.currentTarget.style.background = 'rgba(255,255,255,0.85)'; }}
+                  onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(184,85,46,0.3)'; e.currentTarget.style.background = 'rgba(255,255,255,0.6)'; }}
                 />
               </div>
 
@@ -418,7 +418,7 @@ export default function AuthPage() {
                         background: 'rgba(255,255,255,0.05)',
                         border: '1px solid rgba(255,255,255,0.10)',
                       }}
-                      onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(158,54,58,0.55)'; e.currentTarget.style.background = 'rgba(158,54,58,0.07)'; }}
+                      onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(184,85,46,0.55)'; e.currentTarget.style.background = 'rgba(184,85,46,0.07)'; }}
                       onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
                     />
                     {usernameHint && (
@@ -454,7 +454,7 @@ export default function AuthPage() {
                         background: 'rgba(255,255,255,0.05)',
                         border: '1px solid rgba(255,255,255,0.10)',
                       }}
-                      onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(158,54,58,0.55)'; e.currentTarget.style.background = 'rgba(158,54,58,0.07)'; }}
+                      onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(184,85,46,0.55)'; e.currentTarget.style.background = 'rgba(184,85,46,0.07)'; }}
                       onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
                     />
                   </div>
@@ -473,7 +473,7 @@ export default function AuthPage() {
                           background: 'rgba(255,255,255,0.05)',
                           border: '1px solid rgba(255,255,255,0.10)',
                         }}
-                        onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(158,54,58,0.55)'; e.currentTarget.style.background = 'rgba(158,54,58,0.07)'; }}
+                        onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(184,85,46,0.55)'; e.currentTarget.style.background = 'rgba(184,85,46,0.07)'; }}
                         onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
                       >
                         <option value="male"   style={{ background: '#091f36', color: '#fff' }}>Male</option>
@@ -499,7 +499,7 @@ export default function AuthPage() {
                           background: 'rgba(255,255,255,0.05)',
                           border: '1px solid rgba(255,255,255,0.10)',
                         }}
-                        onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(158,54,58,0.55)'; e.currentTarget.style.background = 'rgba(158,54,58,0.07)'; }}
+                        onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(184,85,46,0.55)'; e.currentTarget.style.background = 'rgba(184,85,46,0.07)'; }}
                         onBlur={(e)  => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
                       />
                     </div>
@@ -514,7 +514,7 @@ export default function AuthPage() {
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="text-xs text-[#ff8c8f] px-3 py-2 rounded-xl overflow-hidden"
+                    className="text-xs text-[#f0c98a] px-3 py-2 rounded-xl overflow-hidden"
                     style={{ background: 'rgba(255,90,95,0.10)', border: '1px solid rgba(255,90,95,0.22)' }}
                   >
                     {error}
@@ -541,8 +541,8 @@ export default function AuthPage() {
                 <label
                   className="flex items-start gap-3 rounded-2xl border px-3.5 py-3 text-xs leading-relaxed"
                   style={{
-                    borderColor: legalAccepted ? 'rgba(158,54,58,0.35)' : 'rgba(255,255,255,0.10)',
-                    background: legalAccepted ? 'rgba(158,54,58,0.08)' : 'rgba(255,255,255,0.035)',
+                    borderColor: legalAccepted ? 'rgba(184,85,46,0.35)' : 'rgba(255,255,255,0.10)',
+                    background: legalAccepted ? 'rgba(184,85,46,0.08)' : 'rgba(255,255,255,0.035)',
                     color: 'rgba(255,255,255,0.58)',
                   }}
                 >
@@ -579,8 +579,8 @@ export default function AuthPage() {
                 whileTap={{ scale: 0.97 }}
                 className="w-full py-3.5 rounded-xl text-sm font-bold text-white relative overflow-hidden transition-opacity disabled:opacity-60 mt-1"
                 style={{
-                  background: 'linear-gradient(135deg, #9e363a 0%, #b5404a 100%)',
-                  boxShadow: '0 8px 32px -4px rgba(158,54,58,0.40)',
+                  background: 'linear-gradient(135deg, #b8552e 0%, #cf6a3f 100%)',
+                  boxShadow: '0 8px 32px -4px rgba(184,85,46,0.40)',
                 }}
               >
                 {/* Shimmer sweep */}
@@ -607,7 +607,7 @@ export default function AuthPage() {
             {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
             <button
               onClick={() => switchMode(mode === 'login' ? 'signup' : 'login')}
-              className="font-semibold transition-colors hover-text-brand" style={{ color: '#c05060' }}
+              className="font-semibold transition-colors hover-text-brand" style={{ color: '#cf6a3f' }}
             >
               {mode === 'login' ? 'Sign up free' : 'Log in'}
             </button>

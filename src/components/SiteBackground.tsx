@@ -36,7 +36,7 @@ export function SiteBackground() {
       <div
         aria-hidden
         className="fixed inset-0 pointer-events-none"
-        style={{ zIndex: -19, background: 'rgba(180,228,222,0.82)' }}
+        style={{ zIndex: -19, background: 'rgba(243,236,221,0.82)' }}
       />
 
       <div
