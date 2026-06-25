@@ -16,7 +16,7 @@ import { TrendingTicker } from '@/components/TrendingTicker';
 import { TripStoryCube } from '@/components/TripStoryCube';
 import { FeedbackSurveyModal, type FeedbackPayload } from '@/components/FeedbackSurveyModal';
 import { itineraryUi, type ItineraryUiStrings } from '@/lib/tripUiCopy';
-import { hotelOtaSearchUrl, mergeHotelOtaRows, isOtaSoldOut, hasBookableOtaRate, type HotelOtaLinkOpts } from '@/lib/hotelOtaLinks';
+import { hotelOtaSearchUrl, mergeHotelOtaRows, isOtaSoldOut, hasBookableOtaRate, otaPartyFromProfile, type HotelOtaLinkOpts } from '@/lib/hotelOtaLinks';
 
 /** Strip trailing "/night" variants the AI sometimes appends to indicativeNightly
  *  so we don't double-up when we add our own "· /night (est.)" suffix. */
@@ -93,8 +93,8 @@ function HotelDetailCube({
 }) {
   const checkIn = profile?.startDate?.slice(0, 10);
   const checkOut = profile?.endDate?.slice(0, 10);
-  const adults = profile?.groupSize && profile.groupSize > 0 ? profile.groupSize : 2;
-  const otaOpts = { checkIn, checkOut, adults };
+  const party = otaPartyFromProfile(profile);
+  const otaOpts = { checkIn, checkOut, adults: party.adults, children: party.children };
   const otaRows = activeOtaRowsForHotel(hotel);
   const reviewsHref = `https://www.google.com/search?q=${encodeURIComponent(`${hotel.name} hotel ${destination} reviews`)}`;
   const stars = starRow(hotel.ratingStars);
@@ -539,7 +539,7 @@ function HotelCard({
   // ── Pricing helpers ──
   const checkIn  = profile?.startDate?.slice(0, 10);
   const checkOut = profile?.endDate?.slice(0, 10);
-  const adults   = profile?.groupSize && profile.groupSize > 0 ? profile.groupSize : 2;
+  const party    = otaPartyFromProfile(profile);
 
   const nights = useMemo(() => {
     if (!checkIn || !checkOut) return null;
@@ -576,7 +576,7 @@ function HotelCard({
       : null;
 
   // OTA deep-link URLs (dates + party size pre-filled)
-  const otaOpts = { checkIn, checkOut, adults };
+  const otaOpts = { checkIn, checkOut, adults: party.adults, children: party.children };
 
   // Only render links for OTAs that the AI actually returned data for
   const activeOtaRows = otaRows.filter((r) => r.hasData);
