@@ -275,6 +275,14 @@ function OnboardingPageContent() {
   const tripLang = readTripLanguagePref() ?? 'en';
   const ui = onboardingUi(tripLang);
 
+  // Grid-heavy steps (Destination, Our Picks) spread across the full screen on
+  // desktop; form steps stay centered at a readable width. Mobile is full-width
+  // either way. This is what drives the responsive desktop ↔ mobile layout.
+  const isWideStep = wizardStep === 0 || wizardStep === STEPS.length - 1;
+  const shellWidth = isWideStep
+    ? 'max-w-xl lg:max-w-none lg:px-12 xl:px-20'
+    : 'max-w-xl';
+
   const stepCopy = getStepCopy(wizardStep, {
     cityName:  cities[0]?.name ?? (destination.trim() || null),
     nights:    nightCount,
@@ -425,7 +433,7 @@ function OnboardingPageContent() {
       </div>
 
       {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <div className="relative z-10 max-w-xl mx-auto px-5 sm:px-8 pt-8">
+      <div className={`relative z-10 ${shellWidth} mx-auto px-5 sm:px-8 pt-8`}>
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
             {/* Back arrow */}
@@ -487,7 +495,7 @@ function OnboardingPageContent() {
             initial="enter"
             animate="center"
             exit="exit"
-            className="max-w-xl mx-auto px-5 sm:px-8 pb-40"
+            className={`${shellWidth} mx-auto px-5 sm:px-8 pb-40`}
           >
             <Suspense fallback={<StepSkeleton />}>
 
@@ -558,7 +566,7 @@ function OnboardingPageContent() {
           paddingTop: 36,
         }}
       >
-        <div className="max-w-xl mx-auto px-5 sm:px-8 pb-8 flex items-center gap-3">
+        <div className="max-w-xl lg:max-w-3xl mx-auto px-5 sm:px-8 pb-8 flex items-center gap-3">
 
           {/* Back */}
           <AnimatePresence>

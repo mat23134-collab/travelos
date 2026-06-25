@@ -279,9 +279,9 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
   return (
     <div className="flex flex-col gap-6">
 
-      {/* Country search */}
+      {/* Country search — capped so it doesn't span the full-bleed grid width */}
       <div
-        className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl"
+        className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl w-full max-w-2xl"
         style={{ background: THEME.surface, border: `1px solid ${THEME.border}` }}
       >
         <Search size={16} strokeWidth={1.75} style={{ color: THEME.textMuted }} className="shrink-0" />
@@ -300,13 +300,11 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
         )}
       </div>
 
-      {/* Country grid */}
+      {/* Country grid — scrollable, with a bottom fade so "more below" reads clearly */}
+      <div className="relative">
       <div
-        className="grid grid-cols-2 sm:grid-cols-3 gap-3 overflow-y-auto pr-1"
-        style={{
-          maxHeight: '320px',
-          scrollbarWidth: 'thin',
-        }}
+        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 overflow-y-auto pr-1 max-h-[340px] lg:max-h-[58vh]"
+        style={{ scrollbarWidth: 'thin' }}
       >
         {filtered.map((c, i) => (
           <motion.div
@@ -325,8 +323,17 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
         ))}
         {filtered.length === 0 && (
           <p className="col-span-full text-sm text-center py-6" style={{ color: THEME.textMuted }}>
-            No countries found for &ldquo;{search}&rdquo;
+            {he ? `לא נמצאו מדינות עבור "${search}"` : `No countries found for “${search}”`}
           </p>
+        )}
+      </div>
+        {/* Scroll affordance — fade hints there's more to scroll */}
+        {filtered.length > 6 && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-10 rounded-b-2xl"
+            style={{ background: 'linear-gradient(to top, rgba(239,227,205,0.95), rgba(239,227,205,0))' }}
+          />
         )}
       </div>
 
@@ -415,7 +422,7 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
               <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: THEME.textMuted }}>
                 {he ? 'פופולרי ב-' : 'Popular in '}{country}
               </p>
-              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7">
                 {selectedCountry.cities.map((city) => (
                   <CityChip
                     key={city.name}
