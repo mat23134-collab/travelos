@@ -159,7 +159,7 @@ export function TopSightsSection() {
                   >
                     {t(label)}
                   </p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                     {items.map((landmark) => (
                       <CuboidCard
                         key={landmark.id}
@@ -603,7 +603,7 @@ function CategorySkeleton({ label }: { label: string }) {
       <p className="text-[11px] uppercase tracking-[0.22em] mb-3" style={{ color: THEME.textMuted }}>
         {t(label)}
       </p>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
         {[0, 1, 2, 3].map((i) => (
           <div
             key={i}
