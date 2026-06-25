@@ -33,6 +33,11 @@ export function bookingHotelSearchUrl(
   if (ci && /^\d{4}-\d{2}-\d{2}$/.test(ci)) params.set('checkin', ci);
   if (co && /^\d{4}-\d{2}-\d{2}$/.test(co)) params.set('checkout', co);
   params.set('group_adults', String(adultsParam(opts?.adults)));
+  // Without an explicit room/children count Booking often lands on its
+  // "not available for your dates" interstitial instead of live results;
+  // setting them makes the deep-link resolve straight to bookable rooms.
+  params.set('no_rooms', '1');
+  params.set('group_children', '0');
   return `https://www.booking.com/searchresults.html?${params.toString()}`;
 }
 
