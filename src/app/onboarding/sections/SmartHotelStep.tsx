@@ -28,7 +28,37 @@ import type { LucideIcon } from 'lucide-react';
 import { useOnboardingStore } from '@/state/onboardingStore';
 import { getHotelPersonalization } from '@/lib/hotelPersonalization';
 import { THEME, CARD } from '@/lib/onboardingTheme';
+import { readTripLanguagePref } from '@/lib/tripLanguagePref';
 import type { AccommodationType, HotelAmenity, HotelLocationPref } from '@/lib/types';
+
+// Hebrew translations for this step's chrome. Prices use Unicode isolates
+// (LRI…PDI) so "$80–$150" stays LTR inside an RTL line.
+const HE: Record<string, string> = {
+  // Accommodation
+  'Hostel / Guesthouse': 'אכסניה / בית הארחה', 'Social, affordable, central': 'חברתי, זול, מרכזי',
+  'Boutique Hotel': 'מלון בוטיק', 'Character-driven, local feel': 'אופי ייחודי, תחושה מקומית',
+  'Luxury Hotel': 'מלון יוקרה', '5-star service & amenities': 'שירות 5 כוכבים ומתקנים',
+  'Apartment / Airbnb': 'דירה / Airbnb', 'Live like a local, full kitchen': 'לחיות כמו מקומי, מטבח מלא',
+  'Resort': 'ריזורט', 'Self-contained, pool, curated': 'הכל-כלול, בריכה, מוקפד',
+  // Nightly budget
+  'Up to $80': 'עד ⁦$80⁩', '$80 - $150': '⁦$80–$150⁩', '$150 - $300': '⁦$150–$300⁩', '$300+': '⁦$300+⁩',
+  // Locations + sublabels
+  'City center': 'מרכז העיר', 'Walk to attractions': 'הליכה לאטרקציות', 'Walk to everything': 'הליכה לכל מקום',
+  'Quiet area': 'אזור שקט', 'Safe, residential': 'בטוח, מגורים', 'Intimate neighbourhood': 'שכונה אינטימית', 'Residential, calm': 'מגורים, רגוע',
+  'Near transit': 'ליד תחבורה', 'Easy to get around': 'קל להתנייד', 'Metro at your door': 'מטרו בפתח',
+  'Nature / parks': 'טבע / פארקים', 'Kids love the outdoors': 'ילדים אוהבים טבע', 'Scenic surroundings': 'נוף סובב', 'Green surroundings': 'סביבה ירוקה',
+  // Amenities
+  'Breakfast': 'ארוחת בוקר', 'Pool': 'בריכה', 'Workspace': 'חלל עבודה', 'Gym': 'חדר כושר', 'Parking': 'חניה',
+  'Spa': 'ספא', 'Suite / extra space': 'סוויטה / מקום נוסף', 'Rooftop': 'גג', 'Pet-friendly': 'ידידותי לחיות',
+  // Path selector
+  'I already have a hotel': 'כבר יש לי מלון', 'Let me enter it': 'אני אזין אותו',
+  'Help me choose': 'עזרו לי לבחור', 'Set my preferences': 'הגדירו את ההעדפות שלי',
+  // Headers + buttons + errors
+  'What kind of place?': 'איזה סוג מקום?', 'Nightly budget per room': 'תקציב ללילה לחדר',
+  'Where in the city?': 'איפה בעיר?', 'Must-haves?': 'חובה לכם?', 'pick any': 'בחרו',
+  'Find': 'חפש', "Skip — I don't have a hotel": 'דלגו — אין לי מלון',
+  'Hotel not found — try a different name or address': 'המלון לא נמצא — נסו שם או כתובת אחרים',
+};
 
 const reveal = {
   hidden:  { opacity: 0, y: 12 },
@@ -137,6 +167,9 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
     setHotelLocationPref, toggleHotelAmenity, skipHotel,
     destination, groupType, groupDynamics, budget,
   } = useOnboardingStore();
+
+  const he = (readTripLanguagePref() ?? 'en') === 'he';
+  const t = (s: string) => (he ? (HE[s] ?? s) : s);
 
   function handleSkip() {
     // Clear all hotel state AND flag the step as skipped so the itinerary
@@ -257,8 +290,8 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
               <Icon size={18} strokeWidth={1.75} style={{ color: sel ? THEME.gold : THEME.textMuted }} className="shrink-0" />
               <div>
                 <p className="text-sm font-bold leading-tight"
-                  style={{ color: sel ? THEME.deepGreen : THEME.textBody }}>{label}</p>
-                <p className="text-[11px] mt-0.5" style={{ color: THEME.textMuted }}>{sub}</p>
+                  style={{ color: sel ? THEME.deepGreen : THEME.textBody }}>{t(label)}</p>
+                <p className="text-[11px] mt-0.5" style={{ color: THEME.textMuted }}>{t(sub)}</p>
               </div>
             </motion.button>
           );
@@ -286,7 +319,7 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
                     <Hotel size={16} strokeWidth={1.75} style={{ color: THEME.textMuted }} className="shrink-0" />
                     <input
                       type="text"
-                      placeholder={`Hotel name or address in ${destination || 'your destination'}…`}
+                      placeholder={he ? `שם או כתובת מלון ב-${destination || 'יעד'}…` : `Hotel name or address in ${destination || 'your destination'}…`}
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -302,7 +335,7 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
                     className="px-4 py-3 rounded-xl text-sm font-bold disabled:opacity-40"
                     style={{ background: THEME.gold, color: THEME.ink }}
                   >
-                    {searchStatus === 'loading' ? '…' : 'Find'}
+                    {searchStatus === 'loading' ? '…' : t('Find')}
                   </motion.button>
                 </motion.div>
               ) : (
@@ -333,7 +366,7 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
                 <motion.p variants={reveal} initial="hidden" animate="visible" exit="exit"
                   className="text-sm px-4 py-2.5 rounded-xl"
                   style={{ background: 'rgba(180,60,60,0.08)', color: '#b43c3c', border: '1px solid rgba(180,60,60,0.20)' }}>
-                  {errMsg}
+                  {t(errMsg)}
                 </motion.p>
               )}
             </AnimatePresence>
@@ -349,7 +382,7 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
             {/* Block 1: Accommodation type */}
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: THEME.textMuted }}>
-                What kind of place?
+                {t('What kind of place?')}
               </p>
               <div className="flex flex-col gap-2">
                 {config.accomOrder.map((type, i) => {
@@ -377,8 +410,8 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
                       <Icon size={18} strokeWidth={1.75} style={{ color: sel ? THEME.gold : THEME.textMuted }} className="shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold leading-tight"
-                          style={{ color: sel ? THEME.deepGreen : THEME.textBody }}>{base.label}</p>
-                        <p className="text-[11px] mt-0.5" style={{ color: THEME.textMuted }}>{desc}</p>
+                          style={{ color: sel ? THEME.deepGreen : THEME.textBody }}>{t(base.label)}</p>
+                        <p className="text-[11px] mt-0.5" style={{ color: THEME.textMuted }}>{t(desc)}</p>
                       </div>
                     </motion.button>
                   );
@@ -394,7 +427,7 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
                   animate={{ opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] as const } }}
                   exit={{ opacity: 0 }}>
                   <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: THEME.textMuted }}>
-                    Nightly budget per room
+                    {t('Nightly budget per room')}
                   </p>
                   <div className="grid grid-cols-2 gap-2.5">
                     {visibleNightlyOptions.map((opt) => {
@@ -411,7 +444,7 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
                         >
                           <Icon size={18} strokeWidth={1.75} style={{ color: sel ? THEME.gold : THEME.textMuted }} className="shrink-0" />
                           <span className="text-xs font-semibold leading-tight"
-                            style={{ color: sel ? THEME.deepGreen : THEME.textBody }}>{opt.label}</span>
+                            style={{ color: sel ? THEME.deepGreen : THEME.textBody }}>{t(opt.label)}</span>
                         </motion.button>
                       );
                     })}
@@ -428,7 +461,7 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
                   animate={{ opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] as const } }}
                   exit={{ opacity: 0 }}>
                   <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: THEME.textMuted }}>
-                    Where in the city?
+                    {t('Where in the city?')}
                   </p>
                   <div className="grid grid-cols-2 gap-2">
                     {config.locationOrder.map((loc) => {
@@ -447,9 +480,9 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
                           <Icon size={18} strokeWidth={1.75} style={{ color: sel ? THEME.gold : THEME.textMuted }} className="shrink-0" />
                           <div>
                             <p className="text-xs font-semibold leading-tight"
-                              style={{ color: sel ? THEME.deepGreen : THEME.textBody }}>{opt.label}</p>
+                              style={{ color: sel ? THEME.deepGreen : THEME.textBody }}>{t(opt.label)}</p>
                             <p className="text-[10px] mt-0.5" style={{ color: THEME.textFaint }}>
-                              {opt.subLabel(groupType)}
+                              {t(opt.subLabel(groupType))}
                             </p>
                           </div>
                         </motion.button>
@@ -468,8 +501,8 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
                   animate={{ opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] as const } }}
                   exit={{ opacity: 0 }}>
                   <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: THEME.textMuted }}>
-                    Must-haves?{' '}
-                    <span className="normal-case font-normal">pick any</span>
+                    {t('Must-haves?')}{' '}
+                    <span className="normal-case font-normal">{t('pick any')}</span>
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {orderedAmenities.map((amenity) => {
@@ -489,7 +522,7 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
                           }
                         >
                           <Icon size={14} strokeWidth={1.75} style={{ color: sel ? THEME.gold : THEME.textMuted }} />
-                          <span>{opt.label}</span>
+                          <span>{t(opt.label)}</span>
                         </motion.button>
                       );
                     })}
@@ -515,7 +548,7 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
           color: THEME.textMuted,
         }}
       >
-        Skip — I don&apos;t have a hotel
+        {he ? 'דלגו — אין לי מלון' : "Skip — I don't have a hotel"}
       </motion.button>
 
     </div>

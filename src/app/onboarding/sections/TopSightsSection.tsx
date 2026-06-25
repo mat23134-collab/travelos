@@ -21,7 +21,36 @@ import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useOnboardingStore } from '@/state/onboardingStore';
 import { THEME } from '@/lib/onboardingTheme';
+import { readTripLanguagePref } from '@/lib/tripLanguagePref';
 import type { Landmark } from '@/app/api/landmarks/route';
+
+// Hebrew chrome for this step. Landmark / scanned-item names are place names —
+// kept verbatim. Module-level `t` so every sub-component can use it.
+const HE: Record<string, string> = {
+  'Sightseeing': 'אתרים', 'History': 'היסטוריה', 'Local Food': 'אוכל מקומי',
+  '✓ Added to my picks · Tap to remove': '✓ נוסף לבחירות · הקישו להסרה',
+  '+ Add to my picks': '+ הוסיפו לבחירות שלי',
+  'Already have a list of your own?': 'כבר יש לכם רשימה משלכם?',
+  "Upload a photo of any notes — a screenshot, a handwritten list, anything — and we'll pull out the highlights and weave the ones that fit into your itinerary.":
+    'העלו תמונה של פתקים — צילום מסך, רשימה בכתב יד, כל דבר — ונחלץ את העיקר ונשלב את מה שמתאים במסלול שלכם.',
+  'Start over': 'התחל מחדש',
+  'Upload a photo of your notes': 'העלו תמונה של הפתקים שלכם',
+  'Reading your photo…': 'קורא את התמונה…',
+  'Scanning for things you mentioned…': 'סורק דברים שהזכרתם…',
+  'Something went wrong — try again.': 'משהו השתבש — נסו שוב.',
+  "We couldn't make out any specific places or activities in that photo. Try a clearer shot, or skip this.":
+    'לא הצלחנו לזהות מקומות או פעילויות בתמונה. נסו צילום ברור יותר, או דלגו.',
+  'Found in your photo — tap to keep or remove': 'נמצא בתמונה — הקישו לשמירה או הסרה',
+  'Skip this step — your itinerary will be built from your earlier answers and live web intelligence.':
+    'אפשר לדלג — המסלול ייבנה מהתשובות הקודמות שלכם וממודיעין אינטרנט חי.',
+  "Kept items join your must-haves above — we'll fit them into the plan where they make sense.":
+    'פריטים שנשמרו מצטרפים למסטים למעלה — נשבץ אותם במסלול היכן שמתאים.',
+  'Please upload a JPEG, PNG, WEBP, or GIF image.': 'אנא העלו תמונת JPEG, PNG, WEBP או GIF.',
+  'That image is a bit large — try one under 8 MB.': 'התמונה גדולה מדי — נסו אחת מתחת ל-8MB.',
+  'Could not read that file — try a different photo.': 'לא ניתן לקרוא את הקובץ — נסו תמונה אחרת.',
+  'Could not read that image — try a clearer photo.': 'לא ניתן לקרוא את התמונה — נסו צילום ברור יותר.',
+};
+const t = (s: string) => ((readTripLanguagePref() ?? 'en') === 'he' ? (HE[s] ?? s) : s);
 
 const MAX_NOTE_IMAGE_BYTES = 8 * 1024 * 1024; // 8 MB — matches /api/scan-notes cap
 const ACCEPTED_NOTE_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -85,10 +114,12 @@ export function TopSightsSection() {
           style={{ background: THEME.surface, border: BORDER }}
         >
           <p className="font-serif text-[18px] leading-tight" style={{ color: THEME.deepGreen }}>
-            We don&apos;t have curated picks for {destination || 'this city'} yet.
+            {(readTripLanguagePref() ?? 'en') === 'he'
+              ? `עדיין אין לנו בחירות מובחרות ל-${destination || 'העיר הזו'}.`
+              : `We don't have curated picks for ${destination || 'this city'} yet.`}
           </p>
           <p className="mt-2 text-[12px] tracking-wide" style={{ color: THEME.textMuted }}>
-            Skip this step — your itinerary will be built from your earlier answers and live web intelligence.
+            {t('Skip this step — your itinerary will be built from your earlier answers and live web intelligence.')}
           </p>
         </div>
       )}
@@ -126,7 +157,7 @@ export function TopSightsSection() {
                     className="text-[11px] uppercase tracking-[0.22em] mb-3"
                     style={{ color: THEME.textMuted }}
                   >
-                    {label}
+                    {t(label)}
                   </p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {items.map((landmark) => (
@@ -361,7 +392,7 @@ function LandmarkDetailPopup({
               : { background: THEME.deepGreen, color: '#fff', border: `1px solid ${THEME.deepGreen}` }
             }
           >
-            {selected ? '✓ Added to my picks · Tap to remove' : '+ Add to my picks'}
+            {selected ? t('✓ Added to my picks · Tap to remove') : t('+ Add to my picks')}
           </motion.button>
         </div>
       </motion.div>
@@ -456,11 +487,10 @@ function NoteScanner({ destination }: { destination: string }) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="font-serif text-[16px] leading-tight" style={{ color: THEME.deepGreen }}>
-            Already have a list of your own?
+            {t('Already have a list of your own?')}
           </p>
           <p className="mt-1.5 text-[12px] leading-snug tracking-wide" style={{ color: THEME.textMuted }}>
-            Upload a photo of any notes — a screenshot, a handwritten list, anything — and
-            we&apos;ll pull out the highlights and weave the ones that fit into your itinerary.
+            {t("Upload a photo of any notes — a screenshot, a handwritten list, anything — and we'll pull out the highlights and weave the ones that fit into your itinerary.")}
           </p>
         </div>
         {status !== 'idle' && (
@@ -470,7 +500,7 @@ function NoteScanner({ destination }: { destination: string }) {
             className="shrink-0 text-[11px] tracking-wide underline underline-offset-2"
             style={{ color: THEME.textFaint }}
           >
-            Start over
+            {t('Start over')}
           </button>
         )}
       </div>
@@ -491,7 +521,7 @@ function NoteScanner({ destination }: { destination: string }) {
           style={{ border: `1px dashed ${THEME.textFaint}`, color: THEME.textMuted }}
         >
           <span aria-hidden="true">📷</span>
-          Upload a photo of your notes
+          {t('Upload a photo of your notes')}
         </button>
       )}
 
@@ -510,26 +540,26 @@ function NoteScanner({ destination }: { destination: string }) {
           <div className="flex-1 min-w-0">
             {(status === 'reading' || status === 'scanning') && (
               <p className="text-[12px] tracking-wide animate-pulse" style={{ color: THEME.textMuted }}>
-                {status === 'reading' ? 'Reading your photo…' : 'Scanning for things you mentioned…'}
+                {status === 'reading' ? t('Reading your photo…') : t('Scanning for things you mentioned…')}
               </p>
             )}
 
             {status === 'error' && (
               <p className="text-[12px] tracking-wide" style={{ color: '#b43c3c' }}>
-                {errorMsg || 'Something went wrong — try again.'}
+                {errorMsg ? t(errorMsg) : t('Something went wrong — try again.')}
               </p>
             )}
 
             {status === 'empty' && (
               <p className="text-[12px] tracking-wide" style={{ color: THEME.textMuted }}>
-                We couldn&apos;t make out any specific places or activities in that photo. Try a clearer shot, or skip this.
+                {t("We couldn't make out any specific places or activities in that photo. Try a clearer shot, or skip this.")}
               </p>
             )}
 
             {status === 'ready' && (
               <>
                 <p className="text-[11px] uppercase tracking-[0.22em] mb-2.5" style={{ color: THEME.textMuted }}>
-                  Found in your photo — tap to keep or remove
+                  {t('Found in your photo — tap to keep or remove')}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {items.map((item) => {
@@ -554,7 +584,7 @@ function NoteScanner({ destination }: { destination: string }) {
                   })}
                 </div>
                 <p className="mt-3 text-[11px] tracking-wide" style={{ color: THEME.textFaint }}>
-                  Kept items join your must-haves above — we&apos;ll fit them into the plan where they make sense.
+                  {t("Kept items join your must-haves above — we'll fit them into the plan where they make sense.")}
                 </p>
               </>
             )}
@@ -571,7 +601,7 @@ function CategorySkeleton({ label }: { label: string }) {
   return (
     <div>
       <p className="text-[11px] uppercase tracking-[0.22em] mb-3" style={{ color: THEME.textMuted }}>
-        {label}
+        {t(label)}
       </p>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {[0, 1, 2, 3].map((i) => (
