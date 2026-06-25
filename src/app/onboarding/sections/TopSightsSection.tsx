@@ -82,7 +82,7 @@ export function TopSightsSection() {
     if (!city) { setStatus('idle'); setData(null); return; }
     const ctrl = new AbortController();
     setStatus('loading');
-    fetch(`/api/landmarks?city=${encodeURIComponent(city)}`, { signal: ctrl.signal })
+    fetch(`/api/landmarks?city=${encodeURIComponent(city)}&lang=${readTripLanguagePref() ?? 'en'}`, { signal: ctrl.signal })
       .then((res) => res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`)))
       .then((body: LandmarksByCategory) => {
         const total = body.sightseeing.length + body.history.length + body.food.length;

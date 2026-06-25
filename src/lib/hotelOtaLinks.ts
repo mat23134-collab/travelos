@@ -1,4 +1,4 @@
-import type { OtaPriceCompareRow } from '@/lib/types';
+import type { OtaPriceCompareRow, TravelerProfile, FamilyChildAgeBand } from '@/lib/types';
 
 /** Deep links to compare the same stay across major OTAs (user verifies live inventory). */
 
@@ -6,7 +6,47 @@ export type HotelOtaLinkOpts = {
   checkIn?: string;
   checkOut?: string;
   adults?: number;
+  /** Child ages (years). Drives Booking/Agoda child params + room split. */
+  children?: number[];
 };
+
+// Representative age per onboarding age band — Booking wants an explicit age per child.
+const AGE_BAND_TO_AGE: Record<FamilyChildAgeBand, number> = {
+  '0-3': 2, '3-6': 5, '6-9': 8, '9-12': 11, '12-16': 14, '16+': 17,
+};
+
+/**
+ * Smart party derivation: turn the traveler profile into an adults count and a
+ * per-child age list, so the OTA link searches a realistic occupancy instead of
+ * cramming everyone into one room.
+ *   solo → 1 adult · couple → 2 · group → groupSize adults
+ *   family → (groupSize − kids) adults + each kid's age
+ */
+export function otaPartyFromProfile(
+  profile?: Pick<TravelerProfile, 'groupType' | 'groupSize' | 'familyKidsByAge'> | null,
+): { adults: number; children: number[] } {
+  if (!profile) return { adults: 2, children: [] };
+  const children: number[] = [];
+  for (const [band, count] of Object.entries(profile.familyKidsByAge ?? {})) {
+    const age = AGE_BAND_TO_AGE[band as FamilyChildAgeBand];
+    for (let i = 0; i < (count ?? 0); i++) children.push(age);
+  }
+  switch (profile.groupType) {
+    case 'solo':   return { adults: 1, children: [] };
+    case 'couple': return { adults: 2, children: [] };
+    case 'family': return { adults: Math.max(1, (profile.groupSize || 2) - children.length), children };
+    default:       return { adults: profile.groupSize && profile.groupSize > 0 ? profile.groupSize : 2, children: [] };
+  }
+}
+
+/**
+ * Smart room split — ~2 adults per room, ~4 guests per room max. A party of 6
+ * adults → 3 rooms; 2 adults + 3 kids → 2 rooms; a couple → 1 room.
+ */
+export function roomsFor(adults: number, childrenCount: number): number {
+  const total = adults + childrenCount;
+  return Math.max(1, Math.ceil(adults / 2), Math.ceil(total / 4));
+}
 
 export type MergedOtaRow = {
   id: OtaId;
@@ -32,7 +72,16 @@ export function bookingHotelSearchUrl(
   const co = opts?.checkOut?.slice(0, 10);
   if (ci && /^\d{4}-\d{2}-\d{2}$/.test(ci)) params.set('checkin', ci);
   if (co && /^\d{4}-\d{2}-\d{2}$/.test(co)) params.set('checkout', co);
-  params.set('group_adults', String(adultsParam(opts?.adults)));
+
+  const adults = adultsParam(opts?.adults);
+  const children = opts?.children ?? [];
+  params.set('group_adults', String(adults));
+  params.set('group_children', String(children.length));
+  for (const age of children) params.append('age', String(age));
+  // Smart room split (and explicit occupancy) so the deep-link resolves to
+  // bookable rooms instead of Booking's "not available" interstitial — and so
+  // a party of 6 gets multiple rooms, not one room for six.
+  params.set('no_rooms', String(roomsFor(adults, children.length)));
   return `https://www.booking.com/searchresults.html?${params.toString()}`;
 }
 
@@ -56,8 +105,14 @@ export function agodaHotelSearchUrl(
       if (Number.isFinite(nights) && nights > 0) params.set('los', String(nights));
     }
   }
-  params.set('adults', String(adultsParam(opts?.adults)));
-  params.set('rooms', '1');
+  const adults = adultsParam(opts?.adults);
+  const children = opts?.children ?? [];
+  params.set('adults', String(adults));
+  if (children.length > 0) {
+    params.set('children', String(children.length));
+    params.set('childages', children.join(','));
+  }
+  params.set('rooms', String(roomsFor(adults, children.length)));
   return `https://www.agoda.com/search?${params.toString()}`;
 }
 
@@ -73,7 +128,9 @@ export function airbnbHotelSearchUrl(
   const co = opts?.checkOut?.slice(0, 10);
   if (ci && /^\d{4}-\d{2}-\d{2}$/.test(ci)) params.set('check_in', ci);
   if (co && /^\d{4}-\d{2}-\d{2}$/.test(co)) params.set('check_out', co);
+  const children = opts?.children ?? [];
   params.set('adults', String(adultsParam(opts?.adults)));
+  if (children.length > 0) params.set('children', String(children.length));
   return `https://www.airbnb.com/s/all/homes?${params.toString()}`;
 }
 

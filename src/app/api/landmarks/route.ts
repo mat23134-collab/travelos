@@ -38,6 +38,7 @@ type Row = {
   name: string;
   city: string | null;
   description: string | null;
+  description_he: string | null;
   category_emoji: string | null;
   vibe_label: string | null;
   photo_url: string | null;
@@ -53,11 +54,11 @@ function dbClient() {
   return supabase;
 }
 
-function toLandmark(row: Row): Landmark {
+function toLandmark(row: Row, lang: string): Landmark {
   return {
     id: row.id,
     name: row.name,
-    description: row.description,
+    description: lang === 'he' && row.description_he ? row.description_he : row.description,
     category_emoji: row.category_emoji,
     vibe_label: row.vibe_label,
     photo_url: row.photo_url,
@@ -68,6 +69,7 @@ function toLandmark(row: Row): Landmark {
 
 export async function GET(req: NextRequest) {
   const city = (req.nextUrl.searchParams.get('city') ?? '').trim();
+  const lang = req.nextUrl.searchParams.get('lang') === 'he' ? 'he' : 'en';
   if (!city) {
     return NextResponse.json({ error: 'city query param required' }, { status: 400 });
   }
@@ -76,7 +78,7 @@ export async function GET(req: NextRequest) {
   const { data, error } = await db
     .from('places')
     .select(
-      'id, name, city, description, category_emoji, vibe_label, photo_url, google_place_id, top_pick_category, popularity_rank',
+      'id, name, city, description, description_he, category_emoji, vibe_label, photo_url, google_place_id, top_pick_category, popularity_rank',
     )
     .ilike('city', city)
     .not('top_pick_category', 'is', null)
@@ -95,7 +97,7 @@ export async function GET(req: NextRequest) {
   for (const row of rows) {
     if (!row.top_pick_category) continue;
     if (grouped[row.top_pick_category].length >= 6) continue;
-    grouped[row.top_pick_category].push(toLandmark(row));
+    grouped[row.top_pick_category].push(toLandmark(row, lang));
   }
 
   // ── On-demand photo resolution ────────────────────────────────────────────
