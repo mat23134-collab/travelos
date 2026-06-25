@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Script from 'next/script';
 import { Assistant, Cormorant_Garamond, Fraunces, Inter } from 'next/font/google';
 import Link from 'next/link';
 import './globals.css';
@@ -88,6 +89,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${inter.variable} ${body.variable} ${brandSerif.variable} ${display.variable} h-full`}>
       <body className="min-h-full antialiased">
+        {/* Microsoft Clarity — UX analytics (heatmaps + session recordings) */}
+        <Script id="ms-clarity" strategy="afterInteractive">
+          {`(function(c,l,a,r,i,t,y){
+              c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+              t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+              y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+            })(window, document, "clarity", "script", "xcnbnwmi2y");`}
+        </Script>
         <SiteBackground />
         <MotionProvider>
           <AuthProvider>
