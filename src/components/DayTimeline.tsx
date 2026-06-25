@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { DayPhoto } from '@/components/DayPhoto';
 import { tiktokSearchUrl, instagramSearchUrl } from '@/lib/socialSearch';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { budgetToUsd } from '@/lib/currency';
 import type { DayPlan, Activity, DiningSpot } from '@/lib/types';
 import type { ItineraryUiStrings } from '@/lib/tripUiCopy';
@@ -183,6 +184,7 @@ function TimelineItem({
   onFindAlternative: () => void;
   onNeighborhoodClick: (n: string) => void;
 }) {
+  const isMobile = useIsMobile();
   const isCheckIn = row.type === 'activity' && row.activity && isHotelCheckIn(row.activity);
   const neighborhood = row.activity?.neighborhood ?? row.dining?.neighborhood;
   const mapsUrl = buildMapsDirectionsUrl(row.name, neighborhood, destination);
@@ -276,7 +278,7 @@ function TimelineItem({
 
         {/* See it on social — jump to short-form video/photos of this place */}
         <a
-          href={tiktokSearchUrl(row.name, destination)}
+          href={tiktokSearchUrl(row.name, destination, { mobile: isMobile })}
           target="_blank"
           rel="noopener noreferrer"
           aria-label={`Watch ${row.name} on TikTok`}
@@ -286,7 +288,7 @@ function TimelineItem({
           🎵 TikTok
         </a>
         <a
-          href={instagramSearchUrl(row.name, destination)}
+          href={instagramSearchUrl(row.name, destination, { mobile: isMobile })}
           target="_blank"
           rel="noopener noreferrer"
           aria-label={`See ${row.name} on Instagram`}

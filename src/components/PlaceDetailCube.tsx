@@ -5,6 +5,7 @@ import { DayPhoto } from '@/components/DayPhoto';
 import type { TimelineRow } from '@/components/DayTimeline';
 import { buildMapsDirectionsUrl } from '@/components/DayTimeline';
 import { tiktokSearchUrl, instagramSearchUrl } from '@/lib/socialSearch';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 interface PlaceDetailCubeProps {
   row: TimelineRow;
@@ -13,6 +14,7 @@ interface PlaceDetailCubeProps {
 }
 
 export function PlaceDetailCube({ row, destination, onClose }: PlaceDetailCubeProps) {
+  const isMobile = useIsMobile();
   const activity = row.activity;
   const dining = row.dining;
 
@@ -118,7 +120,7 @@ export function PlaceDetailCube({ row, destination, onClose }: PlaceDetailCubePr
                 </div>
                 <div className="flex gap-2">
                   <a
-                    href={tiktokSearchUrl(name, destination)}
+                    href={tiktokSearchUrl(name, destination, { mobile: isMobile })}
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={`Watch ${name} on TikTok`}
@@ -128,7 +130,7 @@ export function PlaceDetailCube({ row, destination, onClose }: PlaceDetailCubePr
                     🎵 TikTok
                   </a>
                   <a
-                    href={instagramSearchUrl(name, destination)}
+                    href={instagramSearchUrl(name, destination, { mobile: isMobile })}
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={`See ${name} on Instagram`}
