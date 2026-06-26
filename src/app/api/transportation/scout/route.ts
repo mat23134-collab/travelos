@@ -48,11 +48,12 @@ export async function POST(req: NextRequest) {
       typeof body?.tripDays === 'number' && Number.isFinite(body.tripDays) && body.tripDays > 0
         ? Math.min(30, Math.round(body.tripDays))
         : undefined;
-    const guide = await runTransportScoutAgent(city, { tripDays });
+    const lang = body?.lang === 'he' ? 'he' : 'en';
+    const guide = await runTransportScoutAgent(city, { tripDays, lang });
     if (!guide || !hasTransportContent(guide)) {
       return NextResponse.json({ ok: false, guide: null, message: 'Scout returned no usable guide' }, { status: 422 });
     }
-    await upsertTransportationGuide(db, city, guide);
+    await upsertTransportationGuide(db, city, guide, lang);
     return NextResponse.json({ ok: true, guide });
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Scout failed';

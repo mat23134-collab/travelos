@@ -8,10 +8,11 @@ import { fetchTransportGuideForCity } from '@/lib/tripTransport';
  */
 export async function GET(req: NextRequest) {
   const city = req.nextUrl.searchParams.get('city')?.trim() ?? '';
+  const lang = req.nextUrl.searchParams.get('lang') === 'he' ? 'he' : 'en';
   if (!city) {
     return NextResponse.json({ error: 'city query parameter is required' }, { status: 400 });
   }
 
-  const guide = await fetchTransportGuideForCity(supabase, city);
+  const guide = await fetchTransportGuideForCity(supabase, city, lang);
   return NextResponse.json({ guide: guide ?? null });
 }
