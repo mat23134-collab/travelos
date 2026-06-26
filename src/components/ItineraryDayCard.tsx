@@ -39,7 +39,17 @@ export function ItineraryDayCard({
   onClick,
 }: ItineraryDayCardProps) {
   const bullets = deriveDayBullets(day);
-  const photoQuery = `${destination} ${day.theme ?? 'travel'} landmark`;
+  // Base the photo on a real landmark from THIS day (an English place name) so
+  // every day gets a distinct, relevant image — and so it works for Hebrew
+  // trips, where day.theme is Hebrew and Pexels can't match it (which made
+  // every day fall back to the same generic photo). Vary the no-landmark
+  // fallback by day so cards never look duplicated.
+  const heroLandmark =
+    day.morning?.name || day.afternoon?.name || day.evening?.name || '';
+  const FALLBACK_SCENES = ['skyline', 'old town', 'street life', 'architecture', 'cityscape', 'historic center', 'rooftops'];
+  const photoQuery = heroLandmark
+    ? `${heroLandmark} ${destination}`
+    : `${destination} ${FALLBACK_SCENES[(dayNumber - 1) % FALLBACK_SCENES.length]}`;
   const neighborhood =
     day.morning?.neighborhood ??
     day.afternoon?.neighborhood ??
@@ -51,11 +61,9 @@ export function ItineraryDayCard({
       onClick={onClick}
       whileHover={{ y: -4 }}
       whileTap={{ scale: 0.98 }}
-      className="group relative flex-shrink-0 cursor-pointer overflow-hidden rounded-[24px]"
+      className="group relative flex-shrink-0 w-full cursor-pointer overflow-hidden rounded-[24px]"
       style={{
-        minWidth: 'min(340px, calc(100vw - 80px))',
-        maxWidth: 'min(360px, calc(100vw - 64px))',
-        scrollSnapAlign: 'center',
+        scrollSnapAlign: 'start',
         background: 'var(--color-paper)',
         boxShadow: isActive
           ? '0 18px 44px rgba(184,119,46,0.30), 0 4px 14px rgba(0,0,0,0.12)'

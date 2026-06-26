@@ -17,7 +17,9 @@ export function DayCarousel({ days, selectedDayIndex, destination, onSelectDay }
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const scroll = (dir: -1 | 1) => {
-    scrollRef.current?.scrollBy({ left: dir * 368, behavior: 'smooth' });
+    // Advance one full-width day per click.
+    const step = scrollRef.current?.clientWidth ?? 368;
+    scrollRef.current?.scrollBy({ left: dir * step, behavior: 'smooth' });
   };
 
   return (
@@ -52,13 +54,14 @@ function NavArrow({ dir, onClick }: { dir: 'left' | 'right'; onClick: () => void
     <button
       type="button"
       onClick={onClick}
-      className="hidden sm:flex absolute top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full items-center justify-center text-base font-bold transition-all hover:scale-110"
+      aria-label={dir === 'left' ? 'Previous day' : 'Next day'}
+      className="flex absolute top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full items-center justify-center text-2xl font-bold transition-all hover:scale-110 active:scale-95"
       style={{
-        [dir === 'left' ? 'left' : 'right']: 4,
-        background: 'rgba(255,255,255,0.75)',
-        border: '1px solid rgba(184,85,46,0.3)',
-        color: '#b8552e',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+        [dir === 'left' ? 'left' : 'right']: -6,
+        background: '#fffdf7',
+        border: '1.5px solid var(--color-sunrise-deep)',
+        color: 'var(--color-sunrise-deep)',
+        boxShadow: '0 6px 20px -4px rgba(0,0,0,0.22)',
       }}
     >
       {dir === 'left' ? '‹' : '›'}
