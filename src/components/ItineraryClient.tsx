@@ -1424,7 +1424,7 @@ export function ItineraryClient({
               ]}
             />
 
-            <SectionLabel>Your days</SectionLabel>
+            <SectionLabel>{itin.ui.dir === 'rtl' ? 'הימים שלך' : 'Your days'}</SectionLabel>
 
             <DayCarousel
               days={days}
@@ -1446,7 +1446,7 @@ export function ItineraryClient({
             {/* Budget summary */}
             {itin.itinerary.budgetSummary && (
               <>
-              <SectionLabel>Budget</SectionLabel>
+              <SectionLabel>{itin.ui.dir === 'rtl' ? 'תקציב' : 'Budget'}</SectionLabel>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -1485,7 +1485,7 @@ export function ItineraryClient({
             </div>
 
             {((itin.itinerary.packingTips?.length ?? 0) > 0 || (itin.itinerary.bestLocalTips?.length ?? 0) > 0) && (
-              <SectionLabel>Before you go</SectionLabel>
+              <SectionLabel>{itin.ui.dir === 'rtl' ? 'לפני שיוצאים' : 'Before you go'}</SectionLabel>
             )}
 
             {/* Packing tips */}
