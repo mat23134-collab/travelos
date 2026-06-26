@@ -127,10 +127,15 @@ async function callGeminiTransport(userPrompt: string): Promise<string> {
 
 export async function runTransportScoutAgent(
   city: string,
-  opts?: { tripDays?: number },
+  opts?: { tripDays?: number; lang?: string },
 ): Promise<CityTransportGuide | null> {
   const c = city.trim();
   if (!c) return null;
+
+  // Hebrew trips: narrative text in Hebrew; line/app/station names + prices stay original.
+  const langDirective = opts?.lang === 'he'
+    ? '\nOUTPUT LANGUAGE: Write ALL narrative text (intro, every mode summary, scout tips, link labels, notes) in HEBREW. KEEP IN ORIGINAL FORM: transit line names, app names, station names, ticket/pass product names, and all prices/currency.\n'
+    : '';
 
   const tripDays =
     typeof opts?.tripDays === 'number' && Number.isFinite(opts.tripDays) && opts.tripDays > 0
@@ -157,6 +162,7 @@ export async function runTransportScoutAgent(
   const userPrompt =
     `City: ${c}\n` +
     `TRIP_DAY_COUNT: ${tripDays} (use this exact day count for every tripTotalEstimate).\n` +
+    langDirective +
     `Produce the mobility JSON described in the system message.${ragBlock}`;
 
   const raw = await callGeminiTransport(userPrompt);

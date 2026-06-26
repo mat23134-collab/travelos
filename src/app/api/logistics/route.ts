@@ -51,11 +51,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 });
   }
 
-  const { destination, startDate, endDate, groupType, budget } = await req.json();
+  const { destination, startDate, endDate, groupType, budget, lang } = await req.json();
+  const he = lang === 'he';
+
+  const langDirective = he
+    ? `\nWRITE ALL NARRATIVE TEXT FIELDS IN HEBREW (summary, packingNote, rainChance, visaNote, groupTip, healthTip, localCurrencyName). Keep numbers, temperatures, currency ISO codes, and official place/passport names as-is. EXCEPTION: "safetyLevel" MUST stay one of the exact English values below (it is a key, not display text).\n`
+    : '';
 
   // Ask Claude for the currency code, weather, and safety info in one call
   const prompt = `You are a travel logistics expert. For a trip to "${destination}" (${startDate} to ${endDate}) for a ${groupType} traveler on a ${budget} budget, provide the following.
-
+${langDirective}
 Return ONLY valid JSON — no markdown, no prose:
 {
   "currencyCode": "3-letter ISO code for the destination's primary currency e.g. JPY, EUR, THB",
@@ -111,7 +116,9 @@ Return ONLY valid JSON — no markdown, no prose:
     const result: LogisticsData = {
       weather: {
         ...ai.weather,
-        disclaimer: 'Seasonal estimate — check a live forecast closer to your travel date.',
+        disclaimer: he
+          ? 'הערכה עונתית — בדקו תחזית חיה קרוב יותר למועד הנסיעה.'
+          : 'Seasonal estimate — check a live forecast closer to your travel date.',
       },
       currency: {
         localCurrency: ai.localCurrencyName,
@@ -126,10 +133,13 @@ Return ONLY valid JSON — no markdown, no prose:
                 luxury: [300, 700],
               };
               const [lo, hi] = ranges[budget] ?? [100, 300];
-              return `≈ ${Math.round(lo * rate).toLocaleString()}–${Math.round(hi * rate).toLocaleString()} ${ai.currencyCode}/day`;
+              const perDay = he ? 'ליום' : '/day';
+              return `≈ ${Math.round(lo * rate).toLocaleString()}–${Math.round(hi * rate).toLocaleString()} ${ai.currencyCode}${he ? ' ' : ''}${perDay}`;
             })()
-          : 'See budget summary above',
-        source: rate ? 'ExchangeRate-API (live)' : 'Estimate only',
+          : (he ? 'ראו סיכום תקציב למעלה' : 'See budget summary above'),
+        source: rate
+          ? (he ? 'ExchangeRate-API (חי)' : 'ExchangeRate-API (live)')
+          : (he ? 'הערכה בלבד' : 'Estimate only'),
       },
       safetyVisa: {
         visaNote: ai.safetyVisa.visaNote,

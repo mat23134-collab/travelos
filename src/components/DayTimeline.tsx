@@ -135,9 +135,9 @@ export function DayTimeline({
   onNeighborhoodClick,
   onExplore = () => {},
   onFindAlternative = () => {},
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  ui: _ui,
+  ui,
 }: DayTimelineProps) {
+  const he = ui?.dir === 'rtl';
   const rows = buildTimelineRows(day);
 
   if (rows.length === 0) {
@@ -164,6 +164,7 @@ export function DayTimeline({
             row={row}
             index={i}
             destination={destination}
+            he={he}
             onExplore={() => onExplore(row)}
             onFindAlternative={() => onFindAlternative(swapTarget)}
             onNeighborhoodClick={onNeighborhoodClick}
@@ -175,11 +176,12 @@ export function DayTimeline({
 }
 
 function TimelineItem({
-  row, index, destination, onExplore, onFindAlternative, onNeighborhoodClick,
+  row, index, destination, he, onExplore, onFindAlternative, onNeighborhoodClick,
 }: {
   row: TimelineRow;
   index: number;
   destination: string;
+  he: boolean;
   onExplore: () => void;
   onFindAlternative: () => void;
   onNeighborhoodClick: (n: string) => void;
@@ -249,18 +251,18 @@ function TimelineItem({
       <div className="flex flex-wrap gap-1.5 items-center p-3">
         {isCheckIn ? (
           <>
-            <TlBtn onClick={onExplore}>Hotel Details</TlBtn>
-            <TlBtn onClick={onFindAlternative} primary>Change Hotel</TlBtn>
+            <TlBtn onClick={onExplore}>{he ? 'פרטי מלון' : 'Hotel Details'}</TlBtn>
+            <TlBtn onClick={onFindAlternative} primary>{he ? 'החלפת מלון' : 'Change Hotel'}</TlBtn>
           </>
         ) : row.type === 'dining' ? (
           <>
-            <TlBtn onClick={onFindAlternative} primary>Find Alternative</TlBtn>
-            <TlBtn onClick={onExplore}>Explore Details</TlBtn>
+            <TlBtn onClick={onFindAlternative} primary>{he ? 'מצא חלופה' : 'Find Alternative'}</TlBtn>
+            <TlBtn onClick={onExplore}>{he ? 'פרטים' : 'Explore Details'}</TlBtn>
           </>
         ) : (
           <>
-            <TlBtn onClick={onFindAlternative} primary>Modify</TlBtn>
-            <TlBtn onClick={onExplore}>Explore Details</TlBtn>
+            <TlBtn onClick={onFindAlternative} primary>{he ? 'שינוי' : 'Modify'}</TlBtn>
+            <TlBtn onClick={onExplore}>{he ? 'פרטים' : 'Explore Details'}</TlBtn>
           </>
         )}
         <a

@@ -123,17 +123,18 @@ export default async function ItineraryByIdPage({ params }: PageProps) {
   }
 
   if (city) {
+    const tripLang = _profile?.tripLanguage ?? 'en';
     try {
-      transportFromDb = await fetchTransportGuideForCity(supabase, city);
+      transportFromDb = await fetchTransportGuideForCity(supabase, city, tripLang);
     } catch (e) {
       console.warn('[itinerary/id] transportation fetch skipped:', e instanceof Error ? e.message : e);
     }
     if (!transportFromDb) {
-      // Scout is missing for this city — fire in the background so the next
-      // page load will have the data. Uses service-role client (bypasses RLS).
+      // Scout is missing for this city/language — fire in the background so the
+      // next page load will have the data. Uses service-role client (bypasses RLS).
       const scoutClient = createServiceRoleClient();
       if (scoutClient) {
-        void ensureTransportationForCity(scoutClient, city).catch((e) =>
+        void ensureTransportationForCity(scoutClient, city, _profile?.duration, tripLang).catch((e) =>
           console.warn('[itinerary/id] background transport scout failed:', e instanceof Error ? e.message : e)
         );
       }

@@ -24,17 +24,17 @@ function CardShell({ emoji, title, children }: { emoji: string; title: string; c
   );
 }
 
-function WeatherCard({ w }: { w: LogisticsData['weather'] }) {
+function WeatherCard({ w, he }: { w: LogisticsData['weather']; he: boolean }) {
   return (
-    <CardShell emoji="🌤" title="Expected Weather">
+    <CardShell emoji="🌤" title={he ? 'מזג אוויר צפוי' : 'Expected Weather'}>
       <p className="text-sm leading-relaxed mb-4" style={{ color: 'var(--color-ink-warm)' }}>{w.summary}</p>
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between text-xs">
-          <span style={{ color: 'var(--color-ink-warm-mut)' }}>Temperature</span>
+          <span style={{ color: 'var(--color-ink-warm-mut)' }}>{he ? 'טמפרטורה' : 'Temperature'}</span>
           <span className="font-semibold" style={{ color: 'var(--color-ink-warm)' }}>{w.tempRange}</span>
         </div>
         <div className="flex items-center justify-between text-xs">
-          <span style={{ color: 'var(--color-ink-warm-mut)' }}>Precipitation</span>
+          <span style={{ color: 'var(--color-ink-warm-mut)' }}>{he ? 'משקעים' : 'Precipitation'}</span>
           <span className="font-semibold" style={{ color: 'var(--color-ink-warm)' }}>{w.rainChance}</span>
         </div>
         <div
@@ -49,9 +49,9 @@ function WeatherCard({ w }: { w: LogisticsData['weather'] }) {
   );
 }
 
-function CurrencyCard({ c }: { c: LogisticsData['currency'] }) {
+function CurrencyCard({ c, he }: { c: LogisticsData['currency']; he: boolean }) {
   return (
-    <CardShell emoji="💱" title="Currency">
+    <CardShell emoji="💱" title={he ? 'מטבע' : 'Currency'}>
       <div className="font-display text-3xl font-semibold mb-1" style={{ color: 'var(--color-sunrise-deep)' }}>{c.formatted}</div>
       <div className="text-xs mb-4" style={{ color: 'var(--color-ink-warm-mut)' }}>{c.localCurrency} · {c.source}</div>
       <div
@@ -59,7 +59,7 @@ function CurrencyCard({ c }: { c: LogisticsData['currency'] }) {
         style={{ background: 'var(--color-paper-sunk)' }}
       >
         <div className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--color-sunrise-deep)' }}>
-          Your budget in local currency
+          {he ? 'התקציב שלך במטבע מקומי' : 'Your budget in local currency'}
         </div>
         <div className="text-sm font-bold" style={{ color: 'var(--color-ink-warm)' }}>{c.dailyBudgetLocal}</div>
       </div>
@@ -67,19 +67,20 @@ function CurrencyCard({ c }: { c: LogisticsData['currency'] }) {
   );
 }
 
-function SafetyCard({ s }: { s: LogisticsData['safetyVisa'] }) {
+function SafetyCard({ s, he }: { s: LogisticsData['safetyVisa']; he: boolean }) {
   const colorMap = {
     green: { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', dot: 'bg-emerald-500' },
     yellow: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', dot: 'bg-amber-500' },
     red: { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', dot: 'bg-red-500' },
   };
   const c = colorMap[s.safetyColor];
+  const safetyLabelHe: Record<string, string> = { 'Low Risk': 'סיכון נמוך', 'Moderate': 'סיכון בינוני', 'High Risk': 'סיכון גבוה' };
 
   return (
-    <CardShell emoji="🛡" title="Safety & Entry">
+    <CardShell emoji="🛡" title={he ? 'בטיחות וכניסה' : 'Safety & Entry'}>
       <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold mb-3 ${c.bg} ${c.border} border ${c.text}`}>
         <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
-        {s.safetyLevel}
+        {he ? (safetyLabelHe[s.safetyLevel] ?? s.safetyLevel) : s.safetyLevel}
       </div>
       <p className="text-sm leading-relaxed mb-3" style={{ color: 'var(--color-ink-warm)' }}>{s.visaNote}</p>
       {s.groupTip && (
@@ -127,6 +128,7 @@ export function LogisticsDashboard({ profile }: { profile: TravelerProfile }) {
         endDate: profile.endDate || '',
         groupType: profile.groupType,
         budget: profile.budget,
+        lang: profile.tripLanguage ?? 'en',
       }),
       signal: controller.signal,
     })
@@ -147,10 +149,12 @@ export function LogisticsDashboard({ profile }: { profile: TravelerProfile }) {
     return () => { clearTimeout(timeout); controller.abort(); };
   }, [profile, attempt, session]);
 
+  const he = profile.tripLanguage === 'he';
+
   return (
-    <section className="mb-8">
+    <section className="mb-8" dir={he ? 'rtl' : 'ltr'}>
       <div className="flex items-center gap-3 mb-5">
-        <h2 className="font-display text-2xl font-semibold" style={{ color: 'var(--color-ink-warm)' }}>Before You Go</h2>
+        <h2 className="font-display text-2xl font-semibold" style={{ color: 'var(--color-ink-warm)' }}>{he ? 'לפני שיוצאים' : 'Before You Go'}</h2>
         <div className="flex-1 h-px" style={{ background: 'var(--color-paper-sunk)' }} />
       </div>
 
@@ -178,16 +182,16 @@ export function LogisticsDashboard({ profile }: { profile: TravelerProfile }) {
             className="px-4 py-2 text-xs font-semibold rounded-xl transition-colors"
             style={{ background: 'var(--color-paper)', boxShadow: 'var(--shadow-card)', color: 'var(--color-ink-warm)' }}
           >
-            Retry
+            {he ? 'נסה שוב' : 'Retry'}
           </button>
         </div>
       )}
 
       {data && !loading && (
         <div className="grid sm:grid-cols-3 gap-4">
-          <WeatherCard w={data.weather} />
-          <CurrencyCard c={data.currency} />
-          <SafetyCard s={data.safetyVisa} />
+          <WeatherCard w={data.weather} he={he} />
+          <CurrencyCard c={data.currency} he={he} />
+          <SafetyCard s={data.safetyVisa} he={he} />
         </div>
       )}
     </section>
