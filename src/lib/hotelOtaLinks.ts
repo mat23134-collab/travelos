@@ -134,6 +134,17 @@ export function airbnbHotelSearchUrl(
   return `https://www.airbnb.com/s/all/homes?${params.toString()}`;
 }
 
+/**
+ * Google Hotels — reliable "click and see availability + prices across sites"
+ * link (no Booking-style deep-link interstitial). Dates aren't passed via URL
+ * (Google Hotels has no stable date param); the property + live price panel
+ * resolve immediately.
+ */
+export function googleHotelsSearchUrl(hotelName: string, destination: string): string {
+  const q = encodeURIComponent(`${hotelName} ${destination}`.trim());
+  return `https://www.google.com/travel/search?q=${q}`;
+}
+
 export type OtaId = 'booking' | 'agoda' | 'airbnb';
 
 const CANONICAL_OTAS: { id: OtaId; label: string }[] = [

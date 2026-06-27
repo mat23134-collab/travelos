@@ -16,7 +16,7 @@ import { TrendingTicker } from '@/components/TrendingTicker';
 import { TripStoryCube } from '@/components/TripStoryCube';
 import { FeedbackSurveyModal, type FeedbackPayload } from '@/components/FeedbackSurveyModal';
 import { itineraryUi, type ItineraryUiStrings } from '@/lib/tripUiCopy';
-import { hotelOtaSearchUrl, mergeHotelOtaRows, isOtaSoldOut, hasBookableOtaRate, otaPartyFromProfile, type HotelOtaLinkOpts } from '@/lib/hotelOtaLinks';
+import { hotelOtaSearchUrl, mergeHotelOtaRows, isOtaSoldOut, hasBookableOtaRate, otaPartyFromProfile, googleHotelsSearchUrl, type HotelOtaLinkOpts } from '@/lib/hotelOtaLinks';
 
 /** Strip trailing "/night" variants the AI sometimes appends to indicativeNightly
  *  so we don't double-up when we add our own "· /night (est.)" suffix. */
@@ -299,6 +299,16 @@ function HotelDetailCube({
           </div>
 
           <div className="flex flex-col gap-2">
+            {/* Google Hotels — reliable availability + price comparison (no Booking interstitial) */}
+            <a
+              href={googleHotelsSearchUrl(hotel.name, destination)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-3 rounded-xl text-sm font-bold text-center text-white transition-opacity hover:opacity-95"
+              style={{ background: '#1a73e8', boxShadow: '0 4px 18px rgba(26,115,232,0.28)' }}
+            >
+              {ui.dir === 'rtl' ? 'זמינות ומחירים ב-Google' : 'Availability & prices on Google'}
+            </a>
             {hotel.websiteUrl && (
               <a
                 href={hotel.websiteUrl}
@@ -796,11 +806,18 @@ function HotelCard({
                   </a>
                 );
               })}
-              {activeOtaRows.length === 0 && (
-                <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.22)' }}>
-                  No pricing data
-                </span>
-              )}
+              {/* Always-on Google Hotels chip — reliable availability + prices */}
+              <a
+                href={googleHotelsSearchUrl(hotel.name, destination)}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                title="Availability & prices on Google Hotels"
+                className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all hover:scale-105"
+                style={{ background: 'rgba(26,115,232,0.14)', border: '1px solid rgba(26,115,232,0.4)', color: '#1a73e8' }}
+              >
+                <span>Google</span>
+              </a>
             </div>
 
             {/* Tap hint */}
