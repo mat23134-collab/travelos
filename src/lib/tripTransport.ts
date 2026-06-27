@@ -41,9 +41,9 @@ export async function upsertTransportationGuide(
   if (!city_name) return;
   // Hebrew guides go in guide_he so the English `guide` is preserved (a user can
   // choose either language). Only the relevant column is written on upsert.
-  const row = lang === 'he'
-    ? { city_name, guide_he: guide, updated_at: new Date().toISOString() }
-    : { city_name, guide, updated_at: new Date().toISOString() };
+  const row: Record<string, unknown> = { city_name, updated_at: new Date().toISOString() };
+  if (lang === 'he') row.guide_he = guide;
+  else row.guide = guide;
   const { error } = await db.from('transportation').upsert(row, { onConflict: 'city_norm' });
   if (error) {
     const e = error as unknown as { message?: string; details?: string; hint?: string; code?: string };
