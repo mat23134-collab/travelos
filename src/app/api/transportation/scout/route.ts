@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   const userId = await verifySession(req);
   if (!userId) return unauthorizedResponse();
 
-  const body = (await req.json().catch(() => null)) as { city?: string; tripDays?: number } | null;
+  const body = (await req.json().catch(() => null)) as { city?: string; tripDays?: number; lang?: string } | null;
   const city = body?.city?.trim() ?? '';
   if (!city) {
     return NextResponse.json({ error: 'city is required' }, { status: 400 });
