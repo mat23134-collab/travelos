@@ -29,6 +29,8 @@ function appendStayParams(
   // ~2 adults per room, ~4 guests per room.
   const total = opts.adults + opts.children.length;
   u.searchParams.set('no_rooms', String(Math.max(1, Math.ceil(opts.adults / 2), Math.ceil(total / 4))));
+  // Land on the rooms/availability table for the chosen dates (not the page top).
+  u.hash = 'availability';
   return u.toString();
 }
 
