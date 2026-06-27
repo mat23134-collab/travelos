@@ -78,6 +78,31 @@ function hasAnyBookableChannel(hotel: HotelRecommendation): boolean {
   return activeOtaRowsForHotel(hotel).some(hasBookableOtaRate);
 }
 
+/**
+ * Resolve a hotel name → a DIRECT Booking property URL (with dates/occupancy) so
+ * the Booking link lands on live availability, not the flaky free-text search.
+ * Returns null until resolved / if no match; callers fall back to the search URL.
+ */
+function useBookingDirectLink(name: string, city: string, opts: HotelOtaLinkOpts): string | null {
+  const [url, setUrl] = useState<string | null>(null);
+  const ci = opts.checkIn, co = opts.checkOut, ad = opts.adults, kids = (opts.children ?? []).join(',');
+  useEffect(() => {
+    if (!name) return;
+    const p = new URLSearchParams({ name, city: city ?? '' });
+    if (ci) p.set('checkin', ci);
+    if (co) p.set('checkout', co);
+    if (ad) p.set('adults', String(ad));
+    if (kids) p.set('children', kids);
+    let cancelled = false;
+    fetch(`/api/booking-link?${p.toString()}`)
+      .then((r) => r.json())
+      .then((d) => { if (!cancelled) setUrl(d?.url ?? null); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [name, city, ci, co, ad, kids]);
+  return url;
+}
+
 function HotelDetailCube({
   hotel,
   destination,
@@ -95,6 +120,7 @@ function HotelDetailCube({
   const checkOut = profile?.endDate?.slice(0, 10);
   const party = otaPartyFromProfile(profile);
   const otaOpts = { checkIn, checkOut, adults: party.adults, children: party.children };
+  const bookingDirect = useBookingDirectLink(hotel.name, destination, otaOpts);
   const otaRows = activeOtaRowsForHotel(hotel);
   const reviewsHref = `https://www.google.com/search?q=${encodeURIComponent(`${hotel.name} hotel ${destination} reviews`)}`;
   const stars = starRow(hotel.ratingStars);
@@ -270,7 +296,7 @@ function HotelDetailCube({
                       </span>
                     ) : (
                       <a
-                        href={hotelOtaSearchUrl(row.id, hotel.name, destination, otaOpts)}
+                        href={row.id === 'booking' && bookingDirect ? bookingDirect : hotelOtaSearchUrl(row.id, hotel.name, destination, otaOpts)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="shrink-0 inline-flex items-center justify-center px-3 py-2 rounded-lg text-[11px] font-bold border transition-colors hover-bg-surface"
@@ -587,6 +613,7 @@ function HotelCard({
 
   // OTA deep-link URLs (dates + party size pre-filled)
   const otaOpts = { checkIn, checkOut, adults: party.adults, children: party.children };
+  const bookingDirect = useBookingDirectLink(hotel.name, destination, otaOpts);
 
   // Only render links for OTAs that the AI actually returned data for
   const activeOtaRows = otaRows.filter((r) => r.hasData);
@@ -793,7 +820,7 @@ function HotelCard({
                 return (
                   <a
                     key={row.id}
-                    href={hotelOtaSearchUrl(row.id, hotel.name, destination, otaOpts)}
+                    href={row.id === 'booking' && bookingDirect ? bookingDirect : hotelOtaSearchUrl(row.id, hotel.name, destination, otaOpts)}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}
