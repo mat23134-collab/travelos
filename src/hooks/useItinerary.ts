@@ -162,10 +162,11 @@ export function useItinerary({
     if (!city || transportDataReady) { setTransportLoading(false); return; }
     setTransportLoading(true);
     let cancelled = false;
+    const lang = profile?.tripLanguage === 'he' ? 'he' : 'en';
 
     const poll = async (): Promise<boolean> => {
       try {
-        const res = await fetch(`/api/transportation?city=${encodeURIComponent(city)}`);
+        const res = await fetch(`/api/transportation?city=${encodeURIComponent(city)}&lang=${lang}`);
         const body = (await res.json()) as { guide?: unknown };
         const parsed = parseTransportGuideJson(body.guide ?? null);
         if (!cancelled && parsed && hasTransportContent(parsed)) {
@@ -186,7 +187,7 @@ export function useItinerary({
           await fetch('/api/transportation/scout', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ city, tripDays: itinerary.totalDays }),
+            body: JSON.stringify({ city, tripDays: itinerary.totalDays, lang }),
           });
         } catch { /* ignore */ }
       }
@@ -198,7 +199,7 @@ export function useItinerary({
     })();
 
     return () => { cancelled = true; };
-  }, [itinerary.destination, itinerary.totalDays, transportDataReady]);
+  }, [itinerary.destination, itinerary.totalDays, transportDataReady, profile?.tripLanguage]);
 
   const ui = useMemo(
     () => itineraryUi(profile?.tripLanguage === 'he' ? 'he' : 'en'),
