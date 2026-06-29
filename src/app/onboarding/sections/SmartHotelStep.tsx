@@ -216,7 +216,7 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
 
   // ── Path A helpers ────────────────────────────────────────────────────────
 
-  async function geocode(q: string): Promise<{ lat: number; lon: number; display_name: string } | null> {
+  async function geocode(q: string): Promise<{ lat: string; lon: string; display_name: string } | null> {
     const res = await fetch(`/api/geocode?q=${encodeURIComponent(q)}`);
     if (!res.ok) return null;
     const data = await res.json();
