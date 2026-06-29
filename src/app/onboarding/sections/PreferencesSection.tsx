@@ -28,7 +28,7 @@ const BUDGET_OPTIONS = [
   {
     value: 'budget',
     icon:  Wallet as LucideIcon,
-    label: 'Lean & Local',  labelHe: 'חסכוני ומקומי',
+    label: 'Budget',  labelHe: 'חסכוני',
     sub:   `Under ${iso('$100')}/day · hostels, street eats, free sights`,
     subHe: `עד ${iso('$100')} ליום · אכסניות, אוכל רחוב, אתרים חינם`,
   },
