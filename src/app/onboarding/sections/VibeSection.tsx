@@ -59,31 +59,30 @@ const GROUP_OPTIONS = [
 ] as const;
 
 const PACE_OPTIONS = [
-  { value: 'relaxed',  label: 'Slow & Intentional', labelHe: 'איטי ומכוון', sub: '2–3 stops a day, room to breathe',      subHe: '2–3 עצירות ביום, מקום לנשום' },
-  { value: 'moderate', label: 'A Measured Pace',    labelHe: 'קצב מדוד',    sub: 'A balanced mix of sights and downtime', subHe: 'איזון בין אתרים למנוחה'      },
-  { value: 'intense',  label: 'See It All',         labelHe: 'לראות הכל',   sub: 'Pack the days — make every hour count', subHe: 'ימים גדושים — לנצל כל שעה'   },
+  { value: 'relaxed',  label: 'Relaxed',  labelHe: 'רגוע',      sub: '2–3 stops a day',          subHe: '2–3 עצירות ביום' },
+  { value: 'moderate', label: 'Balanced', labelHe: 'מאוזן',     sub: 'Sights with time to rest', subHe: 'אתרים עם זמן למנוחה' },
+  { value: 'intense',  label: 'Packed',   labelHe: 'אינטנסיבי', sub: 'See as much as possible',  subHe: 'לראות כמה שיותר' },
 ] as const;
 
 // ── Dynamics (style of travel within the chosen group type) ──────────────────
-// Editorial voice: short serif noun + four-word sub. Family is intentionally
-// excluded — its dynamics are derived from the kids-ages composition.
+// Plain, friendly labels. Family is excluded — its dynamics come from the
+// kids-ages composition.
 
 const SOLO_DYN: Array<{ value: SoloDynamics; label: string; labelHe: string; sub: string; subHe: string }> = [
-  { value: 'digital-nomad', label: 'Nomad',    labelHe: 'נווד',  sub: 'Work-friendly cafés, slow afternoons', subHe: 'בתי קפה לעבודה, אחר-צהריים רגוע' },
-  { value: 'deep-recharge', label: 'Recharge', labelHe: 'טעינה', sub: 'Quiet spaces, intentional solitude',   subHe: 'מקומות שקטים, בדידות מכוונת'      },
-  { value: 'adventure',     label: 'Seeker',   labelHe: 'מחפש',  sub: 'Off-the-grid, edge-of-map',            subHe: 'הרחק מהמסלול, בקצה המפה'         },
+  { value: 'deep-recharge', label: 'Relax & Recharge', labelHe: 'מנוחה',     sub: 'Easy days, slow pace',  subHe: 'ימים רגועים, קצב נינוח' },
+  { value: 'adventure',     label: 'Adventure',        labelHe: 'הרפתקה',    sub: 'Active, explore freely', subHe: 'אקטיבי, חקירה חופשית' },
+  { value: 'digital-nomad', label: 'Work & Travel',    labelHe: 'עבודה ונסיעה', sub: 'Cafés, slow afternoons', subHe: 'בתי קפה, אחר-צהריים רגוע' },
 ];
 
 const COUPLE_DYN: Array<{ value: CoupleDynamics; label: string; labelHe: string; sub: string; subHe: string }> = [
-  { value: 'romantic',     label: 'Romantic',       labelHe: 'רומנטי',       sub: 'Candlelit dinners, quiet streets', subHe: 'ארוחות לאור נרות, רחובות שקטים' },
-  { value: 'parent-child', label: 'Parent & Child', labelHe: 'הורה וילד',    sub: 'One adult, one child',             subHe: 'מבוגר אחד, ילד אחד'            },
-  { value: 'reconnecting', label: 'Reconnecting',   labelHe: 'התחברות מחדש', sub: 'Old chapters, new pages',          subHe: 'פרקים ישנים, דפים חדשים'        },
+  { value: 'romantic',     label: 'Romantic', labelHe: 'רומנטי',       sub: 'Quality time for two', subHe: 'זמן איכות לשניים' },
+  { value: 'reconnecting', label: 'Reconnect', labelHe: 'להתחבר מחדש', sub: 'Slow down together',   subHe: 'להאט יחד' },
 ];
 
 const GROUP_DYN: Array<{ value: GroupDyn; label: string; labelHe: string; sub: string; subHe: string }> = [
-  { value: 'best-friends', label: 'Inner Circle',      labelHe: 'מעגל קרוב',     sub: 'Old friends, inside jokes', subHe: 'חברים ותיקים, בדיחות פנימיות' },
-  { value: 'mixed-ages',   label: 'Mixed Generations', labelHe: 'דורות מעורבים', sub: 'Pace tuned to every age',   subHe: 'קצב שמתאים לכל גיל'           },
-  { value: 'work-crew',    label: 'Colleagues',        labelHe: 'קולגות',        sub: 'Coworkers, off the clock',  subHe: 'עמיתים, אחרי העבודה'          },
+  { value: 'best-friends', label: 'Friends',    labelHe: 'חברים',         sub: 'Good friends, good times', subHe: 'חברים טובים, כיף' },
+  { value: 'mixed-ages',   label: 'Mixed Ages', labelHe: 'גילאים מעורבים', sub: 'Something for everyone',   subHe: 'משהו לכל אחד' },
+  { value: 'work-crew',    label: 'Work Trip',  labelHe: 'טיול עבודה',     sub: 'Colleagues, off the clock', subHe: 'עמיתים, אחרי העבודה' },
 ];
 
 function dynamicsForGroup(groupType: string) {
