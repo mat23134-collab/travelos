@@ -30,9 +30,10 @@ if (!SUPABASE_URL || !SERVICE_KEY || !ANTHROPIC_KEY) {
 }
 
 const db = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
-const claude = new Anthropic({ apiKey: ANTHROPIC_KEY });
+// Generous per-request timeout + retries so transient API timeouts don't drop a batch to English.
+const claude = new Anthropic({ apiKey: ANTHROPIC_KEY, timeout: 120_000, maxRetries: 4 });
 
-const BATCH = 25;
+const BATCH = Number(process.env.TRANSLATE_BATCH) || 25;
 
 const SYSTEM = `You are a professional English→Hebrew translator for a premium travel app.
 Translate each place "description" into natural, fluent Hebrew.
