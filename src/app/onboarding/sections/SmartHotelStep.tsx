@@ -188,6 +188,8 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
   const [query, setQuery]         = useState(hotelAddress || '');
   const [searchStatus, setStatus] = useState<SearchStatus>(hotelAddress ? 'found' : 'idle');
   const [errMsg, setErrMsg]       = useState('');
+  // True once we've exhausted geocoding — lets user proceed with name-only.
+  const [canUseNameOnly, setCanUseNameOnly] = useState(false);
 
   const visibleNightlyOptions = useMemo(
     () => getNightlyOptionsForAccommodation(accommodation),
@@ -214,29 +216,59 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
 
   // ── Path A helpers ────────────────────────────────────────────────────────
 
+  async function geocode(q: string): Promise<{ lat: string; lon: string; display_name: string } | null> {
+    const res = await fetch(`/api/geocode?q=${encodeURIComponent(q)}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data?.length ? data[0] : null;
+  }
+
   async function handleSearch() {
     const q = query.trim();
     if (q.length < 3) return;
     setStatus('loading');
     setErrMsg('');
+    setCanUseNameOnly(false);
     try {
-      const res  = await fetch(`/api/geocode?q=${encodeURIComponent(q)}`);
-      if (!res.ok) throw new Error('API error');
-      const data = await res.json();
-      if (!data?.length) throw new Error('Not found');
-      const { lat, lon, display_name } = data[0];
-      setHotelLocation(display_name ?? q, parseFloat(lat), parseFloat(lon));
-      setStatus('found');
+      // First try the raw query; if that fails, retry with the destination
+      // appended (e.g. "Park Hyatt" → "Park Hyatt, Tokyo"). This catches the
+      // most common case where users type just the hotel name without the city.
+      let result = await geocode(q);
+      if (!result && destination) {
+        result = await geocode(`${q}, ${destination}`);
+      }
+
+      if (result) {
+        const { lat, lon, display_name } = result;
+        setHotelLocation(display_name ?? q, parseFloat(lat), parseFloat(lon));
+        setStatus('found');
+      } else {
+        // Both attempts failed — offer name-only as a fallback so users
+        // aren't blocked by geocoding gaps.
+        setStatus('error');
+        setErrMsg(`Can't find "${q}" on the map — try a more specific name, or continue with just the name.`);
+        setCanUseNameOnly(true);
+      }
     } catch {
       setStatus('error');
-      setErrMsg('Hotel not found — try a different name or address');
+      setErrMsg('Search failed — check your connection and try again.');
+      setCanUseNameOnly(true);
     }
+  }
+
+  function handleUseNameOnly() {
+    // Store the hotel name without coordinates. The AI generator still gets
+    // the name in its prompt; only the map pin will be missing.
+    setHotelLocation(query.trim(), 0, 0);
+    setStatus('found');
+    setCanUseNameOnly(false);
   }
 
   function handleClear() {
     clearHotelLocation();
     setQuery('');
     setStatus('idle');
+    setCanUseNameOnly(false);
   }
 
   function handlePathSelect(p: Path) {
@@ -363,11 +395,26 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
             </AnimatePresence>
             <AnimatePresence>
               {searchStatus === 'error' && (
-                <motion.p variants={reveal} initial="hidden" animate="visible" exit="exit"
-                  className="text-sm px-4 py-2.5 rounded-xl"
-                  style={{ background: 'rgba(180,60,60,0.08)', color: '#b43c3c', border: '1px solid rgba(180,60,60,0.20)' }}>
-                  {t(errMsg)}
-                </motion.p>
+                <motion.div key="error-block"
+                  variants={reveal} initial="hidden" animate="visible" exit="exit"
+                  className="flex flex-col gap-2">
+                  <p
+                    className="text-sm px-4 py-2.5 rounded-xl"
+                    style={{ background: 'rgba(180,60,60,0.08)', color: '#b43c3c', border: '1px solid rgba(180,60,60,0.20)' }}>
+                    {t(errMsg)}
+                  </p>
+                  {canUseNameOnly && (
+                    <motion.button
+                      onClick={handleUseNameOnly}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.97 }}
+                      className="self-start text-sm font-semibold px-4 py-2.5 rounded-xl"
+                      style={{ background: THEME.surfaceSel, color: THEME.deepGreen, border: `1px solid ${THEME.borderSel}` }}
+                    >
+                      {he ? `המשיכו עם "${query}"` : `Continue with "${query}"`}
+                    </motion.button>
+                  )}
+                </motion.div>
               )}
             </AnimatePresence>
           </motion.div>

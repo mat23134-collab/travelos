@@ -24,6 +24,7 @@ import { Suspense, useEffect, useState, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useOnboardingStore } from '@/state/onboardingStore';
+import { trackOnboardingStep, ONBOARDING_STEP_KEYS } from '@/lib/onboardingAnalytics';
 import { readTripLanguagePref } from '@/lib/tripLanguagePref';
 import { useAuth } from '@/lib/auth-context';
 import { BrandWordmark } from '@/components/BrandWordmark';
@@ -249,6 +250,19 @@ function OnboardingPageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  // ── Step funnel tracking (Clarity tags + Supabase events) ───────────────────
+  // Fire-and-forget (see lib/onboardingAnalytics) — tags the Clarity session
+  // with the current step and logs a per-attempt row so we can measure exactly
+  // where people drop off (e.g. the "hotel" step). Cannot block or break the
+  // wizard. `destination` is read as context only, not as a trigger.
+  useEffect(() => {
+    if (!user) return;
+    const key = ONBOARDING_STEP_KEYS[wizardStep];
+    if (!key) return;
+    trackOnboardingStep(wizardStep, key, { userId: user.id, destination });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wizardStep, user]);
+
   if (loading || !user) {
     return (
       <main className="min-h-screen flex items-center justify-center px-8">
@@ -357,6 +371,9 @@ function OnboardingPageContent() {
 
   // ── Final action: generate trip ─────────────────────────────────────────────
   function handleGenerateTrip() {
+    // Mark the funnel endpoint: user reached "Generate". Fire-and-forget.
+    trackOnboardingStep(STEPS.length, 'generate', { userId: user?.id ?? null, destination });
+
     const params = new URLSearchParams();
 
     // Core
