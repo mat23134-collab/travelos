@@ -4,14 +4,15 @@
  * CjAffiliateScript — loads CJ's page-based link tools script (am.js) only after
  * the user has granted analytics/marketing consent.
  *
- * The script auto-monetizes outbound links to CJ advertisers and reports
- * page-based impressions (impression data may be shared with advertisers /
- * third parties), so it is gated behind the `analyticsCookies` consent category
- * rather than loaded unconditionally. It re-evaluates when consent changes.
+ * This is CJ's own page-based automation: on click, it rewrites outbound links
+ * to CJ advertisers (e.g. Booking.com) into correctly-formatted CJ deep links
+ * and reports page-based impressions. We rely on it for monetization rather than
+ * hand-building deep-link URLs (which is error-prone — a wrong format causes
+ * redirect loops).
  *
- * Note: the manual CJ deep links on the hotel buttons (see lib/cjAffiliate) do
- * NOT depend on this script — those work regardless, since they only track on an
- * intentional outbound click.
+ * Because it shares impression data with advertisers / third parties, it is
+ * gated behind the `analyticsCookies` consent category and re-evaluates when
+ * consent changes.
  */
 
 import { useEffect, useState } from 'react';
