@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import Script from 'next/script';
 import { supabase } from '@/lib/supabase';
 import { ItineraryClient } from '@/components/ItineraryClient';
 import { Itinerary, TravelerProfile, type CityTransportGuide } from '@/lib/types';
@@ -142,16 +143,25 @@ export default async function ItineraryByIdPage({ params }: PageProps) {
   }
 
   return (
-    <ItineraryClient
-      initialItinerary={itinerary}
-      initialProfile={_profile ?? null}
-      initialViewMode="final"
-      initialTransportFromDb={transportFromDb}
-      initialTripSummaryUsername={tripSummaryUsername}
-      ownerUserId={ownerUserId}
-      ownerUsername={ownerUsername}
-      collaborators={collaborators}
-    />
+    <>
+      <ItineraryClient
+        initialItinerary={itinerary}
+        initialProfile={_profile ?? null}
+        initialViewMode="final"
+        initialTransportFromDb={transportFromDb}
+        initialTripSummaryUsername={tripSummaryUsername}
+        ownerUserId={ownerUserId}
+        ownerUsername={ownerUsername}
+        collaborators={collaborators}
+      />
+      {/* CJ Affiliate (Commission Junction) page-based link tools — auto-monetizes
+          outbound links to CJ advertisers (hotels/booking) on the results page.
+          Loaded after hydration; equivalent to CJ's "just before </body>" guidance. */}
+      <Script
+        src="https://www.anrdoezrs.net/am/101803084/include/allCj/impressions/page/am.js"
+        strategy="afterInteractive"
+      />
+    </>
   );
 }
 
