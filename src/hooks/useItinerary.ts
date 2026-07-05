@@ -74,6 +74,8 @@ export interface UseItineraryReturn {
 
   // Activity mutations
   persistAndSet: (next: Itinerary) => void;
+  recalculateDay: (dayIndex: number, newFixedActivity: Activity) => Promise<void>;
+  recalculateDayLoading: boolean;
   handleSlotSwap: (
     dayIndex: number,
     slot: 'morning' | 'afternoon' | 'evening',
@@ -117,6 +119,7 @@ export function useItinerary({
   const [mobileMapOpen, setMobileMapOpen] = useState(false);
   const [tripStoryOpen, setTripStoryOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [recalculateDayLoading, setRecalculateDayLoading] = useState(false);
   const scoutPostedRef = useRef(false);
 
   useEffect(() => {
@@ -422,6 +425,56 @@ export function useItinerary({
     showBanner(data.summary);
   }, [itinerary, persistAndSet, showBanner]);
 
+  /**
+   * Sends the current day and a newly-booked fixed activity to
+   * /api/itinerary/recalculate-day, then optimistically updates the
+   * itinerary state with the rescheduled day returned by the model.
+   *
+   * The update is applied immediately on success. On failure the itinerary
+   * is left unchanged and a banner is shown.
+   */
+  const recalculateDay = useCallback(async (
+    dayIndex: number,
+    newFixedActivity: Activity,
+  ): Promise<void> => {
+    const day = itinerary.days[dayIndex];
+    if (!day) {
+      showBanner('⚠️ Day not found — cannot reschedule.');
+      return;
+    }
+
+    setRecalculateDayLoading(true);
+
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+
+    try {
+      const res = await fetch('/api/itinerary/recalculate-day', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ day, newActivity: newFixedActivity }),
+      });
+
+      const data = await res.json() as { updatedDay?: typeof day; error?: string };
+
+      if (!res.ok || !data.updatedDay) {
+        showBanner(`⚠️ ${data.error ?? 'Could not reschedule the day.'}`);
+        return;
+      }
+
+      const updatedDays = itinerary.days.map((d, i) =>
+        i === dayIndex ? data.updatedDay! : d,
+      );
+      persistAndSet({ ...itinerary, days: updatedDays });
+      showBanner('✓ Day rescheduled around your booking.');
+    } catch (err) {
+      console.error('[recalculateDay]', err);
+      showBanner('⚠️ Could not reschedule — check your connection.');
+    } finally {
+      setRecalculateDayLoading(false);
+    }
+  }, [itinerary, persistAndSet, session, showBanner]);
+
   const handleQuickEditUpdate = useCallback((updated: Itinerary, summary: string) => {
     persistAndSet(updated);
     showBanner(summary);
@@ -439,7 +492,8 @@ export function useItinerary({
     focusedNeighborhood, mobileMapOpen, setMobileMapOpen, handleNeighborhoodClick, handleMapClose,
     tripStoryOpen, setTripStoryOpen,
     feedbackOpen, handleFeedbackDismiss, handleFeedbackSubmit,
-    persistAndSet, handleSlotSwap, handleCommitActivitySwap,
+    persistAndSet, recalculateDay, recalculateDayLoading,
+    handleSlotSwap, handleCommitActivitySwap,
     handleQuickEditUpdate, handleDraftUpdate,
     session,
   };

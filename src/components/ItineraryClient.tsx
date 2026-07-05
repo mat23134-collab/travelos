@@ -40,6 +40,7 @@ import { TripStats } from '@/components/TripStats';
 import { deriveTripStats, deriveTripStatLists } from '@/lib/tripStats';
 import { budgetToUsd } from '@/lib/currency';
 import { DayDetailPanel } from '@/components/DayDetailPanel';
+import { SmartToolbar } from '@/components/SmartToolbar';
 import { HotelSelectionCard } from '@/components/HotelSelectionCard';
 import { AssistantChat } from '@/components/AssistantChat';
 import { formatTripDateRange } from '@/lib/formatTripDateRange';
@@ -1442,6 +1443,19 @@ export function ItineraryClient({
               dateRange={formatTripDateRange(itin.profile?.startDate, itin.profile?.endDate)}
               totalDays={days.length}
             />
+
+            {/* Bottom margin cancels TripStats' negative top margin (-mt-10/-12)
+                so the stat cards sit BELOW the toolbar instead of overlapping it. */}
+            <div className="px-4 mt-5 mb-16 sm:mb-20 relative z-10">
+              <SmartToolbar
+                destination={itin.itinerary.destination}
+                days={days}
+                lang={itin.ui.lang === 'he' ? 'he' : 'en'}
+                accessToken={itin.session?.access_token ?? null}
+                onLockReservation={itin.recalculateDay}
+                recalculateDayLoading={itin.recalculateDayLoading}
+              />
+            </div>
 
             <TripStats
               photoQuery={`${itin.itinerary.destination} skyline golden hour`}
