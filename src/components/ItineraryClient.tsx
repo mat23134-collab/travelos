@@ -17,6 +17,7 @@ import { TripStoryCube } from '@/components/TripStoryCube';
 import { FeedbackSurveyModal, type FeedbackPayload } from '@/components/FeedbackSurveyModal';
 import { itineraryUi, type ItineraryUiStrings } from '@/lib/tripUiCopy';
 import { hotelOtaSearchUrl, mergeHotelOtaRows, isOtaSoldOut, hasBookableOtaRate, otaPartyFromProfile, googleHotelsSearchUrl, type HotelOtaLinkOpts } from '@/lib/hotelOtaLinks';
+import { cjDeepLink } from '@/lib/cjAffiliate';
 
 /** Strip trailing "/night" variants the AI sometimes appends to indicativeNightly
  *  so we don't double-up when we add our own "· /night (est.)" suffix. */
@@ -297,7 +298,7 @@ function HotelDetailCube({
                       </span>
                     ) : (
                       <a
-                        href={row.id === 'booking' && bookingDirect ? bookingDirect : hotelOtaSearchUrl(row.id, hotel.name, destination, otaOpts)}
+                        href={cjDeepLink(row.id === 'booking' && bookingDirect ? bookingDirect : hotelOtaSearchUrl(row.id, hotel.name, destination, otaOpts))}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="shrink-0 inline-flex items-center justify-center px-3 py-2 rounded-lg text-[11px] font-bold border transition-colors hover-bg-surface"
@@ -821,7 +822,7 @@ function HotelCard({
                 return (
                   <a
                     key={row.id}
-                    href={row.id === 'booking' && bookingDirect ? bookingDirect : hotelOtaSearchUrl(row.id, hotel.name, destination, otaOpts)}
+                    href={cjDeepLink(row.id === 'booking' && bookingDirect ? bookingDirect : hotelOtaSearchUrl(row.id, hotel.name, destination, otaOpts))}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}

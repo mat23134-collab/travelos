@@ -36,10 +36,13 @@ export default function PrivacyPage() {
               <strong className="text-[#2b2622]">2. Third-Party Services:</strong> SARTO uses Supabase for secure data hosting, and Microsoft Clarity for user experience analysis (including heatmaps and session recordings) to improve site performance.
             </p>
             <p>
-              <strong className="text-[#2b2622]">3. Data Security:</strong> We implement strict server-side security policies (RLS) to ensure that only you have access to your personal itinerary data.
+              <strong className="text-[#2b2622]">3. Affiliate Links &amp; Advertising:</strong> Some outbound links on your itinerary — such as hotel booking links — are affiliate links routed through Commission Junction (CJ Affiliate). If you click one and make a booking, SARTO may earn a commission at no extra cost to you. When you opt in to analytics/marketing cookies, we also load CJ&apos;s page-based tools, which may share aggregated impression data with advertisers and other third parties. These tracking features activate only after you consent, and you can withdraw consent at any time in the cookie settings.
             </p>
             <p>
-              <strong className="text-[#2b2622]">4. Contact Us:</strong> For any questions regarding your data or privacy, contact our support team at travelos23@gmail.com.
+              <strong className="text-[#2b2622]">4. Data Security:</strong> We implement strict server-side security policies (RLS) to ensure that only you have access to your personal itinerary data.
+            </p>
+            <p>
+              <strong className="text-[#2b2622]">5. Contact Us:</strong> For any questions regarding your data or privacy, contact our support team at travelos23@gmail.com.
             </p>
           </div>
         </article>
