@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import Script from 'next/script';
 import { supabase } from '@/lib/supabase';
+import { CjAffiliateScript } from '@/components/CjAffiliateScript';
 import { ItineraryClient } from '@/components/ItineraryClient';
 import { Itinerary, TravelerProfile, type CityTransportGuide } from '@/lib/types';
 import { fetchTransportGuideForCity, ensureTransportationForCity } from '@/lib/tripTransport';
@@ -154,13 +154,10 @@ export default async function ItineraryByIdPage({ params }: PageProps) {
         ownerUsername={ownerUsername}
         collaborators={collaborators}
       />
-      {/* CJ Affiliate (Commission Junction) page-based link tools — auto-monetizes
-          outbound links to CJ advertisers (hotels/booking) on the results page.
-          Loaded after hydration; equivalent to CJ's "just before </body>" guidance. */}
-      <Script
-        src="https://www.anrdoezrs.net/am/101803084/include/allCj/impressions/page/am.js"
-        strategy="afterInteractive"
-      />
+      {/* CJ Affiliate page-based link tools — auto-monetizes outbound links to
+          CJ advertisers + page impression reporting. Consent-gated (analytics),
+          so it only loads once the user opts in. */}
+      <CjAffiliateScript />
     </>
   );
 }

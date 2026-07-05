@@ -123,7 +123,7 @@ export function LegalConsentBanner() {
                   </label>
                   <label className="flex items-center justify-between gap-3 rounded-xl border px-3 py-2"
                     style={{ borderColor: 'rgba(255,255,255,0.09)', color: 'rgba(255,255,255,0.62)' }}>
-                    <span>Analytics cookies (currently off by default)</span>
+                    <span>Analytics &amp; affiliate/marketing cookies (off by default)</span>
                     <input
                       type="checkbox"
                       checked={analyticsCookies}
