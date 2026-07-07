@@ -49,7 +49,10 @@ import { onboardingUi } from '@/lib/onboardingUi';
 // throw from retryImport would leave the <StepSkeleton /> showing forever.
 // Handling ChunkLoadError here — inside the catch — ensures the reload fires
 // even when Next.js doesn't propagate it as an unhandledrejection.
-const CHUNK_RELOAD_KEY = 'sarto_chunk_reloaded';
+const CHUNK_RELOAD_AT_KEY = 'sarto_chunk_reloaded_at';
+const CHUNK_RELOAD_COUNT_KEY = 'sarto_chunk_reload_count';
+const RELOAD_COOLDOWN_MS = 10_000; // don't reload twice within 10s (loop guard)
+const MAX_RELOADS = 3;             // hard cap per session
 
 function looksLikeChunkError(err: unknown): boolean {
   const msg = [
@@ -59,20 +62,48 @@ function looksLikeChunkError(err: unknown): boolean {
   return /ChunkLoadError|Loading chunk [\d]+ failed|Loading CSS chunk|error loading dynamically imported module|importing a module script failed/i.test(msg);
 }
 
+/**
+ * Trigger a one-shot page reload to recover from a stale/failed chunk, guarded
+ * against loops by BOTH a 10s cooldown and a per-session count cap. Returns true
+ * when a reload was started (caller should then hang, since the page is going
+ * away).
+ *
+ * The previous implementation reloaded only ONCE per session, which meant that
+ * if an early step auto-recovered, a LATER step failing (e.g. the hotel step)
+ * could never reload itself — it just showed a blank <StepSkeleton /> until the
+ * user manually refreshed. That cost us users who left instead of refreshing.
+ */
+function tryRecoveryReload(): boolean {
+  try {
+    const lastAt = Number(sessionStorage.getItem(CHUNK_RELOAD_AT_KEY) ?? '0');
+    const count = Number(sessionStorage.getItem(CHUNK_RELOAD_COUNT_KEY) ?? '0');
+    if (count >= MAX_RELOADS) return false;
+    if (Date.now() - lastAt < RELOAD_COOLDOWN_MS) return false;
+    sessionStorage.setItem(CHUNK_RELOAD_AT_KEY, String(Date.now()));
+    sessionStorage.setItem(CHUNK_RELOAD_COUNT_KEY, String(count + 1));
+    window.location.reload();
+    return true;
+  } catch {
+    // sessionStorage unavailable (private / in-app browsers) — reload once
+    // unguarded rather than risk a permanent blank step.
+    try { window.location.reload(); return true; } catch { return false; }
+  }
+}
+
 function retryImport<T>(factory: () => Promise<T>, retries = 4, delay = 350): Promise<T> {
   return factory().catch((err) => {
-    // ChunkLoadError: retrying the same stale URL keeps 404-ing. Reload once.
-    if (looksLikeChunkError(err)) {
-      try {
-        if (!sessionStorage.getItem(CHUNK_RELOAD_KEY)) {
-          sessionStorage.setItem(CHUNK_RELOAD_KEY, '1');
-          window.location.reload();
-          // Return a promise that never resolves — the page is reloading.
-          return new Promise<T>(() => {});
-        }
-      } catch { /* sessionStorage unavailable in some private/in-app browsers */ }
+    // ChunkLoadError: retrying the same stale URL keeps 404-ing. Reload for
+    // fresh HTML + chunk hashes (loop-guarded).
+    if (looksLikeChunkError(err) && tryRecoveryReload()) {
+      return new Promise<T>(() => {}); // page is reloading
     }
-    if (retries <= 0) throw err;
+    if (retries <= 0) {
+      // Retries exhausted. A reload usually fixes even non-chunk transient
+      // failures (network blips) — try it as a last resort before giving up,
+      // so the step area never stays permanently blank.
+      if (tryRecoveryReload()) return new Promise<T>(() => {});
+      throw err;
+    }
     return new Promise<T>((resolve, reject) => {
       setTimeout(() => {
         retryImport(factory, retries - 1, Math.min(delay * 1.6, 2500)).then(resolve, reject);
@@ -154,6 +185,16 @@ const slide = {
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 function StepSkeleton() {
+  // Safety net: a normal chunk loads in well under a second. If this skeleton
+  // is still mounted after 8s the dynamic import failed silently (dynamic()
+  // swallows the rejection), leaving a permanent blank step. Trigger the
+  // loop-guarded recovery reload so the user isn't stuck — the #1 reason people
+  // used to abandon the hotel step.
+  useEffect(() => {
+    const id = setTimeout(() => { tryRecoveryReload(); }, 10_000);
+    return () => clearTimeout(id);
+  }, []);
+
   return (
     <div className="flex flex-col gap-4 animate-pulse">
       <div className="h-8 w-48 rounded-xl" style={{ background: 'rgba(31,36,33,0.12)' }} />
