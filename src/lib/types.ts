@@ -261,6 +261,85 @@ export interface RestaurantRecommendation {
   score?: number;
 }
 
+/** Localizable attraction text fields, produced per site language. */
+export interface AttractionLocaleText {
+  description?: string | null;
+  /** Short genre, e.g. "Ancient landmark", "Renaissance museum". */
+  category?: string | null;
+  /** Punchy 2–4 word badge, e.g. "Skip-the-line essential". */
+  highlight?: string | null;
+  /** One sentence: why booking ahead is critical + how far ahead. */
+  bookingUrgency?: string | null;
+  /** One practical insider tip (best time slot, entrance, etc.). */
+  insiderTip?: string | null;
+}
+
+/**
+ * A must-book-ahead attraction (timed-entry landmark, capped-capacity museum,
+ * special-access tour) surfaced by the attraction scout and stored in
+ * `public.attraction_recommendations`. Shown in the Smart Toolbar.
+ */
+export interface AttractionRecommendation {
+  id?: string;
+  city: string;
+  name: string;
+  description?: string | null;   // resolved to the requested language
+  category?: string | null;      // resolved
+  highlight?: string | null;     // resolved
+  bookingUrgency?: string | null;// resolved
+  insiderTip?: string | null;    // resolved
+  translations?: Partial<Record<SiteLanguage, AttractionLocaleText>> | null;
+  priceRange?: string | null;
+  neighborhood?: string | null;
+  /** Deep-link to buy tickets (official site or GetYourGuide/Tiqets search). */
+  ticketUrl?: string | null;
+  bookingPlatform?: string | null;
+  websiteUrl?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  googlePlaceId?: string | null;
+  rating?: number | null;
+  ratingCount?: number | null;
+  photoUrl?: string | null;
+  source?: 'scout' | 'manual';
+  score?: number;
+}
+
+/** Localizable event text fields, produced per site language. */
+export interface EventLocaleText {
+  description?: string | null;
+  /** Short genre, e.g. "Music festival", "Open-air food fair". */
+  category?: string | null;
+  /** Punchy 2–4 word badge, e.g. "Once a year". */
+  highlight?: string | null;
+}
+
+/**
+ * A festival / event happening in the destination that overlaps the traveler's
+ * dates. Grounded in web search results (sourceUrl) to avoid hallucinated
+ * events. Stored in `public.event_recommendations`.
+ */
+export interface EventRecommendation {
+  id?: string;
+  city: string;
+  name: string;
+  description?: string | null;   // resolved to the requested language
+  category?: string | null;      // resolved
+  highlight?: string | null;     // resolved
+  translations?: Partial<Record<SiteLanguage, EventLocaleText>> | null;
+  venue?: string | null;
+  /** ISO dates (YYYY-MM-DD). Single-day events may have endDate = startDate. */
+  startDate?: string | null;
+  endDate?: string | null;
+  priceRange?: string | null;
+  ticketUrl?: string | null;
+  websiteUrl?: string | null;
+  /** The web page that grounded this event (from Exa/Tavily). */
+  sourceUrl?: string | null;
+  source?: 'scout' | 'manual';
+  score?: number;
+}
+
 export interface WebInsight {
   text: string;
   type: InsightType;
