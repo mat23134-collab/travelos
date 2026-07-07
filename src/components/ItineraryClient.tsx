@@ -1438,7 +1438,9 @@ export function ItineraryClient({
           />
         ) : (
           /* ══ OVERVIEW ════════════════════════════════════════════════════ */
-          <div className="max-w-5xl mx-auto py-4">
+          /* Width scales up on large desktops so the content fills the screen
+             instead of leaving big empty gutters; mobile/tablet unchanged. */
+          <div className="max-w-5xl xl:max-w-7xl 2xl:max-w-[1600px] mx-auto py-4">
             <ItineraryHero
               destination={itin.itinerary.destination}
               dateRange={formatTripDateRange(itin.profile?.startDate, itin.profile?.endDate)}
