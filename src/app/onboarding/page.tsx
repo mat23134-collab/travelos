@@ -239,18 +239,6 @@ function OnboardingPageContent() {
     if (!loading && !user) router.replace('/auth');
   }, [loading, user, router]);
 
-  // ── ChunkLoadError safety net ───────────────────────────────────────────────
-  // retryImport (above) handles ChunkLoadError directly and reloads the page.
-  // This effect clears the reload guard after 8 s so that a future deploy can
-  // still trigger another auto-reload.
-  useEffect(() => {
-    const clearGuard = () => {
-      try { sessionStorage.removeItem(CHUNK_RELOAD_KEY); } catch { /* ignore */ }
-    };
-    const settle = setTimeout(clearGuard, 8000);
-    return () => clearTimeout(settle);
-  }, []);
-
   // Seed destination / resume from query params
   useEffect(() => {
     if (!user) return;
