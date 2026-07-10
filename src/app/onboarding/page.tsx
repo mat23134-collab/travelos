@@ -239,6 +239,32 @@ function OnboardingPageContent() {
     if (!loading && !user) router.replace('/auth');
   }, [loading, user, router]);
 
+  // ── Warm upcoming step chunks so navigation never suspends mid-transition ────
+  // Steps are code-split via dynamic(ssr:false). If a step's chunk is still
+  // loading when the user navigates to it, the entering child SUSPENDS inside
+  // <AnimatePresence mode="wait"> — which interrupts the slide-in animation and
+  // can leave the step MOUNTED BUT INVISIBLE (stuck at the enter variant's
+  // opacity:0), looking blank until a manual refresh. This was the bug on the
+  // (heavier) accommodation step.
+  //
+  // Prefetch the current + next two chunks whenever the step changes, so each
+  // step is already in the module cache before it's shown and resolves without
+  // suspending. import() is cached, so repeat calls are cheap.
+  useEffect(() => {
+    const importers = [
+      () => import('./sections/DestinationSection'),
+      () => import('./sections/DatesSection'),
+      () => import('./sections/PreferencesSection'),
+      () => import('./sections/VibeSection'),
+      () => import('./sections/SmartHotelStep'),
+      () => import('./sections/FinishingTouchesSection'),
+      () => import('./sections/TopSightsSection'),
+    ];
+    for (const s of [wizardStep, wizardStep + 1, wizardStep + 2]) {
+      importers[s]?.().catch(() => {});
+    }
+  }, [wizardStep]);
+
   // Seed destination / resume from query params
   useEffect(() => {
     if (!user) return;
