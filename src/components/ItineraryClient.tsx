@@ -8,7 +8,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Itinerary, TravelerProfile, Basecamp, HotelRecommendation, type BookedHotelAround, type Activity, type CityTransportGuide } from '@/lib/types';
 import { DayCard } from '@/components/DayCard';
 import { DayPhoto } from '@/components/DayPhoto';
-import { QuickEdit } from '@/components/QuickEdit';
 import { SharePanel, type SharePanelCopy } from '@/components/SharePanel';
 import { LogisticsDashboard } from '@/components/LogisticsDashboard';
 import { DraftOverview } from '@/components/DraftOverview';
@@ -1651,10 +1650,6 @@ export function ItineraryClient({
             />
           )}
         </AnimatePresence>
-
-        <div className="print:hidden">
-          <QuickEdit itinerary={itin.itinerary} onUpdate={itin.handleQuickEditUpdate} />
-        </div>
 
         <div className="print:hidden">
           <FeedbackSurveyModal
