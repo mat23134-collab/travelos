@@ -11,9 +11,10 @@
  * Lightweight by design — pure <img> layers + CSS transitions/keyframes, no
  * WebGL/rendering engine.
  *
- * ── Assets you provide ────────────────────────────────────────────────────────
- * Drop four TRANSPARENT PNG/WebP cut-outs (same character, same framing) in
- * /public/mika/:  idle.png · thinking.png · success.png · correction.png
+ * ── Assets ────────────────────────────────────────────────────────────────────
+ * Four TRANSPARENT cut-outs (same character, same framing) live in /public/mika/:
+ * idle.webp · thinking.webp · success.webp · correction.webp. Currently all four
+ * are the same rendered pose (background removed); swap in distinct poses later.
  * Transparent background is what lets the hat break out of the circle. If a file
  * is missing it falls back to idle; if idle is missing too, a tiny inline SVG
  * placeholder renders — so the UI never breaks while you're producing art.
@@ -25,7 +26,7 @@ import { AssistantAvatar } from '@/components/AssistantAvatar';
 export type MikaState = 'idle' | 'thinking' | 'success' | 'correction';
 
 const STATES: MikaState[] = ['idle', 'thinking', 'success', 'correction'];
-const SRC = (s: MikaState) => `/mika/${s}.png`;
+const SRC = (s: MikaState) => `/mika/${s}.webp`;
 
 export function MikaAvatar({
   state = 'idle',

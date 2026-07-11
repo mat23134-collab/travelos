@@ -47,7 +47,7 @@ export default function MikaPreviewPage() {
       <div className="max-w-4xl mx-auto">
         <h1 className="text-2xl font-bold mb-1">Mika — avatar preview</h1>
         <p className="text-sm mb-6" style={{ opacity: 0.7 }}>
-          Files expected in <code>/public/mika/</code>: idle.png · thinking.png · success.png · correction.png (transparent).
+          Files expected in <code>/public/mika/</code>: idle.webp · thinking.webp · success.webp · correction.webp (transparent).
           Missing files fall back to idle, then to the inline SVG.
         </p>
 
