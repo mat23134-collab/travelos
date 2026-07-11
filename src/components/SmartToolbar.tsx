@@ -22,6 +22,7 @@ import type {
   EventRecommendation,
   RestaurantRecommendation,
 } from '@/lib/types';
+import type { Landmark } from '@/app/api/landmarks/route';
 
 // ─── Design tokens (light "paper" overview theme) ─────────────────────────────
 const INK       = 'var(--color-ink-warm)';        // near-black warm text
@@ -82,6 +83,15 @@ const COPY = {
     eventsNoDates: 'חסרים תאריכי הטיול, אז אי אפשר לחפש אירועים.',
     sourceLink: 'מקור',
     eventTime: 'באיזו שעה?',
+    // Explore — curated attraction bank (same picks as onboarding step 7)
+    explore: 'בנק אטרקציות',
+    exploreIntro: (city: string) =>
+      `עיינו באטרקציות הנבחרות של ${city} — אתרים, היסטוריה ואוכל מקומי — ושבצו כל אחת ליום ולשעה שתבחרו. אנחנו נארגן מחדש את היום סביבה.`,
+    exploreError: (city: string) => `לא הצלחנו לטעון את בנק האטרקציות ל${city} כרגע.`,
+    exploreEmpty: (city: string) => `עדיין אין לנו אטרקציות נבחרות ל${city}.`,
+    catSightseeing: 'אתרים',
+    catHistory: 'היסטוריה',
+    catFood: 'אוכל מקומי',
   },
   en: {
     eyebrow: 'Smart concierge',
@@ -124,6 +134,15 @@ const COPY = {
     eventsNoDates: 'Trip dates are missing, so we can’t search for events.',
     sourceLink: 'Source',
     eventTime: 'What time?',
+    // Explore — curated attraction bank (same picks as onboarding step 7)
+    explore: 'Attraction bank',
+    exploreIntro: (city: string) =>
+      `Browse the curated highlights of ${city} — sights, history and local food — and slot any of them into the day and time you choose. We'll reschedule that day around it.`,
+    exploreError: (city: string) => `We couldn't load the attraction bank for ${city} right now.`,
+    exploreEmpty: (city: string) => `We don't have curated highlights for ${city} yet.`,
+    catSightseeing: 'Sightseeing',
+    catHistory: 'History',
+    catFood: 'Local Food',
   },
 } as const;
 
@@ -141,10 +160,11 @@ interface SmartToolbarProps {
   recalculateDayLoading: boolean;
 }
 
-type FeatureKey = 'restaurants' | 'attractions' | 'events';
+type FeatureKey = 'explore' | 'restaurants' | 'attractions' | 'events';
 
 // Extensible: append new tools here as they ship.
 const FEATURES: Array<{ key: FeatureKey; emoji: string; labelKey: FeatureKey }> = [
+  { key: 'explore', emoji: '🧭', labelKey: 'explore' },
   { key: 'restaurants', emoji: '🍽️', labelKey: 'restaurants' },
   { key: 'attractions', emoji: '🎟️', labelKey: 'attractions' },
   { key: 'events', emoji: '🎪', labelKey: 'events' },
@@ -199,6 +219,7 @@ export function SmartToolbar(props: SmartToolbarProps) {
             className="overflow-hidden"
           >
             <div className="pt-4">
+              {active === 'explore' && <ExplorePanel {...props} />}
               {active === 'restaurants' && <RestaurantsPanel {...props} />}
               {active === 'attractions' && <AttractionsPanel {...props} />}
               {active === 'events' && <EventsPanel {...props} />}
@@ -207,6 +228,167 @@ export function SmartToolbar(props: SmartToolbarProps) {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+// ─── Explore feature — curated attraction bank ─────────────────────────────────
+//
+// The same curated Top Sights that power onboarding step 7 (/api/landmarks,
+// backed by public.places rows), now reachable from the concierge on the
+// overview and inside a day. Pick a landmark → choose a day + time → it's
+// slotted in as a fixed anchor and the day reshuffles around it.
+
+interface LandmarkBank {
+  sightseeing: Landmark[];
+  history: Landmark[];
+  food: Landmark[];
+}
+
+function ExplorePanel({ destination, days, lang, accessToken, onLockReservation, recalculateDayLoading }: SmartToolbarProps) {
+  const t = COPY[lang];
+  const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'empty' | 'error'>('idle');
+  const [bank, setBank] = useState<LandmarkBank>({ sightseeing: [], history: [], food: [] });
+  const [picked, setPicked] = useState<Landmark | null>(null);
+
+  const load = useCallback(async () => {
+    const city = destination.trim();
+    if (!city) return;
+    setStatus('loading');
+    try {
+      const res = await fetch(`/api/landmarks?city=${encodeURIComponent(city)}&lang=${lang}`);
+      const data = (await res.json()) as Partial<LandmarkBank>;
+      const next: LandmarkBank = {
+        sightseeing: data.sightseeing ?? [],
+        history: data.history ?? [],
+        food: data.food ?? [],
+      };
+      const total = next.sightseeing.length + next.history.length + next.food.length;
+      setBank(next);
+      setStatus(total === 0 ? 'empty' : 'ready');
+    } catch {
+      setStatus('error');
+    }
+  }, [destination, lang]);
+
+  useEffect(() => { if (status === 'idle') void load(); }, [status, load]);
+
+  if (status === 'loading') {
+    return (
+      <div className="flex items-center gap-3 py-10 justify-center">
+        <Spinner />
+        <span className="text-[13px]" style={{ color: INK_MUT }}>{t.loading}</span>
+      </div>
+    );
+  }
+
+  if (status === 'empty') {
+    return <p className="py-8 text-center text-[13px]" style={{ color: INK_MUT }}>🧭 {t.exploreEmpty(destination)}</p>;
+  }
+
+  if (status === 'error') {
+    return (
+      <div className="py-8 text-center">
+        <p className="text-[13px] mb-3" style={{ color: INK_MUT }}>{t.exploreError(destination)}</p>
+        <button
+          onClick={() => setStatus('idle')}
+          className="px-4 py-2 rounded-xl text-[13px] font-semibold"
+          style={{ background: CARD_BG, border: BORDER, color: INK }}
+        >
+          {t.retry}
+        </button>
+      </div>
+    );
+  }
+
+  if (picked) {
+    return (
+      <ConfirmReservation
+        item={{ name: picked.name, photoUrl: picked.photo_url }}
+        days={days}
+        lang={lang}
+        loading={recalculateDayLoading}
+        defaultTime="10:00"
+        onCancel={() => setPicked(null)}
+        onConfirm={async (dayIndex, lockedTime) => {
+          await onLockReservation(dayIndex, landmarkToActivity(picked, lockedTime));
+          setPicked(null);
+        }}
+      />
+    );
+  }
+
+  const groups: Array<{ key: keyof LandmarkBank; label: string }> = [
+    { key: 'sightseeing', label: t.catSightseeing },
+    { key: 'history', label: t.catHistory },
+    { key: 'food', label: t.catFood },
+  ];
+
+  return (
+    <div>
+      <p className="text-[12.5px] leading-relaxed mb-4 mx-1" style={{ color: INK_MUT }}>
+        {t.exploreIntro(destination)}
+      </p>
+      <div className="flex flex-col gap-5">
+        {groups.map(({ key, label }) => {
+          const items = bank[key];
+          if (items.length === 0) return null;
+          return (
+            <div key={key}>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] mb-2.5 mx-1" style={{ color: INK_FAINT }}>
+                {label}
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {items.map((l) => (
+                  <ExploreCard key={l.id} l={l} lang={lang} onAdd={() => setPicked(l)} />
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ExploreCard({ l, lang, onAdd }: { l: Landmark; lang: Lang; onAdd: () => void }) {
+  const t = COPY[lang];
+  return (
+    <button
+      type="button"
+      onClick={onAdd}
+      className="group relative flex flex-col text-start rounded-2xl overflow-hidden transition-transform active:scale-[0.985]"
+      style={{ background: CARD_BG, border: BORDER, boxShadow: '0 6px 20px -12px rgba(43,38,34,0.25)' }}
+    >
+      {/* Photo (3:4 cuboid, matching step 7) */}
+      <div className="relative w-full overflow-hidden" style={{ aspectRatio: '3 / 4', background: PAPER_SUNK }}>
+        {l.photo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={l.photo_url} alt={l.name} loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-3xl" style={{ opacity: 0.4 }}>
+            {l.category_emoji || '📍'}
+          </div>
+        )}
+        <div
+          className="absolute inset-x-0 bottom-0 h-2/5 pointer-events-none"
+          style={{ background: 'linear-gradient(to top, rgba(9,13,20,0.72), rgba(9,13,20,0) 100%)' }}
+        />
+        {/* Add pill on hover */}
+        <span
+          className="absolute bottom-2 inset-x-2 py-1.5 rounded-lg text-[11.5px] font-bold text-center opacity-0 group-hover:opacity-100 transition-opacity"
+          style={{ background: ACCENT, color: '#fff' }}
+        >
+          + {t.add}
+        </span>
+      </div>
+      {/* Caption */}
+      <div className="p-3 flex flex-col gap-1">
+        <span className="text-[13.5px] font-bold leading-tight line-clamp-1" style={{ color: INK }}>{l.name}</span>
+        {l.description && (
+          <span className="text-[11px] leading-snug line-clamp-2" style={{ color: INK_FAINT }}>{l.description}</span>
+        )}
+      </div>
+    </button>
   );
 }
 
@@ -990,6 +1172,21 @@ function attractionToActivity(a: AttractionRecommendation, lockedTime: string): 
     longitude: a.longitude ?? undefined,
     category_emoji: '🎟️',
     tags: ['attraction', 'reservation'],
+    duration: '2–3 hours',
+  };
+}
+
+function landmarkToActivity(l: Landmark, lockedTime: string): Activity {
+  return {
+    name: l.name,
+    description: l.description ?? `Visit ${l.name}`,
+    isFixed: true,
+    lockedTime,
+    startTime: lockedTime,
+    google_place_id: l.google_place_id ?? undefined,
+    inventory_source_table: 'places',
+    category_emoji: l.category_emoji ?? '📍',
+    tags: ['attraction'],
     duration: '2–3 hours',
   };
 }
