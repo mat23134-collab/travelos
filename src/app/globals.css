@@ -669,3 +669,18 @@ p { line-height: 1.65; }
   .print-day { break-inside: avoid; }
   .print-activity { break-inside: avoid; }
 }
+
+/* ── Mika avatar micro-animations (lightweight, GPU-friendly) ─────────────── */
+@keyframes mika-breathe {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50%      { transform: translateY(-1.5%) scale(1.02); }
+}
+@keyframes mika-glow {
+  0%, 100% { opacity: 0.35; transform: scale(0.9); }
+  50%      { opacity: 0.9;  transform: scale(1.15); }
+}
+.mika-breathe { animation: mika-breathe 4.5s ease-in-out infinite; }
+.mika-glow    { animation: mika-glow 1.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .mika-breathe, .mika-glow { animation: none; }
+}
