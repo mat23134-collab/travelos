@@ -86,6 +86,17 @@ export function localizeAttraction(
   };
 }
 
+/** Newest updated_at for a city's rows (ISO string), or null when none. */
+export async function cityLastUpdated(sb: SupabaseClient, city: string): Promise<string | null> {
+  const { data } = await sb
+    .from(TABLE)
+    .select('updated_at')
+    .eq('city_normalized', normalizeCity(city))
+    .order('updated_at', { ascending: false })
+    .limit(1);
+  return data?.[0]?.updated_at ?? null;
+}
+
 /** Read the best-scored attractions for a city (public RLS read). */
 export async function fetchAttractionsForCity(
   sb: SupabaseClient,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { fetchEventsForCity } from '@/lib/eventBank';
+import { fetchEventsForCity, windowLastUpdated } from '@/lib/eventBank';
+import { isStale, EVENT_TTL_DAYS } from '@/lib/recStaleness';
 import { SITE_LANGUAGES, SiteLanguage } from '@/lib/types';
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -26,6 +27,9 @@ export async function GET(req: NextRequest) {
     ? (langParam as SiteLanguage)
     : 'en';
 
-  const events = await fetchEventsForCity(supabase, city, from, to, { lang });
-  return NextResponse.json({ events });
+  const [events, lastUpdated] = await Promise.all([
+    fetchEventsForCity(supabase, city, from, to, { lang }),
+    windowLastUpdated(supabase, city, from, to),
+  ]);
+  return NextResponse.json({ events, stale: isStale(lastUpdated, EVENT_TTL_DAYS) });
 }

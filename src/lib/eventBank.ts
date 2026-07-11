@@ -94,10 +94,30 @@ export async function fetchEventsForCity(
   return data.map(rowToRec).map((r) => localizeEvent(r, lang));
 }
 
+/** Newest updated_at among a city's events overlapping [from, to], or null. */
+export async function windowLastUpdated(
+  sb: SupabaseClient,
+  city: string,
+  from: string,
+  to: string,
+): Promise<string | null> {
+  const { data } = await sb
+    .from(TABLE)
+    .select('updated_at')
+    .eq('city_normalized', normalizeCity(city))
+    .lte('start_date', to)
+    .gte('end_date', from)
+    .order('updated_at', { ascending: false })
+    .limit(1);
+  return data?.[0]?.updated_at ?? null;
+}
+
 /**
- * Replace a city's events with the fresh scout batch. Deletes ALL rows for the
- * city (events age out fast and each scout is window-scoped anyway) and inserts
- * the new batch, de-duplicated by (name, startDate).
+ * Merge the fresh scout batch into a city's events (per-window upsert, NOT a
+ * delete-all): events from different trip date windows coexist instead of
+ * overwriting each other. Conflicts on (city, name, start_date) refresh the
+ * existing row. Also purges events that have already ended so the table stays
+ * lean over time.
  */
 export async function upsertEvents(
   sb: SupabaseClient,
@@ -106,6 +126,11 @@ export async function upsertEvents(
   if (recs.length === 0) return 0;
   const cityNorm = normalizeCity(recs[0].city);
 
+  // Purge events that are over (end_date before today) for this city.
+  const today = new Date().toISOString().slice(0, 10);
+  await sb.from(TABLE).delete().eq('city_normalized', cityNorm).lt('end_date', today);
+
+  // De-dupe the batch on the same key as the unique index.
   const seen = new Set<string>();
   const rows = recs.map(recToRow).filter((r) => {
     const key = `${r.name_normalized}|${r.start_date}`;
@@ -114,10 +139,11 @@ export async function upsertEvents(
     return true;
   });
 
-  await sb.from(TABLE).delete().eq('city_normalized', cityNorm);
-  const { error, count } = await sb.from(TABLE).insert(rows, { count: 'exact' });
+  const { error, count } = await sb
+    .from(TABLE)
+    .upsert(rows, { onConflict: 'city_normalized,name_normalized,start_date', count: 'exact' });
   if (error) {
-    console.warn('[eventBank] insert failed:', error.message);
+    console.warn('[eventBank] upsert failed:', error.message);
     return 0;
   }
   return count ?? rows.length;

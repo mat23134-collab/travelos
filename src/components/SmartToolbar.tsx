@@ -225,10 +225,11 @@ function RestaurantsPanel({ destination, days, lang, accessToken, onLockReservat
     setStatus('loading');
     try {
       const res = await fetch(`/api/restaurants?city=${encodeURIComponent(city)}&lang=${lang}`);
-      const data = (await res.json()) as { restaurants?: RestaurantRecommendation[] };
+      const data = (await res.json()) as { restaurants?: RestaurantRecommendation[]; stale?: boolean };
       if (data.restaurants && data.restaurants.length > 0) {
         setRestaurants(data.restaurants);
         setStatus('ready');
+        if (data.stale) backgroundRevalidate('/api/restaurants/scout', { city, lang }, accessToken);
         return;
       }
       if (!accessToken) { setStatus('error'); return; }
@@ -544,10 +545,11 @@ function AttractionsPanel({ destination, days, lang, accessToken, onLockReservat
     setStatus('loading');
     try {
       const res = await fetch(`/api/attractions?city=${encodeURIComponent(city)}&lang=${lang}`);
-      const data = (await res.json()) as { attractions?: AttractionRecommendation[] };
+      const data = (await res.json()) as { attractions?: AttractionRecommendation[]; stale?: boolean };
       if (data.attractions && data.attractions.length > 0) {
         setAttractions(data.attractions);
         setStatus('ready');
+        if (data.stale) backgroundRevalidate('/api/attractions/scout', { city, lang }, accessToken);
         return;
       }
       if (!accessToken) { setStatus('error'); return; }
@@ -780,10 +782,11 @@ function EventsPanel({ destination, days, lang, startDate, endDate, accessToken,
       const res = await fetch(
         `/api/events?city=${encodeURIComponent(city)}&from=${from}&to=${to}&lang=${lang}`,
       );
-      const data = (await res.json()) as { events?: EventRecommendation[] };
+      const data = (await res.json()) as { events?: EventRecommendation[]; stale?: boolean };
       if (data.events && data.events.length > 0) {
         setEvents(data.events);
         setStatus('ready');
+        if (data.stale) backgroundRevalidate('/api/events/scout', { city, from, to, lang }, accessToken);
         return;
       }
       if (!accessToken) { setStatus('error'); return; }
@@ -1002,6 +1005,20 @@ function eventToActivity(e: EventRecommendation, lockedTime: string): Activity {
     tags: ['event', 'festival'],
     duration: '2–3 hours',
   };
+}
+
+/**
+ * Stale-while-revalidate: when the GET returns cached data flagged `stale`,
+ * fire the scout in the background to refresh the bank for the NEXT visitor.
+ * Fire-and-forget — the current user keeps seeing the (slightly old) cache.
+ */
+function backgroundRevalidate(url: string, body: object, token: string | null) {
+  if (!token) return;
+  void fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  }).catch(() => { /* best-effort */ });
 }
 
 function Spinner() {
