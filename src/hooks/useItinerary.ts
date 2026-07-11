@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Itinerary, TravelerProfile, HotelRecommendation, Activity,
-  type CityTransportGuide,
+  type CityTransportGuide, type TripBaseLocation,
 } from '@/lib/types';
 import { itineraryUi, type ItineraryUiStrings } from '@/lib/tripUiCopy';
 import { type SharePanelCopy } from '@/components/SharePanel';
@@ -74,6 +74,7 @@ export interface UseItineraryReturn {
 
   // Activity mutations
   persistAndSet: (next: Itinerary) => void;
+  setTripBase: (base: TripBaseLocation | null) => void;
   recalculateDay: (dayIndex: number, newFixedActivity: Activity) => Promise<void>;
   recalculateDayLoading: boolean;
   handleSlotSwap: (
@@ -258,8 +259,14 @@ export function useItinerary({
     } catch { return false; }
   }, [markFeedbackSeen, session, itinerary._id, itinerary.destination]);
 
-  // Derived
+  // Derived. Priority: the trip-level base the traveler set from the Base tab
+  // (itinerary.baseLocation) → the hotel captured at onboarding (profile). This
+  // single marker anchors both the overview map and every per-day map.
   const basecampMarker = useMemo(() => {
+    const base = itinerary.baseLocation;
+    if (base && Number.isFinite(base.lat) && Number.isFinite(base.lng)) {
+      return { lat: base.lat, lng: base.lng, label: base.address || base.name || 'Base Camp' };
+    }
     if (profile?.hotelLat != null && profile?.hotelLng != null &&
         Number.isFinite(profile.hotelLat) && Number.isFinite(profile.hotelLng)) {
       return {
@@ -269,7 +276,7 @@ export function useItinerary({
       };
     }
     return null;
-  }, [profile]);
+  }, [itinerary.baseLocation, profile]);
 
   const tripDatesLabel = useMemo(
     () => formatTripDateRange(profile?.startDate, profile?.endDate, ui.lang === 'he' ? 'he-IL' : 'en-US'),
@@ -484,6 +491,13 @@ export function useItinerary({
     persistAndSet(updated);
   }, [persistAndSet]);
 
+  // Set (or clear) the trip's home base. Persists on the itinerary body via the
+  // normal save path; basecampMarker re-derives, re-anchoring every day's map.
+  const setTripBase = useCallback((base: TripBaseLocation | null) => {
+    persistAndSet({ ...itinerary, baseLocation: base });
+    showBanner(base ? `📍 “${base.name}” is now your trip base.` : 'Base removed.');
+  }, [itinerary, persistAndSet, showBanner]);
+
   return {
     itinerary, profile, ui, displayCityTransport, basecampMarker,
     tripDatesLabel, shareCopy, mapLabels, transportLoading, isAdmin,
@@ -494,7 +508,7 @@ export function useItinerary({
     feedbackOpen, handleFeedbackDismiss, handleFeedbackSubmit,
     persistAndSet, recalculateDay, recalculateDayLoading,
     handleSlotSwap, handleCommitActivitySwap,
-    handleQuickEditUpdate, handleDraftUpdate,
+    handleQuickEditUpdate, handleDraftUpdate, setTripBase,
     session,
   };
 }

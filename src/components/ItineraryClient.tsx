@@ -1687,6 +1687,18 @@ export function ItineraryClient({
         accessToken={itin.session?.access_token ?? null}
         onLockReservation={itin.recalculateDay}
         recalculateDayLoading={itin.recalculateDayLoading}
+        base={
+          itin.itinerary.baseLocation ??
+          (itin.profile?.hotelLat != null && itin.profile?.hotelLng != null
+            ? {
+                name: itin.profile.hotelBooked || itin.profile.hotelAddress || 'Your hotel',
+                address: itin.profile.hotelAddress ?? null,
+                lat: itin.profile.hotelLat,
+                lng: itin.profile.hotelLng,
+              }
+            : null)
+        }
+        onSetBase={itin.setTripBase}
       />
 
       <AssistantChat
