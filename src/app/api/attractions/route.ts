@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { fetchAttractionsForCity } from '@/lib/attractionBank';
+import { fetchAttractionsForCity, cityLastUpdated } from '@/lib/attractionBank';
+import { isStale, REC_TTL_DAYS } from '@/lib/recStaleness';
 import { SITE_LANGUAGES, SiteLanguage } from '@/lib/types';
 
 /**
@@ -19,6 +20,9 @@ export async function GET(req: NextRequest) {
     ? (langParam as SiteLanguage)
     : 'en';
 
-  const attractions = await fetchAttractionsForCity(supabase, city, { lang });
-  return NextResponse.json({ attractions });
+  const [attractions, lastUpdated] = await Promise.all([
+    fetchAttractionsForCity(supabase, city, { lang }),
+    cityLastUpdated(supabase, city),
+  ]);
+  return NextResponse.json({ attractions, stale: isStale(lastUpdated, REC_TTL_DAYS) });
 }

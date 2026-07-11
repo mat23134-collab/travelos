@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { fetchRestaurantsForCity } from '@/lib/restaurantBank';
+import { fetchRestaurantsForCity, cityLastUpdated } from '@/lib/restaurantBank';
+import { isStale, REC_TTL_DAYS } from '@/lib/recStaleness';
 import { SITE_LANGUAGES, SiteLanguage } from '@/lib/types';
 
 /**
@@ -21,6 +22,11 @@ export async function GET(req: NextRequest) {
     ? (langParam as SiteLanguage)
     : 'en';
 
-  const restaurants = await fetchRestaurantsForCity(supabase, city, { lang });
-  return NextResponse.json({ restaurants });
+  const [restaurants, lastUpdated] = await Promise.all([
+    fetchRestaurantsForCity(supabase, city, { lang }),
+    cityLastUpdated(supabase, city),
+  ]);
+  // `stale` tells the client to render this cached data now but trigger a
+  // background re-scout so the next visitor gets fresh data.
+  return NextResponse.json({ restaurants, stale: isStale(lastUpdated, REC_TTL_DAYS) });
 }
