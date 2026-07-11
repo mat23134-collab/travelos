@@ -42,6 +42,8 @@ import { deriveTripStats, deriveTripStatLists } from '@/lib/tripStats';
 import { budgetToUsd } from '@/lib/currency';
 import { DayDetailPanel } from '@/components/DayDetailPanel';
 import { SmartToolbar } from '@/components/SmartToolbar';
+import { SidePanel } from '@/components/side-panel/SidePanel';
+import { useSidePanel } from '@/state/sidePanelStore';
 import { HotelSelectionCard } from '@/components/HotelSelectionCard';
 import { AssistantChat } from '@/components/AssistantChat';
 import { formatTripDateRange } from '@/lib/formatTripDateRange';
@@ -1333,6 +1335,7 @@ export function ItineraryClient({
     );
   }
 
+  const openSidePanel = useSidePanel((s) => s.openPanel);
   const days = itin.itinerary.days ?? [];
   const tripStats = deriveTripStats(itin.itinerary);
   const statLists = deriveTripStatLists(itin.itinerary);
@@ -1662,6 +1665,34 @@ export function ItineraryClient({
         </div>
 
       </div>
+
+      {/* ── Trip companion drawer — available on every itinerary screen ─────── */}
+      <button
+        onClick={() => openSidePanel('documents')}
+        aria-label={itin.ui.dir === 'rtl' ? 'כלי הטיול' : 'Trip tools'}
+        className="fixed top-1/2 -translate-y-1/2 z-[60] print:hidden flex flex-col items-center gap-1.5 px-2 py-3.5 text-white shadow-lg"
+        style={{
+          ...(itin.ui.dir === 'rtl'
+            ? { left: 0, borderRadius: '0 16px 16px 0' }
+            : { right: 0, borderRadius: '16px 0 0 16px' }),
+          background: 'linear-gradient(180deg, var(--color-terracotta), var(--color-terracotta-deep))',
+        }}
+      >
+        <span className="text-[15px]">📎</span>
+        <span className="text-[15px]">✨</span>
+      </button>
+
+      <SidePanel
+        itineraryId={itin.itinerary._id ?? null}
+        destination={itin.itinerary.destination}
+        days={days}
+        lang={itin.ui.lang === 'he' ? 'he' : 'en'}
+        startDate={itin.profile?.startDate ?? null}
+        endDate={itin.profile?.endDate ?? null}
+        accessToken={itin.session?.access_token ?? null}
+        onLockReservation={itin.recalculateDay}
+        recalculateDayLoading={itin.recalculateDayLoading}
+      />
 
       <AssistantChat
         itinerary={itin.itinerary}
