@@ -9,7 +9,7 @@ import { create } from 'zustand';
  *   <button onClick={() => open('documents')} />
  */
 
-export type PanelModule = 'documents' | 'discover';
+export type PanelModule = 'base' | 'documents' | 'discover';
 
 interface SidePanelState {
   open: boolean;

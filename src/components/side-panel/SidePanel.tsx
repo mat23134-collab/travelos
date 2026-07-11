@@ -16,10 +16,11 @@
 
 import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { Activity, DayPlan } from '@/lib/types';
+import type { Activity, DayPlan, TripBaseLocation } from '@/lib/types';
 import { useSidePanel, type PanelModule } from '@/state/sidePanelStore';
 import { SmartToolbar } from '@/components/SmartToolbar';
 import { DocumentBank } from './DocumentBank';
+import { HotelBaseTab } from './HotelBaseTab';
 
 type Lang = 'he' | 'en';
 
@@ -33,9 +34,13 @@ interface SidePanelProps {
   accessToken: string | null;
   onLockReservation: (dayIndex: number, activity: Activity) => Promise<void>;
   recalculateDayLoading: boolean;
+  /** Current trip base (itinerary.baseLocation) for the Base tab. */
+  base: TripBaseLocation | null;
+  onSetBase: (base: TripBaseLocation | null) => void;
 }
 
 const TABS: { key: PanelModule; label: { he: string; en: string }; emoji: string }[] = [
+  { key: 'base',      label: { he: 'בסיס',    en: 'Base'      }, emoji: '🏨' },
   { key: 'documents', label: { he: 'מסמכים', en: 'Documents' }, emoji: '📎' },
   { key: 'discover',  label: { he: 'גילוי',   en: 'Discover'  }, emoji: '✨' },
 ];
@@ -107,6 +112,14 @@ export function SidePanel(props: SidePanelProps) {
 
             {/* Body */}
             <div className="flex-1 overflow-y-auto p-4">
+              {module === 'base' && (
+                <HotelBaseTab
+                  lang={lang}
+                  destination={props.destination}
+                  base={props.base}
+                  onSetBase={props.onSetBase}
+                />
+              )}
               {module === 'documents' && (
                 <DocumentBank
                   itineraryId={props.itineraryId}

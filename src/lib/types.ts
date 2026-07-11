@@ -424,6 +424,23 @@ export interface CityTransportGuide {
   links: CityTransportLink[];
 }
 
+/**
+ * The traveler-chosen "home base" for the whole trip (typically their hotel).
+ * Stored on the itinerary JSON body — NOT in `_profile`, which the update API
+ * protects — so it persists through the normal save path and drives the map's
+ * basecamp marker on every day. `lat`/`lng` are what anchor daily routing.
+ */
+export interface TripBaseLocation {
+  name: string;
+  address?: string | null;
+  lat: number;
+  lng: number;
+  /** Star rating (1–5) when known, else null. */
+  stars?: number | null;
+  /** Optional static-map or photo thumbnail URL. */
+  thumbnailUrl?: string | null;
+}
+
 export interface Itinerary {
   /** DB UUID from itineraries table — embedded post-save for targeted row-level swaps */
   _id?: string;
@@ -431,6 +448,8 @@ export interface Itinerary {
   destination: string;
   totalDays: number;
   basecamp?: Basecamp;
+  /** Traveler-set home base for the trip (hotel) — anchors every day's routing. */
+  baseLocation?: TripBaseLocation | null;
   budgetSummary?: {
     dailyAverage?: string;
     totalEstimate?: string;
