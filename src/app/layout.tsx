@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import { Assistant, Cormorant_Garamond, Fraunces, Inter } from 'next/font/google';
 import Link from 'next/link';
@@ -47,9 +47,30 @@ const body = Assistant({
 });
 
 export const metadata: Metadata = {
-  title: 'TravelOS — AI-Powered Trip Planning',
-  description: 'Transform your travel dreams into hyper-personalized, data-validated itineraries crafted by AI with real-world intelligence.',
-  icons: { icon: { url: '/icon.svg', type: 'image/svg+xml' } },
+  title: 'Sarto — AI Travel Planner',
+  description: 'Build a full personalized travel itinerary in minutes with AI.',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Sarto',
+  },
+  icons: {
+    icon: { url: '/icons/icon-192x192.png', type: 'image/png' },
+    apple: '/icons/apple-touch-icon.png',
+    shortcut: '/icons/icon-192x192.png',
+  },
+  other: {
+    'mobile-web-app-capable': 'yes',
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#0a2748',
+  width: 'device-width',
+  initialScale: 1,
+  minimumScale: 1,
+  viewportFit: 'cover', // lets content extend behind notch / Dynamic Island
 };
 
 function Footer() {
@@ -89,6 +110,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${inter.variable} ${body.variable} ${brandSerif.variable} ${display.variable} h-full`}>
       <body className="min-h-full antialiased">
+        {/* PWA — register service worker for offline shell + install prompt */}
+        <Script id="sw-register" strategy="afterInteractive">{`
+          if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+              navigator.serviceWorker.register('/sw.js').catch(function() {});
+            });
+          }
+        `}</Script>
+
         {/* Microsoft Clarity — UX analytics (heatmaps + session recordings) */}
         <Script id="ms-clarity" strategy="afterInteractive">
           {`(function(c,l,a,r,i,t,y){
