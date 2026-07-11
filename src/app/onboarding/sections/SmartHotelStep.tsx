@@ -384,6 +384,23 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
                         {hotelLat.toFixed(4)}, {hotelLng!.toFixed(4)}
                       </p>
                     )}
+                    {(() => {
+                      const aid = process.env.NEXT_PUBLIC_BOOKING_AFFILIATE_ID;
+                      if (!aid) return null;
+                      const q = encodeURIComponent(`${hotelAddress.split(',')[0]} ${destination ?? ''}`);
+                      return (
+                        <a
+                          href={`https://www.booking.com/search.html?aid=${aid}&ss=${q}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold mt-2"
+                          style={{ color: THEME.gold }}
+                        >
+                          Book on Booking.com →
+                        </a>
+                      );
+                    })()}
                   </div>
                   <button onClick={handleClear} aria-label="Clear hotel"
                     className="shrink-0 mt-0.5 transition-colors"

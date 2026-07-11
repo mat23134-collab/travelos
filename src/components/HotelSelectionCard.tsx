@@ -241,12 +241,31 @@ function HotelColumn({
           ) : (
             <span />
           )}
-          <span
-            className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full transition-colors"
-            style={{ background: 'var(--color-paper-sunk)', color: 'var(--color-sunrise-deep)' }}
-          >
-            Details →
-          </span>
+          <div className="flex items-center gap-1.5">
+            {(() => {
+              const aid = process.env.NEXT_PUBLIC_BOOKING_AFFILIATE_ID;
+              if (!aid) return null;
+              const q = encodeURIComponent(`${hotel.name} ${destination}`);
+              return (
+                <a
+                  href={`https://www.booking.com/search.html?aid=${aid}&ss=${q}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full transition-colors"
+                  style={{ background: 'rgba(0,112,201,0.08)', color: '#0070c9' }}
+                >
+                  Book →
+                </a>
+              );
+            })()}
+            <span
+              className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full transition-colors"
+              style={{ background: 'var(--color-paper-sunk)', color: 'var(--color-sunrise-deep)' }}
+            >
+              Details →
+            </span>
+          </div>
         </div>
       </div>
     </motion.button>
