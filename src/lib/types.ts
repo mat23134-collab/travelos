@@ -174,6 +174,7 @@ export interface Activity {
   // Relational DB (populated after Supabase insert)
   item_id?: string;        // UUID from itinerary_items row — enables targeted row-level swaps
   website_url?: string;    // official website URL (from Claude or Google Places)
+  google_place_id?: string; // Google Places id — lets us dedupe/verify/pull photos later
   // Recommendation-engine provenance (optional, additive JSON field)
   inventory_id?: string;
   inventory_source_table?: 'places' | 'restaurants';
