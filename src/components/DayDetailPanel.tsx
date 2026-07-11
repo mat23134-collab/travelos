@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import { DayPhoto } from '@/components/DayPhoto';
@@ -70,6 +70,14 @@ export function DayDetailPanel({
   const [showAuthGate, setShowAuthGate] = useState(false);
   const openSidePanel = useSidePanel((s) => s.openPanel);
 
+  // Opening a day (or switching days) should land on the hourly schedule +
+  // summary at the top of this panel — not wherever the overview was scrolled
+  // to. Bring the panel's top into view on every day change.
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    rootRef.current?.scrollIntoView({ behavior: 'auto', block: 'start' });
+  }, [dayIndex]);
+
   const requireAuth = (action: () => void) => {
     if (!session) {
       setShowAuthGate(true);
@@ -86,6 +94,8 @@ export function DayDetailPanel({
 
   return (
     <>
+      {/* Scroll anchor — sits just above the panel so day-open lands here. */}
+      <div ref={rootRef} style={{ scrollMarginTop: 12 }} />
       <AnimatePresence mode="wait">
         <motion.div
           key={`day-detail-${dayIndex}`}
