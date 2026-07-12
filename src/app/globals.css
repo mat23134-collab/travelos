@@ -684,3 +684,51 @@ p { line-height: 1.65; }
 @media (prefers-reduced-motion: reduce) {
   .mika-breathe, .mika-glow { animation: none; }
 }
+
+/* ── Mika guided tour (driver.js popover skin) ─────────────────────────────── */
+.driver-popover.mika-popover {
+  background: #0d2b27;
+  color: #f3efe7;
+  border-radius: 18px;
+  padding: 15px 17px;
+  max-width: 326px;
+  border: 1px solid rgba(196, 162, 106, 0.35);
+  box-shadow: 0 26px 64px -14px rgba(0, 0, 0, 0.6);
+}
+.driver-popover.mika-popover .driver-popover-title { display: none; }
+.driver-popover.mika-popover .driver-popover-description { margin: 0; }
+.driver-popover.mika-popover .driver-popover-arrow { display: none; }
+
+.mika-tip { display: flex; align-items: flex-start; gap: 12px; }
+.mika-tip__face {
+  width: 54px; height: 54px; flex-shrink: 0;
+  border-radius: 50%;
+  object-fit: cover; object-position: top center;
+  background: radial-gradient(120% 120% at 50% 20%, #124a42 0%, #0d2b27 72%);
+  border: 2px solid rgba(196, 162, 106, 0.55);
+  box-shadow: 0 4px 12px -4px rgba(0, 0, 0, 0.5);
+}
+.mika-tip__body { min-width: 0; }
+.mika-tip__name {
+  display: block;
+  font-size: 11px; font-weight: 800; letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #c4a26a; margin-bottom: 3px;
+}
+.mika-tip__text { margin: 0; font-size: 13.5px; line-height: 1.55; color: #f3efe7; }
+
+/* Elegant gold action button */
+.driver-popover.mika-popover .driver-popover-footer button.driver-popover-next-btn,
+.driver-popover.mika-popover .driver-popover-footer button {
+  background: #c4a26a; color: #1f2421;
+  border: none; text-shadow: none;
+  border-radius: 11px; font-weight: 800; font-size: 13px;
+  padding: 7px 15px;
+  transition: filter 0.15s ease, transform 0.1s ease;
+}
+.driver-popover.mika-popover .driver-popover-footer button:hover { filter: brightness(1.06); }
+.driver-popover.mika-popover .driver-popover-footer button:active { transform: scale(0.97); }
+.driver-popover.mika-popover .driver-popover-close-btn { color: rgba(243, 239, 231, 0.6); }
+
+/* RTL: keep Mika's face at the start (right), text reads right-to-left */
+.driver-popover.mika-popover.mika-rtl { direction: rtl; text-align: right; }

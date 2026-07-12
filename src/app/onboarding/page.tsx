@@ -33,6 +33,8 @@ import { COUNTRIES } from '@/lib/countries';
 import { THEME, BACKDROP_VEIL } from '@/lib/onboardingTheme';
 import { getStepCopy } from '@/lib/stepCopy';
 import { onboardingUi } from '@/lib/onboardingUi';
+import { armResultsTour } from '@/lib/mikaTour';
+import { WizardMikaTour } from '@/components/tour/MikaTour';
 
 // ── Chunk-load resilience ────────────────────────────────────────────────────
 // Mobile networks + post-deploy chunk-hash changes make a single dynamic import
@@ -428,6 +430,8 @@ function OnboardingPageContent() {
   function handleGenerateTrip() {
     // Mark the funnel endpoint: user reached "Generate". Fire-and-forget.
     trackOnboardingStep(STEPS.length, 'generate', { userId: user?.id ?? null, destination });
+    // Hand Mika's tour off to the results page — Phase 2 runs once it loads.
+    armResultsTour();
 
     const params = new URLSearchParams();
 
@@ -573,6 +577,8 @@ function OnboardingPageContent() {
             exit="exit"
             className={`${shellWidth} mx-auto px-5 sm:px-8 pb-40`}
           >
+            <WizardMikaTour wizardStep={wizardStep} />
+
             <Suspense fallback={<StepSkeleton />}>
 
               {/* Step 0: Destination */}
