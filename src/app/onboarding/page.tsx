@@ -530,7 +530,7 @@ function OnboardingPageContent() {
       <div className={`relative z-10 ${shellWidth} mx-auto px-5 sm:px-8 pt-8`}>
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
-            {/* Back arrow */}
+            {/* Back — a clear, labelled pill (not just a faint chevron) */}
             <AnimatePresence>
               {wizardStep > 0 && (
                 <motion.button
@@ -539,16 +539,25 @@ function OnboardingPageContent() {
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -8 }}
                   onClick={goBack}
-                  aria-label="Go back"
-                  className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
-                  whileHover={{ backgroundColor: 'rgba(196,162,106,0.12)' }}
-                  style={{ color: THEME.textMuted, border: `1px solid ${THEME.border}` }}
+                  aria-label={tripLang === 'he' ? 'חזרה' : 'Back'}
+                  className="inline-flex items-center gap-1.5 h-9 ps-2.5 pe-3.5 rounded-full text-[13px] font-bold transition-colors"
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  style={{
+                    color: THEME.deepGreen,
+                    background: '#fff',
+                    border: `1.5px solid ${THEME.borderSel}`,
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
+                  }}
                 >
-                  ‹
+                  <span aria-hidden="true" style={{ fontSize: '17px', lineHeight: 1, marginTop: '-1px' }}>
+                    {tripLang === 'he' ? '›' : '‹'}
+                  </span>
+                  {tripLang === 'he' ? 'חזרה' : 'Back'}
                 </motion.button>
               )}
             </AnimatePresence>
-            <BrandWordmark accent={THEME.gold} className="text-sm" />
+            <BrandWordmark accent={THEME.gold} tone="light" className="text-sm" />
           </div>
           <ProgressBar step={wizardStep} total={STEPS.length} />
         </div>
