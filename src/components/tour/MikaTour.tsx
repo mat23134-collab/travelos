@@ -25,6 +25,7 @@ import {
   markTipSeen,
   isResultsTourArmed,
   disarmResultsTour,
+  tourForced,
 } from '@/lib/mikaTour';
 import { readTripLanguagePref } from '@/lib/tripLanguagePref';
 
@@ -106,7 +107,7 @@ export function WizardMikaTour({ wizardStep }: { wizardStep: number }) {
       6: { id: 'topsights',   element: '[data-tour="topsights"]',   body: c.topsights,   side: 'top'    },
     };
     const tip = byStep[wizardStep];
-    if (!tip || hasSeenTip(tip.id)) return;
+    if (!tip || (hasSeenTip(tip.id) && !tourForced())) return;
 
     let cancelled = false;
     // Let the step's mount + entrance animation settle before spotlighting.
@@ -130,7 +131,7 @@ export function ResultsMikaTour({ ready, lang }: { ready: boolean; lang: TourLan
   const started = useRef(false);
   useEffect(() => {
     if (!ready || started.current) return;
-    if (!isResultsTourArmed() || hasSeenTip('results')) return;
+    if ((!isResultsTourArmed() || hasSeenTip('results')) && !tourForced()) return;
     started.current = true;
 
     const timer = setTimeout(() => {

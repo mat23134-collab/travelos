@@ -37,6 +37,19 @@ export function disarmResultsTour(): void {
   try { localStorage.removeItem(RESULTS_ARM); } catch { /* ignore */ }
 }
 
+/**
+ * Force the tour to run regardless of "seen"/armed state — add `?tour=1`
+ * (or `?tour=replay`) to the URL. Lets us (and support) demo or re-test the
+ * tour on any onboarding/results page without clearing storage.
+ */
+export function tourForced(): boolean {
+  try {
+    if (typeof window === 'undefined') return false;
+    const t = new URLSearchParams(window.location.search).get('tour');
+    return t === '1' || t === 'replay';
+  } catch { return false; }
+}
+
 export const TOUR_COPY: Record<TourLang, {
   name: string;
   next: string;
