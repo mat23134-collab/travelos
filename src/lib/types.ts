@@ -221,6 +221,8 @@ export interface RestaurantLocaleText {
   highlight?: string | null;
   /** One sentence on why booking is critical + how far ahead. */
   bookingUrgency?: string | null;
+  /** Concrete advance-booking window, e.g. "2–3 weeks ahead" / "שבועיים-שלושה מראש". */
+  bookingLeadTime?: string | null;
 }
 
 export interface RestaurantRecommendation {
@@ -237,6 +239,8 @@ export interface RestaurantRecommendation {
   highlight?: string | null;
   /** Why booking is critical + how far ahead — resolved to the language. */
   bookingUrgency?: string | null;
+  /** Concrete advance-booking window (e.g. "2–3 weeks ahead") — resolved to the language. */
+  bookingLeadTime?: string | null;
   /** TikTok/Instagram search link so travelers can see the place's viral buzz. */
   socialUrl?: string | null;
   /** Per-language versions of the localizable fields, keyed by language code. */

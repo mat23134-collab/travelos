@@ -54,6 +54,7 @@ const COPY = {
     errorLoad: (city: string) => `לא הצלחנו לטעון המלצות מסעדות ל${city} כרגע.`,
     retry: 'נסו שוב',
     mustOrder: 'מנת הדגל',
+    bookAhead: 'להזמין',
     social: 'צפו בטיקטוק',
     add: 'הוספה למסלול',
     book: 'הזמנת מקום',
@@ -105,6 +106,7 @@ const COPY = {
     errorLoad: (city: string) => `We couldn't load restaurant recommendations for ${city} right now.`,
     retry: 'Try again',
     mustOrder: 'Must order',
+    bookAhead: 'Book',
     social: 'See on TikTok',
     add: 'Add to itinerary',
     book: 'Reserve',
@@ -584,6 +586,16 @@ function RestaurantCard({ r, lang, onAdd }: { r: RestaurantRecommendation; lang:
             <span style={{ color: ACCENT_DEEP, fontWeight: 700 }}>🍴 {t.mustOrder}: </span>
             {r.signatureDish}
           </p>
+        )}
+
+        {/* Booking lead time — how far ahead it's customary to reserve */}
+        {r.bookingLeadTime && (
+          <span
+            className="self-start inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold"
+            style={{ background: PAPER_SUNK, color: ACCENT_DEEP }}
+          >
+            ⏳ {t.bookAhead}: {r.bookingLeadTime}
+          </span>
         )}
 
         {/* Booking urgency — why reserving is critical */}
