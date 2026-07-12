@@ -114,7 +114,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Script id="sw-register" strategy="afterInteractive">{`
           if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-              navigator.serviceWorker.register('/sw.js').catch(function() {});
+              navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch(function() {});
+            });
+            var refreshing = false;
+            navigator.serviceWorker.addEventListener('controllerchange', function() {
+              if (refreshing) return;
+              refreshing = true;
+              window.location.reload();
             });
           }
         `}</Script>
