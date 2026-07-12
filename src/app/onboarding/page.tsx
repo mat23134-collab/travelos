@@ -540,18 +540,17 @@ function OnboardingPageContent() {
                   exit={{ opacity: 0, x: -8 }}
                   onClick={goBack}
                   aria-label={tripLang === 'he' ? 'חזרה' : 'Back'}
-                  className="inline-flex items-center gap-1.5 h-9 ps-2.5 pe-3.5 rounded-full text-[13px] font-bold transition-colors"
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
+                  className="inline-flex items-center gap-1.5 h-9 ps-3 pe-4 rounded-full text-[13px] font-bold transition-colors"
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.96 }}
                   style={{
-                    color: THEME.deepGreen,
-                    background: '#fff',
-                    border: `1.5px solid ${THEME.borderSel}`,
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
+                    color: '#fff',
+                    background: '#b8552e',
+                    boxShadow: '0 4px 12px rgba(184,85,46,0.35)',
                   }}
                 >
-                  <span aria-hidden="true" style={{ fontSize: '17px', lineHeight: 1, marginTop: '-1px' }}>
-                    {tripLang === 'he' ? '›' : '‹'}
+                  <span aria-hidden="true" style={{ fontSize: '18px', lineHeight: 1, marginTop: '-1px' }}>
+                    {tripLang === 'he' ? '→' : '←'}
                   </span>
                   {tripLang === 'he' ? 'חזרה' : 'Back'}
                 </motion.button>
