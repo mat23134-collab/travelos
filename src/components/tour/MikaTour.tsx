@@ -96,12 +96,16 @@ function detectLang(): TourLang {
 export function WizardMikaTour({ wizardStep }: { wizardStep: number }) {
   useEffect(() => {
     const lang = detectLang();
-    const tip =
-      wizardStep === 0
-        ? { id: 'destination', element: '[data-tour="destination"]', body: TOUR_COPY[lang].destination, side: 'bottom' as Side }
-        : wizardStep === 3
-          ? { id: 'vibe', element: '[data-tour="vibe"]', body: TOUR_COPY[lang].vibe, side: 'bottom' as Side }
-          : null;
+    const c = TOUR_COPY[lang];
+    // One spotlight per wizard screen that needs explaining (destination, the
+    // style/pace step, the hotel base step, and the final top-sights picker).
+    const byStep: Record<number, { id: string; element: string; body: string; side: Side }> = {
+      0: { id: 'destination', element: '[data-tour="destination"]', body: c.destination, side: 'bottom' },
+      3: { id: 'vibe',        element: '[data-tour="vibe"]',        body: c.vibe,        side: 'bottom' },
+      4: { id: 'hotel',       element: '[data-tour="hotel"]',       body: c.hotel,       side: 'bottom' },
+      6: { id: 'topsights',   element: '[data-tour="topsights"]',   body: c.topsights,   side: 'top'    },
+    };
+    const tip = byStep[wizardStep];
     if (!tip || hasSeenTip(tip.id)) return;
 
     let cancelled = false;
