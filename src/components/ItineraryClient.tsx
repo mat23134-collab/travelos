@@ -11,7 +11,6 @@ import { DayPhoto } from '@/components/DayPhoto';
 import { SharePanel, type SharePanelCopy } from '@/components/SharePanel';
 import { LogisticsDashboard } from '@/components/LogisticsDashboard';
 import { DraftOverview } from '@/components/DraftOverview';
-import { TrendingTicker } from '@/components/TrendingTicker';
 import { TripStoryCube } from '@/components/TripStoryCube';
 import { FeedbackSurveyModal, type FeedbackPayload } from '@/components/FeedbackSurveyModal';
 import { itineraryUi, type ItineraryUiStrings } from '@/lib/tripUiCopy';
@@ -1412,8 +1411,6 @@ export function ItineraryClient({
           session={session}
         />
 
-        {/* ── Trending ticker ─────────────────────────────────────────────── */}
-        <TrendingTicker destination={itin.itinerary.destination} groupType={itin.profile?.groupType} />
 
         {selectedDay !== null ? (
           /* ══ DAY DETAIL VIEW ══════════════════════════════════════════════ */
