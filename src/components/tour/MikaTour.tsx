@@ -98,25 +98,32 @@ export function WizardMikaTour({ wizardStep }: { wizardStep: number }) {
   useEffect(() => {
     const lang = detectLang();
     const c = TOUR_COPY[lang];
-    // One spotlight per wizard screen that needs explaining (destination, the
-    // style/pace step, the hotel base step, and the final top-sights picker).
-    const byStep: Record<number, { id: string; element: string; body: string; side: Side }> = {
-      0: { id: 'destination', element: '[data-tour="destination"]', body: c.destination, side: 'bottom' },
-      3: { id: 'vibe',        element: '[data-tour="vibe"]',        body: c.vibe,        side: 'bottom' },
-      4: { id: 'hotel',       element: '[data-tour="hotel"]',       body: c.hotel,       side: 'bottom' },
-      6: { id: 'topsights',   element: '[data-tour="topsights"]',   body: c.topsights,   side: 'top'    },
+    // Mika's tips per wizard screen. A screen can carry more than one tip (the
+    // final "Our Picks" step walks the sights, then the smart note-scanner).
+    const byStep: Record<number, RunStep[]> = {
+      0: [{ element: '[data-tour="destination"]',    body: c.destination,   side: 'bottom' }],
+      1: [{ element: '[data-tour="travel-details"]', body: c.travelDetails, side: 'bottom' }],
+      2: [{ element: '[data-tour="interests"]',      body: c.interests,     side: 'bottom' }],
+      3: [{ element: '[data-tour="vibe"]',           body: c.vibe,          side: 'bottom' }],
+      4: [{ element: '[data-tour="hotel"]',          body: c.hotel,         side: 'bottom' }],
+      5: [{ element: '[data-tour="dining"]',         body: c.dining,        side: 'bottom' }],
+      6: [
+        { element: '[data-tour="topsights"]', body: c.topsights, side: 'top' },
+        { element: '[data-tour="notescan"]',  body: c.notescan,  side: 'bottom' },
+      ],
     };
-    const tip = byStep[wizardStep];
-    if (!tip || (hasSeenTip(tip.id) && !tourForced())) return;
+    const tips = byStep[wizardStep];
+    const seenId = `step-${wizardStep}`;
+    if (!tips || (hasSeenTip(seenId) && !tourForced())) return;
 
     let cancelled = false;
     // Let the step's mount + entrance animation settle before spotlighting.
     const timer = setTimeout(() => {
-      if (cancelled || !document.querySelector(tip.element)) return;
+      if (cancelled || !tips.some((t) => document.querySelector(t.element))) return;
       void runTour(
-        [{ element: tip.element, body: tip.body, side: tip.side, align: 'center' }],
+        tips.map((t) => ({ ...t, align: 'center' as const })),
         lang,
-        { nextText: TOUR_COPY[lang].gotIt, doneText: TOUR_COPY[lang].gotIt, onDone: () => markTipSeen(tip.id) },
+        { nextText: c.next, doneText: c.gotIt, onDone: () => markTipSeen(seenId) },
       );
     }, 650);
     return () => { cancelled = true; clearTimeout(timer); };
