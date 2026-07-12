@@ -247,7 +247,7 @@ export default function AuthPage() {
         onMouseEnter={(e) => (e.currentTarget.style.color = 'rgba(143,66,32,1)')}
         onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(143,66,32,0.70)')}
       >
-        ← <BrandWordmark accent="#b8552e" className="text-sm" />
+        ← <BrandWordmark accent="#b8552e" tone="light" className="text-sm" />
       </Link>
 
       {/* Card */}

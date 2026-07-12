@@ -248,7 +248,7 @@ export default function DashboardPage() {
         style={{ background: 'rgba(247,241,231,0.92)', backdropFilter: 'blur(16px)' }}
       >
         <Link href="/" className="text-lg text-[#2b2622] tracking-tight">
-          <BrandWordmark accent="#b8552e" className="text-lg" />
+          <BrandWordmark accent="#b8552e" tone="light" className="text-lg" />
         </Link>
 
         <div className="flex items-center gap-3">
