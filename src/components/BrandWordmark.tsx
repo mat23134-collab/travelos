@@ -27,13 +27,17 @@ export function BrandWordmark({
   className = '',
   variant = 'wordmark',
   tone = 'dark',
+  animated = true,
 }: {
   accent?: string;
   className?: string;
   variant?: 'wordmark' | 'full' | 'emblem';
   tone?: 'dark' | 'light';
+  animated?: boolean;
 }) {
   const ink = tone === 'light' ? NAVY : LIGHT;
+  const dashClass = animated ? 'sarto-dash' : '';
+  const nodeClass = animated ? 'sarto-node' : '';
 
   // ── Emblem SVG ────────────────────────────────────────────────────────────────
   // Globe (ink) + teal orbit with a node + a dashed journey arrow leaving the
@@ -48,28 +52,29 @@ export function BrandWordmark({
       aria-hidden="true"
     >
       {/* Globe */}
-      <circle cx="44" cy="54" r="30" stroke={ink} strokeWidth="3" fill="none" />
+      <circle cx="44" cy="54" r="30" stroke={ink} strokeWidth="3.4" fill="none" />
       {/* Meridians */}
-      <line x1="44" y1="24" x2="44" y2="84" stroke={ink} strokeWidth="2.2" strokeLinecap="round" />
-      <path d="M44 24 C 25 38 25 70 44 84" stroke={ink} strokeWidth="2" fill="none" strokeLinecap="round" />
-      <path d="M44 24 C 63 38 63 70 44 84" stroke={ink} strokeWidth="2" fill="none" strokeLinecap="round" opacity="0.85" />
+      <line x1="44" y1="24" x2="44" y2="84" stroke={ink} strokeWidth="2.4" strokeLinecap="round" />
+      <path d="M44 24 C 25 38 25 70 44 84" stroke={ink} strokeWidth="2.2" fill="none" strokeLinecap="round" />
+      <path d="M44 24 C 63 38 63 70 44 84" stroke={ink} strokeWidth="2.2" fill="none" strokeLinecap="round" opacity="0.85" />
 
       {/* Orbit ring + node (teal) */}
       <ellipse
         cx="44" cy="62" rx="37" ry="13"
         transform="rotate(-22 44 62)"
-        stroke={TEAL} strokeWidth="2.6" fill="none"
+        stroke={TEAL} strokeWidth="2.8" fill="none"
       />
-      <circle cx="11" cy="71" r="3.6" fill={TEAL} />
+      <circle className={nodeClass} cx="11" cy="71" r="3.8" fill={TEAL} />
 
-      {/* Journey arrow (teal, dashed) leaving toward the top-right */}
+      {/* Journey arrow (teal, dashed) leaving toward the top-right — bigger + animated */}
       <line
-        x1="46" y1="56" x2="79" y2="26"
-        stroke={TEAL} strokeWidth="2.6" strokeLinecap="round" strokeDasharray="3.5 4.5"
+        className={dashClass}
+        x1="45" y1="56" x2="82" y2="21"
+        stroke={TEAL} strokeWidth="3" strokeLinecap="round" strokeDasharray="4 5"
       />
       <path
-        d="M81 23 L 71 25 M81 23 L 79 33"
-        stroke={TEAL} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" fill="none"
+        d="M86 17 L 73 19 M86 17 L 84 31"
+        stroke={TEAL} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none"
       />
     </svg>
   );
@@ -119,10 +124,10 @@ export function BrandWordmark({
   // Default: wordmark — emblem + "Sarto" side-by-side
   return (
     <span className={`inline-flex items-center gap-2 ${className}`} style={{ lineHeight: 1 }}>
-      <span style={{ width: '1.75em', height: '1.75em', display: 'inline-block', flexShrink: 0 }}>
+      <span style={{ width: '1.9em', height: '1.9em', display: 'inline-block', flexShrink: 0 }}>
         <Emblem />
       </span>
-      <Wordmark size="1.35em" />
+      <Wordmark size="1.4em" />
     </span>
   );
 }
