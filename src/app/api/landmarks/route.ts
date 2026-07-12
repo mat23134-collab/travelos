@@ -16,6 +16,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { verifyPlaceOnGoogle } from '@/lib/placeVerification';
+import { callGeminiJson, parseJsonArray } from '@/lib/scoutShared';
 
 export const dynamic = 'force-dynamic';
 
@@ -94,10 +95,39 @@ export async function GET(req: NextRequest) {
 
   // Bucket by category (max 6 per bucket — defensive, since the seed has 4).
   const grouped: Record<Category, Landmark[]> = { sightseeing: [], history: [], food: [] };
+  // When Hebrew is requested but a row only has an English description, remember
+  // it so we can translate + backfill below (keeps the whole bank in one language).
+  const needHe: Array<{ lm: Landmark; en: string }> = [];
   for (const row of rows) {
     if (!row.top_pick_category) continue;
     if (grouped[row.top_pick_category].length >= 6) continue;
-    grouped[row.top_pick_category].push(toLandmark(row, lang));
+    const lm = toLandmark(row, lang);
+    grouped[row.top_pick_category].push(lm);
+    if (lang === 'he' && !row.description_he && row.description) {
+      needHe.push({ lm, en: row.description });
+    }
+  }
+
+  // ── On-demand Hebrew translation (one batched call, cached back to the row) ──
+  if (lang === 'he' && needHe.length > 0 && process.env.GEMINI_API_KEY) {
+    try {
+      const raw = await callGeminiJson(
+        'You are a professional translator for a travel app. Translate each English place description into natural, concise Hebrew. Keep proper names (places, neighborhoods) as-is. Return ONLY a JSON array of strings, same order, same length.',
+        JSON.stringify(needHe.map((n) => n.en)),
+        { temperature: 0.2 },
+      );
+      const translated = parseJsonArray(raw);
+      await Promise.all(
+        needHe.map(async ({ lm, en }, i) => {
+          const he = typeof translated[i] === 'string' ? (translated[i] as string).trim() : '';
+          if (!he || he === en) return;
+          lm.description = he;
+          await db.from('places').update({ description_he: he }).eq('id', lm.id);
+        }),
+      );
+    } catch (e) {
+      console.warn('[api/landmarks] he translation failed:', e instanceof Error ? e.message : e);
+    }
   }
 
   // ── On-demand photo resolution ────────────────────────────────────────────

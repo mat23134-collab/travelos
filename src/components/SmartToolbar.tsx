@@ -23,6 +23,7 @@ import type {
   RestaurantRecommendation,
 } from '@/lib/types';
 import type { Landmark } from '@/app/api/landmarks/route';
+import { AttractionDetailModal } from '@/components/AttractionDetailModal';
 
 // ─── Design tokens (light "paper" overview theme) ─────────────────────────────
 const INK       = 'var(--color-ink-warm)';        // near-black warm text
@@ -249,6 +250,7 @@ function ExplorePanel({ destination, days, lang, accessToken, onLockReservation,
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'empty' | 'error'>('idle');
   const [bank, setBank] = useState<LandmarkBank>({ sightseeing: [], history: [], food: [] });
   const [picked, setPicked] = useState<Landmark | null>(null);
+  const [detail, setDetail] = useState<Landmark | null>(null);
 
   const load = useCallback(async () => {
     const city = destination.trim();
@@ -339,23 +341,34 @@ function ExplorePanel({ destination, days, lang, accessToken, onLockReservation,
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {items.map((l) => (
-                  <ExploreCard key={l.id} l={l} lang={lang} onAdd={() => setPicked(l)} />
+                  <ExploreCard key={l.id} l={l} lang={lang} onOpen={() => setDetail(l)} />
                 ))}
               </div>
             </div>
           );
         })}
       </div>
+
+      {/* Tap a card → full detail (links + description); "add" then asks day/time */}
+      {detail && (
+        <AttractionDetailModal
+          landmark={detail}
+          destination={destination}
+          lang={lang}
+          onClose={() => setDetail(null)}
+          onAdd={() => { setPicked(detail); setDetail(null); }}
+        />
+      )}
     </div>
   );
 }
 
-function ExploreCard({ l, lang, onAdd }: { l: Landmark; lang: Lang; onAdd: () => void }) {
-  const t = COPY[lang];
+function ExploreCard({ l, lang, onOpen }: { l: Landmark; lang: Lang; onOpen: () => void }) {
+  const detailsLabel = lang === 'he' ? 'לפרטים ולהוספה' : 'View details';
   return (
     <button
       type="button"
-      onClick={onAdd}
+      onClick={onOpen}
       className="group relative flex flex-col text-start rounded-2xl overflow-hidden transition-transform active:scale-[0.985]"
       style={{ background: CARD_BG, border: BORDER, boxShadow: '0 6px 20px -12px rgba(43,38,34,0.25)' }}
     >
@@ -373,12 +386,12 @@ function ExploreCard({ l, lang, onAdd }: { l: Landmark; lang: Lang; onAdd: () =>
           className="absolute inset-x-0 bottom-0 h-2/5 pointer-events-none"
           style={{ background: 'linear-gradient(to top, rgba(9,13,20,0.72), rgba(9,13,20,0) 100%)' }}
         />
-        {/* Add pill on hover */}
+        {/* Details pill on hover — opens the full sheet (links + add) */}
         <span
           className="absolute bottom-2 inset-x-2 py-1.5 rounded-lg text-[11.5px] font-bold text-center opacity-0 group-hover:opacity-100 transition-opacity"
           style={{ background: ACCENT, color: '#fff' }}
         >
-          + {t.add}
+          {detailsLabel}
         </span>
       </div>
       {/* Caption */}
