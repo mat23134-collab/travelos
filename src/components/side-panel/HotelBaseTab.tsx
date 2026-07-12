@@ -12,7 +12,7 @@
  * SmartHotelStep uses). No new tables, no new API.
  */
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import type { TripBaseLocation } from '@/lib/types';
 
@@ -44,6 +44,11 @@ const COPY = {
     noResults: 'לא נמצאו תוצאות — נסו שם מדויק יותר או הוסיפו את שם העיר.',
     confirmTitle: 'להגדיר כבסיס?',
     stars: 'כוכבים',
+    orUpload: 'או העלו תמונה של המלון',
+    uploadPhoto: 'העלו תמונה של המלון',
+    scanning: 'סורק את התמונה…',
+    fromPhoto: (n: string) => `זוהה מהתמונה: ${n}`,
+    photoNoResult: 'לא זיהינו מלון בתמונה — נסו תמונה ברורה יותר או חיפוש בטקסט.',
   },
   en: {
     title: 'Hotel as trip base',
@@ -61,10 +66,16 @@ const COPY = {
     noResults: 'No matches — try a more specific name or add the city.',
     confirmTitle: 'Set as base?',
     stars: 'stars',
+    orUpload: 'or upload a photo of the hotel',
+    uploadPhoto: 'Upload a photo of the hotel',
+    scanning: 'Scanning the photo…',
+    fromPhoto: (n: string) => `Read from photo: ${n}`,
+    photoNoResult: "Couldn't spot a hotel in that photo — try a clearer one or search by text.",
   },
 } as const;
 
-interface GeoResult { display_name: string; lat: string; lon: string; }
+interface LocateResult { name: string; address: string | null; lat: number; lng: number; photoUrl?: string | null; }
+const ACCEPTED_IMG = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
 interface HotelBaseTabProps {
   lang: Lang;
@@ -153,41 +164,58 @@ function BaseSearch({ lang, destination, onCancel, onConfirm }: {
 }) {
   const t = COPY[lang];
   const [query, setQuery] = useState('');
-  const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'empty'>('idle');
-  const [results, setResults] = useState<GeoResult[]>([]);
-  const [picked, setPicked] = useState<GeoResult | null>(null);
+  const [status, setStatus] = useState<'idle' | 'loading' | 'scanning' | 'done' | 'empty'>('idle');
+  const [results, setResults] = useState<LocateResult[]>([]);
+  const [picked, setPicked] = useState<LocateResult | null>(null);
+  const [fromPhoto, setFromPhoto] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
-  async function geocode(q: string): Promise<GeoResult[]> {
-    // Scope results to the trip city (`near`) so a search can't return a match
-    // in another city; ask for a few options rather than a single best guess.
-    const params = new URLSearchParams({ q, limit: '6' });
-    if (destination) params.set('near', destination);
-    const res = await fetch(`/api/geocode?${params.toString()}`);
-    if (!res.ok) return [];
-    const data = await res.json().catch(() => []);
-    return Array.isArray(data) ? data : [];
-  }
-
-  async function handleSearch() {
-    const q = query.trim();
-    if (q.length < 3) return;
-    setStatus('loading');
+  async function locate(payload: { query?: string; image?: string }, scanning = false) {
     setPicked(null);
+    setFromPhoto(null);
+    setStatus(scanning ? 'scanning' : 'loading');
     try {
-      const found = await geocode(q);
-      setResults(found.slice(0, 6));
-      setStatus(found.length ? 'done' : 'empty');
+      const res = await fetch('/api/hotels/locate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...payload, near: destination }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { result?: LocateResult | null; from?: string | null };
+      if (data.from) setFromPhoto(data.from);
+      if (data.result) {
+        setResults([data.result]);
+        setPicked(data.result);
+        setStatus('done');
+      } else {
+        setResults([]);
+        setStatus('empty');
+      }
     } catch {
       setStatus('empty');
     }
   }
 
-  function confirm(r: GeoResult) {
-    const lat = parseFloat(r.lat);
-    const lng = parseFloat(r.lon);
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-    const name = r.display_name.split(',')[0]?.trim() || r.display_name;
-    onConfirm({ name, address: r.display_name, lat, lng, thumbnailUrl: staticMapThumb(lat, lng) });
+  function handleSearch() {
+    const q = query.trim();
+    if (q.length < 3) return;
+    void locate({ query: q });
+  }
+
+  async function handleFile(file: File | null | undefined) {
+    if (!file || !ACCEPTED_IMG.includes(file.type)) return;
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result));
+      r.onerror = () => reject(r.error);
+      r.readAsDataURL(file);
+    }).catch(() => '');
+    if (dataUrl) void locate({ image: dataUrl }, true);
+    if (fileRef.current) fileRef.current.value = '';
+  }
+
+  function confirm(r: LocateResult) {
+    if (!Number.isFinite(r.lat) || !Number.isFinite(r.lng)) return;
+    onConfirm({ name: r.name, address: r.address, lat: r.lat, lng: r.lng, thumbnailUrl: r.photoUrl || staticMapThumb(r.lat, r.lng) });
   }
 
   return (
@@ -205,13 +233,31 @@ function BaseSearch({ lang, destination, onCancel, onConfirm }: {
         />
         <button
           onClick={handleSearch}
-          disabled={query.trim().length < 3 || status === 'loading'}
+          disabled={query.trim().length < 3 || status === 'loading' || status === 'scanning'}
           className="px-4 py-2.5 rounded-xl text-[13px] font-semibold disabled:opacity-40"
           style={{ background: 'var(--color-terracotta)', color: '#fff' }}
         >
           {status === 'loading' ? t.searching : t.search}
         </button>
       </div>
+
+      {/* Photo upload */}
+      <input ref={fileRef} type="file" accept={ACCEPTED_IMG.join(',')} className="sr-only" onChange={(e) => handleFile(e.target.files?.[0])} />
+      <button
+        onClick={() => fileRef.current?.click()}
+        disabled={status === 'scanning'}
+        className="flex items-center justify-center gap-2 w-full rounded-xl py-2.5 text-[12.5px] font-semibold disabled:opacity-50"
+        style={{ border: '1px dashed rgba(184,85,46,0.4)', color: 'var(--color-terracotta-deep)', background: 'rgba(255,255,255,0.4)' }}
+      >
+        📷 {t.orUpload}
+      </button>
+
+      {status === 'scanning' && (
+        <p className="text-[12.5px] px-1 animate-pulse" style={{ color: 'var(--color-ink-warm-mut)' }}>{t.scanning}</p>
+      )}
+      {fromPhoto && status === 'done' && (
+        <p className="text-[12px] px-1" style={{ color: 'var(--color-terracotta-deep)' }}>📷 {t.fromPhoto(fromPhoto)}</p>
+      )}
 
       {/* Empty prompt before searching */}
       {status === 'idle' && (
@@ -223,7 +269,7 @@ function BaseSearch({ lang, destination, onCancel, onConfirm }: {
       )}
 
       {status === 'empty' && (
-        <p className="text-[12.5px] px-1" style={{ color: 'var(--color-ink-warm-mut)' }}>{t.noResults}</p>
+        <p className="text-[12.5px] px-1" style={{ color: 'var(--color-ink-warm-mut)' }}>{fromPhoto === null ? t.noResults : t.photoNoResult}</p>
       )}
 
       {/* Results */}
@@ -233,7 +279,7 @@ function BaseSearch({ lang, destination, onCancel, onConfirm }: {
             const on = picked === r;
             return (
               <motion.button
-                key={`${r.lat}-${r.lon}-${i}`}
+                key={`${r.lat}-${r.lng}-${i}`}
                 whileTap={{ scale: 0.99 }}
                 onClick={() => setPicked(r)}
                 className="flex items-start gap-2.5 p-3 rounded-xl text-start transition-colors"
@@ -241,8 +287,8 @@ function BaseSearch({ lang, destination, onCancel, onConfirm }: {
               >
                 <span className="text-lg leading-none mt-0.5">📍</span>
                 <span className="min-w-0">
-                  <span className="block text-[13px] font-bold truncate" style={{ color: 'var(--color-ink-warm)' }}>{r.display_name.split(',')[0]}</span>
-                  <span className="block text-[11.5px] truncate" style={{ color: 'var(--color-ink-warm-mut)' }}>{r.display_name}</span>
+                  <span className="block text-[13px] font-bold truncate" style={{ color: 'var(--color-ink-warm)' }}>{r.name}</span>
+                  {r.address && <span className="block text-[11.5px] truncate" style={{ color: 'var(--color-ink-warm-mut)' }}>{r.address}</span>}
                 </span>
               </motion.button>
             );
