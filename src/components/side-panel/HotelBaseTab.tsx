@@ -158,7 +158,11 @@ function BaseSearch({ lang, destination, onCancel, onConfirm }: {
   const [picked, setPicked] = useState<GeoResult | null>(null);
 
   async function geocode(q: string): Promise<GeoResult[]> {
-    const res = await fetch(`/api/geocode?q=${encodeURIComponent(q)}`);
+    // Scope results to the trip city (`near`) so a search can't return a match
+    // in another city; ask for a few options rather than a single best guess.
+    const params = new URLSearchParams({ q, limit: '6' });
+    if (destination) params.set('near', destination);
+    const res = await fetch(`/api/geocode?${params.toString()}`);
     if (!res.ok) return [];
     const data = await res.json().catch(() => []);
     return Array.isArray(data) ? data : [];
@@ -170,8 +174,7 @@ function BaseSearch({ lang, destination, onCancel, onConfirm }: {
     setStatus('loading');
     setPicked(null);
     try {
-      let found = await geocode(q);
-      if (found.length === 0 && destination) found = await geocode(`${q}, ${destination}`);
+      const found = await geocode(q);
       setResults(found.slice(0, 6));
       setStatus(found.length ? 'done' : 'empty');
     } catch {
