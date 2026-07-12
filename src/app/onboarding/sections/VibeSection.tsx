@@ -167,6 +167,7 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
     <div className="flex flex-col gap-7">
       {/* Group type — card grid */}
       <div
+        data-tour="vibe"
         className="rounded-3xl p-3"
         style={{
           background: WARM.surface,

@@ -42,6 +42,7 @@ import { budgetToUsd } from '@/lib/currency';
 import { DayDetailPanel } from '@/components/DayDetailPanel';
 import { SmartToolbar } from '@/components/SmartToolbar';
 import { SidePanel } from '@/components/side-panel/SidePanel';
+import { ResultsMikaTour } from '@/components/tour/MikaTour';
 import { useSidePanel } from '@/state/sidePanelStore';
 import { HotelSelectionCard } from '@/components/HotelSelectionCard';
 import { AssistantChat } from '@/components/AssistantChat';
@@ -1491,12 +1492,14 @@ export function ItineraryClient({
 
             <SectionLabel>{itin.ui.dir === 'rtl' ? 'הימים שלך' : 'Your days'}</SectionLabel>
 
-            <DayCarousel
-              days={days}
-              selectedDayIndex={itin.selectedDayIndex}
-              destination={itin.itinerary.destination ?? ''}
-              onSelectDay={(i) => itin.setSelectedDayIndex(i)}
-            />
+            <div data-tour="days">
+              <DayCarousel
+                days={days}
+                selectedDayIndex={itin.selectedDayIndex}
+                destination={itin.itinerary.destination ?? ''}
+                onSelectDay={(i) => itin.setSelectedDayIndex(i)}
+              />
+            </div>
 
             {itin.itinerary.basecamp && (
               <HotelSelectionCard
@@ -1661,8 +1664,12 @@ export function ItineraryClient({
 
       </div>
 
+      {/* Mika's Phase-2 guided tour — runs once, after generation lands here. */}
+      <ResultsMikaTour ready={!!itin.itinerary} lang={itin.ui.lang === 'he' ? 'he' : 'en'} />
+
       {/* ── Trip companion drawer — available on every itinerary screen ─────── */}
       <button
+        data-tour="sidepanel"
         onClick={() => openSidePanel('documents')}
         aria-label={itin.ui.dir === 'rtl' ? 'כלי הטיול' : 'Trip tools'}
         className="fixed top-1/2 -translate-y-1/2 z-[60] print:hidden flex flex-col items-center gap-1.5 px-2 py-3.5 text-white shadow-lg"

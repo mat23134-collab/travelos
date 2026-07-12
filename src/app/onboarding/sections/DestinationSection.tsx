@@ -281,6 +281,7 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
 
       {/* Country search — capped so it doesn't span the full-bleed grid width */}
       <div
+        data-tour="destination"
         className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl w-full max-w-2xl"
         style={{ background: THEME.surface, border: `1px solid ${THEME.border}` }}
       >
