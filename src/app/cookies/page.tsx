@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { BackButton } from '@/components/BackButton';
 
 export const metadata = {
   title: 'Cookie Policy — TravelOS',
@@ -11,13 +11,7 @@ export default function CookiePolicyPage() {
       style={{ backgroundColor: '#091f36', color: '#2b2622' }}
     >
       <div className="max-w-2xl mx-auto">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 text-sm mb-10 transition-colors"
-          style={{ color: '#6b6358' }}
-        >
-          ← Back
-        </Link>
+        <BackButton label="Back" color="#8fb3c9" className="mb-10" />
 
         <h1 className="text-3xl font-black text-[#2b2622] mb-2 tracking-tight">Cookie Policy</h1>
         <p className="text-sm mb-10" style={{ color: '#6b6358' }}>

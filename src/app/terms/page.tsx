@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { BackButton } from '@/components/BackButton';
 
 export const metadata = {
   title: 'Terms of Service — SARTO',
@@ -11,13 +11,7 @@ export default function TermsPage() {
       style={{ backgroundColor: '#efe3cd', color: '#2b2622' }}
     >
       <div className="mx-auto max-w-3xl">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 text-sm mb-10 transition-colors"
-          style={{ color: '#6b6358' }}
-        >
-          ← Back
-        </Link>
+        <BackButton label="Back" color="#6b6358" className="mb-10" />
 
         <article className="bg-[#fffdf7] backdrop-blur-md border border-[rgba(43,38,34,0.10)] p-8 rounded-2xl">
           <h1 className="text-3xl font-black text-[#2b2622] mb-2 tracking-tight">Terms of Service – SARTO</h1>

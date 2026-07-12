@@ -732,3 +732,15 @@ p { line-height: 1.65; }
 
 /* RTL: keep Mika's face at the start (right), text reads right-to-left */
 .driver-popover.mika-popover.mika-rtl { direction: rtl; text-align: right; }
+
+/* ── Sarto logo motion (journey arrow + orbit node) ────────────────────────── */
+@keyframes sarto-dash { to { stroke-dashoffset: -18; } }
+@keyframes sarto-node {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
+}
+.sarto-dash { animation: sarto-dash 1s linear infinite; }
+.sarto-node { animation: sarto-node 2.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .sarto-dash, .sarto-node { animation: none; }
+}
