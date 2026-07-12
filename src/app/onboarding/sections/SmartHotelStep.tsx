@@ -291,7 +291,7 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6" data-tour="hotel">
 
       {/* Context badge */}
       {config.contextBadge && (

@@ -44,6 +44,8 @@ export const TOUR_COPY: Record<TourLang, {
   start: string;
   destination: string;
   vibe: string;
+  hotel: string;
+  topsights: string;
   daysMap: string;
   sidePanel: string;
 }> = {
@@ -55,7 +57,11 @@ export const TOUR_COPY: Record<TourLang, {
     destination:
       'היי! אני מיקה, עוזרת הטיולים האישית שלכם. בואו נתחיל את ההרפתקה! פשוט הקלידו כאן את היעד הבא שלכם.',
     vibe:
-      'כאן תוכלו לספר לי על וייב הטיול שלכם – משפחה, רומנטי, או אקשן. ה-AI שלנו יתחשב בהכל כדי לבנות לכם את ה-Winning Picks הכי מדויקים.',
+      'ספרו לי על וייב הטיול – זוג, משפחה או חבורה – ובהמשך גם על הקצב: רגוע עם עצירות ספורות, מאוזן, או אינטנסיבי. לפי זה אקבע כמה לדחוס לכל יום ואבנה לכם את ה-Winning Picks המדויקים.',
+    hotel:
+      'זה שלב המלון. ספרו לי איפה אתם ישנים – או תנו לי להמליץ – ואשתמש בו כבסיס: כל יום יתחיל ויסתיים ליד המלון שלכם, בלי לרוץ מצד לצד של העיר.',
+    topsights:
+      'ולסיום – הקוביות האלה הן האטרקציות המובחרות של היעד. הקישו על כל אחת שבא לכם, ואשלב אותה במסלול. אפשר גם פשוט לדלג ולתת ל-AI לבחור בשבילכם.',
     daysMap:
       'וואו, תראו את זה! המסלול שלכם מוכן. כאן מפורט לו״ז יומי חכם, והמסלול האינטראקטיבי כבר נמתח בלייב על המפה!',
     sidePanel:
@@ -69,7 +75,11 @@ export const TOUR_COPY: Record<TourLang, {
     destination:
       'Hi! I’m Mika, your personal travel assistant. Let’s start the adventure — just type your next destination right here.',
     vibe:
-      'Tell me the vibe of your trip here — family, romantic, or action. Our AI weighs it all to build you the most precise Winning Picks.',
+      'Tell me the vibe of your trip — couple, family or group — and then the pace: relaxed with a few stops, balanced, or packed. That’s how I decide how much to fit into each day and build your precise Winning Picks.',
+    hotel:
+      'This is the hotel step. Tell me where you’re staying — or let me recommend — and I’ll use it as your base: every day starts and ends near your hotel, no criss-crossing the city.',
+    topsights:
+      'And to finish — these tiles are the destination’s top sights. Tap any you love and I’ll weave it into your plan. Or just skip and let the AI choose for you.',
     daysMap:
       'Wow, look at that! Your trip is ready. Here’s your smart day-by-day plan, and the interactive route is already drawn live on the map!',
     sidePanel:

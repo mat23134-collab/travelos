@@ -75,8 +75,8 @@ const SOLO_DYN: Array<{ value: SoloDynamics; label: string; labelHe: string; sub
 ];
 
 const COUPLE_DYN: Array<{ value: CoupleDynamics; label: string; labelHe: string; sub: string; subHe: string }> = [
-  { value: 'romantic',     label: 'Partners', labelHe: 'בני זוג', sub: 'A getaway for two', subHe: 'חופשה לשניים' },
-  { value: 'reconnecting', label: 'Married',  labelHe: 'נשואים',  sub: 'Time together',     subHe: 'זמן יחד' },
+  { value: 'romantic',     label: 'Couple',         labelHe: 'זוג',      sub: 'A getaway for two', subHe: 'חופשה לשניים' },
+  { value: 'parent-child', label: 'Parent & child', labelHe: 'הורה וילד', sub: 'A trip together',   subHe: 'טיול משותף' },
 ];
 
 const GROUP_DYN: Array<{ value: GroupDyn; label: string; labelHe: string; sub: string; subHe: string }> = [

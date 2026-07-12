@@ -98,7 +98,7 @@ export function TopSightsSection() {
   }, [destination]);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6" data-tour="topsights">
       {/* Status states */}
       {status === 'loading' && (
         <div className="flex flex-col gap-6">

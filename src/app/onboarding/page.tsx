@@ -25,7 +25,8 @@ import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useOnboardingStore } from '@/state/onboardingStore';
 import { trackOnboardingStep, ONBOARDING_STEP_KEYS } from '@/lib/onboardingAnalytics';
-import { readTripLanguagePref } from '@/lib/tripLanguagePref';
+import { readTripLanguagePref, persistTripLanguagePref } from '@/lib/tripLanguagePref';
+import { TripLanguageGateModal } from '@/components/TripLanguageGateModal';
 import { useAuth } from '@/lib/auth-context';
 import { BrandWordmark } from '@/components/BrandWordmark';
 import { resolveBackgroundImage } from '@/lib/stepBackgrounds';
@@ -229,6 +230,13 @@ function OnboardingPageContent() {
   // clobber persisted completion state.
   const [wizardStep, setWizardStep] = useState(0);
   const [direction,  setDirection]  = useState(1); // 1=forward, -1=backward
+
+  // Trip language: ask up-front (first thing) if the traveler hasn't picked one
+  // yet, so the whole wizard — and Mika's tips — render in their language.
+  const [showLangGate, setShowLangGate] = useState(false);
+  useEffect(() => {
+    if (!readTripLanguagePref()) setShowLangGate(true);
+  }, []);
 
   // ── Background image: match the chosen destination, fall back to rotating ──
   const bgUrl = useMemo(() => {
@@ -504,6 +512,12 @@ function OnboardingPageContent() {
         backgroundColor: THEME.ivory,
       }}
     >
+      {/* Trip language — asked up-front before anything else */}
+      <TripLanguageGateModal
+        open={showLangGate}
+        onSelect={(l) => { persistTripLanguagePref(l); setShowLangGate(false); }}
+      />
+
       {/* Warm gold halo over the photo — adds depth + ties to the palette */}
       <div className="fixed inset-0 pointer-events-none z-0" aria-hidden="true">
         <div
@@ -577,7 +591,7 @@ function OnboardingPageContent() {
             exit="exit"
             className={`${shellWidth} mx-auto px-5 sm:px-8 pb-40`}
           >
-            <WizardMikaTour wizardStep={wizardStep} />
+            {!showLangGate && <WizardMikaTour wizardStep={wizardStep} />}
 
             <Suspense fallback={<StepSkeleton />}>
 
