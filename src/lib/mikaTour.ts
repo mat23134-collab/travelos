@@ -56,9 +56,13 @@ export const TOUR_COPY: Record<TourLang, {
   gotIt: string;
   start: string;
   destination: string;
+  travelDetails: string;
+  interests: string;
   vibe: string;
   hotel: string;
+  dining: string;
   topsights: string;
+  notescan: string;
   daysMap: string;
   sidePanel: string;
 }> = {
@@ -69,12 +73,20 @@ export const TOUR_COPY: Record<TourLang, {
     start: 'יאללה, בואו נתחיל',
     destination:
       'היי! אני מיקה, עוזרת הטיולים האישית שלכם. בואו נתחיל את ההרפתקה! פשוט הקלידו כאן את היעד הבא שלכם.',
+    travelDetails:
+      'טיפ קטן: פִּתחו את "פרטי טיסה" ומלאו שעת נחיתה ושעת המראה. ככה לא אתכנן לכם אטרקציות בזמן שאתם עוד בשדה התעופה — היום הראשון והאחרון ייתפרו סביב הטיסה.',
+    interests:
+      'כאן שני דברים: תקציב יומי (בלי טיסות), ומה מדליק אתכם — תרבות, אוכל, טבע, קניות... לפי הבחירות אני יודעת מה להדגיש ומה לדלג. הכל אופציונלי.',
     vibe:
       'ספרו לי על וייב הטיול – זוג, משפחה או חבורה – ובהמשך גם על הקצב: רגוע עם עצירות ספורות, מאוזן, או אינטנסיבי. לפי זה אקבע כמה לדחוס לכל יום ואבנה לכם את ה-Winning Picks המדויקים.',
     hotel:
       'זה שלב המלון. ספרו לי איפה אתם ישנים – או תנו לי להמליץ – ואשתמש בו כבסיס: כל יום יתחיל ויסתיים ליד המלון שלכם, בלי לרוץ מצד לצד של העיר.',
+    dining:
+      'יש לכם כללי אוכל? צמחוני, טבעוני, כשר, חלאל, ללא גלוטן או ללא לקטוז — סמנו, ואוודא שכל המסעדות וההמלצות מתאימות. אפשר גם לדלג.',
     topsights:
-      'ולסיום – הקוביות האלה הן האטרקציות המובחרות של היעד. הקישו על כל אחת שבא לכם, ואשלב אותה במסלול. אפשר גם פשוט לדלג ולתת ל-AI לבחור בשבילכם.',
+      'הקוביות האלה הן האטרקציות המובחרות של היעד. הקישו על כל אחת שבא לכם, ואשלב אותה במסלול. אפשר גם פשוט לדלג ולתת ל-AI לבחור בשבילכם.',
+    notescan:
+      'וטריק שאני אוהבת: כבר יש לכם רשימה משלכם? צלמו אותה — צילום מסך, פתק בכתב יד, כל דבר — ואני אסרוק, אחלץ את המקומות, ואשזור את מה שמתאים לתוך המסלול.',
     daysMap:
       'וואו, תראו את זה! המסלול שלכם מוכן. כאן מפורט לו״ז יומי חכם, והמסלול האינטראקטיבי כבר נמתח בלייב על המפה!',
     sidePanel:
@@ -87,12 +99,20 @@ export const TOUR_COPY: Record<TourLang, {
     start: 'Let’s go',
     destination:
       'Hi! I’m Mika, your personal travel assistant. Let’s start the adventure — just type your next destination right here.',
+    travelDetails:
+      'Quick tip: open “Travel details” and set your landing and take-off times. Then I won’t plan anything while you’re still at the airport — your first and last days flex around the flight.',
+    interests:
+      'Two things here: your daily budget (excl. flights), and what lights you up — culture, food, nature, shopping… I use these to know what to feature and what to skip. All optional.',
     vibe:
       'Tell me the vibe of your trip — couple, family or group — and then the pace: relaxed with a few stops, balanced, or packed. That’s how I decide how much to fit into each day and build your precise Winning Picks.',
     hotel:
       'This is the hotel step. Tell me where you’re staying — or let me recommend — and I’ll use it as your base: every day starts and ends near your hotel, no criss-crossing the city.',
+    dining:
+      'Any food rules? Vegetarian, vegan, kosher, halal, gluten- or dairy-free — mark them and I’ll make sure every restaurant and rec fits. Feel free to skip.',
     topsights:
-      'And to finish — these tiles are the destination’s top sights. Tap any you love and I’ll weave it into your plan. Or just skip and let the AI choose for you.',
+      'These tiles are the destination’s top sights. Tap any you love and I’ll weave it into your plan. Or just skip and let the AI choose for you.',
+    notescan:
+      'A trick I love: already have your own list? Snap a photo — a screenshot, a handwritten note, anything — and I’ll scan it, pull out the places, and weave the ones that fit into your plan.',
     daysMap:
       'Wow, look at that! Your trip is ready. Here’s your smart day-by-day plan, and the interactive route is already drawn live on the map!',
     sidePanel:

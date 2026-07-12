@@ -104,7 +104,7 @@ export function PreferencesSection({ isCompleted, onEdit }: Props) {
 
   // ── Active form ────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6" data-tour="interests">
 
       {/* Budget — 3 row options */}
       <div className="flex flex-col gap-2">

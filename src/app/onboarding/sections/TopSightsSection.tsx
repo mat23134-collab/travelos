@@ -482,6 +482,7 @@ function NoteScanner({ destination }: { destination: string }) {
   return (
     <div
       className="rounded-3xl p-6"
+      data-tour="notescan"
       style={{ background: THEME.surface, border: BORDER }}
     >
       <div className="flex items-start justify-between gap-4">

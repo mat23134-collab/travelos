@@ -318,7 +318,7 @@ export function DatesSection({ isCompleted, onComplete, onEdit }: Props) {
       </AnimatePresence>
 
       {/* Travel details accordion */}
-      <div className="rounded-2xl overflow-hidden"
+      <div className="rounded-2xl overflow-hidden" data-tour="travel-details"
         style={CARD.base}>
         <button
           onClick={() => setShowDetails(d => !d)}
