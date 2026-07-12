@@ -105,29 +105,26 @@ export function DayDetailPanel({
           transition={{ type: 'spring', stiffness: 300, damping: 28 }}
           className="max-w-5xl mx-auto px-4 sm:px-6 py-4"
         >
-          {/* Day navigation strip */}
-          <div className="flex items-center justify-between mb-4">
-            <button
-              type="button"
+          {/* Day navigation strip — clear, obviously-tappable pills */}
+          <div className="flex items-center justify-between gap-2 mb-4">
+            <DayNavBtn
               onClick={onPrevDay}
               disabled={dayIndex === 0}
-              className="flex items-center gap-1 text-sm font-semibold transition-opacity disabled:opacity-30"
-              style={{ color: '#8f4220' }}
-            >
-              {dayIndex === 0 ? '← Previous' : `← Day ${dayIndex}`}
-            </button>
-            <span className="text-sm font-bold text-[#222]">
-              Day {dayIndex + 1} — {day.theme ?? `Day ${dayIndex + 1} of ${totalDays}`}
+              arrow={ui.dir === 'rtl' ? '→' : '←'}
+              label={ui.dir === 'rtl' ? 'יום קודם' : 'Previous day'}
+              side="start"
+            />
+            <span className="text-[13px] sm:text-sm font-bold text-center text-[#222] min-w-0 truncate px-1">
+              {ui.dir === 'rtl' ? `יום ${dayIndex + 1}` : `Day ${dayIndex + 1}`}
+              {day.theme ? ` · ${day.theme}` : ''}
             </span>
-            <button
-              type="button"
+            <DayNavBtn
               onClick={onNextDay}
               disabled={dayIndex === totalDays - 1}
-              className="flex items-center gap-1 text-sm font-semibold transition-opacity disabled:opacity-30"
-              style={{ color: '#8f4220' }}
-            >
-              {dayIndex === totalDays - 1 ? 'Next →' : `Day ${dayIndex + 2} →`}
-            </button>
+              arrow={ui.dir === 'rtl' ? '←' : '→'}
+              label={ui.dir === 'rtl' ? 'יום הבא' : 'Next day'}
+              side="end"
+            />
           </div>
 
           {/* 2-col grid */}
@@ -251,6 +248,36 @@ export function DayDetailPanel({
         message="Anyone with the link can view this trip, but you'll need to log in or create a free account to make changes."
       />
     </>
+  );
+}
+
+function DayNavBtn({ onClick, disabled, arrow, label, side }: {
+  onClick: () => void;
+  disabled: boolean;
+  arrow: string;
+  label: string;
+  side: 'start' | 'end';
+}) {
+  return (
+    <motion.button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      whileHover={disabled ? undefined : { scale: 1.04 }}
+      whileTap={disabled ? undefined : { scale: 0.96 }}
+      className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-[13px] font-bold whitespace-nowrap disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
+      style={{
+        background: '#f6e7df',
+        color: '#8f4220',
+        border: '1px solid rgba(184,85,46,0.35)',
+        boxShadow: disabled ? 'none' : '0 2px 8px rgba(184,85,46,0.15)',
+      }}
+    >
+      {side === 'start' && <span aria-hidden="true" style={{ fontSize: '16px', lineHeight: 1 }}>{arrow}</span>}
+      <span>{label}</span>
+      {side === 'end' && <span aria-hidden="true" style={{ fontSize: '16px', lineHeight: 1 }}>{arrow}</span>}
+    </motion.button>
   );
 }
 
