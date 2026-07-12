@@ -98,6 +98,7 @@ export function localizeRestaurant(
     signatureDish: loc.signatureDish ?? rec.signatureDish ?? null,
     highlight: loc.highlight ?? rec.highlight ?? null,
     bookingUrgency: loc.bookingUrgency ?? rec.bookingUrgency ?? null,
+    bookingLeadTime: loc.bookingLeadTime ?? rec.bookingLeadTime ?? null,
     socialUrl,
   };
 }

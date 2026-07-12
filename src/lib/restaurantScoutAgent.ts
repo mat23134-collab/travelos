@@ -95,7 +95,7 @@ type GeminiGenerateBody = {
 function candidateSystemPrompt(): string {
   const langList = SITE_LANGUAGES.map((l) => `"${l}" (${LANGUAGE_NAMES[l]})`).join(', ');
   const translationsShape = SITE_LANGUAGES
-    .map((l) => `"${l}": { "highlight": "…", "cuisineStyle": "…", "description": "…", "signatureDish": "…", "bookingUrgency": "…" }`)
+    .map((l) => `"${l}": { "highlight": "…", "cuisineStyle": "…", "description": "…", "signatureDish": "…", "bookingUrgency": "…", "bookingLeadTime": "…" }`)
     .join(', ');
 
   return `You are the head concierge of a luxury travel house, curating a shortlist of EXCEPTIONAL, experience-defining restaurants for a discerning traveler. These are NOT everyday spots — they are the tables where securing a reservation is itself an event.
@@ -111,6 +111,7 @@ STRICTLY EXCLUDE: chains, generic tourist-trap spots near landmarks, and casual 
 
 Rules:
 - Only real, currently-operating restaurants you are confident exist. No invented names.
+- "priceRange" MUST be an approximate real cost band PER PERSON for a typical meal, in the LOCAL currency, with numbers — e.g. "€45–70 pp", "¥18,000–25,000 pp", "$120–180 pp". NEVER just symbols like "€€€".
 - "priceLevel" is 1 (cheap) to 4 (very expensive).
 - "bookingPlatform" is your best guess: "TheFork", "OpenTable", "website", or "phone".
 - "name" and "neighborhood" stay in their original/local form (do NOT translate proper place names).
@@ -121,6 +122,7 @@ LOCALIZATION — write the following NATIVELY in EACH of these languages: ${lang
   - "description": 2–3 evocative sentences on the experience — the food, the room, why it's worth the effort. Michelin-guide voice, vivid but honest.
   - "signatureDish": the one dish a first-timer must order.
   - "bookingUrgency": one short sentence on why booking is critical and how far ahead, e.g. "Books out weeks ahead — reserve the moment your dates are set."
+  - "bookingLeadTime": ONLY the concrete typical advance-booking window, as a short phrase — e.g. "2–3 weeks ahead", "1–2 months ahead", "same week is fine". No full sentence.
 
 Return ONLY a JSON array. Each object:
 { "name", "neighborhood", "priceRange", "priceLevel", "bookingPlatform", "translations": { ${translationsShape} } }.`;
@@ -196,6 +198,7 @@ async function synthesizeCandidates(city: string, snippets: string): Promise<Gem
             description: str(loc.description) ?? null,
             signatureDish: str(loc.signatureDish) ?? null,
             bookingUrgency: str(loc.bookingUrgency) ?? null,
+            bookingLeadTime: str(loc.bookingLeadTime) ?? null,
           };
         }
       }
@@ -207,6 +210,7 @@ async function synthesizeCandidates(city: string, snippets: string): Promise<Gem
           description: str(c.description) ?? null,
           signatureDish: str(c.signatureDish) ?? null,
           bookingUrgency: str(c.bookingUrgency) ?? null,
+          bookingLeadTime: str(c.bookingLeadTime) ?? null,
         };
       }
       return {
