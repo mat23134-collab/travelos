@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -59,7 +59,7 @@ function useTripPhoto(destination: string) {
 
 // ── Trip Card ─────────────────────────────────────────────────────────────────
 
-function TripCard({ trip, index }: { trip: TripRow; index: number }) {
+function TripCard({ trip, index, onOpen }: { trip: TripRow; index: number; onOpen: () => void }) {
   const shared = trip.shared === true;
   const { photoUrl } = useTripPhoto(trip.destination);
   const [imgLoaded, setImgLoaded] = useState(false);
@@ -139,6 +139,7 @@ function TripCard({ trip, index }: { trip: TripRow; index: number }) {
         </p>
         <Link
           href={`/itinerary/${trip.id}`}
+          onClick={onOpen}
           className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-xs font-bold text-[#8f4220] transition-all hover:brightness-105"
           style={{
             background: 'linear-gradient(135deg, rgba(184,85,46,0.18), rgba(240,201,138,0.28))',
@@ -161,6 +162,19 @@ export default function DashboardPage() {
   const [fetching, setFetching] = useState(true);
   const [fetchError, setFetchError] = useState('');
   const [signingOut, setSigningOut] = useState(false);
+
+  // Opening a trip or starting a new one navigates to a heavy page; on mobile
+  // that transition has a noticeable delay with no feedback, so it looks stuck.
+  // Show a loading overlay — but only if the navigation takes longer than 500ms,
+  // so fast transitions don't flash a spinner.
+  const [navPending, setNavPending] = useState(false);
+  const navTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startNav = useCallback(() => {
+    if (navTimer.current) clearTimeout(navTimer.current);
+    navTimer.current = setTimeout(() => setNavPending(true), 500);
+  }, []);
+  // Clean up the timer if we unmount (navigation completed) before it fires.
+  useEffect(() => () => { if (navTimer.current) clearTimeout(navTimer.current); }, []);
 
   // Redirect if not logged in
   useEffect(() => {
@@ -257,6 +271,7 @@ export default function DashboardPage() {
           </span>
           <Link
             href="/onboarding"
+            onClick={startNav}
             className="px-4 py-2 rounded-xl text-xs font-bold text-white transition-all"
             style={{
               background: 'linear-gradient(135deg, #b8552e, #cf6a3f)',
@@ -346,6 +361,7 @@ export default function DashboardPage() {
             </p>
             <Link
               href="/onboarding"
+              onClick={startNav}
               className="px-8 py-3.5 rounded-2xl text-sm font-bold text-white"
               style={{
                 background: 'linear-gradient(135deg, #b8552e, #cf6a3f)',
@@ -361,11 +377,43 @@ export default function DashboardPage() {
         {!fetching && !fetchError && trips.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {trips.map((trip, i) => (
-              <TripCard key={trip.id} trip={trip} index={i} />
+              <TripCard key={trip.id} trip={trip} index={i} onOpen={startNav} />
             ))}
           </div>
         )}
       </div>
+
+      {/* ── Navigation loading overlay ────────────────────────────────────────── */}
+      {/* Appears only when a trip/new-trip navigation takes >500ms, so the user
+          gets clear "loading" feedback instead of thinking the tap did nothing. */}
+      <AnimatePresence>
+        {navPending && (
+          <motion.div
+            key="nav-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-4"
+            style={{ background: 'rgba(239,227,205,0.72)', backdropFilter: 'blur(6px)' }}
+            aria-live="polite"
+            aria-busy="true"
+          >
+            <motion.div
+              className="rounded-full"
+              style={{
+                width: 44,
+                height: 44,
+                border: '3px solid rgba(184,85,46,0.20)',
+                borderTopColor: '#b8552e',
+              }}
+              animate={{ rotate: 360 }}
+              transition={{ repeat: Infinity, ease: 'linear', duration: 0.8 }}
+            />
+            <p className="text-sm font-bold text-[#8f4220]">Loading…</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }
