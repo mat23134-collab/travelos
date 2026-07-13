@@ -490,7 +490,11 @@ export function buildUserPrompt(
   const hotelBlock = profile.hotelSkipped
     ? `\nHOTEL: The user SKIPPED accommodation entirely. Do NOT recommend or mention any hotels. OMIT the "basecamp" field completely from the JSON (do not output a basecamp key at all). Do not include hotel recommendations anywhere in the itinerary.`
     : profile.hotelBooked?.trim()
-    ? `\nHOTEL_BOOKED: ${profile.hotelBooked.trim()}\n(Use this for basecamp.type="booked" — extract name and neighborhood from the text above)`
+    ? `\nHOTEL_BOOKED: ${profile.hotelBooked.trim()}\n(Use this for basecamp.type="booked" — extract name and neighborhood from the text above.${
+        !(profile.hotelLat && profile.hotelLng)
+          ? ` No GPS coordinates were provided — use your knowledge to identify this hotel's exact neighborhood in ${profile.destination ?? 'the destination city'} and geographically cluster Day 1 activities around it.`
+          : ''
+      })`
     : hotelContext
       ? `\nHOTEL_SEARCH_DATA (use to generate 3 squad-approved recommendations for basecamp.recommendations[]):\n${hotelContext}${hotelDateAnchoring}`
       : `\nHOTEL_BOOKED: none — generate 3 squad-approved hotel recommendations for basecamp.recommendations[] based on expertise${hotelDateAnchoring}`;

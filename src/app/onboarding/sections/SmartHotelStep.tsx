@@ -341,34 +341,50 @@ export function SmartHotelStep({ onComplete, onSkip }: Props) {
               {searchStatus !== 'found' ? (
                 <motion.div key="search-input"
                   variants={reveal} initial="hidden" animate="visible" exit="exit"
-                  className="flex gap-2">
-                  <div
-                    className="flex-1 flex items-center gap-2.5 px-3.5 py-3 rounded-xl"
-                    style={{ background: THEME.surface, border: `1px solid ${THEME.border}` }}
-                    onFocus={(e) => (e.currentTarget.style.borderColor = THEME.borderSel)}
-                    onBlur={(e)  => (e.currentTarget.style.borderColor = THEME.border)}
-                  >
-                    <Hotel size={16} strokeWidth={1.75} style={{ color: THEME.textMuted }} className="shrink-0" />
-                    <input
-                      type="text"
-                      placeholder={he ? `שם או כתובת מלון ב-${destination || 'יעד'}…` : `Hotel name or address in ${destination || 'your destination'}…`}
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                      className="flex-1 bg-transparent text-sm outline-none"
-                      style={{ color: THEME.textBody }}
-                    />
+                  className="flex flex-col gap-2">
+                  <div className="flex gap-2">
+                    <div
+                      className="flex-1 flex items-center gap-2.5 px-3.5 py-3 rounded-xl"
+                      style={{ background: THEME.surface, border: `1px solid ${THEME.border}` }}
+                      onFocus={(e) => (e.currentTarget.style.borderColor = THEME.borderSel)}
+                      onBlur={(e)  => (e.currentTarget.style.borderColor = THEME.border)}
+                    >
+                      <Hotel size={16} strokeWidth={1.75} style={{ color: THEME.textMuted }} className="shrink-0" />
+                      <input
+                        type="text"
+                        placeholder={he ? `שם מלון ב-${destination || 'יעד'}…` : `Hotel name in ${destination || 'your destination'}…`}
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                        className="flex-1 bg-transparent text-sm outline-none"
+                        style={{ color: THEME.textBody }}
+                      />
+                    </div>
+                    <motion.button
+                      onClick={handleSearch}
+                      disabled={query.trim().length < 3 || searchStatus === 'loading'}
+                      whileHover={{ scale: 1.04 }}
+                      whileTap={{ scale: 0.96 }}
+                      className="px-4 py-3 rounded-xl text-sm font-bold disabled:opacity-40"
+                      style={{ background: THEME.gold, color: THEME.ink }}
+                    >
+                      {searchStatus === 'loading' ? '…' : t('Find')}
+                    </motion.button>
                   </div>
-                  <motion.button
-                    onClick={handleSearch}
-                    disabled={query.trim().length < 3 || searchStatus === 'loading'}
-                    whileHover={{ scale: 1.04 }}
-                    whileTap={{ scale: 0.96 }}
-                    className="px-4 py-3 rounded-xl text-sm font-bold disabled:opacity-40"
-                    style={{ background: THEME.gold, color: THEME.ink }}
-                  >
-                    {searchStatus === 'loading' ? '…' : t('Find')}
-                  </motion.button>
+                  {/* Always-visible name-only shortcut — no geocoding needed */}
+                  <AnimatePresence>
+                    {query.trim().length >= 3 && searchStatus !== 'loading' && (
+                      <motion.button
+                        key="use-name"
+                        variants={reveal} initial="hidden" animate="visible" exit="exit"
+                        onClick={handleUseNameOnly}
+                        className="self-start text-xs font-semibold px-3 py-1.5 rounded-lg"
+                        style={{ color: THEME.textMuted, background: THEME.surface, border: `1px solid ${THEME.border}` }}
+                      >
+                        {he ? `המשיכו עם "${query.trim()}"` : `Just use "${query.trim()}" →`}
+                      </motion.button>
+                    )}
+                  </AnimatePresence>
                 </motion.div>
               ) : (
                 <motion.div key="hotel-found"
