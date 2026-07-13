@@ -7,10 +7,11 @@
  */
 
 import { useEffect } from 'react';
+import * as Sentry from '@sentry/nextjs';
 
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
-    // Surface to the browser console; a monitoring hook (e.g. Sentry) can attach here later.
+    Sentry.captureException(error);
     console.error('[global-error]', error);
   }, [error]);
 
