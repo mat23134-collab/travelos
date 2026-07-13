@@ -29,6 +29,27 @@ import { Canvas } from '@react-three/fiber';
 import { AdaptiveDpr } from '@react-three/drei';
 import { sceneContent } from './tunnel';
 import { mousePos } from './mouseStore';
+import { CanvasErrorBoundary } from './CanvasErrorBoundary';
+
+/**
+ * Cheap pre-flight: can this browser create a WebGL context at all? On devices
+ * that can't (old phones, battery-saver, GPU blocklists, context exhaustion),
+ * mounting <Canvas> makes three.js throw "Error creating WebGL context". We skip
+ * mounting entirely in that case so the throw — and the Sentry noise — never
+ * happen. The <CanvasErrorBoundary> still guards against a context that fails or
+ * is lost AFTER this check passes.
+ */
+function webglAvailable(): boolean {
+  try {
+    const canvas = document.createElement('canvas');
+    return (
+      !!window.WebGLRenderingContext &&
+      !!(canvas.getContext('webgl') || canvas.getContext('experimental-webgl'))
+    );
+  } catch {
+    return false;
+  }
+}
 
 function useGPUTier(): 0 | 1 | 2 {
   const [tier, setTier] = useState<0 | 1 | 2>(1);
@@ -46,6 +67,10 @@ export function CanvasShell() {
   const tier = useGPUTier();
   const dpr: [number, number] = tier === 0 ? [1, 1] : tier === 1 ? [1, 1.5] : [1, 2];
 
+  // Computed synchronously on the first (client-only, ssr:false) render, so we
+  // never even attempt to mount the Canvas on a device without WebGL.
+  const [webglOk] = useState(() => (typeof window === 'undefined' ? true : webglAvailable()));
+
   // Listen for mouse movement on the HTML layer (canvas has pointer-events:none
   // so we cannot use R3F's built-in raycaster events). The normalized values
   // are written into mousePos and consumed by scene components in useFrame.
@@ -58,6 +83,10 @@ export function CanvasShell() {
     return () => window.removeEventListener('mousemove', onMove);
   }, []);
 
+  // No WebGL on this device → skip the decorative canvas entirely. The app's
+  // HTML/UI layer renders normally without it.
+  if (!webglOk) return null;
+
   return (
     // Keep canvas on base layer; individual pages place UI above it with
     // local z-index where needed. Pointer events stay disabled.
@@ -66,19 +95,21 @@ export function CanvasShell() {
       style={{ zIndex: 0 }}
       aria-hidden="true"
     >
-      <Canvas
-        frameloop="demand"
-        dpr={dpr}
-        camera={{ position: [0, 0, 5], fov: 50 }}
-        gl={{ antialias: tier > 0, alpha: true, powerPreference: 'high-performance' }}
-        // Also set pointerEvents:none on the <canvas> DOM element directly —
-        // R3F overrides inherited CSS on its canvas, so this explicit inline
-        // style is required as a belt-and-suspenders guarantee.
-        style={{ background: 'transparent', pointerEvents: 'none' }}
-      >
-        <AdaptiveDpr pixelated />
-        <sceneContent.Out />
-      </Canvas>
+      <CanvasErrorBoundary>
+        <Canvas
+          frameloop="demand"
+          dpr={dpr}
+          camera={{ position: [0, 0, 5], fov: 50 }}
+          gl={{ antialias: tier > 0, alpha: true, powerPreference: 'high-performance' }}
+          // Also set pointerEvents:none on the <canvas> DOM element directly —
+          // R3F overrides inherited CSS on its canvas, so this explicit inline
+          // style is required as a belt-and-suspenders guarantee.
+          style={{ background: 'transparent', pointerEvents: 'none' }}
+        >
+          <AdaptiveDpr pixelated />
+          <sceneContent.Out />
+        </Canvas>
+      </CanvasErrorBoundary>
     </div>
   );
 }

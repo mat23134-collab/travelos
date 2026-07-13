@@ -123,6 +123,12 @@ export function useItinerary({
   const [recalculateDayLoading, setRecalculateDayLoading] = useState(false);
   const scoutPostedRef = useRef(false);
 
+  // Refs backing the browser-history integration below (declared here so the
+  // props-sync effect can reset them when the itinerary is swapped in place).
+  const poppingRef = useRef(false); // change is driven by popstate/restore → don't touch history
+  const pushedRef  = useRef(false); // we own a pushed detail entry that Back can pop
+  const prevDayRef = useRef(-1);
+
   useEffect(() => {
     scoutPostedRef.current = false;
   }, [itinerary.destination]);
@@ -131,9 +137,67 @@ export function useItinerary({
   useEffect(() => {
     setItinerary(initialItinerary);
     setViewMode(initialViewMode ?? 'draft');
+    // Reset the view to overview WITHOUT touching history (this is a fresh trip,
+    // not a user back-navigation).
+    poppingRef.current = true;
+    pushedRef.current = false;
+    prevDayRef.current = -1;
     setSelectedDayIndex(-1);
+    setTimeout(() => { poppingRef.current = false; }, 0);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialItinerary]);
+
+  // ── Browser-history integration for the day-detail view ─────────────────────
+  // The day detail (selectedDayIndex >= 0) used to be pure React state with no
+  // history entry. On a phone that meant the hardware/gesture Back button left
+  // the whole results page for the previous route (ultimately the landing page)
+  // instead of returning to the previous view WITHIN results.
+  //
+  // Opening a day pushes ONE extra history entry with the SAME url (so Next's
+  // App Router doesn't treat it as a navigation / refetch). Back then pops that
+  // entry and we drop to the overview instead of leaving the page. Switching
+  // days keeps a single entry. Refresh stays on /itinerary/[id] regardless, so
+  // it never falls back to the landing page either.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const prev = prevDayRef.current;
+    prevDayRef.current = selectedDayIndex;
+    if (poppingRef.current) return;      // change came FROM popstate — leave history alone
+    if (prev === selectedDayIndex) return;
+
+    // Preserve whatever state Next's router keeps on the entry; only add our flag.
+    const baseState = (window.history.state ?? {}) as Record<string, unknown>;
+
+    if (selectedDayIndex >= 0 && prev < 0) {
+      // overview → detail: add a poppable entry so Back returns to the overview.
+      window.history.pushState({ ...baseState, itinDay: selectedDayIndex }, '');
+      pushedRef.current = true;
+    } else if (selectedDayIndex >= 0) {
+      // detail → detail (switch day): keep the single entry, just update the flag.
+      window.history.replaceState({ ...baseState, itinDay: selectedDayIndex }, '');
+    } else if (pushedRef.current) {
+      // detail → overview via an in-UI control: pop our entry so the stack and the
+      // Back button stay in sync (fires popstate → handler no-ops to the same view).
+      pushedRef.current = false;
+      window.history.back();
+    }
+  }, [selectedDayIndex]);
+
+  // Back / forward (incl. mobile gesture-back) → restore the view from the entry.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onPop = () => {
+      const st = window.history.state as { itinDay?: number } | null;
+      const day = st?.itinDay;
+      poppingRef.current = true;
+      pushedRef.current = Number.isInteger(day) && (day as number) >= 0;
+      setSelectedDayIndex(pushedRef.current ? (day as number) : -1);
+      // Clear even when the value didn't change (no re-render → effect won't run).
+      setTimeout(() => { poppingRef.current = false; }, 0);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
 
   // Background slideshow
   const [bgIdx, setBgIdx] = useState(() => {
