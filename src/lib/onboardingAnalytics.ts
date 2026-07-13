@@ -112,3 +112,39 @@ export function trackOnboardingStep(
     destination: ctx?.destination ?? null,
   });
 }
+
+// Funnel events AFTER onboarding — generation outcome + results/share/save — so
+// the post-"generate" funnel is measurable (it was blind before). Reuses the
+// same session id + sink, with high step_index values so they sort after the
+// wizard steps. step_key is free text, so no migration needed.
+export const FUNNEL_EVENTS = {
+  generation_started:   90,
+  generation_succeeded: 91,
+  generation_failed:    92,
+  results_viewed:       93,
+  share_opened:         94,
+  trip_saved:           95,
+} as const;
+
+export function trackFunnelEvent(
+  eventKey: keyof typeof FUNNEL_EVENTS,
+  ctx?: { userId?: string | null; destination?: string | null },
+): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const clarity = (window as unknown as { clarity?: ClarityFn }).clarity;
+    if (typeof clarity === 'function') clarity('set', 'funnel_event', eventKey);
+  } catch { /* never throw from analytics */ }
+  try {
+    void supabase
+      .from('onboarding_step_events')
+      .insert({
+        user_id: ctx?.userId ?? null,
+        session_id: getOnboardingSessionId(),
+        step_index: FUNNEL_EVENTS[eventKey],
+        step_key: eventKey,
+        destination: ctx?.destination ?? null,
+      })
+      .then(() => {}, () => {});
+  } catch { /* never throw from analytics */ }
+}

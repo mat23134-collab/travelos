@@ -43,6 +43,7 @@ import { SmartToolbar } from '@/components/SmartToolbar';
 import { SidePanel } from '@/components/side-panel/SidePanel';
 import { ResultsMikaTour } from '@/components/tour/MikaTour';
 import { AnonymousViewerCTA } from '@/components/AnonymousViewerCTA';
+import { trackFunnelEvent } from '@/lib/onboardingAnalytics';
 import { useSidePanel } from '@/state/sidePanelStore';
 import { HotelSelectionCard } from '@/components/HotelSelectionCard';
 import { AssistantChat } from '@/components/AssistantChat';
@@ -1322,6 +1323,14 @@ export function ItineraryClient({
     initialTransportFromDb,
     initialTripSummaryUsername,
   });
+
+  // Funnel: the final results page was rendered (fires once).
+  const viewedRef = useRef(false);
+  useEffect(() => {
+    if (viewedRef.current || itin.viewMode !== 'final') return;
+    viewedRef.current = true;
+    trackFunnelEvent('results_viewed', { destination: itin.itinerary.destination ?? '' });
+  }, [itin.viewMode, itin.itinerary.destination]);
 
   // Draft mode — unchanged
   if (itin.viewMode === 'draft') {
