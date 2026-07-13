@@ -495,7 +495,7 @@ export default function HomePage() {
               className="text-[10px] font-bold uppercase tracking-[0.24em]"
               style={{ color: REDLINE }}
             >
-              Why TravelOS
+              Why Sarto
             </span>
           </div>
 
