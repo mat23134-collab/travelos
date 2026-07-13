@@ -7,10 +7,11 @@
  */
 
 import { useEffect } from 'react';
+import * as Sentry from '@sentry/nextjs';
 import Link from 'next/link';
 
 export default function ItineraryError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
-  useEffect(() => { console.error('[itinerary/error]', error); }, [error]);
+  useEffect(() => { Sentry.captureException(error); console.error('[itinerary/error]', error); }, [error]);
 
   return (
     <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', fontFamily: 'system-ui, sans-serif' }}>

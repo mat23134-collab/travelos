@@ -52,3 +52,7 @@ skills-lock.json
 
 # Claude Code project settings (local — not for the team)
 .claude/
+
+# Sentry auth token (source-map upload) — never commit
+.env.sentry-build-plugin
+.sentryclirc

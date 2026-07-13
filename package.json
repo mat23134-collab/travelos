@@ -17,6 +17,7 @@
     "@react-pdf/renderer": "^3.4.4",
     "@react-three/drei": "^9.115.0",
     "@react-three/fiber": "^8.17.10",
+    "@sentry/nextjs": "^10.65.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.1",
     "clsx": "^2.1.1",
