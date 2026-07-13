@@ -48,8 +48,21 @@ const body = Assistant({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://sarto.tours'),
   title: 'Sarto — AI Travel Planner',
   description: 'Build a full personalized travel itinerary in minutes with AI.',
+  applicationName: 'Sarto',
+  openGraph: {
+    type: 'website',
+    siteName: 'Sarto',
+    title: 'Sarto — AI Travel Planner',
+    description: 'Build a full personalized travel itinerary in minutes with AI.',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Sarto — AI Travel Planner',
+    description: 'Build a full personalized travel itinerary in minutes with AI.',
+  },
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,

@@ -48,7 +48,7 @@ export default async function ItineraryPrintPage({ params }: PageProps) {
 
 export async function generateMetadata({ params }: PageProps) {
   const { id } = await params;
-  if (!UUID_RE.test(id ?? '')) return { title: 'TravelOS' };
+  if (!UUID_RE.test(id ?? '')) return { title: 'Sarto' };
 
   try {
     const { data } = await supabase
@@ -59,9 +59,9 @@ export async function generateMetadata({ params }: PageProps) {
 
     const destination = data?.destination ?? 'Your Trip';
     return {
-      title: `${destination} Itinerary (Print) — TravelOS`,
+      title: `${destination} Itinerary (Print) — Sarto`,
     };
   } catch {
-    return { title: 'TravelOS' };
+    return { title: 'Sarto' };
   }
 }

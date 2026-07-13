@@ -164,7 +164,7 @@ export default async function ItineraryByIdPage({ params }: PageProps) {
 
 export async function generateMetadata({ params }: PageProps) {
   const { id } = await params;
-  if (!UUID_RE.test(id ?? '')) return { title: 'TravelOS' };
+  if (!UUID_RE.test(id ?? '')) return { title: 'Sarto' };
 
   try {
     const { data } = await supabase
@@ -174,12 +174,17 @@ export async function generateMetadata({ params }: PageProps) {
       .single();
 
     const destination = data?.destination ?? 'Your Trip';
+    const title = `${destination} itinerary — Sarto`;
+    const description = `An AI-crafted day-by-day trip to ${destination}. Plan yours in minutes on Sarto.`;
+    // openGraph.images is auto-populated from opengraph-image.tsx for this route.
     return {
-      title: `${destination} Itinerary — TravelOS`,
-      description: `AI-crafted itinerary for ${destination}, built by TravelOS.`,
+      title,
+      description,
+      openGraph: { title, description, type: 'article', siteName: 'Sarto' },
+      twitter: { card: 'summary_large_image', title, description },
     };
   } catch {
-    return { title: 'TravelOS' };
+    return { title: 'Sarto' };
   }
 }
 

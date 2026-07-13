@@ -32,7 +32,7 @@ function buildWhatsAppText(itinerary: Itinerary, profile: TravelerProfile | null
     ? `\n_(+ ${itinerary.days.length - 5} more days)_`
     : '';
 
-  const parts = [header, meta, overview, budget, '', dayLines + footer, '', '🗺 Planned with TravelOS'].filter(Boolean);
+  const parts = [header, meta, overview, budget, '', dayLines + footer, '', '🗺 Planned with Sarto'].filter(Boolean);
   return parts.join('\n');
 }
 
@@ -69,7 +69,7 @@ const DEFAULT_SHARE_COPY: SharePanelCopy = {
   calendarSub: 'Apple Calendar & Google Calendar (.ics)',
   maps: 'View on Google Maps',
   mapsSub: 'All places by day — tap any stop to open it in Maps',
-  travelOsTitle: 'TravelOS users',
+  travelOsTitle: 'Sarto users',
   travelOsBody:
     'Send this saved trip to someone’s dashboard by username — or use the link for anyone.',
   travelOsHint: 'Save the trip to your account first, then reopen Share to send by username.',
@@ -78,7 +78,7 @@ const DEFAULT_SHARE_COPY: SharePanelCopy = {
 interface Props {
   itinerary: Itinerary;
   profile: TravelerProfile | null;
-  /** Saved trip id in Supabase — required to share with another TravelOS user */
+  /** Saved trip id in Supabase — required to share with another Sarto user */
   itineraryDbId?: string | null;
   accessToken?: string | null;
   /** Localized / friendly labels — merged with English defaults */
@@ -394,7 +394,7 @@ export function SharePanel({ itinerary, profile, itineraryDbId, accessToken: acc
       ) : !resolvedToken ? (
         // Not logged in at all
         <p className="text-white/25 text-[11px] leading-relaxed">
-          Log in to send this trip to another TravelOS user.
+          Log in to send this trip to another Sarto user.
         </p>
       ) : (
         // Logged in but no itineraryDbId — shouldn't happen
