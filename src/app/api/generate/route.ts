@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { NextRequest, NextResponse } from 'next/server';
 import { MOCK_ITINERARY } from '@/lib/mockData';
-import { checkRateLimit, getClientIp, rateLimitedResponse, verifySession } from '@/lib/apiGuard';
+import { checkRateLimitDurable, getClientIp, rateLimitedResponse, verifySession } from '@/lib/apiGuard';
 import { createClient } from '@supabase/supabase-js';
 import { ClassifiedResult, type Activity, type DiningSpot } from '@/lib/types';
 import { TravelerProfileSchema } from '@/lib/schemas';
@@ -290,7 +290,7 @@ export async function POST(req: NextRequest) {
   try {
     // ── Rate limiting (blocks scripted abuse without requiring login) ───────────
     const ip = getClientIp(req);
-    if (!checkRateLimit(ip, GENERATE_RATE_LIMIT, GENERATE_RATE_WINDOW)) {
+    if (!(await checkRateLimitDurable(`gen:${ip}`, GENERATE_RATE_LIMIT, GENERATE_RATE_WINDOW))) {
       return rateLimitedResponse();
     }
 

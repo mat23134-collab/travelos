@@ -12,7 +12,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { NextRequest, NextResponse } from 'next/server';
-import { checkRateLimit, getClientIp, rateLimitedResponse } from '@/lib/apiGuard';
+import { checkRateLimitDurable, getClientIp, rateLimitedResponse } from '@/lib/apiGuard';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,7 +66,7 @@ function parseItems(raw: string): string[] {
 export async function POST(req: NextRequest) {
   try {
     const ip = getClientIp(req);
-    if (!checkRateLimit(ip, SCAN_RATE_LIMIT, SCAN_RATE_WINDOW)) {
+    if (!(await checkRateLimitDurable(`scan:${ip}`, SCAN_RATE_LIMIT, SCAN_RATE_WINDOW))) {
       return rateLimitedResponse();
     }
 

@@ -14,7 +14,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { NextRequest, NextResponse } from 'next/server';
-import { checkRateLimit, getClientIp, rateLimitedResponse, verifySession } from '@/lib/apiGuard';
+import { checkRateLimitDurable, getClientIp, rateLimitedResponse, verifySession } from '@/lib/apiGuard';
 import { createClient } from '@supabase/supabase-js';
 import { type TravelerProfile, ClassifiedResult, type Activity, type DiningSpot } from '@/lib/types';
 import { TravelerProfileSchema } from '@/lib/schemas';
@@ -842,7 +842,7 @@ const STREAM_RATE_WINDOW = 10 * 60 * 1000;
 export async function POST(req: NextRequest) {
   // ── Rate limiting ───────────────────────────────────────────────────────────
   const ip = getClientIp(req);
-  if (!checkRateLimit(ip, STREAM_RATE_LIMIT, STREAM_RATE_WINDOW)) {
+  if (!(await checkRateLimitDurable(`gen-stream:${ip}`, STREAM_RATE_LIMIT, STREAM_RATE_WINDOW))) {
     return rateLimitedResponse();
   }
 

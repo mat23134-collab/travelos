@@ -16,7 +16,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyPlaceOnGoogle } from '@/lib/placeVerification';
-import { checkRateLimit, getClientIp, rateLimitedResponse } from '@/lib/apiGuard';
+import { checkRateLimitDurable, getClientIp, rateLimitedResponse } from '@/lib/apiGuard';
 
 export const dynamic = 'force-dynamic';
 
@@ -93,7 +93,7 @@ async function locate(query: string, near: string): Promise<LocateResult | null>
 }
 
 export async function POST(req: NextRequest) {
-  if (!checkRateLimit(getClientIp(req), RATE_LIMIT, RATE_WINDOW)) return rateLimitedResponse();
+  if (!(await checkRateLimitDurable(`hotel-locate:${getClientIp(req)}`, RATE_LIMIT, RATE_WINDOW))) return rateLimitedResponse();
 
   let body: { near?: unknown; query?: unknown; image?: unknown };
   try { body = await req.json(); } catch { return NextResponse.json({ error: 'Invalid JSON.' }, { status: 400 }); }
