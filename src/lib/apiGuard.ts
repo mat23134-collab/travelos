@@ -9,7 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 // ── In-memory rate limiter ────────────────────────────────────────────────────
 
@@ -40,6 +40,49 @@ export function checkRateLimit(ip: string, limit: number, windowMs: number): boo
   hits.push(now);
   ipWindows.set(ip, hits);
   return true;
+}
+
+// ── Durable rate limiter (Postgres, cross-instance) ───────────────────────────
+//
+// The in-memory Map above resets on every deploy/cold start and is per-instance,
+// so it evaporates the moment Railway runs more than one replica. This variant
+// calls the atomic `rate_limit_hit` Postgres function (service-role only) so the
+// limit holds across all instances. Fails OPEN on any DB error — a transient DB
+// hiccup must not lock every user out.
+
+let _rlClient: SupabaseClient | null = null;
+function rateLimitClient(): SupabaseClient | null {
+  if (_rlClient) return _rlClient;
+  const url = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').replace(/\/+$/, '');
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
+  if (!url || !key) return null;
+  _rlClient = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  return _rlClient;
+}
+
+/**
+ * Cross-instance rate limit. Returns true when allowed, false when exceeded.
+ * `key` should encode the identity + route, e.g. `gen:<userId|ip>`.
+ * Falls back to the in-memory limiter when no service-role key is configured.
+ */
+export async function checkRateLimitDurable(key: string, limit: number, windowMs: number): Promise<boolean> {
+  const db = rateLimitClient();
+  if (!db) return checkRateLimit(key, limit, windowMs);
+  try {
+    const { data, error } = await db.rpc('rate_limit_hit', {
+      p_key: key,
+      p_limit: limit,
+      p_window_seconds: Math.max(1, Math.round(windowMs / 1000)),
+    });
+    if (error) {
+      console.warn('[rate-limit] durable check failed, failing open:', error.message);
+      return true;
+    }
+    return (data as { allowed?: boolean } | null)?.allowed !== false;
+  } catch (e) {
+    console.warn('[rate-limit] durable check threw, failing open:', e instanceof Error ? e.message : e);
+    return true;
+  }
 }
 
 // ── Session verification ──────────────────────────────────────────────────────
