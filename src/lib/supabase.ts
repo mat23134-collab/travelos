@@ -39,11 +39,25 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
+// createClient (supabase-js ≥2.x) THROWS "supabaseUrl is required" when handed
+// an empty string. During `next build`, the "Collecting page data" pass imports
+// every API-route module — and on hosts that don't expose NEXT_PUBLIC_* at build
+// time this module loads with blank env, so the throw crashed the entire build
+// (Failed to collect page data for /api/attractions).
+//
+// Fall back to a syntactically-valid placeholder so the module can always be
+// imported. Real requests only execute at runtime, where the env IS set, so this
+// never changes production behaviour — it only stops a missing build-time env
+// from aborting the build. The console.error above still surfaces any real
+// misconfiguration.
+const effectiveUrl = supabaseUrl     || 'https://placeholder.supabase.co';
+const effectiveKey = supabaseAnonKey || 'placeholder-anon-key';
+
 // ── Data client ───────────────────────────────────────────────────────────────
 // Used for ALL .from() queries (itineraries, itinerary_items, places…).
 // Auth is disabled so this client NEVER touches the auth schema or stores
 // tokens — safe to use in both server and client components.
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient(effectiveUrl, effectiveKey, {
   auth: {
     // Disable the auth state machine on the data client entirely.
     // All auth operations must go through `supabaseAuth` below.
@@ -63,7 +77,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 // Used ONLY for supabase.auth.* calls (signIn, signUp, signOut, getSession,
 // onAuthStateChange).  Has full session persistence — NEVER used for .from()
 // queries so a bad DB query can't contaminate auth state.
-export const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+export const supabaseAuth = createClient(effectiveUrl, effectiveKey, {
   auth: {
     persistSession:    true,
     autoRefreshToken:  true,
