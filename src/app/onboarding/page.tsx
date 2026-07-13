@@ -93,8 +93,21 @@ function tryRecoveryReload(): boolean {
   }
 }
 
+// A dynamic import can also *hang* (a chunk request that never resolves or
+// rejects — flaky network, a stalled service-worker fetch). Without a timeout
+// the step area shows <StepSkeleton /> forever and only a manual refresh fixes
+// it. Race each attempt against a timeout so a hang becomes a (chunk-shaped)
+// rejection that the recovery path can reload out of.
+const IMPORT_TIMEOUT_MS = 8_000;
+function withImportTimeout<T>(p: Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const id = setTimeout(() => reject(new Error('ChunkLoadError: dynamic import timed out')), IMPORT_TIMEOUT_MS);
+    p.then((v) => { clearTimeout(id); resolve(v); }, (e) => { clearTimeout(id); reject(e); });
+  });
+}
+
 function retryImport<T>(factory: () => Promise<T>, retries = 4, delay = 350): Promise<T> {
-  return factory().catch((err) => {
+  return withImportTimeout(factory()).catch((err) => {
     // ChunkLoadError: retrying the same stale URL keeps 404-ing. Reload for
     // fresh HTML + chunk hashes (loop-guarded).
     if (looksLikeChunkError(err) && tryRecoveryReload()) {
