@@ -174,6 +174,16 @@ const STEPS = [
   { label: 'Our Picks' },
 ] as const;
 
+// The accommodation ("Stay") step has a long tail of rendering blank until a
+// manual refresh — the slide transition inside <AnimatePresence mode="wait">
+// can leave the entering step mounted but stuck at opacity:0, and its chunk
+// (historically) failed/hung. A manual refresh always fixes it because a fresh
+// load mounts the step directly with no interrupted slide. So instead of a soft
+// slide INTO this step, we do that refresh automatically: persist progress and
+// hard-navigate to ?resume=1, which lands the user right back on this step,
+// freshly mounted. All wizard state lives in localStorage, so nothing is lost.
+const STAY_STEP_INDEX = 4;
+
 // ── Progress bar ──────────────────────────────────────────────────────────────
 function ProgressBar({ step, total }: { step: number; total: number }) {
   return (
@@ -354,10 +364,22 @@ function OnboardingPageContent() {
 
   // ── Navigation helpers ──────────────────────────────────────────────────────
   function goNext() {
+    const target = Math.min(wizardStep + 1, STEPS.length - 1);
+
+    // Entering the "Stay" step: do the auto-refresh that reliably fixes the
+    // occasional blank step, rather than a soft slide. Persist the target step
+    // first (localStorage), then hard-navigate to ?resume=1 so the reloaded
+    // page re-enters exactly here with the step freshly mounted.
+    if (target === STAY_STEP_INDEX && wizardStep !== STAY_STEP_INDEX) {
+      goToStep(target);
+      window.location.assign('/onboarding?resume=1');
+      return;
+    }
+
     setDirection(1);
-    setWizardStep((s) => Math.min(s + 1, STEPS.length - 1));
+    setWizardStep(target);
     // Keep store.step in sync (for resume)
-    goToStep(Math.min(wizardStep + 1, STEPS.length - 1));
+    goToStep(target);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
   function goBack() {
