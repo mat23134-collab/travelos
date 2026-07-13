@@ -21,6 +21,15 @@
 /** CJ publisher / website id. */
 export const CJ_PID = process.env.NEXT_PUBLIC_CJ_PID?.trim() || '101803084';
 
+/**
+ * CJ is OPT-IN. Until the affiliate relationship + deep-link format are fully
+ * verified, wrapping is disabled so outbound hotel links go DIRECT to the OTA
+ * with the trip's dates + occupancy intact (the CJ raw-append can drop the
+ * `&`-separated query params, which showed up as "Booking without dates").
+ * Turn it on by setting NEXT_PUBLIC_CJ_ENABLED=true once links are validated.
+ */
+const CJ_ENABLED = process.env.NEXT_PUBLIC_CJ_ENABLED === 'true';
+
 /** CJ tracking domain the account uses. */
 const CJ_LINK_DOMAIN = 'https://www.anrdoezrs.net';
 
@@ -58,6 +67,6 @@ export function isCjAdvertiserUrl(url: string): boolean {
  * The destination is appended raw (see the format note at the top of the file).
  */
 export function cjDeepLink(url: string): string {
-  if (!url || !isCjAdvertiserUrl(url)) return url;
+  if (!url || !CJ_ENABLED || !isCjAdvertiserUrl(url)) return url;
   return `${CJ_LINK_DOMAIN}/links/${CJ_PID}/type/dlg/${url}`;
 }
