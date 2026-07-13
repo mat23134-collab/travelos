@@ -42,6 +42,7 @@ import { DayDetailPanel } from '@/components/DayDetailPanel';
 import { SmartToolbar } from '@/components/SmartToolbar';
 import { SidePanel } from '@/components/side-panel/SidePanel';
 import { ResultsMikaTour } from '@/components/tour/MikaTour';
+import { AnonymousViewerCTA } from '@/components/AnonymousViewerCTA';
 import { useSidePanel } from '@/state/sidePanelStore';
 import { HotelSelectionCard } from '@/components/HotelSelectionCard';
 import { AssistantChat } from '@/components/AssistantChat';
@@ -1663,6 +1664,11 @@ export function ItineraryClient({
 
       {/* Mika's Phase-2 guided tour — runs once, after generation lands here. */}
       <ResultsMikaTour ready={!!itin.itinerary} lang={itin.ui.lang === 'he' ? 'he' : 'en'} />
+
+      {/* Turn a shared view (non-owner / logged-out) into a funnel entry. */}
+      {!(session?.user?.id && ownerUserId && session.user.id === ownerUserId) && (
+        <AnonymousViewerCTA destination={itin.itinerary.destination ?? ''} lang={itin.ui.lang === 'he' ? 'he' : 'en'} />
+      )}
 
       {/* ── Trip companion drawer — available on every itinerary screen ─────── */}
       <button
