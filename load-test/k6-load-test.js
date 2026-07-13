@@ -1,99 +1,96 @@
 /**
- * TravelOS Load Test
- * ------------------
- * Simulates concurrent users going through the core trip-generation flow.
- * Requires MOCK_AI=true in your .env.local so no AI tokens or DB writes are used.
+ * Sarto Load Test
+ * ---------------
+ * Simulates concurrent users across the paths that actually take load: the
+ * read-heavy "bank" endpoints hit while browsing a result (restaurants /
+ * attractions / landmarks), plus the generate flow.
  *
- * Install k6:  brew install k6  (Mac)  |  choco install k6  (Windows)
+ * IMPORTANT on cost:
+ *   - Set MOCK_AI=true so /api/generate uses no AI tokens.
+ *   - The bank reads (/api/restaurants, /api/attractions, /api/landmarks) hit the
+ *     REAL DB. Keep to the warm CITIES below so /api/landmarks doesn't trigger
+ *     Google Places photo backfill (paid) for a cold city. To load-test the
+ *     cold-city backfill specifically, do it deliberately against staging.
+ *
+ * Install k6:  brew install k6
  * Run:         k6 run load-test/k6-load-test.js
- * Custom load: k6 run --vus 50 --duration 60s load-test/k6-load-test.js
- *
- * Stages (default):
- *   0→10 users over 15s  — ramp up
- *   10 users for 30s     — sustained load
- *   10→0 users over 10s  — ramp down
+ * Ramp to 100: k6 run --stage 30s:100 --stage 60s:100 --stage 15s:0 load-test/k6-load-test.js
  */
 
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Trend, Rate } from 'k6/metrics';
 
-// ── Config ────────────────────────────────────────────────────────────────────
-
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:3000';
 
 export const options = {
   stages: [
-    { duration: '15s', target: 10 },  // ramp up to 10 concurrent users
-    { duration: '30s', target: 10 },  // hold
-    { duration: '10s', target: 0 },   // ramp down
+    { duration: '15s', target: 20 },
+    { duration: '45s', target: 20 },
+    { duration: '10s', target: 0 },
   ],
   thresholds: {
-    http_req_failed:          ['rate<0.05'],          // <5% errors
-    http_req_duration:        ['p(95)<3000'],          // 95% of requests under 3s
-    generate_duration:        ['p(95)<2000'],          // generate endpoint under 2s (mock)
-    transport_duration:       ['p(95)<500'],           // transport read under 500ms
+    http_req_failed:     ['rate<0.05'],
+    http_req_duration:   ['p(95)<3000'],
+    generate_duration:   ['p(95)<2500'],
+    bank_read_duration:  ['p(95)<800'],   // warm-cache bank reads should be fast
   },
 };
 
-// ── Custom metrics ────────────────────────────────────────────────────────────
+const generateDuration = new Trend('generate_duration', true);
+const bankReadDuration = new Trend('bank_read_duration', true);
+const errorRate        = new Rate('error_rate');
 
-const generateDuration  = new Trend('generate_duration',  true);
-const transportDuration = new Trend('transport_duration', true);
-const errorRate         = new Rate('error_rate');
-
-// ── Sample traveler profiles ──────────────────────────────────────────────────
+// Warm cities only (already pre-warmed banks) — avoids paid cold-city backfill.
+const CITIES = ['Tokyo', 'Paris', 'Rome', 'Barcelona', 'Lisbon', 'Amsterdam', 'New York'];
+const LANGS  = ['en', 'he'];
 
 const PROFILES = [
-  { destination: 'Tokyo',     duration: 3, groupType: 'couple',  budget: 'mid-range',  pace: 'moderate', interests: ['food', 'culture'] },
-  { destination: 'Paris',     duration: 5, groupType: 'solo',    budget: 'budget',     pace: 'relaxed',  interests: ['art', 'food'] },
-  { destination: 'New York',  duration: 4, groupType: 'group',   budget: 'luxury',     pace: 'fast',     interests: ['nightlife', 'shopping'] },
-  { destination: 'Barcelona', duration: 6, groupType: 'couple',  budget: 'mid-range',  pace: 'moderate', interests: ['culture', 'beach'] },
-  { destination: 'Bangkok',   duration: 7, groupType: 'friends', budget: 'budget',     pace: 'fast',     interests: ['food', 'nightlife'] },
+  { destination: 'Tokyo',     duration: 3, groupType: 'couple',  budget: 'mid-range', pace: 'moderate', interests: ['food', 'culture'] },
+  { destination: 'Paris',     duration: 5, groupType: 'solo',    budget: 'budget',    pace: 'relaxed',  interests: ['art', 'food'] },
+  { destination: 'Barcelona', duration: 6, groupType: 'couple',  budget: 'mid-range', pace: 'moderate', interests: ['culture', 'beach'] },
 ];
 
-// ── Main virtual user flow ────────────────────────────────────────────────────
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
-export default function () {
+// A browsing user: opens a result and the concierge banks read from the DB.
+function browse() {
+  const city = pick(CITIES);
+  const lang = pick(LANGS);
+  for (const kind of ['restaurants', 'attractions', 'landmarks']) {
+    const start = Date.now();
+    const res = http.get(
+      `${BASE_URL}/api/${kind}?city=${encodeURIComponent(city)}&lang=${lang}`,
+      { tags: { name: `bank_${kind}` } },
+    );
+    bankReadDuration.add(Date.now() - start);
+    const ok = check(res, { [`${kind}: status 200`]: (r) => r.status === 200 });
+    errorRate.add(!ok);
+    sleep(0.3);
+  }
+}
+
+// A converting user: runs generation (mock AI).
+function generate() {
   const profile = PROFILES[Math.floor(Math.random() * PROFILES.length)];
-  const headers = { 'Content-Type': 'application/json' };
-
-  // ── Step 1: Generate itinerary ──────────────────────────────────────────────
-  const genStart = Date.now();
+  const start = Date.now();
   const genRes = http.post(
     `${BASE_URL}/api/generate`,
     JSON.stringify(profile),
-    { headers, tags: { name: 'generate' } },
+    { headers: { 'Content-Type': 'application/json' }, tags: { name: 'generate' } },
   );
-  generateDuration.add(Date.now() - genStart);
-
-  const genOk = check(genRes, {
-    'generate: status 200':       (r) => r.status === 200,
-    'generate: has itinerary':    (r) => {
-      try { return !!JSON.parse(r.body).itinerary; } catch { return false; }
-    },
+  generateDuration.add(Date.now() - start);
+  const ok = check(genRes, {
+    'generate: status 200':    (r) => r.status === 200,
+    'generate: has itinerary': (r) => { try { return !!JSON.parse(r.body).itinerary; } catch { return false; } },
   });
-  errorRate.add(!genOk);
+  errorRate.add(!ok);
+  if (!ok) console.error(`generate failed [${genRes.status}]: ${String(genRes.body).slice(0, 200)}`);
+}
 
-  if (!genOk) {
-    console.error(`generate failed [${genRes.status}]: ${r.body?.slice(0, 200)}`);
-    sleep(1);
-    return;
-  }
-
-  sleep(0.5);
-
-  // ── Step 2: Fetch cached transport for the city ─────────────────────────────
-  const transStart = Date.now();
-  const transRes = http.get(
-    `${BASE_URL}/api/transportation?city=${encodeURIComponent(profile.destination)}`,
-    { tags: { name: 'transportation' } },
-  );
-  transportDuration.add(Date.now() - transStart);
-
-  check(transRes, {
-    'transport: status 200': (r) => r.status === 200,
-  });
-
+export default function () {
+  // ~80% browse, ~20% generate — reflects real traffic (most people look, some build).
+  if (Math.random() < 0.8) browse();
+  else generate();
   sleep(1);
 }
