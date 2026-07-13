@@ -223,7 +223,12 @@ export function hotelOtaSearchUrl(
     case 'booking':
       return bookingHotelSearchUrl(hotelName, destination, opts);
     case 'agoda':
-      return agodaHotelSearchUrl(hotelName, destination, opts);
+      // Agoda has no reliable name-based deep link — its /search ignores the
+      // text query (you land on Agoda's homepage), because it keys on Agoda's
+      // own property ids. Route through Google Hotels, which resolves the exact
+      // property and surfaces Agoda's live price alongside the others, so the
+      // click actually reaches the hotel instead of a blank search.
+      return googleHotelsSearchUrl(hotelName, destination);
     case 'airbnb':
       return airbnbHotelSearchUrl(hotelName, destination, opts);
     default:
