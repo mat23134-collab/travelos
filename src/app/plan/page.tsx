@@ -30,6 +30,7 @@ import { FamilyKidsModal } from '@/components/FamilyKidsModal';
 import { useAuth } from '@/lib/auth-context';
 import { resolveBackgroundImage } from '@/lib/stepBackgrounds';
 import { readTripLanguagePref, persistTripLanguagePref } from '@/lib/tripLanguagePref';
+import { trackFunnelEvent } from '@/lib/onboardingAnalytics';
 import { TripLanguageGateModal } from '@/components/TripLanguageGateModal';
 import { BrandWordmark } from '@/components/BrandWordmark';
 import { FinishingTouchesForm } from '@/components/FinishingTouchesForm';
@@ -796,6 +797,7 @@ function PlanPage() {
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
+    trackFunnelEvent('generation_started', { destination: String(form['destination'] ?? '') });
     setStreamedPlaces([]);
     setStreamedTips([]);
     setStreamStatus(null);
@@ -933,6 +935,7 @@ function PlanPage() {
               if (event.itinerary) {
                 sessionStorage.setItem('travelos_itinerary', JSON.stringify(event.itinerary));
               }
+              trackFunnelEvent('generation_succeeded', { destination: String(form['destination'] ?? '') });
               useOnboardingStore.getState().reset();
               router.push('/itinerary/' + event.id);
               return;
@@ -948,6 +951,7 @@ function PlanPage() {
       const isAbort =
         (typeof DOMException !== 'undefined' && err instanceof DOMException && err.name === 'AbortError') ||
         (err instanceof Error && err.name === 'AbortError');
+      trackFunnelEvent('generation_failed', { destination: String(form['destination'] ?? '') });
       const msg = isAbort
           ? ((form.tripLanguage as TripLanguage) === 'he'
             ? '׳”׳‘׳ ׳™׳™׳” ׳׳¨׳›׳” ׳™׳•׳×׳¨ ׳׳“׳™ ג€” ׳ ׳¡׳• ׳©׳•׳‘ ׳׳• ׳‘׳“׳§׳• ׳׳× ׳”׳—׳™׳‘׳•׳¨.'
