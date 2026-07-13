@@ -10,6 +10,7 @@ import { LegalConsentBanner } from '@/components/LegalConsentBanner';
 import dynamic from 'next/dynamic';
 import { SiteBackground } from '@/components/SiteBackground';
 import { ClarityScript } from '@/components/ClarityScript';
+import * as Sentry from '@sentry/nextjs';
 
 // CanvasShell uses WebGL — must be client-only (no SSR).
 const CanvasShell = dynamic(
@@ -47,7 +48,10 @@ const body = Assistant({
   display: 'swap',
 });
 
-export const metadata: Metadata = {
+// generateMetadata (not a static const) so Sentry.getTraceData() can inject
+// per-request trace headers that stitch the browser session to server traces.
+export function generateMetadata(): Metadata {
+  return {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://sarto.tours'),
   title: 'Sarto — AI Travel Planner',
   description: 'Build a full personalized travel itinerary in minutes with AI.',
@@ -76,8 +80,10 @@ export const metadata: Metadata = {
   },
   other: {
     'mobile-web-app-capable': 'yes',
+    ...Sentry.getTraceData(),
   },
-};
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: '#0a2748',
