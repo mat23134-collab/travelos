@@ -117,16 +117,45 @@ export function WizardMikaTour({ wizardStep }: { wizardStep: number }) {
     if (!tips || (hasSeenTip(seenId) && !tourForced())) return;
 
     let cancelled = false;
-    // Let the step's mount + entrance animation settle before spotlighting.
-    const timer = setTimeout(() => {
-      if (cancelled || !tips.some((t) => document.querySelector(t.element))) return;
+    let pollId: ReturnType<typeof setInterval> | undefined;
+    let settleId: ReturnType<typeof setTimeout> | undefined;
+
+    // Each step's content is code-split (dynamic, ssr:false) and shows a
+    // skeleton until its chunk resolves. A single fixed-delay presence check
+    // would MISS the target whenever the chunk isn't in the DOM yet — common on
+    // mobile (higher network latency + slower JS execution), so Mika showed
+    // reliably on desktop but not on phones. Poll for the target for a few
+    // seconds instead of giving up after one try.
+    const SETTLE_MS   = 550;    // let the slide-in animation finish first
+    const POLL_MS     = 200;    // re-check cadence
+    const MAX_WAIT_MS = 8000;   // stop polling if the chunk genuinely never renders
+    const startedAt = Date.now();
+
+    const launch = () => {
       void runTour(
         tips.map((t) => ({ ...t, align: 'center' as const })),
         lang,
         { nextText: c.next, doneText: c.gotIt, onDone: () => markTipSeen(seenId) },
       );
-    }, 650);
-    return () => { cancelled = true; clearTimeout(timer); };
+    };
+
+    const attempt = () => {
+      if (cancelled) return;
+      if (tips.some((t) => document.querySelector(t.element))) {
+        if (pollId) clearInterval(pollId);
+        settleId = setTimeout(() => { if (!cancelled) launch(); }, SETTLE_MS);
+      } else if (Date.now() - startedAt > MAX_WAIT_MS && pollId) {
+        clearInterval(pollId);
+      }
+    };
+
+    attempt();                              // check right away…
+    pollId = setInterval(attempt, POLL_MS); // …then keep watching until it mounts
+    return () => {
+      cancelled = true;
+      if (pollId) clearInterval(pollId);
+      if (settleId) clearTimeout(settleId);
+    };
   }, [wizardStep]);
 
   return null;
