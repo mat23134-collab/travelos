@@ -36,6 +36,9 @@ import { getStepCopy } from '@/lib/stepCopy';
 import { onboardingUi } from '@/lib/onboardingUi';
 import { armResultsTour } from '@/lib/mikaTour';
 import { WizardMikaTour } from '@/components/tour/MikaTour';
+// Statically imported (NOT code-split) so this critical step can never fail to
+// load its chunk — the recurring "hotel step is blank until refresh" bug.
+import { SmartHotelStep } from './sections/SmartHotelStep';
 
 // ── Chunk-load resilience ────────────────────────────────────────────────────
 // Mobile networks + post-deploy chunk-hash changes make a single dynamic import
@@ -139,10 +142,10 @@ const DatesSection = dynamic(
   () => retryImport(() => import('./sections/DatesSection')).then((m) => ({ default: m.DatesSection })),
   { ssr: false, loading: () => <StepSkeleton /> }
 );
-const SmartHotelStep = dynamic(
-  () => retryImport(() => import('./sections/SmartHotelStep')).then((m) => ({ default: m.SmartHotelStep })),
-  { ssr: false, loading: () => <StepSkeleton /> }
-);
+// SmartHotelStep is imported STATICALLY (see top of file), not code-split. It's
+// the critical conversion step and repeatedly rendered blank when its lazy chunk
+// failed/hung/served-stale. Bundling it into the main onboarding JS removes the
+// separate chunk entirely, so it can never fail to load.
 const VibeSection = dynamic(
   () => retryImport(() => import('./sections/VibeSection')).then((m) => ({ default: m.VibeSection })),
   { ssr: false, loading: () => <StepSkeleton /> }
