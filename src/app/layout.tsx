@@ -9,6 +9,7 @@ import { MotionProvider } from '@/components/MotionProvider';
 import { LegalConsentBanner } from '@/components/LegalConsentBanner';
 import dynamic from 'next/dynamic';
 import { SiteBackground } from '@/components/SiteBackground';
+import { ClarityScript } from '@/components/ClarityScript';
 
 // CanvasShell uses WebGL — must be client-only (no SSR).
 const CanvasShell = dynamic(
@@ -125,14 +126,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }
         `}</Script>
 
-        {/* Microsoft Clarity — UX analytics (heatmaps + session recordings) */}
-        <Script id="ms-clarity" strategy="afterInteractive">
-          {`(function(c,l,a,r,i,t,y){
-              c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-              t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-              y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-            })(window, document, "clarity", "script", "xcnbnwmi2y");`}
-        </Script>
+        {/* Microsoft Clarity — consent-gated (heatmaps + session recordings) */}
+        <ClarityScript />
         <SiteBackground />
         <MotionProvider>
           <AuthProvider>
