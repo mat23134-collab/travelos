@@ -1466,6 +1466,7 @@ export function ItineraryClient({
                 lang={itin.ui.lang === 'he' ? 'he' : 'en'}
                 startDate={itin.profile?.startDate ?? null}
                 endDate={itin.profile?.endDate ?? null}
+                budget={itin.profile?.budget ?? null}
                 accessToken={itin.session?.access_token ?? null}
                 onLockReservation={itin.recalculateDay}
                 recalculateDayLoading={itin.recalculateDayLoading}

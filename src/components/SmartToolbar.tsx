@@ -18,6 +18,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type {
   Activity,
   AttractionRecommendation,
+  BudgetLevel,
   DayPlan,
   EventRecommendation,
   RestaurantRecommendation,
@@ -47,7 +48,9 @@ const COPY = {
     eyebrow: 'קונסיירז׳ חכם',
     restaurants: 'מסעדות בהזמנה מראש',
     intro: (city: string) =>
-      `בחרנו עבורכם את המסעדות המומלצות ב${city} שכדאי להזמין מראש — מסוננות לפי דירוגים, ביקורות אמיתיות וזמינות. בחרו מקום, קבעו יום ושעה, ואנחנו נשבץ אותו במסלול ונארגן מחדש את היום סביב ההזמנה.`,
+      `בחרנו עבורכם את המסעדות המומלצות ב${city} שכדאי להזמין מראש, בהתאמה לתקציב שבחרתם בטיול — מסוננות לפי דירוגים, ביקורות אמיתיות וזמינות. בחרו מקום, קבעו יום ושעה, ואנחנו נשבץ אותו במסלול ונארגן מחדש את היום סביב ההזמנה.`,
+    splurgeToggleOn:  '✨ הציגו גם מסעדות יוקרה',
+    splurgeToggleOff: '💰 חזרה לתקציב שלי',
     loading: 'טוען המלצות…',
     scouting: (city: string) => `מאתרים את השולחנות הכי שווים ב${city}…`,
     signIn: 'התחברו כדי לטעון המלצות מסעדות.',
@@ -99,7 +102,9 @@ const COPY = {
     eyebrow: 'Smart concierge',
     restaurants: 'Restaurants to book ahead',
     intro: (city: string) =>
-      `We've curated the restaurants in ${city} worth reserving ahead — filtered by rating, real reviews and availability. Pick a place, choose a day and time, and we'll slot it into your itinerary and reschedule that day around it.`,
+      `We've curated the restaurants in ${city} worth reserving ahead, matched to the budget you picked for this trip — filtered by rating, real reviews and availability. Pick a place, choose a day and time, and we'll slot it into your itinerary and reschedule that day around it.`,
+    splurgeToggleOn:  '✨ Show splurge picks too',
+    splurgeToggleOff: '💰 Back to my budget',
     loading: 'Loading recommendations…',
     scouting: (city: string) => `Finding the best reservable tables in ${city}…`,
     signIn: 'Sign in to load restaurant recommendations.',
@@ -158,6 +163,9 @@ interface SmartToolbarProps {
   /** Trip window (ISO YYYY-MM-DD) — powers the date-scoped events section. */
   startDate?: string | null;
   endDate?: string | null;
+  /** Trip's chosen budget tier — scopes the restaurant panel to matching price
+   *  levels by default (traveler can opt into pricier picks explicitly). */
+  budget?: BudgetLevel | null;
   accessToken: string | null;
   onLockReservation: (dayIndex: number, activity: Activity) => Promise<void>;
   recalculateDayLoading: boolean;
@@ -409,19 +417,27 @@ function ExploreCard({ l, lang, onOpen }: { l: Landmark; lang: Lang; onOpen: () 
 
 // ─── Restaurants feature ────────────────────────────────────────────────────────
 
-function RestaurantsPanel({ destination, days, lang, accessToken, onLockReservation, recalculateDayLoading }: SmartToolbarProps) {
+function RestaurantsPanel({ destination, days, lang, budget, accessToken, onLockReservation, recalculateDayLoading }: SmartToolbarProps) {
   const t = COPY[lang];
   const [status, setStatus] = useState<'idle' | 'loading' | 'scouting' | 'ready' | 'error'>('idle');
   const [restaurants, setRestaurants] = useState<RestaurantRecommendation[]>([]);
   const [picked, setPicked] = useState<RestaurantRecommendation | null>(null);
+  // Off by default (unless the trip is already 'luxury', which the server
+  // treats as unfiltered anyway) — the traveler opts INTO pricier picks,
+  // rather than the panel defaulting to splurge-only.
+  const [showSplurge, setShowSplurge] = useState(false);
 
   const load = useCallback(async () => {
     const city = destination.trim();
     if (!city) return;
 
+    const qs = new URLSearchParams({ city, lang });
+    if (budget) qs.set('budget', budget);
+    if (showSplurge) qs.set('splurge', '1');
+
     setStatus('loading');
     try {
-      const res = await fetch(`/api/restaurants?city=${encodeURIComponent(city)}&lang=${lang}`);
+      const res = await fetch(`/api/restaurants?${qs.toString()}`);
       const data = (await res.json()) as { restaurants?: RestaurantRecommendation[]; stale?: boolean };
       if (data.restaurants && data.restaurants.length > 0) {
         setRestaurants(data.restaurants);
@@ -447,9 +463,12 @@ function RestaurantsPanel({ destination, days, lang, accessToken, onLockReservat
     } catch {
       setStatus('error');
     }
-  }, [destination, accessToken, lang]);
+  }, [destination, accessToken, lang, budget, showSplurge]);
 
-  useEffect(() => { if (status === 'idle') void load(); }, [status, load]);
+  // Re-fetch on mount AND whenever the splurge toggle (or any other `load`
+  // dependency) changes — not just when status is 'idle', so flipping the
+  // toggle actually re-queries instead of silently no-oping.
+  useEffect(() => { void load(); }, [load]);
 
   if (status === 'loading' || status === 'scouting') {
     return (
@@ -469,7 +488,7 @@ function RestaurantsPanel({ destination, days, lang, accessToken, onLockReservat
           {accessToken ? t.errorLoad(destination) : t.signIn}
         </p>
         <button
-          onClick={() => setStatus('idle')}
+          onClick={() => void load()}
           className="px-4 py-2 rounded-xl text-[13px] font-semibold"
           style={{ background: CARD_BG, border: BORDER, color: INK }}
         >
@@ -495,11 +514,30 @@ function RestaurantsPanel({ destination, days, lang, accessToken, onLockReservat
     );
   }
 
+  // Only offer the toggle when there's actually a tier to escalate TO — a
+  // 'luxury' trip (or no budget on file) already sees every price level.
+  const canToggleSplurge = budget === 'budget' || budget === 'mid-range';
+
   return (
     <div>
-      <p className="text-[12.5px] leading-relaxed mb-4 mx-1" style={{ color: INK_MUT }}>
-        {t.intro(destination)}
-      </p>
+      <div className="flex items-start justify-between gap-3 mb-4 mx-1">
+        <p className="text-[12.5px] leading-relaxed" style={{ color: INK_MUT }}>
+          {t.intro(destination)}
+        </p>
+        {canToggleSplurge && (
+          <button
+            onClick={() => setShowSplurge((v) => !v)}
+            className="shrink-0 px-3 py-1.5 rounded-lg text-[11.5px] font-bold whitespace-nowrap transition-colors"
+            style={{
+              background: showSplurge ? ACCENT : CARD_BG,
+              border: showSplurge ? BORDER_ACC : BORDER,
+              color: showSplurge ? '#fff' : INK,
+            }}
+          >
+            {showSplurge ? t.splurgeToggleOff : t.splurgeToggleOn}
+          </button>
+        )}
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
         {restaurants.map((r, i) => (
           <RestaurantCard key={r.id ?? `${r.name}-${i}`} r={r} lang={lang} onAdd={() => setPicked(r)} />
