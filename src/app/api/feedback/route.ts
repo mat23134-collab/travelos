@@ -47,17 +47,14 @@ export async function POST(req: NextRequest) {
   }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '') ?? '';
-  // Use the least-privilege anon key by default — the itinerary_feedback table
-  // has an INSERT-only RLS policy for anon and no SELECT policy, so anon can
-  // write but never read others' rows. Only fall back to the service-role key
-  // if the anon key isn't configured, so an unauthenticated write never runs
-  // with an RLS-bypassing key unless there's no alternative.
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
-  const anonKey =
+  // Anon key ONLY — the itinerary_feedback table has an INSERT-only RLS policy
+  // for anon and no SELECT policy, so anon can write but never read others'
+  // rows. This unauthenticated endpoint must never run with the RLS-bypassing
+  // service-role key, so there is deliberately no service-role fallback.
+  const writeKey =
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
     process.env.SUPABASE_ANON_KEY ??
     '';
-  const writeKey = anonKey || serviceKey;
   if (!url || !writeKey) {
     return NextResponse.json(
       { error: 'Server missing Supabase configuration (no URL or key).' },

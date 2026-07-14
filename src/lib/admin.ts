@@ -20,6 +20,7 @@
 
 import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
+import { constantTimeEqual } from '@/lib/constantTimeEqual';
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET ?? '';
 const PEPPER       = 'travelos-admin-v1'; // cheap domain separation
@@ -53,7 +54,7 @@ export async function isAdminSession(): Promise<boolean> {
     const cookieVal = store.get('travelos_admin')?.value;
     if (!cookieVal) return false;
     const expected = await deriveAdminToken(ADMIN_SECRET);
-    return cookieVal === expected;
+    return constantTimeEqual(cookieVal, expected);
   } catch {
     // cookies() throws outside of a request context (e.g. during static generation)
     return false;
@@ -69,5 +70,7 @@ export async function isAdminSession(): Promise<boolean> {
  */
 export function isAdminApiRequest(req: NextRequest | Request): boolean {
   if (!ADMIN_SECRET) return false;
-  return req.headers.get('x-admin-secret') === ADMIN_SECRET;
+  const provided = req.headers.get('x-admin-secret');
+  if (!provided) return false;
+  return constantTimeEqual(provided, ADMIN_SECRET);
 }
