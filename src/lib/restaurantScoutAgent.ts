@@ -54,6 +54,10 @@ async function gatherRestaurantSnippets(city: string): Promise<string> {
     `${city} restaurants you must book weeks in advance hard to get reservation`,
     `${city} tasting menu chef's counter Michelin destination dining`,
     `${city} viral famous restaurant TikTok Instagram must try iconic`,
+    // Balance the splurge-skewed queries above — without these, budget/mid-range
+    // travelers only ever saw fine dining in the book-ahead panel.
+    `${city} best affordable local restaurants worth a reservation`,
+    `${city} best mid-range restaurants locals recommend book ahead`,
   ];
 
   const settled = await Promise.allSettled(queries.map((q) => searchWeb(q)));
@@ -98,16 +102,19 @@ function candidateSystemPrompt(): string {
     .map((l) => `"${l}": { "highlight": "…", "cuisineStyle": "…", "description": "…", "signatureDish": "…", "bookingUrgency": "…", "bookingLeadTime": "…" }`)
     .join(', ');
 
-  return `You are the head concierge of a luxury travel house, curating a shortlist of EXCEPTIONAL, experience-defining restaurants for a discerning traveler. These are NOT everyday spots — they are the tables where securing a reservation is itself an event.
+  return `You are the head concierge of a travel house, curating a shortlist of restaurants in this city that are genuinely worth reserving ahead — for travelers across EVERY budget, not only those splurging on a luxury trip. These are NOT random everyday spots — each one earns its place by being memorable, well-reviewed, and worth planning around — but "worth reserving ahead" does NOT mean "expensive". A beloved neighborhood spot with a 2-week wait is just as valid a pick as a tasting-menu counter.
 
-SELECT ONLY places that are genuinely special. Prioritize, in rough order:
-- Tasting-menu destinations, chef's counters, omakase-style or degustation experiences.
-- Michelin-starred or Michelin-recognized kitchens; acclaimed fine dining.
-- Iconic, notoriously hard-to-book institutions that locals and critics revere.
-- Viral sensations people travel for and that blow up on TikTok / Instagram.
-- One-of-a-kind concepts: a single-dish master, an extraordinary setting, a historic room.
+Build a SPREAD across price tiers — do not default to fine dining. Aim for roughly:
+- 3–4 places at priceLevel 1–2 (affordable/mid — a memorable local favorite, a cult noodle counter, a beloved neighborhood institution with real demand).
+- 2–3 places at priceLevel 3 (a nicer dinner-out experience, still not splurge territory).
+- 2–3 places at priceLevel 4 (tasting-menu destinations, Michelin-starred kitchens, iconic hard-to-book institutions) — for travelers who DO want to splurge.
 
-STRICTLY EXCLUDE: chains, generic tourist-trap spots near landmarks, and casual walk-in places with no reservation culture. If a place is merely "good", leave it out. Quality over quantity — 6–10 truly special places beats a long generic list.
+Within EACH tier, prioritize places that are genuinely special for their price point:
+- High demand relative to size — regulars/locals book ahead, not just tourists.
+- A clear point of pride: a signature dish, a beloved chef, a real following (TikTok/Instagram virality counts at any price point, not just fine dining).
+- Real reservation culture — a place people plan around, not a walk-in-only counter.
+
+STRICTLY EXCLUDE: chains, and generic tourist-trap spots near landmarks with no real following. Quality over quantity — 7–10 places spread across the tiers above beats a long generic list, and beats an all-luxury list.
 
 Rules:
 - Only real, currently-operating restaurants you are confident exist. No invented names.

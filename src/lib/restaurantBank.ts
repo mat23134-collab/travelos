@@ -6,9 +6,27 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { RestaurantRecommendation, SiteLanguage } from '@/lib/types';
+import { BudgetLevel, RestaurantRecommendation, SiteLanguage } from '@/lib/types';
 
 const TABLE = 'restaurant_recommendations';
+
+/**
+ * Trip budget → the highest Google price_level (1 cheap – 4 very expensive) we'll
+ * surface BY DEFAULT. A traveler who picked "budget" or "mid-range" shouldn't have
+ * their book-ahead panel dominated by ¥20,000+/pp tasting menus — those are an
+ * opt-in ("show splurge picks too"), not the default.
+ */
+export const MAX_PRICE_LEVEL_BY_BUDGET: Record<BudgetLevel, number> = {
+  'budget':    2,
+  'mid-range': 3,
+  'luxury':    4,
+};
+
+/** Rows with no price_level yet (older/unverified scouts) are never filtered out
+ *  by budget — we only exclude what we KNOW is above the traveler's tier. */
+function withinBudget(r: RestaurantRecommendation, maxPriceLevel: number): boolean {
+  return r.priceLevel == null || r.priceLevel <= maxPriceLevel;
+}
 
 export function normalizeCity(city: string): string {
   return city.trim().toLowerCase();
@@ -114,22 +132,43 @@ export async function cityLastUpdated(sb: SupabaseClient, city: string): Promise
   return data?.[0]?.updated_at ?? null;
 }
 
-/** Read the best-scored recommendations for a city (public RLS read). */
+/**
+ * Read the best-scored recommendations for a city (public RLS read).
+ *
+ * When `maxPriceLevel` is given, in-budget rows (price_level <= max, or unknown)
+ * are returned FIRST, still ordered by score. If too few in-budget rows exist —
+ * common right after this filter shipped, since older scouts skewed splurge-only
+ * — we backfill with the next-best above-budget rows so the panel isn't sparse,
+ * appended AFTER the in-budget ones rather than mixed in by score alone.
+ */
 export async function fetchRestaurantsForCity(
   sb: SupabaseClient,
   city: string,
-  opts: { lang?: SiteLanguage; limit?: number } = {},
+  opts: { lang?: SiteLanguage; limit?: number; maxPriceLevel?: number } = {},
 ): Promise<RestaurantRecommendation[]> {
-  const { lang = 'en', limit = 12 } = opts;
+  const { lang = 'en', limit = 12, maxPriceLevel } = opts;
+
+  // Pull a wider pool than `limit` when budget-filtering so partitioning still
+  // has enough in-budget candidates to fill the panel from.
+  const fetchLimit = maxPriceLevel != null ? Math.max(limit * 2, 24) : limit;
   const { data, error } = await sb
     .from(TABLE)
     .select('*')
     .eq('city_normalized', normalizeCity(city))
     .order('score', { ascending: false })
-    .limit(limit);
+    .limit(fetchLimit);
 
   if (error || !data) return [];
-  return data.map(rowToRec).map((r) => localizeRestaurant(r, lang));
+  const all = data.map(rowToRec);
+
+  const ordered = maxPriceLevel == null
+    ? all
+    : [
+        ...all.filter((r) => withinBudget(r, maxPriceLevel)),
+        ...all.filter((r) => !withinBudget(r, maxPriceLevel)),
+      ];
+
+  return ordered.slice(0, limit).map((r) => localizeRestaurant(r, lang));
 }
 
 /**
