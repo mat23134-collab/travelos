@@ -17,6 +17,11 @@ const KEY = 'sarto_pending_intent';
 
 export interface PendingIntent {
   destination?: string;
+  /** Set when a guest generated a trip anonymously and clicked "sign up to
+   *  unlock it" — after auth, the itinerary page claims this id for the new
+   *  account (see /api/trips/claim) instead of the usual /onboarding|/dashboard
+   *  redirect. */
+  claimItineraryId?: string;
 }
 
 export function savePendingIntent(intent: PendingIntent): void {
@@ -29,6 +34,24 @@ export function loadAndClearPendingIntent(): PendingIntent | null {
   try {
     const raw = sessionStorage.getItem(KEY);
     sessionStorage.removeItem(KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as PendingIntent;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Reads the intent WITHOUT clearing it. The Google OAuth round-trip leaves
+ * this tab entirely (redirects to Google, then to /auth/callback, which can
+ * land anywhere via ?next=) and never passes back through the code that
+ * calls loadAndClearPendingIntent — so the Google button needs to peek at the
+ * intent up front (to build the OAuth `next` URL) without consuming it.
+ */
+export function peekPendingIntent(): PendingIntent | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(KEY);
     if (!raw) return null;
     return JSON.parse(raw) as PendingIntent;
   } catch {
