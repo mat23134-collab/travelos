@@ -1,4 +1,4 @@
-import { TravelerProfile, ClassifiedResult, Itinerary, Activity, type GroupDynamicsPayload } from './types';
+import { TravelerProfile, ClassifiedResult, Itinerary, Activity, type GroupDynamicsPayload, type FamilyChildAgeBand } from './types';
 import { formatFamilyKidsForPrompt } from './familyKids';
 import { classifyActivity, ACTIVITY_GENRE_LABEL_EN } from './activityGenre';
 import type { AssistantContext } from './assistantTypes';
@@ -442,17 +442,43 @@ function buildAnchorLogicBlock(profile: TravelerProfile): string {
   }
 
   // ── Family (derived dynamics from age mix) ─────────────────────────────────
+  // Reads the age-band counts directly rather than substring-matching the
+  // human-readable formatFamilyKidsForPrompt() string — that string renders
+  // bands with an en dash ("0–3"), so a literal '0-3'/'6-9'/'12-16' (ASCII
+  // hyphen) search never matched anything except the dash-free '16+' band.
+  // In practice this meant the pacing engine silently produced NO guidance
+  // for any family EXCEPT one with a 16+ kid — a toddler+school-age family,
+  // for instance, got zero pacing instructions at all.
   if (groupType === 'family') {
-    const kids = formatFamilyKidsForPrompt(profile.familyKidsByAge ?? null);
-    if (kids?.includes('0-3') || kids?.includes('3-6')) {
+    const by = profile.familyKidsByAge ?? null;
+    const hasBand = (...bands: FamilyChildAgeBand[]) => bands.some((b) => (by?.[b] ?? 0) > 0);
+    const hasYoung    = hasBand('0-3', '3-6');
+    const hasSchoolAge = hasBand('6-9', '9-12');
+    const hasTeen      = hasBand('12-16', '16+');
+
+    // Mixed ages: the YOUNGEST present sets the binding pace constraint (you
+    // don't blow past a toddler's nap just because there's also a teen) —
+    // but when older kids/teens are ALSO along, add a supplementary note so
+    // the day isn't tailored to the toddler alone.
+    if (hasYoung) {
       lines.push(
         'PACING ENGINE — YOUNG KIDS (under 6): Maximum 2 activities before lunch. Insert an explicit 90-min afternoon rest/nap window in the transportTip. All venues must have stroller access and baby-change facilities if possible. Evening MUST end by 19:30. No late-night activities.',
       );
-    } else if (kids?.includes('6-9') || kids?.includes('9-12')) {
+      if (hasSchoolAge || hasTeen) {
+        lines.push(
+          'PACING ENGINE — MIXED AGES ALONGSIDE THE YOUNG KIDS: The trip also includes older children/teens — within the young-kids pacing above, still include at least 1 moment (a specific stop or activity segment) that engages the older kids/teens directly, not just content aimed at the youngest.',
+        );
+      }
+    } else if (hasSchoolAge) {
       lines.push(
         'PACING ENGINE — SCHOOL-AGE KIDS (6-12): Include at least 1 interactive/hands-on activity per day (science museum, workshop, market treasure hunt). Evening can extend to 20:30. Lunch must be a kid-friendly restaurant with familiar options alongside local dishes.',
       );
-    } else if (kids?.includes('12-16') || kids?.includes('16+')) {
+      if (hasTeen) {
+        lines.push(
+          'PACING ENGINE — TEENS ALSO PRESENT: Include at least 1 "cool" activity for the teen(s) too (street art tour, music venue, skateable plaza, food market) alongside the school-age-kid pacing above.',
+        );
+      }
+    } else if (hasTeen) {
       lines.push(
         'PACING ENGINE — TEENS (12+): Teens can handle a full moderate pace. Include at least 1 "cool" activity teens can engage with (street art tour, music venue, skateable plaza, food market). Evening can go until 22:00 if pace=moderate or intense.',
       );

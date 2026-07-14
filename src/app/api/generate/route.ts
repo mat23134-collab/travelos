@@ -338,6 +338,7 @@ export async function POST(req: NextRequest) {
             must_have: profile.mustHave,
           },
           groupDynamics: profile.groupDynamics ?? null,
+          familyKidsByAge: profile.familyKidsByAge ?? null,
         }).catch((err) => {
           console.warn('[generate] scoring inventory query failed (non-critical):', err);
           return [] as Awaited<ReturnType<typeof getFilteredInventory>>;
@@ -427,6 +428,7 @@ export async function POST(req: NextRequest) {
           startDate: profile.startDate,
           hotelLat: typeof profile.hotelLat === 'number' ? profile.hotelLat : undefined,
           hotelLng: typeof profile.hotelLng === 'number' ? profile.hotelLng : undefined,
+          familyKidsByAge: profile.familyKidsByAge ?? null,
         },
         asmPlaces,
       );

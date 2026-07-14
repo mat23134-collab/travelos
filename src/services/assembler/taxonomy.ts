@@ -15,7 +15,7 @@ export type PaceLevel = 'relaxed' | 'moderate' | 'intense';
 export const GROUP_TAGS: Record<GroupType, string[]> = {
   solo: ['solo', 'remote-work'],
   couple: ['couple', 'couples', 'romantic-couple'],
-  family: ['family', 'families', 'kids', 'parent-child', 'mixed-ages'],
+  family: ['family', 'families', 'kids', 'parent-child', 'mixed-ages', 'family-friendly', 'stroller-friendly', 'teens'],
   group: ['group', 'groups', 'friends', 'mixed-ages'],
 };
 
@@ -42,6 +42,66 @@ export const PACE_PLAN: Record<PaceLevel, PacePlan> = {
   moderate: { activities: ['morning', 'afternoon', 'evening'], meals: ['lunch', 'dinner'] },
   intense: { activities: ['morning', 'afternoon', 'evening'], meals: ['breakfast', 'lunch', 'dinner'] },
 };
+
+/** Counts of children per age band — mirrors FamilyChildAgeBand/FamilyKidsByAge
+ *  in src/lib/types.ts. Redeclared locally so this decoupled assembler layer
+ *  doesn't need to import the app-level types module (matches how GroupType/
+ *  BudgetLevel/PaceLevel above are also redeclared rather than imported). */
+export type FamilyChildAgeBand = '0-3' | '3-6' | '6-9' | '9-12' | '12-16' | '16+';
+export type FamilyKidsByAge = Partial<Record<FamilyChildAgeBand, number>>;
+
+/**
+ * Overrides the selected pace when young kids (under 6) are along — mirrors
+ * the LLM-prompt path's "PACING ENGINE — YOUNG KIDS" rule (prompts.ts): max
+ * 2 activities before lunch, evening ends early, no late-night slot. Without
+ * this, the deterministic (zero-LLM) assembler ignored family ages entirely
+ * and would happily schedule a moderate/intense-pace evening activity for a
+ * toddler regardless of the pace the user picked.
+ *
+ * School-age-only and teens-only families keep their selected pace as-is
+ * (matches the prompt path, which only caps pace for under-6s) — returns
+ * null so the caller falls back to the normal PACE_PLAN[pace] lookup.
+ */
+export function familyPaceOverride(
+  groupType: GroupType,
+  familyKidsByAge?: FamilyKidsByAge | null,
+): PacePlan | null {
+  if (groupType !== 'family' || !familyKidsByAge) return null;
+  const hasYoungKids = (familyKidsByAge['0-3'] ?? 0) > 0 || (familyKidsByAge['3-6'] ?? 0) > 0;
+  if (!hasYoungKids) return null;
+  return { activities: ['morning', 'afternoon'], meals: ['lunch', 'dinner'] };
+}
+
+/** Age band → group_suitability tokens that genuinely fit it. Mirrors
+ *  FAMILY_BAND_TAGS in scoringEngine.ts and the KID_APPEAL vocabulary the
+ *  scout now writes per-venue (placeClassify.ts groupSuitabilityWithKidAppeal). */
+const FAMILY_BAND_FIT_TAGS: Record<FamilyChildAgeBand, string[]> = {
+  '0-3': ['stroller-friendly', 'kids'],
+  '3-6': ['stroller-friendly', 'kids'],
+  '6-9': ['family-friendly', 'kids'],
+  '9-12': ['family-friendly', 'kids'],
+  '12-16': ['teens'],
+  '16+': ['teens'],
+};
+
+/**
+ * The union of group_suitability tokens that fit THIS family's actual kids'
+ * ages — every band present, not just one. Used to boost (not filter — a
+ * family-eligible venue without a specific age match still ranks, just
+ * lower) venues that are a real match for the ages along, e.g. so a science
+ * museum outranks a generic "family-friendly" landmark for a family with a
+ * school-age kid, and a stroller-friendly park outranks both for a family
+ * with a toddler.
+ */
+export function familyAgeFitTags(familyKidsByAge?: FamilyKidsByAge | null): string[] {
+  if (!familyKidsByAge) return [];
+  const out = new Set<string>();
+  for (const [band, count] of Object.entries(familyKidsByAge) as [FamilyChildAgeBand, number | undefined][]) {
+    if (!count || count <= 0) continue;
+    for (const t of FAMILY_BAND_FIT_TAGS[band] ?? []) out.add(t);
+  }
+  return [...out];
+}
 
 /** Default clock window per slot — used for open-checks and time_slot display. */
 export const SLOT_WINDOW: Record<string, [string, string]> = {

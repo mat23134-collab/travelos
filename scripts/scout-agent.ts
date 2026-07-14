@@ -49,7 +49,7 @@ import {
   deriveMealSlots,
   derivePriceTier,
   defaultOpeningHours,
-  deriveGroupSuitability,
+  groupSuitabilityWithKidAppeal,
 } from '../src/services/placeClassify';
 
 // ── Env loader (reads .env.local before any client is created) ────────────────
@@ -74,6 +74,10 @@ function loadDotEnv() {
 
 // ── Place schema ──────────────────────────────────────────────────────────────
 
+/** Which age group this venue actually suits — per-venue signal (not a category
+ *  default), blended into group_suitability at insert time. See KID_APPEAL_TAGS. */
+type KidAppeal = 'young-kids' | 'school-age' | 'teens' | 'all-ages' | 'adult-oriented';
+
 interface Place {
   city: string;
   name: string;
@@ -85,6 +89,7 @@ interface Place {
   social_proof_url: string | null;
   vibe_label: string;
   quality_score?: number;
+  kid_appeal?: KidAppeal | null;
 }
 
 const TARGET_PLACES_PER_RUN = 50;
@@ -747,6 +752,14 @@ function filterPlacesByScoutKeys(
   return places.filter((p) => allowed.has(p.category));
 }
 
+const KID_APPEAL_VALUES = new Set<KidAppeal>(['young-kids', 'school-age', 'teens', 'all-ages', 'adult-oriented']);
+
+function parseKidAppeal(v: unknown): KidAppeal | null {
+  return typeof v === 'string' && KID_APPEAL_VALUES.has(v.trim() as KidAppeal)
+    ? (v.trim() as KidAppeal)
+    : null;
+}
+
 function normalizeParsedPlaces(parsed: unknown[], city: string): Place[] {
   const flatParsed = parsed.flatMap((item) => (Array.isArray(item) ? item : [item]));
   return flatParsed.flatMap((p): Place[] => {
@@ -773,6 +786,7 @@ function normalizeParsedPlaces(parsed: unknown[], city: string): Place[] {
           : null,
       vibe_label: typeof place.vibe_label === 'string' ? place.vibe_label.trim() : 'hidden-gem',
       quality_score: qualityScore ?? undefined,
+      kid_appeal: parseKidAppeal(place.kid_appeal),
     }];
   });
 }
@@ -850,6 +864,15 @@ VIBE LABEL GUIDE:
 - "viral-trend"    → social buzz
 - "budget-pick"    → strong value spot
 
+KID_APPEAL GUIDE (assess from the venue's REAL nature — not a category
+default; be honest, don't default everything to "all-ages"):
+- "young-kids"     → genuinely suits toddlers/under-6 (playgrounds, aquariums, gentle parks, casual all-day cafes with space to move)
+- "school-age"     → interactive/hands-on appeal for ~6-12yo (science/history museums with exhibits kids engage with, workshops, treasure-hunt-style markets)
+- "teens"          → appeals specifically to 12+ (street art, live music venues, skate spots, trendy food markets, adventure activities)
+- "all-ages"       → genuinely works for every age at once (major landmarks, main squares, classic sights the whole family enjoys together)
+- "adult-oriented" → NOT really a place to bring kids (fine dining, cocktail/wine bars, nightlife, quiet contemplative spaces, anything requiring silence or an adult-only atmosphere)
+Use your real knowledge of the venue — most restaurants/cafes/casual attractions are "all-ages" or category-irrelevant (omit kid_appeal, i.e. null, if you're not confident either way).
+
 For each place output an object with EXACTLY these fields:
 {
   "city": "${city}",
@@ -861,6 +884,7 @@ For each place output an object with EXACTLY these fields:
   "category_emoji": "🍕",
   "social_proof_url": "https://... or null",
   "vibe_label": "hidden-gem | local-favorite | viral-trend | classic | luxury-pick | budget-pick",
+  "kid_appeal": "young-kids | school-age | teens | all-ages | adult-oriented | null",
   "quality_score": 0
 }
 
@@ -872,7 +896,8 @@ STRICT RULES:
 5) Minimum quality_score allowed: 7.
 6) Do NOT invent social_proof_url; if unavailable return null.
 7) Each "category" must be exactly one of: ${dbCatsAllowlist}.
-8) Return ONLY valid minified JSON array in one line.
+8) kid_appeal must be exactly one of: young-kids, school-age, teens, all-ages, adult-oriented, or null (JSON null, not the string "null") when unsure.
+9) Return ONLY valid minified JSON array in one line.
 9) No markdown, no comments, no prose.`;
 
   const runGemini = async (requestPrompt: string, maxOutputTokens: number): Promise<string> => {
@@ -967,7 +992,7 @@ Critical anti-hallucination rules:
 5) social_proof_url must come from evidence; otherwise null.
 
 Schema per object:
-city,name,category (${dbCatsAllowlist}),description,lat,lng,category_emoji,social_proof_url,vibe_label,quality_score
+city,name,category (${dbCatsAllowlist}),description,lat,lng,category_emoji,social_proof_url,vibe_label,kid_appeal (young-kids|school-age|teens|all-ages|adult-oriented|null — the venue's REAL age fit, null if unsure),quality_score
 
 No markdown. No prose. JSON only.`;
 
@@ -1318,7 +1343,7 @@ async function upsertPlaces(
       meal_slots:         deriveMealSlots(place.category),
       price_tier:         derivePriceTier(place.category, `${place.name} ${place.description} ${place.vibe_label}`),
       opening_hours:      defaultOpeningHours(place.category),
-      group_suitability:  deriveGroupSuitability(place.category),
+      group_suitability:  groupSuitabilityWithKidAppeal(place.category, place.kid_appeal),
     }]);
 
     if (insertErr) {
