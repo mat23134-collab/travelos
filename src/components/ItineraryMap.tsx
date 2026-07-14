@@ -11,7 +11,7 @@
 import { useRef, useState, useEffect, useCallback, memo } from 'react';
 import Map, { Marker, Popup, NavigationControl, type MapRef } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { DayPlan } from '@/lib/types';
+import { DayPlan, DiningSpot } from '@/lib/types';
 import type { ItineraryUiStrings } from '@/lib/tripUiCopy';
 
 /** Strings for the distance / transit overlay — pass `Pick` from `itineraryUi(...)`. */
@@ -33,16 +33,23 @@ export type ItineraryMapLabels = Pick<
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
+type MarkerKind = 'attraction' | 'restaurant';
+
 interface MarkerData {
   id: string;
   lat: number;
   lng: number;
   label: string;
   dayIndex: number;
-  /** 1-based position within its own day (Morning=1, then Afternoon, Evening…). */
+  /**
+   * 1-based position within its own day AND kind — attractions number
+   * Morning=1/Afternoon=2/Evening=3; restaurants number Breakfast=1/Lunch=2/
+   * Dinner=3, independently, since the two kinds are distinguished by color.
+   */
   order: number;
   time: string;
   neighborhood: string;
+  kind: MarkerKind;
 }
 
 interface DistanceStats {
@@ -67,11 +74,16 @@ export interface Props {
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const DAY_COLORS = [
-  '#ff5a5f', '#3b82f6', '#10b981', '#8b5cf6',
-  '#f59e0b', '#ec4899', '#06b6d4', '#84cc16',
-  '#f97316', '#6366f1',
-];
+/** Pins are colored by TYPE, not by day — attractions always red, restaurants
+ *  always amber, so the whole trip reads at a glance regardless of day count. */
+const KIND_COLOR: Record<MarkerKind, string> = {
+  attraction: '#ef4444', // red
+  restaurant: '#f59e0b', // amber
+};
+const KIND_ICON: Record<MarkerKind, string> = {
+  attraction: '📍',
+  restaurant: '🍽️',
+};
 
 const TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? '';
 
@@ -115,24 +127,26 @@ async function fetchRouteStats(
 
 // ── Build marker list from DayPlan array ─────────────────────────────────────
 
+/** True when both coordinates are present, finite, and not null-island (0,0). */
+function hasGps(lat: number, lng: number): boolean {
+  return Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0);
+}
+
 function buildMarkers(days: DayPlan[]): MarkerData[] {
   const out: MarkerData[] = [];
   days.forEach((day, di) => {
-    const slots = [
+    // ── Attractions — sightseeing slots, numbered 1/2/3 = Morning/Afternoon/Evening
+    const attractionSlots = [
       { act: day.morning,   time: 'Morning'   },
       { act: day.afternoon, time: 'Afternoon' },
       { act: day.evening,   time: 'Evening'   },
     ] as const;
 
-    let order = 0; // 1-based sequence within this day
-    slots.forEach(({ act, time }) => {
+    let order = 0;
+    attractionSlots.forEach(({ act, time }) => {
       const lat = act ? Number(act.latitude) : NaN;
       const lng = act ? Number(act.longitude) : NaN;
-      if (
-        act &&
-        Number.isFinite(lat) &&
-        Number.isFinite(lng)
-      ) {
+      if (act && hasGps(lat, lng)) {
         order += 1;
         out.push({
           id:           `day${di}-${time.toLowerCase()}-${(act.name ?? '').replace(/\s+/g, '-').toLowerCase()}`,
@@ -143,6 +157,35 @@ function buildMarkers(days: DayPlan[]): MarkerData[] {
           order,
           time,
           neighborhood: act.neighborhood ?? '',
+          kind:         'attraction',
+        });
+      }
+    });
+
+    // ── Restaurants — dining slots, numbered 1/2/3 = Breakfast/Lunch/Dinner,
+    // independently of the attraction numbering above (distinguished by color).
+    const mealSlots: readonly { spot: DiningSpot | undefined; time: string }[] = [
+      { spot: day.breakfast, time: 'Breakfast' },
+      { spot: day.lunch,     time: 'Lunch'     },
+      { spot: day.dinner,    time: 'Dinner'    },
+    ];
+
+    let mealOrder = 0;
+    mealSlots.forEach(({ spot, time }) => {
+      const lat = spot ? Number(spot.latitude) : NaN;
+      const lng = spot ? Number(spot.longitude) : NaN;
+      if (spot && hasGps(lat, lng)) {
+        mealOrder += 1;
+        out.push({
+          id:           `day${di}-${time.toLowerCase()}-${(spot.name ?? '').replace(/\s+/g, '-').toLowerCase()}`,
+          lat,
+          lng,
+          label:        spot.name ?? time,
+          dayIndex:     di,
+          order:        mealOrder,
+          time,
+          neighborhood: spot.neighborhood ?? '',
+          kind:         'restaurant',
         });
       }
     });
@@ -159,7 +202,7 @@ const DayPin = memo(function DayPin({
   marker: MarkerData;
   active: boolean;
 }) {
-  const color = DAY_COLORS[marker.dayIndex % DAY_COLORS.length];
+  const color = KIND_COLOR[marker.kind];
   return (
     <div
       style={{
@@ -291,9 +334,7 @@ function ItineraryMapInner({ days, destination, focusedNeighborhood, basecampMar
   const initLat  = allPoints.reduce((s, m) => s + m.lat, 0) / allPoints.length;
 
   const activeMarker = activeId ? markers.find((m) => m.id === activeId) ?? null : null;
-  const activeColor  = activeMarker
-    ? DAY_COLORS[activeMarker.dayIndex % DAY_COLORS.length]
-    : '#fff';
+  const activeColor  = activeMarker ? KIND_COLOR[activeMarker.kind] : '#fff';
 
   return (
     <div
@@ -450,7 +491,7 @@ function ItineraryMapInner({ days, destination, focusedNeighborhood, basecampMar
                 className="text-[10px] font-bold uppercase tracking-wider mb-1"
                 style={{ color: activeColor }}
               >
-                Day {activeMarker.dayIndex + 1} · {activeMarker.time}
+                {KIND_ICON[activeMarker.kind]} Day {activeMarker.dayIndex + 1} · {activeMarker.time}
               </div>
               <div className="font-semibold text-white/90 text-[13px] leading-tight">
                 {activeMarker.label}
@@ -465,24 +506,25 @@ function ItineraryMapInner({ days, destination, focusedNeighborhood, basecampMar
         )}
       </Map>
 
-      {/* Day legend */}
+      {/* Kind legend — pins are colored by type (attraction vs restaurant), not
+          by day, so the whole trip reads at a glance regardless of day count. */}
       <div className="absolute bottom-3 left-3 z-10 flex flex-wrap gap-1.5 max-w-xs">
-        {days.map((day, i) => (
+        {(['attraction', 'restaurant'] as const).map((kind) => (
           <div
-            key={i}
+            key={kind}
             className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"
             style={{
               background: 'rgba(8,10,18,0.82)',
               backdropFilter: 'blur(8px)',
-              border: `1px solid ${DAY_COLORS[i % DAY_COLORS.length]}40`,
-              color: DAY_COLORS[i % DAY_COLORS.length],
+              border: `1px solid ${KIND_COLOR[kind]}40`,
+              color: KIND_COLOR[kind],
             }}
           >
             <span
               className="w-2 h-2 rounded-full flex-shrink-0"
-              style={{ background: DAY_COLORS[i % DAY_COLORS.length] }}
+              style={{ background: KIND_COLOR[kind] }}
             />
-            Day {i + 1}
+            {KIND_ICON[kind]} {kind === 'attraction' ? 'Attractions' : 'Restaurants'}
           </div>
         ))}
       </div>
