@@ -119,6 +119,14 @@ export function buildFallbackItinerary(
   const restaurants = pool.filter((item) => isDiningCategory(item.category));
   const activities = pool.filter((item) => !isDiningCategory(item.category));
 
+  // Young kids (under 6) skip the evening slot regardless of pace — mirrors
+  // the assembler's familyPaceOverride and the LLM prompt's pacing engine, so
+  // even this last-resort scaffold doesn't schedule a 19:30-21:30 outing for
+  // a toddler.
+  const hasYoungKids = profile.groupType === 'family' && (
+    (profile.familyKidsByAge?.['0-3'] ?? 0) > 0 || (profile.familyKidsByAge?.['3-6'] ?? 0) > 0
+  );
+
   const days = Array.from({ length: daysCount }, (_, index) => {
     const dayNumber = index + 1;
     const breakfast = toDining(pick(restaurants, index * 3), 'Breakfast');
@@ -128,7 +136,9 @@ export function buildFallbackItinerary(
     const afternoon = profile.pace === 'relaxed'
       ? undefined
       : toActivity(pick(activities, index * 3 + 1), 'afternoon', '14:00', '16:30');
-    const evening = toActivity(pick([...activities, ...restaurants], index * 3 + 2), 'evening', '19:30', '21:30');
+    const evening = hasYoungKids
+      ? undefined
+      : toActivity(pick([...activities, ...restaurants], index * 3 + 2), 'evening', '19:30', '21:30');
 
     return {
       day: dayNumber,

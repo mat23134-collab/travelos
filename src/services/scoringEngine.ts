@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
-import type { GroupDynamicsPayload, GroupType } from '@/lib/types';
+import type { GroupDynamicsPayload, GroupType, FamilyKidsByAge } from '@/lib/types';
 
 type TagColumn = 'vibe' | 'group_suitability' | 'culinary_focus';
 
@@ -18,6 +18,11 @@ export interface UserTripChoicesForScoring {
 export interface GetFilteredInventoryInput {
   userTripChoices: UserTripChoicesForScoring;
   groupDynamics?: GroupDynamicsPayload | null;
+  /** When groupType is 'family': kid counts per age band. Scores tags for
+   *  EVERY band present (not just the single groupDynamics.subType), so a
+   *  mixed-age family (e.g. a toddler AND a teen) gets inventory boosted for
+   *  both, instead of collapsing to whichever one sub-persona was picked. */
+  familyKidsByAge?: FamilyKidsByAge | null;
 }
 
 export interface InventoryItem {
@@ -191,6 +196,40 @@ const DYNAMICS_TAGS: Record<string, Partial<DesiredTags>> = {
   },
 };
 
+/**
+ * Age-band → desired tags, keyed by FamilyChildAgeBand (src/lib/types.ts).
+ * Distinct from DYNAMICS_TAGS's 'young-kids'/'teens' entries (which key off
+ * the single groupDynamics.subType choice) — this is applied per BAND
+ * PRESENT in familyKidsByAge, so a mixed-age family accumulates tags for
+ * every band its kids actually fall into, not just one persona.
+ */
+const FAMILY_BAND_TAGS: Record<string, Partial<DesiredTags>> = {
+  '0-3': {
+    vibe: ['easygoing', 'calm'],
+    group_suitability: ['families', 'kids', 'stroller-friendly'],
+  },
+  '3-6': {
+    vibe: ['easygoing', 'playful'],
+    group_suitability: ['families', 'kids', 'stroller-friendly'],
+  },
+  '6-9': {
+    vibe: ['playful', 'interactive'],
+    group_suitability: ['families', 'kids', 'family-friendly'],
+  },
+  '9-12': {
+    vibe: ['interactive', 'balanced'],
+    group_suitability: ['families', 'kids', 'family-friendly'],
+  },
+  '12-16': {
+    vibe: ['energetic', 'trendy', 'interactive'],
+    group_suitability: ['families', 'teens'],
+  },
+  '16+': {
+    vibe: ['energetic', 'trendy', 'interactive'],
+    group_suitability: ['families', 'teens'],
+  },
+};
+
 export async function getFilteredInventory(
   input: GetFilteredInventoryInput,
   client: SupabaseClient = supabase,
@@ -316,7 +355,7 @@ function scoreInventoryItem(item: InventoryItem, desired: DesiredTags): Inventor
   return { ...item, score, matchedTags, scoreReasons };
 }
 
-function buildDesiredTags({ userTripChoices, groupDynamics }: GetFilteredInventoryInput): DesiredTags {
+function buildDesiredTags({ userTripChoices, groupDynamics, familyKidsByAge }: GetFilteredInventoryInput): DesiredTags {
   const tags: DesiredTags = {
     vibe: [],
     group_suitability: [],
@@ -325,6 +364,7 @@ function buildDesiredTags({ userTripChoices, groupDynamics }: GetFilteredInvento
 
   addTags(tags.group_suitability, GROUP_TAGS[normalizeText(userTripChoices.group_type ?? '')] ?? []);
   addTagsFromDynamics(tags, groupDynamics?.subType);
+  addTagsFromFamilyKids(tags, userTripChoices.group_type, familyKidsByAge);
   addTagsFromPace(tags, userTripChoices.pace);
   addTagsFromBudget(tags, userTripChoices.budget);
   addTagsFromInterests(tags, userTripChoices.interests ?? []);
@@ -345,6 +385,23 @@ function addTagsFromDynamics(tags: DesiredTags, subType?: string): void {
   addTags(tags.vibe, mapped.vibe ?? []);
   addTags(tags.group_suitability, mapped.group_suitability ?? []);
   addTags(tags.culinary_focus, mapped.culinary_focus ?? []);
+}
+
+/** Adds tags for EVERY age band present, not just one — see FAMILY_BAND_TAGS. */
+function addTagsFromFamilyKids(
+  tags: DesiredTags,
+  groupType: string | null | undefined,
+  familyKidsByAge?: FamilyKidsByAge | null,
+): void {
+  if (normalizeText(groupType ?? '') !== 'family' || !familyKidsByAge) return;
+  for (const [band, count] of Object.entries(familyKidsByAge)) {
+    if (!count || count <= 0) continue;
+    const mapped = FAMILY_BAND_TAGS[band];
+    if (!mapped) continue;
+    addTags(tags.vibe, mapped.vibe ?? []);
+    addTags(tags.group_suitability, mapped.group_suitability ?? []);
+    addTags(tags.culinary_focus, mapped.culinary_focus ?? []);
+  }
 }
 
 function addTagsFromPace(tags: DesiredTags, pace?: string | null): void {

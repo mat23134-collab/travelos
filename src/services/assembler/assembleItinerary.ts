@@ -19,10 +19,12 @@ import {
   MEAL_SLOT_TOKENS,
   priceRangeLabel,
   openStatus,
+  familyPaceOverride,
   type GroupType,
   type BudgetLevel,
   type PaceLevel,
   type OpeningHours,
+  type FamilyKidsByAge,
 } from './taxonomy';
 
 // ── Inputs ────────────────────────────────────────────────────────────────────
@@ -62,6 +64,9 @@ export interface AssemblerProfile {
   startDate?: string;       // YYYY-MM-DD
   hotelLat?: number;
   hotelLng?: number;
+  /** When groupType is 'family': kid counts per age band — caps pace for
+   *  under-6s regardless of the selected pace (see familyPaceOverride). */
+  familyKidsByAge?: FamilyKidsByAge | null;
 }
 
 export interface AssemblerResult {
@@ -134,7 +139,12 @@ export function assembleItinerary(
   opts: { minActivitiesFactor?: number } = {},
 ): AssemblerResult {
   const interests = (profile.interests ?? []).map(lc);
-  const pace = PACE_PLAN[profile.pace] ?? PACE_PLAN.moderate;
+  // Young kids (under 6) cap the pace regardless of what was selected — see
+  // familyPaceOverride's doc comment. Falls back to the normal lookup for
+  // every other group (including families without under-6s).
+  const pace =
+    familyPaceOverride(profile.groupType, profile.familyKidsByAge) ??
+    PACE_PLAN[profile.pace] ?? PACE_PLAN.moderate;
   const groupTokens = GROUP_TAGS[profile.groupType] ?? [];
   const allowedTiers = BUDGET_TIERS[profile.budget] ?? [1, 2, 3, 4];
 
