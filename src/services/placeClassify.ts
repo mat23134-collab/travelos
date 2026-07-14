@@ -96,3 +96,45 @@ export function deriveGroupSuitability(category: string): string[] {
     default:             return ['solo', 'romantic-couple', 'groups', 'families', 'friends'];
   }
 }
+
+/**
+ * Which age group a venue actually suits — a PER-VENUE signal the scout LLM
+ * assesses from the venue's real nature (a science museum vs. a hushed
+ * tasting-menu restaurant vs. a graffiti tour), as opposed to
+ * deriveGroupSuitability()'s blunt CATEGORY default (every "restaurant" gets
+ * the same tags regardless of whether it's actually a place you'd bring a
+ * toddler). Tokens here match FAMILY_BAND_TAGS in scoringEngine.ts and
+ * familyPaceOverride's expectations in assembler/taxonomy.ts, so real scout
+ * data now actually satisfies the age-band scoring/filtering added there.
+ */
+export type KidAppeal = 'young-kids' | 'school-age' | 'teens' | 'all-ages' | 'adult-oriented';
+
+const KID_APPEAL_TOKENS: Record<Exclude<KidAppeal, 'adult-oriented'>, string[]> = {
+  'young-kids': ['families', 'kids', 'stroller-friendly'],
+  'school-age': ['families', 'kids', 'family-friendly'],
+  teens:        ['families', 'teens'],
+  'all-ages':   ['families', 'kids', 'family-friendly', 'teens', 'stroller-friendly'],
+};
+
+/**
+ * Blends a per-venue kid_appeal signal into the category-default
+ * group_suitability tags. `adult-oriented` SUBTRACTS the generic
+ * families/kids tokens the category default may have added (e.g. a
+ * fine-dining "restaurant" that isn't really a place to bring kids, even
+ * though category='restaurant' defaults to including 'families'). Any other
+ * value ADDS its tokens on top of the category default. No signal (null/
+ * undefined) leaves the category default untouched — safe for older rows
+ * scouted before this existed.
+ */
+export function groupSuitabilityWithKidAppeal(
+  category: string,
+  kidAppeal?: KidAppeal | null,
+): string[] {
+  const base = deriveGroupSuitability(category);
+  if (!kidAppeal) return base;
+  if (kidAppeal === 'adult-oriented') {
+    return base.filter((t) => t !== 'families' && t !== 'kids');
+  }
+  const extra = KID_APPEAL_TOKENS[kidAppeal] ?? [];
+  return [...new Set([...base, ...extra])];
+}

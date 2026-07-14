@@ -15,7 +15,7 @@ export type PaceLevel = 'relaxed' | 'moderate' | 'intense';
 export const GROUP_TAGS: Record<GroupType, string[]> = {
   solo: ['solo', 'remote-work'],
   couple: ['couple', 'couples', 'romantic-couple'],
-  family: ['family', 'families', 'kids', 'parent-child', 'mixed-ages'],
+  family: ['family', 'families', 'kids', 'parent-child', 'mixed-ages', 'family-friendly', 'stroller-friendly', 'teens'],
   group: ['group', 'groups', 'friends', 'mixed-ages'],
 };
 
@@ -70,6 +70,37 @@ export function familyPaceOverride(
   const hasYoungKids = (familyKidsByAge['0-3'] ?? 0) > 0 || (familyKidsByAge['3-6'] ?? 0) > 0;
   if (!hasYoungKids) return null;
   return { activities: ['morning', 'afternoon'], meals: ['lunch', 'dinner'] };
+}
+
+/** Age band → group_suitability tokens that genuinely fit it. Mirrors
+ *  FAMILY_BAND_TAGS in scoringEngine.ts and the KID_APPEAL vocabulary the
+ *  scout now writes per-venue (placeClassify.ts groupSuitabilityWithKidAppeal). */
+const FAMILY_BAND_FIT_TAGS: Record<FamilyChildAgeBand, string[]> = {
+  '0-3': ['stroller-friendly', 'kids'],
+  '3-6': ['stroller-friendly', 'kids'],
+  '6-9': ['family-friendly', 'kids'],
+  '9-12': ['family-friendly', 'kids'],
+  '12-16': ['teens'],
+  '16+': ['teens'],
+};
+
+/**
+ * The union of group_suitability tokens that fit THIS family's actual kids'
+ * ages — every band present, not just one. Used to boost (not filter — a
+ * family-eligible venue without a specific age match still ranks, just
+ * lower) venues that are a real match for the ages along, e.g. so a science
+ * museum outranks a generic "family-friendly" landmark for a family with a
+ * school-age kid, and a stroller-friendly park outranks both for a family
+ * with a toddler.
+ */
+export function familyAgeFitTags(familyKidsByAge?: FamilyKidsByAge | null): string[] {
+  if (!familyKidsByAge) return [];
+  const out = new Set<string>();
+  for (const [band, count] of Object.entries(familyKidsByAge) as [FamilyChildAgeBand, number | undefined][]) {
+    if (!count || count <= 0) continue;
+    for (const t of FAMILY_BAND_FIT_TAGS[band] ?? []) out.add(t);
+  }
+  return [...out];
 }
 
 /** Default clock window per slot — used for open-checks and time_slot display. */

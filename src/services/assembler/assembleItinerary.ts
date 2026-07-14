@@ -20,6 +20,7 @@ import {
   priceRangeLabel,
   openStatus,
   familyPaceOverride,
+  familyAgeFitTags,
   type GroupType,
   type BudgetLevel,
   type PaceLevel,
@@ -115,7 +116,7 @@ function themeOf(p: AssemblerPlace): string {
 
 // ── Scoring ────────────────────────────────────────────────────────────────
 
-function scorePlace(p: AssemblerPlace, interests: string[]): number {
+function scorePlace(p: AssemblerPlace, interests: string[], familyFitTags: string[] = []): number {
   let s = 0;
   if (typeof p.popularity_rank === 'number') s += Math.max(0, 100 - p.popularity_rank) / 100;
   if (p.top_pick_category) s += 0.5;
@@ -127,6 +128,16 @@ function scorePlace(p: AssemblerPlace, interests: string[]): number {
     ].map(lc);
     const matches = interests.filter((i) => tagPool.includes(lc(i))).length;
     s += matches * 0.3;
+  }
+  // Boost venues genuinely suited to the family's actual kids' ages (e.g. a
+  // science museum for a family with a school-age kid, a stroller-friendly
+  // park for a toddler) — on top of the base family-eligibility filter
+  // upstream, which only checks "suitable for SOME family", not this one's
+  // specific ages.
+  if (familyFitTags.length && p.group_suitability?.length) {
+    const suitLc = p.group_suitability.map(lc);
+    const fitMatches = familyFitTags.filter((t) => suitLc.includes(lc(t))).length;
+    s += fitMatches * 0.4;
   }
   return s;
 }
@@ -147,6 +158,11 @@ export function assembleItinerary(
     PACE_PLAN[profile.pace] ?? PACE_PLAN.moderate;
   const groupTokens = GROUP_TAGS[profile.groupType] ?? [];
   const allowedTiers = BUDGET_TIERS[profile.budget] ?? [1, 2, 3, 4];
+  // Tokens matching the family's ACTUAL kids' ages (every band present) —
+  // boosts age-appropriate venues within the already-family-eligible pool.
+  const familyFitTags = profile.groupType === 'family'
+    ? familyAgeFitTags(profile.familyKidsByAge)
+    : [];
 
   const passesProfile = (p: AssemblerPlace) => {
     if (!hasGeo(p)) return false;
@@ -159,7 +175,7 @@ export function assembleItinerary(
   };
 
   const pool = places.filter(passesProfile);
-  const byScore = (a: AssemblerPlace, b: AssemblerPlace) => scorePlace(b, interests) - scorePlace(a, interests);
+  const byScore = (a: AssemblerPlace, b: AssemblerPlace) => scorePlace(b, interests, familyFitTags) - scorePlace(a, interests, familyFitTags);
   // Three pools: sightseeing activities, meal venues, and bars (evening drinks).
   const sights = pool.filter((p) => !isMealVenue(p) && !isBar(p)).sort(byScore);
   const food = pool.filter(isMealVenue).sort(byScore);
@@ -220,7 +236,7 @@ export function assembleItinerary(
         .map((p) => {
           const dist = haversineKm(ll(anchor as LatLng & AssemblerPlace), ll(p as LatLng & AssemblerPlace));
           const varietyOK = !daySubcats.has(lc(p.subcategory));
-          const rank = dist + (varietyOK ? 0 : 3) - scorePlace(p, interests) * 0.4;
+          const rank = dist + (varietyOK ? 0 : 3) - scorePlace(p, interests, familyFitTags) * 0.4;
           return { p, rank, varietyOK };
         })
         .sort((a, b) => a.rank - b.rank);
@@ -249,7 +265,7 @@ export function assembleItinerary(
         .filter((p) => !usedFood.has(p.id))
         .filter((p) => intersects(p.meal_slots, tokens))
         .filter((p) => weekday < 0 || openStatus(p.opening_hours, weekday, meal) !== 'closed')
-        .map((p) => ({ p, dist: haversineKm(dayCentroid, ll(p as LatLng & AssemblerPlace)) - scorePlace(p, interests) * 0.3 }))
+        .map((p) => ({ p, dist: haversineKm(dayCentroid, ll(p as LatLng & AssemblerPlace)) - scorePlace(p, interests, familyFitTags) * 0.3 }))
         .sort((a, b) => a.dist - b.dist);
       if (cand[0]) {
         usedFood.add(cand[0].p.id);
