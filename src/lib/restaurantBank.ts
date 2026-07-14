@@ -172,27 +172,38 @@ export async function fetchRestaurantsForCity(
 }
 
 /**
- * Replace the recommendation bank for a city. The scout regenerates the whole
- * city list each run, so we delete the city's existing rows and insert the
- * fresh batch. This sidesteps ON CONFLICT on the partial unique indexes (which
- * Postgres can't match without the exact WHERE predicate) and guarantees the
- * bank always reflects the latest scout.
+ * Write a batch of recommendations for a city, in one of two modes:
  *
- * Rows are de-duplicated within the batch: verified rows collapse on
- * google_place_id, unverified on normalized name.
+ *   'replace'  (default) — the scout regenerates the whole city list each run,
+ *      so we delete the city's existing rows and insert the fresh batch. This
+ *      sidesteps ON CONFLICT on the partial unique indexes (which Postgres
+ *      can't match without the exact WHERE predicate) and guarantees the bank
+ *      always reflects the latest scout.
+ *
+ *   'additive' — used by targeted top-up runs (e.g. adding budget-tier
+ *      restaurants to a city whose bank already skews luxury) that must NEVER
+ *      touch existing rows. Skips the delete entirely, and also skips any
+ *      incoming row that already exists in the city's bank (by
+ *      google_place_id when verified, else by normalized name) so re-running
+ *      the same top-up never duplicates rows.
+ *
+ * Rows are always de-duplicated within the incoming batch first: verified
+ * rows collapse on google_place_id, unverified on normalized name.
  */
 export async function upsertRestaurants(
   sb: SupabaseClient,
   recs: RestaurantRecommendation[],
+  opts: { mode?: 'replace' | 'additive' } = {},
 ): Promise<number> {
   if (recs.length === 0) return 0;
+  const { mode = 'replace' } = opts;
 
   const city = recs[0].city;
   const cityNorm = normalizeCity(city);
 
   // De-dupe within the batch so the unique indexes never trip on insert.
   const seen = new Set<string>();
-  const rows = recs
+  let rows = recs
     .map(recToRow)
     .filter((r) => {
       const key = r.google_place_id
@@ -203,9 +214,33 @@ export async function upsertRestaurants(
       return true;
     });
 
-  // Replace the city's bank atomically enough for our purposes (60s scout
-  // cooldown makes concurrent writes for the same city very unlikely).
-  await sb.from(TABLE).delete().eq('city_normalized', cityNorm);
+  if (mode === 'replace') {
+    // Replace the city's bank atomically enough for our purposes (60s scout
+    // cooldown makes concurrent writes for the same city very unlikely).
+    await sb.from(TABLE).delete().eq('city_normalized', cityNorm);
+  } else {
+    // Additive: never delete. Drop any incoming row that already exists in
+    // this city's bank so a re-run of the same top-up can't duplicate rows or
+    // touch the existing (e.g. luxury) picks.
+    const { data: existing, error: existingErr } = await sb
+      .from(TABLE)
+      .select('google_place_id, name_normalized')
+      .eq('city_normalized', cityNorm);
+    if (existingErr) {
+      console.warn('[restaurantBank] additive existing-rows lookup failed:', existingErr.message);
+      return 0;
+    }
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const existingRows = (existing ?? []) as any[];
+    const existingPlaceIds = new Set(existingRows.map((r) => r.google_place_id).filter(Boolean));
+    const existingNames = new Set(existingRows.map((r) => r.name_normalized).filter(Boolean));
+    rows = rows.filter((r) => {
+      if (r.google_place_id) return !existingPlaceIds.has(r.google_place_id);
+      return !existingNames.has(r.name_normalized);
+    });
+  }
+
+  if (rows.length === 0) return 0;
 
   const { error, count } = await sb
     .from(TABLE)
