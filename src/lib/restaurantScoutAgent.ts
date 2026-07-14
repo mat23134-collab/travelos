@@ -49,16 +49,26 @@ function parseJsonArray(raw: string): unknown[] {
 
 // ─── Step 1: web research ──────────────────────────────────────────────────────
 
-async function gatherRestaurantSnippets(city: string): Promise<string> {
-  const queries = [
-    `${city} restaurants you must book weeks in advance hard to get reservation`,
-    `${city} tasting menu chef's counter Michelin destination dining`,
-    `${city} viral famous restaurant TikTok Instagram must try iconic`,
-    // Balance the splurge-skewed queries above — without these, budget/mid-range
-    // travelers only ever saw fine dining in the book-ahead panel.
-    `${city} best affordable local restaurants worth a reservation`,
-    `${city} best mid-range restaurants locals recommend book ahead`,
-  ];
+async function gatherRestaurantSnippets(city: string, maxPriceLevel?: number): Promise<string> {
+  // Budget-scoped runs (maxPriceLevel set) skip the splurge-oriented queries
+  // entirely — no point spending research budget on Michelin snippets we're
+  // about to filter out anyway.
+  const queries = maxPriceLevel != null
+    ? [
+        `${city} best affordable restaurants worth booking ahead locals love`,
+        `${city} best mid-range restaurants popular reservation recommended`,
+        `${city} casual restaurant with a wait booked out neighborhood favorite`,
+        `${city} best value restaurants critics and locals recommend`,
+      ]
+    : [
+        `${city} restaurants you must book weeks in advance hard to get reservation`,
+        `${city} tasting menu chef's counter Michelin destination dining`,
+        `${city} viral famous restaurant TikTok Instagram must try iconic`,
+        // Balance the splurge-skewed queries above — without these, budget/mid-range
+        // travelers only ever saw fine dining in the book-ahead panel.
+        `${city} best affordable local restaurants worth a reservation`,
+        `${city} best mid-range restaurants locals recommend book ahead`,
+      ];
 
   const settled = await Promise.allSettled(queries.map((q) => searchWeb(q)));
   const hits = settled.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
@@ -96,27 +106,13 @@ type GeminiGenerateBody = {
 };
 
 /** Build the system prompt, requesting localized text for every site language. */
-function candidateSystemPrompt(): string {
+function candidateSystemPrompt(maxPriceLevel?: number): string {
   const langList = SITE_LANGUAGES.map((l) => `"${l}" (${LANGUAGE_NAMES[l]})`).join(', ');
   const translationsShape = SITE_LANGUAGES
     .map((l) => `"${l}": { "highlight": "…", "cuisineStyle": "…", "description": "…", "signatureDish": "…", "bookingUrgency": "…", "bookingLeadTime": "…" }`)
     .join(', ');
 
-  return `You are the head concierge of a travel house, curating a shortlist of restaurants in this city that are genuinely worth reserving ahead — for travelers across EVERY budget, not only those splurging on a luxury trip. These are NOT random everyday spots — each one earns its place by being memorable, well-reviewed, and worth planning around — but "worth reserving ahead" does NOT mean "expensive". A beloved neighborhood spot with a 2-week wait is just as valid a pick as a tasting-menu counter.
-
-Build a SPREAD across price tiers — do not default to fine dining. Aim for roughly:
-- 3–4 places at priceLevel 1–2 (affordable/mid — a memorable local favorite, a cult noodle counter, a beloved neighborhood institution with real demand).
-- 2–3 places at priceLevel 3 (a nicer dinner-out experience, still not splurge territory).
-- 2–3 places at priceLevel 4 (tasting-menu destinations, Michelin-starred kitchens, iconic hard-to-book institutions) — for travelers who DO want to splurge.
-
-Within EACH tier, prioritize places that are genuinely special for their price point:
-- High demand relative to size — regulars/locals book ahead, not just tourists.
-- A clear point of pride: a signature dish, a beloved chef, a real following (TikTok/Instagram virality counts at any price point, not just fine dining).
-- Real reservation culture — a place people plan around, not a walk-in-only counter.
-
-STRICTLY EXCLUDE: chains, and generic tourist-trap spots near landmarks with no real following. Quality over quantity — 7–10 places spread across the tiers above beats a long generic list, and beats an all-luxury list.
-
-Rules:
+  const outputContract = `Rules:
 - Only real, currently-operating restaurants you are confident exist. No invented names.
 - "priceRange" MUST be an approximate real cost band PER PERSON for a typical meal, in the LOCAL currency, with numbers — e.g. "€45–70 pp", "¥18,000–25,000 pp", "$120–180 pp". NEVER just symbols like "€€€".
 - "priceLevel" is 1 (cheap) to 4 (very expensive).
@@ -133,9 +129,44 @@ LOCALIZATION — write the following NATIVELY in EACH of these languages: ${lang
 
 Return ONLY a JSON array. Each object:
 { "name", "neighborhood", "priceRange", "priceLevel", "bookingPlatform", "translations": { ${translationsShape} } }.`;
+
+  if (maxPriceLevel != null) {
+    // Budget-scoped run: a DEDICATED prompt that only ever asks for in-range
+    // places, rather than requesting a full spread and discarding the splurge
+    // half — every candidate here should be usable.
+    return `You are a local food-scene expert curating a shortlist of AFFORDABLE-TO-MID-RANGE restaurants in this city that are genuinely worth reserving ahead — for budget-conscious and mid-range travelers.
+
+STRICT PRICE CEILING: every place MUST be priceLevel 1 or 2 ONLY — roughly up to $30–45 / €25–40 / the equivalent in local currency, per person for a full meal. Do NOT include tasting menus, Michelin-starred kitchens, or fine dining; those travelers are served by a separate list. If you are not confident a place fits this ceiling, LEAVE IT OUT — a shorter accurate list beats a longer one with splurge places sneaking in.
+
+SELECT places that are genuinely worth reserving ahead within that budget:
+- High local demand — regulars and locals actually book ahead for it, not just tourists passing through.
+- A clear point of pride: a signature dish, a beloved chef/owner, a real following (TikTok/Instagram virality counts just as much here as at fine dining).
+- Real reservation culture — people plan around it, not a walk-in-only counter with no wait.
+- Favor neighborhood institutions, cult noodle/pasta/street-food counters with a sit-down room, and beloved casual bistros — not chains.
+
+STRICTLY EXCLUDE: chains, ANY fine dining or tasting-menu concept, anything priceLevel 3 or 4, and generic tourist-trap spots with no real local following. Quality over quantity — aim for 8–10 genuinely great affordable/mid-range picks.
+
+${outputContract}`;
+  }
+
+  return `You are the head concierge of a travel house, curating a shortlist of restaurants in this city that are genuinely worth reserving ahead — for travelers across EVERY budget, not only those splurging on a luxury trip. These are NOT random everyday spots — each one earns its place by being memorable, well-reviewed, and worth planning around — but "worth reserving ahead" does NOT mean "expensive". A beloved neighborhood spot with a 2-week wait is just as valid a pick as a tasting-menu counter.
+
+Build a SPREAD across price tiers — do not default to fine dining. Aim for roughly:
+- 3–4 places at priceLevel 1–2 (affordable/mid — a memorable local favorite, a cult noodle counter, a beloved neighborhood institution with real demand).
+- 2–3 places at priceLevel 3 (a nicer dinner-out experience, still not splurge territory).
+- 2–3 places at priceLevel 4 (tasting-menu destinations, Michelin-starred kitchens, iconic hard-to-book institutions) — for travelers who DO want to splurge.
+
+Within EACH tier, prioritize places that are genuinely special for their price point:
+- High demand relative to size — regulars/locals book ahead, not just tourists.
+- A clear point of pride: a signature dish, a beloved chef, a real following (TikTok/Instagram virality counts at any price point, not just fine dining).
+- Real reservation culture — a place people plan around, not a walk-in-only counter.
+
+STRICTLY EXCLUDE: chains, and generic tourist-trap spots near landmarks with no real following. Quality over quantity — 7–10 places spread across the tiers above beats a long generic list, and beats an all-luxury list.
+
+${outputContract}`;
 }
 
-async function synthesizeCandidates(city: string, snippets: string): Promise<GeminiCandidate[]> {
+async function synthesizeCandidates(city: string, snippets: string, maxPriceLevel?: number): Promise<GeminiCandidate[]> {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) throw new Error('GEMINI_API_KEY is not set');
 
@@ -158,7 +189,7 @@ async function synthesizeCandidates(city: string, snippets: string): Promise<Gem
       headers: { 'Content-Type': 'application/json' },
       signal: ac.signal,
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: candidateSystemPrompt() }] },
+        systemInstruction: { parts: [{ text: candidateSystemPrompt(maxPriceLevel) }] },
         contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
         generationConfig: {
           temperature: 0.4,
@@ -389,19 +420,37 @@ function guessReservationUrl(cand: GeminiCandidate, website: string | null, city
 
 // ─── Public entrypoint ──────────────────────────────────────────────────────────
 
-export async function runRestaurantScoutAgent(city: string): Promise<RestaurantRecommendation[]> {
+export interface RestaurantScoutOptions {
+  /**
+   * When set, scouts ONLY within this price ceiling — Google's 1 (cheap) to
+   * 4 (very expensive) scale, matching MAX_PRICE_LEVEL_BY_BUDGET in
+   * restaurantBank.ts. Uses a dedicated affordable/mid-range prompt (rather
+   * than the default full-spread prompt) so every candidate is usable, and
+   * candidates are dropped post-verification if Google's REAL price_level
+   * confirms they're over the ceiling — even if Gemini proposed them.
+   */
+  maxPriceLevel?: number;
+}
+
+export async function runRestaurantScoutAgent(
+  city: string,
+  opts: RestaurantScoutOptions = {},
+): Promise<RestaurantRecommendation[]> {
   const c = city.trim();
   if (!c) return [];
+  const { maxPriceLevel } = opts;
 
   // 1. Research
-  const snippets = await gatherRestaurantSnippets(c).catch(() => '');
+  const snippets = await gatherRestaurantSnippets(c, maxPriceLevel).catch(() => '');
 
   // 2. Candidates
-  const candidates = await synthesizeCandidates(c, snippets);
+  const candidates = await synthesizeCandidates(c, snippets, maxPriceLevel);
   if (candidates.length === 0) return [];
 
   // 3. Verify each candidate against Google Places (parallel, capped).
   //    lookupRestaurantPlace never throws — misses come back as { found: false }.
+  //    We keep Google's raw price_level alongside the built record so the
+  //    budget filter below can trust it over Gemini's guess.
   const verified = await mapWithConcurrency(candidates, PLACES_CONCURRENCY, async (cand) => {
     const v = await lookupRestaurantPlace(cand.name!, c);
     const website = v.website ?? null;
@@ -440,10 +489,18 @@ export async function runRestaurantScoutAgent(city: string): Promise<RestaurantR
       score: 0,
     };
     rec.score = scoreRestaurant(rec);
-    return rec;
+    return { rec, googlePriceLevel: v.priceLevel ?? null };
   });
+
+  // Budget mode: drop anything Google's REAL price_level confirms is over the
+  // ceiling, even if Gemini proposed it within range. A candidate Google
+  // couldn't verify a price for is kept — we have no real data saying it's
+  // over budget, and Gemini was already instructed to stay in range.
+  const filtered = maxPriceLevel == null
+    ? verified
+    : verified.filter(({ googlePriceLevel }) => googlePriceLevel == null || googlePriceLevel <= maxPriceLevel);
 
   // 4. Rank best-first. Even when few places verify, we still return the AI
   //    shortlist (unverified rows score lower but keep the UI from being empty).
-  return verified.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+  return filtered.map(({ rec }) => rec).sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 }
