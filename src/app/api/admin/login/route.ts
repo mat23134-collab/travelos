@@ -15,6 +15,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { deriveAdminToken } from '@/lib/admin';
+import { constantTimeEqual } from '@/lib/constantTimeEqual';
 
 const ADMIN_SECRET  = process.env.ADMIN_SECRET ?? '';
 const COOKIE_SECURE = process.env.NODE_ENV === 'production';
@@ -32,8 +33,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
   }
 
-  if (!body.secret || body.secret !== ADMIN_SECRET) {
-    // Uniform response time to resist timing attacks
+  if (!body.secret || !constantTimeEqual(body.secret, ADMIN_SECRET)) {
+    // Constant-time compare above closes the per-character timing leak; the
+    // uniform delay still smooths coarse timing (JSON parse, network jitter).
     await new Promise((r) => setTimeout(r, 200));
     return NextResponse.json({ error: 'Invalid secret.' }, { status: 401 });
   }

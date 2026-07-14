@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { LEGAL_CONSENT_VERSION } from '@/lib/legalConsent';
+import { checkRateLimit, getClientIp, rateLimitedResponse } from '@/lib/apiGuard';
+
+// Consent writes are low-frequency per user; cap per-IP to blunt spam/abuse of
+// this unauthenticated, service-role-backed endpoint.
+const CONSENT_RATE_LIMIT = 20;
+const CONSENT_RATE_WINDOW = 10 * 60 * 1000;
 
 type ConsentBody = {
   version?: string;
@@ -20,6 +26,10 @@ function getIp(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  if (!checkRateLimit(getClientIp(req), CONSENT_RATE_LIMIT, CONSENT_RATE_WINDOW)) {
+    return rateLimitedResponse();
+  }
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '') ?? '';
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 
