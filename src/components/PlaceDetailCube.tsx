@@ -27,6 +27,8 @@ export function PlaceDetailCube({ row, destination, onClose }: PlaceDetailCubePr
   const isHiddenGem = activity?.isHiddenGem ?? false;
   const verificationStatus = activity?.verificationStatus;
   const websiteUrl = activity?.website_url ?? dining?.website_url;
+  const requiresAdvanceBooking = activity?.requiresAdvanceBooking ?? false;
+  const bookingUrl = activity?.bookingUrl;
   const photoQuery = `${name} ${destination} landmark`;
   const mapsUrl = buildMapsDirectionsUrl(name, neighborhood, destination);
 
@@ -78,6 +80,16 @@ export function PlaceDetailCube({ row, destination, onClose }: PlaceDetailCubePr
           {/* Scrollable body */}
           <div className="flex-1 overflow-y-auto">
             <div className="p-5 flex flex-col gap-4">
+              {/* Advance-booking notice — no walk-up entry for these places */}
+              {requiresAdvanceBooking && (
+                <div className="rounded-xl p-3 flex items-center gap-2" style={{ background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.25)' }}>
+                  <span className="text-lg flex-shrink-0">🎫</span>
+                  <p className="text-[12px] font-bold" style={{ color: '#dc2626' }}>
+                    Tickets must be bought online in advance — no door sales.
+                  </p>
+                </div>
+              )}
+
               {/* Why we chose this */}
               <div className="rounded-xl p-4" style={{ background: 'var(--color-paper)', border: '1px solid rgba(184,85,46,0.18)' }}>
                 <div className="text-[10px] font-black uppercase tracking-widest text-[#b8552e] mb-2">💡 Why we chose this</div>
@@ -146,6 +158,17 @@ export function PlaceDetailCube({ row, destination, onClose }: PlaceDetailCubePr
 
           {/* Footer */}
           <div className="flex-shrink-0 px-5 pb-5 pt-3 flex gap-3 border-t" style={{ borderColor: 'rgba(0,0,0,0.07)' }}>
+            {requiresAdvanceBooking && bookingUrl && (
+              <a
+                href={bookingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[13px] font-bold text-white"
+                style={{ background: '#dc2626' }}
+              >
+                🎫 Buy Tickets
+              </a>
+            )}
             <a
               href={mapsUrl}
               target="_blank"

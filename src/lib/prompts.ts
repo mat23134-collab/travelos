@@ -126,6 +126,12 @@ ZERO PLACEHOLDER POLICY (non-negotiable):
 - Breakfast MUST be a real named café, bakery, or restaurant — never generic advice
 - Evening MUST be a real named bar, cocktail bar, rooftop venue, or live music spot
 
+ADVANCE-BOOKING ATTRACTIONS (critical — this is a real, common failure mode: a
+traveler shows up and can't get in):
+- Some attractions cannot be entered without a ticket bought online ahead of the visit — no walk-up/door sales, or door sales are unreliable (sell out, huge queues). Famous real examples: Ghibli Museum (Tokyo), Anne Frank House (Amsterdam), Alcatraz (San Francisco), Sistine Chapel/Vatican Museums timed entry (Rome), teamLab (Tokyo), Sagrada Familia (Barcelona), Burj Khalifa (Dubai), Palace of Versailles timed entry, Louvre timed entry (Paris) — this list is illustrative, not exhaustive; use your knowledge of the destination.
+- Whenever you place one of these (or any attraction you know requires the same) in a slot, set "requiresAdvanceBooking": true AND include "bookingUrl" — the real, official ticketing domain when you are confident of it (e.g. the museum's own site or its official ticketing partner), otherwise omit "bookingUrl" (null) rather than invent a URL. Also say so briefly in "whyThis" or "bestTimeToVisit" (e.g. "Book online weeks ahead — no door sales").
+- Every other slot: "requiresAdvanceBooking": false, "bookingUrl": null.
+
 ITEM ATOMICITY (mandatory — every item is a single standalone place):
 - Every attraction, restaurant, bar, market, and museum MUST be a SEPARATE named item with its own GPS coordinates
 - STRICTLY FORBIDDEN: bundling a meal into an attraction's name (e.g., "Lunch near Big Ben", "Dinner at the Eiffel Tower area", "Drinks after the Colosseum")
@@ -218,10 +224,12 @@ CRITICAL: Return ONLY a valid JSON object — no markdown fences, no prose. Stru
         "latitude": 41.9028,
         "longitude": 12.4964,
         "category_emoji": "🏛️",
-        "website_url": null
+        "website_url": null,
+        "requiresAdvanceBooking": false,
+        "bookingUrl": null
       },
-      "afternoon": { "same fields as morning including latitude, longitude, time_slot, category_emoji, website_url — transitFromPrevious: '12 min walk'" },
-      "evening":   { "same fields as morning including latitude, longitude, time_slot, category_emoji, website_url — transitFromPrevious: '20 min metro'" },
+      "afternoon": { "same fields as morning including latitude, longitude, time_slot, category_emoji, website_url, requiresAdvanceBooking, bookingUrl — transitFromPrevious: '12 min walk'" },
+      "evening":   { "same fields as morning including latitude, longitude, time_slot, category_emoji, website_url, requiresAdvanceBooking, bookingUrl — transitFromPrevious: '20 min metro'" },
       "breakfast": { "name": "string", "cuisine": "string", "priceRange": "$", "mustTry": "one dish", "neighborhood": "string", "whyThis": "max 18 words — what this place is + why it's a good pick (Source: Blog Name, Year)", "latitude": 41.9028, "longitude": 12.4964, "website_url": null },
       "lunch":  { "name": "string", "cuisine": "string", "priceRange": "$$", "mustTry": "one dish", "neighborhood": "string", "whyThis": "max 18 words — what this place is + why it's a good pick (Source: Blog Name, Year)", "latitude": 41.9028, "longitude": 12.4964, "website_url": null },
       "dinner": { "name": "string", "cuisine": "string", "priceRange": "$$", "mustTry": "one dish", "neighborhood": "string", "whyThis": "max 18 words — what this place is + why it's a good pick (Source: Blog Name, Year)", "latitude": 41.9028, "longitude": 12.4964, "website_url": null },
@@ -788,6 +796,7 @@ CONSTRAINTS — the replacement MUST:
    - afternoon: 13:30–17:30
    - evening: 19:00–22:00
 5. MUST include latitude and longitude — accurate GPS coordinates (float, 4 decimal places) for the specific venue, NOT the city centre
+6. If the replacement is a real attraction that requires tickets bought online ahead of the visit (no reliable door sales — e.g. Ghibli Museum, Anne Frank House, Alcatraz, timed-entry museums), set requiresAdvanceBooking=true and bookingUrl to the real official ticketing domain when confident, else null. Otherwise false/null.
 
 Return ONLY a JSON object — no markdown, no prose:
 {
@@ -807,7 +816,9 @@ Return ONLY a JSON object — no markdown, no prose:
     "vibeLabel": "hidden-gem | local-favorite | viral-trend | classic | luxury-pick | budget-pick",
     "latitude": 48.8584,
     "longitude": 2.2945,
-    "category_emoji": "🏛️"
+    "category_emoji": "🏛️",
+    "requiresAdvanceBooking": false,
+    "bookingUrl": null
   },
   "summary": "One sentence: what changed and why it fits better"
 }`;
@@ -878,6 +889,7 @@ RULES:
 5. tags: exactly 3 short tokens; vibeLabel valid enum; category_emoji matches activity type.
 6. placeIntro: max 35 words — what makes this spot distinct.
 7. whyItFitsYou: ONE punchy sentence tying to traveler persona + today's theme (not generic).
+8. If a proposed venue requires tickets bought online ahead of the visit (no reliable door sales — e.g. Ghibli Museum, Anne Frank House, Alcatraz, timed-entry museums), set requiresAdvanceBooking=true and bookingUrl to the real official ticketing domain when confident, else null. Otherwise false/null.
 
 Return ONLY JSON — no markdown:
 {
@@ -903,7 +915,9 @@ Return ONLY JSON — no markdown:
         "latitude": 0,
         "longitude": 0,
         "category_emoji": "🏛️",
-        "website_url": null
+        "website_url": null,
+        "requiresAdvanceBooking": false,
+        "bookingUrl": null
       }
     },
     {

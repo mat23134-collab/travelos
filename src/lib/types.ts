@@ -183,6 +183,11 @@ export interface Activity {
   lockedTime?: string;           // exact start time the user reserved, e.g. "19:30"
   reservationStatus?: 'none' | 'pending' | 'booked';
   reservationUrl?: string;       // deep-link to the booking confirmation or OTA page
+  // Advance-ticket attractions (e.g. Ghibli Museum, Anne Frank House, Alcatraz) —
+  // distinct from reservationUrl/reservationStatus above, which are for the Smart
+  // Toolbar's restaurant table-booking flow, not attraction entry tickets.
+  requiresAdvanceBooking?: boolean; // true when tickets must be bought ahead of the visit (not at the door)
+  bookingUrl?: string;              // official ticket/booking page — omit rather than invent
 }
 
 export interface DiningSpot {
