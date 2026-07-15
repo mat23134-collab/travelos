@@ -51,6 +51,8 @@ const COPY = {
       `בחרנו עבורכם את המסעדות המומלצות ב${city} שכדאי להזמין מראש, בהתאמה לתקציב שבחרתם בטיול — מסוננות לפי דירוגים, ביקורות אמיתיות וזמינות. בחרו מקום, קבעו יום ושעה, ואנחנו נשבץ אותו במסלול ונארגן מחדש את היום סביב ההזמנה.`,
     splurgeToggleOn:  '✨ הציגו גם מסעדות יוקרה',
     splurgeToggleOff: '💰 חזרה לתקציב שלי',
+    refresh: 'רענון מסעדות',
+    refreshing: 'מחפשים עוד מסעדות מתאימות…',
     loading: 'טוען המלצות…',
     scouting: (city: string) => `מאתרים את השולחנות הכי שווים ב${city}…`,
     signIn: 'התחברו כדי לטעון המלצות מסעדות.',
@@ -105,6 +107,8 @@ const COPY = {
       `We've curated the restaurants in ${city} worth reserving ahead, matched to the budget you picked for this trip — filtered by rating, real reviews and availability. Pick a place, choose a day and time, and we'll slot it into your itinerary and reschedule that day around it.`,
     splurgeToggleOn:  '✨ Show splurge picks too',
     splurgeToggleOff: '💰 Back to my budget',
+    refresh: 'Refresh restaurants',
+    refreshing: 'Finding more matching restaurants…',
     loading: 'Loading recommendations…',
     scouting: (city: string) => `Finding the best reservable tables in ${city}…`,
     signIn: 'Sign in to load restaurant recommendations.',
@@ -426,6 +430,11 @@ function RestaurantsPanel({ destination, days, lang, budget, accessToken, onLock
   // treats as unfiltered anyway) — the traveler opts INTO pricier picks,
   // rather than the panel defaulting to splurge-only.
   const [showSplurge, setShowSplurge] = useState(false);
+  // Manual, foreground top-up: the automatic background revalidate (on
+  // `stale`/`needsTopUp`) is fire-and-forget and invisible, so a traveler
+  // stuck with a luxury-skewed bank has no way to see it actually happen.
+  // This hits the same scout endpoint but awaits it and swaps the list in.
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     const city = destination.trim();
@@ -479,6 +488,29 @@ function RestaurantsPanel({ destination, days, lang, budget, accessToken, onLock
   // dependency) changes — not just when status is 'idle', so flipping the
   // toggle actually re-queries instead of silently no-oping.
   useEffect(() => { void load(); }, [load]);
+
+  const refreshRestaurants = useCallback(async () => {
+    const city = destination.trim();
+    if (!city || !accessToken || refreshing) return;
+    setRefreshing(true);
+    try {
+      const scoutRes = await fetch('/api/restaurants/scout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ city, lang, budget }),
+      });
+      const scoutData = (await scoutRes.json()) as { restaurants?: RestaurantRecommendation[] };
+      // Swap the list in only on a real result — a throttled/failed call
+      // still returns whatever's cached, so the panel never goes empty.
+      if (scoutData.restaurants && scoutData.restaurants.length > 0) {
+        setRestaurants(scoutData.restaurants);
+      }
+    } catch {
+      /* best-effort — keep showing whatever's already on screen */
+    } finally {
+      setRefreshing(false);
+    }
+  }, [destination, accessToken, lang, budget, refreshing]);
 
   if (status === 'loading' || status === 'scouting') {
     return (
@@ -534,19 +566,32 @@ function RestaurantsPanel({ destination, days, lang, budget, accessToken, onLock
         <p className="text-[12.5px] leading-relaxed" style={{ color: INK_MUT }}>
           {t.intro(destination)}
         </p>
-        {canToggleSplurge && (
-          <button
-            onClick={() => setShowSplurge((v) => !v)}
-            className="shrink-0 px-3 py-1.5 rounded-lg text-[11.5px] font-bold whitespace-nowrap transition-colors"
-            style={{
-              background: showSplurge ? ACCENT : CARD_BG,
-              border: showSplurge ? BORDER_ACC : BORDER,
-              color: showSplurge ? '#fff' : INK,
-            }}
-          >
-            {showSplurge ? t.splurgeToggleOff : t.splurgeToggleOn}
-          </button>
-        )}
+        <div className="flex flex-col items-end gap-2 shrink-0">
+          {accessToken && (
+            <button
+              onClick={() => void refreshRestaurants()}
+              disabled={refreshing}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11.5px] font-bold whitespace-nowrap transition-colors disabled:opacity-60"
+              style={{ background: CARD_BG, border: BORDER, color: INK }}
+            >
+              {refreshing ? <Spinner /> : '🔄'}
+              {refreshing ? t.refreshing : t.refresh}
+            </button>
+          )}
+          {canToggleSplurge && (
+            <button
+              onClick={() => setShowSplurge((v) => !v)}
+              className="shrink-0 px-3 py-1.5 rounded-lg text-[11.5px] font-bold whitespace-nowrap transition-colors"
+              style={{
+                background: showSplurge ? ACCENT : CARD_BG,
+                border: showSplurge ? BORDER_ACC : BORDER,
+                color: showSplurge ? '#fff' : INK,
+              }}
+            >
+              {showSplurge ? t.splurgeToggleOff : t.splurgeToggleOn}
+            </button>
+          )}
+        </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
         {restaurants.map((r, i) => (
