@@ -43,6 +43,7 @@ import { SmartToolbar } from '@/components/SmartToolbar';
 import { SidePanel } from '@/components/side-panel/SidePanel';
 import { ResultsMikaTour } from '@/components/tour/MikaTour';
 import { AnonymousViewerCTA } from '@/components/AnonymousViewerCTA';
+import { GuestItineraryTeaser } from '@/components/GuestItineraryTeaser';
 import { trackFunnelEvent } from '@/lib/onboardingAnalytics';
 import { useSidePanel } from '@/state/sidePanelStore';
 import { HotelSelectionCard } from '@/components/HotelSelectionCard';
@@ -1332,6 +1333,35 @@ export function ItineraryClient({
     trackFunnelEvent('results_viewed', { destination: itin.itinerary.destination ?? '' });
   }, [itin.viewMode, itin.itinerary.destination]);
 
+  // ── Guest mode: claim an unowned trip once a session appears ────────────────
+  // A trip generated anonymously (onboarding + generation need no account) has
+  // ownerUserId === null. Whenever this component sees BOTH "unowned" AND "the
+  // visitor is now authenticated" (having just signed up/logged in from the
+  // teaser's CTA and been routed straight back here), it claims the trip for
+  // that account. justClaimed flips the gate open immediately — no page
+  // reload needed, since ownerUserId itself (a server-fetched prop) won't
+  // update until the next navigation.
+  const isUnclaimed = !ownerUserId;
+  const [justClaimed, setJustClaimed] = useState(false);
+  useEffect(() => {
+    if (!isUnclaimed || justClaimed) return;
+    const token = session?.access_token;
+    const itineraryId = itin.itinerary._id;
+    if (!token || !itineraryId) return;
+    let cancelled = false;
+    fetch('/api/trips/claim', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ itineraryId }),
+    })
+      .then((r) => r.json())
+      .then((data: { claimed?: boolean }) => {
+        if (!cancelled && data.claimed) setJustClaimed(true);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [isUnclaimed, justClaimed, session?.access_token, itin.itinerary._id]);
+
   // Draft mode — unchanged
   if (itin.viewMode === 'draft') {
     return (
@@ -1340,6 +1370,19 @@ export function ItineraryClient({
         onUpdate={itin.handleDraftUpdate}
         onFinalize={() => itin.setViewMode('final')}
         ui={itin.ui}
+      />
+    );
+  }
+
+  // Unclaimed guest trip → teaser + sign-up gate instead of the full itinerary.
+  if (isUnclaimed && !justClaimed) {
+    return (
+      <GuestItineraryTeaser
+        itinerary={itin.itinerary}
+        itineraryId={itin.itinerary._id ?? ''}
+        startDate={itin.profile?.startDate}
+        endDate={itin.profile?.endDate}
+        lang={itin.ui.lang === 'he' ? 'he' : 'en'}
       />
     );
   }

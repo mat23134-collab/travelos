@@ -270,10 +270,11 @@ function OnboardingPageContent() {
     return resolveBackgroundImage(destination, wizardStep, country);
   }, [cities, destination, country, wizardStep]);
 
-  // Auth guard
-  useEffect(() => {
-    if (!loading && !user) router.replace('/auth');
-  }, [loading, user, router]);
+  // Guest mode: no auth guard here. Anonymous users can plan and generate a
+  // full trip; /api/generate(-stream) already accepts userId: null and saves
+  // the itinerary with user_id NULL. The result page (ItineraryClient) gates
+  // the FULL view behind sign-up for any trip with no owner yet — that's
+  // where the account requirement now lives, not here.
 
   // ── Warm upcoming step chunks so navigation never suspends mid-transition ────
   // Steps are code-split via dynamic(ssr:false). If a step's chunk is still
@@ -303,7 +304,9 @@ function OnboardingPageContent() {
 
   // Seed destination / resume from query params
   useEffect(() => {
-    if (!user) return;
+    // Wait for the initial auth check to settle (avoids double-firing once
+    // loading→false), but no longer requires a signed-in user — guest mode.
+    if (loading) return;
     const resume   = searchParams.get('resume') === '1';
     const seedDest = searchParams.get('destination')?.trim() ?? '';
     const seedCity = searchParams.get('city')?.trim() || seedDest;
@@ -339,22 +342,24 @@ function OnboardingPageContent() {
     const hasProgress = destination.trim().length > 0 || storeStep > 0;
     if (!hasProgress) reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [loading]);
 
   // ── Step funnel tracking (Clarity tags + Supabase events) ───────────────────
   // Fire-and-forget (see lib/onboardingAnalytics) — tags the Clarity session
   // with the current step and logs a per-attempt row so we can measure exactly
   // where people drop off (e.g. the "hotel" step). Cannot block or break the
-  // wizard. `destination` is read as context only, not as a trigger.
+  // wizard. `destination` is read as context only, not as a trigger. userId is
+  // null for guest-mode sessions — still tracked, just not attributable to an
+  // account yet.
   useEffect(() => {
-    if (!user) return;
+    if (loading) return;
     const key = ONBOARDING_STEP_KEYS[wizardStep];
     if (!key) return;
-    trackOnboardingStep(wizardStep, key, { userId: user.id, destination });
+    trackOnboardingStep(wizardStep, key, { userId: user?.id ?? null, destination });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wizardStep, user]);
+  }, [wizardStep, loading]);
 
-  if (loading || !user) {
+  if (loading) {
     return (
       <main className="min-h-screen flex items-center justify-center px-8">
         <StepSkeleton />

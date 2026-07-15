@@ -39,7 +39,11 @@ export interface AuthContextValue {
     profile?: { phone?: string; gender?: 'male' | 'female'; age?: number; username: string },
   ) => Promise<{ error: string | null }>;
   signIn:  (email: string, password: string) => Promise<{ error: string | null }>;
-  signInWithGoogle: () => Promise<{ error: string | null }>;
+  /** `next` — path to land on after the OAuth round-trip (default: /dashboard,
+   *  set on /auth/callback). Used to route straight back to e.g. an itinerary
+   *  page being claimed, since Google's redirect never passes back through
+   *  /auth itself (unlike the email/password flow's pendingIntent restore). */
+  signInWithGoogle: (next?: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -120,12 +124,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = async (next?: string) => {
     try {
-      const redirectTo =
+      const base =
         typeof window !== 'undefined'
-          ? `${window.location.origin}/auth/callback`
-          : `${process.env.NEXT_PUBLIC_SITE_URL ?? ''}/auth/callback`;
+          ? window.location.origin
+          : (process.env.NEXT_PUBLIC_SITE_URL ?? '');
+      const redirectTo = next
+        ? `${base}/auth/callback?next=${encodeURIComponent(next)}`
+        : `${base}/auth/callback`;
       const { error } = await supabaseAuth.auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo },

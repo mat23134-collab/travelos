@@ -8,7 +8,7 @@ import { useAuth } from '@/lib/auth-context';
 import { BrandWordmark } from '@/components/BrandWordmark';
 import { supabaseAuth } from '@/lib/supabase';
 import { normalizeUsername, validateUsernameShape } from '@/lib/username';
-import { loadAndClearPendingIntent } from '@/lib/pendingIntent';
+import { loadAndClearPendingIntent, peekPendingIntent } from '@/lib/pendingIntent';
 import {
   buildLegalConsentRecord,
   hasRequiredLegalConsent,
@@ -80,7 +80,12 @@ export default function AuthPage() {
   useEffect(() => {
     if (!loading && user) {
       const intent = loadAndClearPendingIntent();
-      if (intent?.destination) {
+      if (intent?.claimItineraryId) {
+        // The itinerary page itself performs the claim (POST /api/trips/claim)
+        // once it sees an authenticated session on an unclaimed trip — just
+        // send them back to it.
+        router.replace(`/itinerary/${intent.claimItineraryId}`);
+      } else if (intent?.destination) {
         router.replace(`/onboarding?destination=${encodeURIComponent(intent.destination)}`);
       } else {
         router.replace('/dashboard');
@@ -216,9 +221,12 @@ export default function AuthPage() {
     } else {
       await syncProfileFromSession();
       setBusy(false);
-      // Restore pending trip intent (destination chosen before auth round-trip)
+      // Restore pending trip intent (destination chosen, or a guest trip
+      // waiting to be claimed, before this auth round-trip)
       const intent = loadAndClearPendingIntent();
-      if (intent?.destination) {
+      if (intent?.claimItineraryId) {
+        router.push(`/itinerary/${intent.claimItineraryId}`);
+      } else if (intent?.destination) {
         router.push(`/onboarding?destination=${encodeURIComponent(intent.destination)}`);
       } else {
         router.push('/dashboard');
@@ -309,7 +317,8 @@ export default function AuthPage() {
             onClick={async () => {
               setBusy(true);
               setError('');
-              const { error: gErr } = await signInWithGoogle();
+              const claimId = peekPendingIntent()?.claimItineraryId;
+              const { error: gErr } = await signInWithGoogle(claimId ? `/itinerary/${claimId}` : undefined);
               if (gErr) { setError(gErr); setBusy(false); }
               // on success the page redirects — busy stays true intentionally
             }}
