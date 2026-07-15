@@ -245,7 +245,13 @@ export default function DashboardPage() {
       {/* ── Header ────────────────────────────────────────────────────────────── */}
       <header
         className="sticky top-0 z-40 flex items-center justify-between px-6 py-4 border-b border-[rgba(43,38,34,0.08)]"
-        style={{ background: 'rgba(247,241,231,0.92)', backdropFilter: 'blur(16px)' }}
+        style={{
+          background: 'rgba(247,241,231,0.92)',
+          backdropFilter: 'blur(16px)',
+          // Pad clear of the iOS status bar when installed as a home-screen
+          // PWA (viewportFit: cover in layout.tsx lets this bar sit under it).
+          paddingTop: 'calc(1rem + env(safe-area-inset-top))',
+        }}
       >
         <Link href="/" className="text-lg text-[#2b2622] tracking-tight">
           <BrandWordmark accent="#b8552e" tone="light" className="text-lg" />
