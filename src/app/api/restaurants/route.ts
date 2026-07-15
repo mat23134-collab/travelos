@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { fetchRestaurantsForCity, cityLastUpdated, MAX_PRICE_LEVEL_BY_BUDGET } from '@/lib/restaurantBank';
+import { fetchRestaurantsForCity, cityLastUpdated, cityBudgetStats, MAX_PRICE_LEVEL_BY_BUDGET } from '@/lib/restaurantBank';
 import { isStale, REC_TTL_DAYS } from '@/lib/recStaleness';
 import { BudgetLevel, SITE_LANGUAGES, SiteLanguage } from '@/lib/types';
 
@@ -37,11 +37,27 @@ export async function GET(req: NextRequest) {
     : null;
   const maxPriceLevel = budget && !showSplurge ? MAX_PRICE_LEVEL_BY_BUDGET[budget] : undefined;
 
-  const [restaurants, lastUpdated] = await Promise.all([
+  const [restaurants, lastUpdated, budgetStats] = await Promise.all([
     fetchRestaurantsForCity(supabase, city, { lang, maxPriceLevel }),
     cityLastUpdated(supabase, city),
+    maxPriceLevel != null ? cityBudgetStats(supabase, city, maxPriceLevel) : Promise.resolve(null),
   ]);
+
+  // A bank can be non-empty yet still fail budget travelers — e.g. a city
+  // whose first scout skewed luxury. `needsTopUp` tells the client to trigger
+  // a background additive scout for real affordable/mid-range picks, the same
+  // stale-while-revalidate pattern as `stale` below, so the CURRENT visitor
+  // keeps seeing today's (imperfect) list while the NEXT one gets a properly
+  // budget-stocked bank.
+  const MIN_IN_BUDGET = 4;
+  const needsTopUp =
+    budgetStats != null && budgetStats.total > 0 && budgetStats.inBudget < MIN_IN_BUDGET;
+
   // `stale` tells the client to render this cached data now but trigger a
   // background re-scout so the next visitor gets fresh data.
-  return NextResponse.json({ restaurants, stale: isStale(lastUpdated, REC_TTL_DAYS) });
+  return NextResponse.json({
+    restaurants,
+    stale: isStale(lastUpdated, REC_TTL_DAYS),
+    needsTopUp,
+  });
 }

@@ -133,6 +133,32 @@ export async function cityLastUpdated(sb: SupabaseClient, city: string): Promise
 }
 
 /**
+ * How many of a city's rows are actually within the traveler's budget vs. the
+ * bank's total size. Cheap count-only queries (no row data pulled) so the GET
+ * route can decide whether the bank needs a real top-up — e.g. a city whose
+ * first scout skewed luxury (like Tokyo's initial 8 rows, 7 of which were
+ * price_level 3–4) will keep failing travelers on a budget/mid-range trip
+ * every time, no matter how `fetchRestaurantsForCity`'s backfill is tuned,
+ * until more genuinely affordable rows exist.
+ */
+export async function cityBudgetStats(
+  sb: SupabaseClient,
+  city: string,
+  maxPriceLevel: number,
+): Promise<{ total: number; inBudget: number }> {
+  const cityNorm = normalizeCity(city);
+  const [totalRes, inBudgetRes] = await Promise.all([
+    sb.from(TABLE).select('id', { count: 'exact', head: true }).eq('city_normalized', cityNorm),
+    sb
+      .from(TABLE)
+      .select('id', { count: 'exact', head: true })
+      .eq('city_normalized', cityNorm)
+      .or(`price_level.is.null,price_level.lte.${maxPriceLevel}`),
+  ]);
+  return { total: totalRes.count ?? 0, inBudget: inBudgetRes.count ?? 0 };
+}
+
+/**
  * Read the best-scored recommendations for a city (public RLS read).
  *
  * When `maxPriceLevel` is given, in-budget rows (price_level <= max, or unknown)
