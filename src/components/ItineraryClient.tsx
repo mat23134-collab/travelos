@@ -1469,6 +1469,7 @@ export function ItineraryClient({
           ownerUsername={ownerUsername}
           collaborators={collaborators}
           session={session}
+          lang={itin.ui.lang === 'he' ? 'he' : 'en'}
         />
 
 
