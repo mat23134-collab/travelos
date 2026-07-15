@@ -18,14 +18,20 @@ interface Props {
   dark?: boolean;
   /** Hide the photographer credit (for faint decorative backgrounds). */
   hideCredit?: boolean;
+  /** Fill the parent (which must be `position: relative`) instead of setting
+   *  a fixed pixel height — for cards where a caller already controls sizing
+   *  via aspect-ratio/absolute-inset CSS (e.g. destination picker tiles). */
+  fill?: boolean;
 }
 
-export function DayPhoto({ query, alt, height = 180, dark = false, hideCredit = false }: Props) {
+export function DayPhoto({ query, alt, height = 180, dark = false, hideCredit = false, fill = false }: Props) {
   const [photo, setPhoto] = useState<PhotoData | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+    setPhoto(null);
+    setLoaded(false);
     fetch(`/api/photos?q=${encodeURIComponent(query)}`)
       .then((r) => r.json())
       .then((data) => { if (!cancelled) setPhoto(data); })
@@ -36,14 +42,17 @@ export function DayPhoto({ query, alt, height = 180, dark = false, hideCredit = 
   if (!photo) {
     return (
       <div
-        className={`w-full animate-pulse ${dark ? 'bg-[#1a1d26]' : 'bg-gradient-to-br from-[#f0ede4] to-[#e5e0d5]'}`}
-        style={{ height }}
+        className={`${fill ? 'absolute inset-0 w-full h-full' : 'w-full'} animate-pulse ${dark ? 'bg-[#1a1d26]' : 'bg-gradient-to-br from-[#f0ede4] to-[#e5e0d5]'}`}
+        style={fill ? undefined : { height }}
       />
     );
   }
 
   return (
-    <div className="relative w-full overflow-hidden" style={{ height }}>
+    <div
+      className={fill ? 'absolute inset-0 w-full h-full overflow-hidden' : 'relative w-full overflow-hidden'}
+      style={fill ? undefined : { height }}
+    >
       <Image
         src={photo.thumb || photo.url}
         alt={alt}

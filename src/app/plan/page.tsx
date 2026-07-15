@@ -423,6 +423,15 @@ function PlanPage() {
 
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
+
+  // Each question can be a different height (a tall multi-select grid vs. a
+  // short slider), and the page scrolls at the window level. Without this,
+  // advancing from a question you'd scrolled down into (to reach its last
+  // options, or now via auto-advance right after tapping a cube) leaves the
+  // NEXT question's title/first options starting off-screen — easy to miss.
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [step]);
   const [form, setForm] = useState<FormData>({
     groupSize: 2,
     familyParents: 2 as 1 | 2,

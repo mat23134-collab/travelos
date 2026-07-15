@@ -18,6 +18,7 @@ import { motion } from 'framer-motion';
 import type { Itinerary } from '@/lib/types';
 import { formatTripDateRange } from '@/lib/formatTripDateRange';
 import { savePendingIntent } from '@/lib/pendingIntent';
+import { GuestTeaserMikaTour } from '@/components/tour/MikaTour';
 
 interface Props {
   itinerary: Itinerary;
@@ -97,6 +98,7 @@ export function GuestItineraryTeaser({ itinerary, itineraryId, startDate, endDat
 
   return (
     <main dir={dir} className="min-h-screen relative" style={{ backgroundColor: '#efe3cd' }}>
+      <GuestTeaserMikaTour lang={lang} />
       <div className="relative z-10 max-w-xl mx-auto px-5 sm:px-8 py-14">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
@@ -143,6 +145,7 @@ export function GuestItineraryTeaser({ itinerary, itineraryId, startDate, endDat
 
           {/* Unlock CTA */}
           <div
+            data-tour="guest-cta"
             className="mt-8 rounded-3xl p-6 text-center"
             style={{ background: 'linear-gradient(135deg, #b8552e, #8f4220)', color: '#fff', boxShadow: '0 16px 40px -12px rgba(184,85,46,0.45)' }}
           >

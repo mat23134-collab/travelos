@@ -15,7 +15,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { COUNTRIES, type Country, type TravelCity } from '@/lib/countries';
-import { getCityImage, getCountryImage, DEFAULT_HERO } from '@/lib/travelImagery';
+import { getCountryImage, DEFAULT_HERO } from '@/lib/travelImagery';
+import { DayPhoto } from '@/components/DayPhoto';
 import { useOnboardingStore } from '@/state/onboardingStore';
 import { THEME, CARD } from '@/lib/onboardingTheme';
 import { MapPin, Map, Search, X } from 'lucide-react';
@@ -110,9 +111,6 @@ function CityChip({ city, country, selected, onToggle }: {
   selected: boolean;
   onToggle: () => void;
 }) {
-  const photo = getCityImage(city.name, country);
-  const fallbackPhoto = getCountryImage(country);
-
   return (
     <motion.button
       type="button"
@@ -124,18 +122,15 @@ function CityChip({ city, country, selected, onToggle }: {
         border: selected ? `1.5px solid ${THEME.gold}` : `1.5px solid ${THEME.border}`,
       }}
     >
-      <img
-        src={photo}
-        alt={city.name}
-        loading="lazy"
-        onError={(event) => {
-          if (event.currentTarget.src !== fallbackPhoto) {
-            event.currentTarget.src = fallbackPhoto;
-          }
-        }}
-        className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-out"
+      {/* Dynamically fetched per-CITY photo (not a static per-country lookup) —
+          otherwise every city in a country with only one curated hero image
+          (e.g. Melbourne/Brisbane/Perth alongside Sydney) shows the same photo. */}
+      <div
+        className="absolute inset-0 transition-transform duration-500 ease-out"
         style={{ transform: selected ? 'scale(1.06)' : 'scale(1)' }}
-      />
+      >
+        <DayPhoto query={`${city.name} ${country} cityscape`} alt={city.name} fill dark hideCredit />
+      </div>
       <div
         className="absolute inset-0"
         style={{

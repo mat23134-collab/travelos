@@ -65,6 +65,7 @@ export const TOUR_COPY: Record<TourLang, {
   notescan: string;
   daysMap: string;
   sidePanel: string;
+  guestTeaser: string;
 }> = {
   he: {
     name: 'מיקה',
@@ -91,6 +92,8 @@ export const TOUR_COPY: Record<TourLang, {
       'וואו, תראו את זה! המסלול שלכם מוכן. כאן מפורט לו״ז יומי חכם, והמסלול האינטראקטיבי כבר נמתח בלייב על המפה!',
     sidePanel:
       'צריכים לעדכן משהו? פתחו את סייד-טולבר הניהול הנסתר כדי לקבע את המלון שלכם כבסיס לטיול, לשמור מסמכים, או להחליף אטרקציות בקליק.',
+    guestTeaser:
+      'תראו איזה טיול יצאנו! זו רק הצצה — יום 1 מלא, והשאר מחכה לכם. הרשמו בחינם (30 שניות) כדי לפתוח את כל המסלול, המפה וההמלצות.',
   },
   en: {
     name: 'Mika',
@@ -117,5 +120,7 @@ export const TOUR_COPY: Record<TourLang, {
       'Wow, look at that! Your trip is ready. Here’s your smart day-by-day plan, and the interactive route is already drawn live on the map!',
     sidePanel:
       'Need to change something? Open the hidden management side-toolbar to set your hotel as the trip base, save documents, or swap attractions in a click.',
+    guestTeaser:
+      'Look at this trip we built! This is just a peek — Day 1 in full, the rest is waiting for you. Sign up free (30 seconds) to unlock the whole itinerary, map, and picks.',
   },
 };

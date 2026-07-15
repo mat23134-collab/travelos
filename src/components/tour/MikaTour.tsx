@@ -161,6 +161,34 @@ export function WizardMikaTour({ wizardStep }: { wizardStep: number }) {
   return null;
 }
 
+// ─── Phase 1.5: guest teaser (unclaimed trip) ──────────────────────────────────
+// The results page's real Phase 2 tour spotlights [data-tour="days"] /
+// [data-tour="sidepanel"], neither of which exist on the stripped-down guest
+// teaser (GuestItineraryTeaser) — so a guest who hasn't signed up yet never
+// saw Mika at all. This gives her a single beat here instead, pointing at the
+// sign-up CTA. Independent "seen" id from the results tour, so claiming the
+// trip still runs the full Phase 2 walkthrough afterwards.
+
+export function GuestTeaserMikaTour({ lang }: { lang: TourLang }) {
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current) return;
+    if (hasSeenTip('guest-teaser') && !tourForced()) return;
+    started.current = true;
+
+    const timer = setTimeout(() => {
+      void runTour(
+        [{ element: '[data-tour="guest-cta"]', body: TOUR_COPY[lang].guestTeaser, side: 'top', align: 'center' }],
+        lang,
+        { nextText: TOUR_COPY[lang].gotIt, doneText: TOUR_COPY[lang].gotIt, onDone: () => markTipSeen('guest-teaser') },
+      );
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [lang]);
+
+  return null;
+}
+
 // ─── Phase 2: results page ─────────────────────────────────────────────────────
 
 export function ResultsMikaTour({ ready, lang }: { ready: boolean; lang: TourLang }) {
