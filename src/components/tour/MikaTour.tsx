@@ -56,7 +56,12 @@ function mikaPopoverHtml(body: string, lang: TourLang): string {
   );
 }
 
-/** Drive a set of steps; skips silently if no target is on the page yet. */
+/**
+ * Drive a set of steps. Does NOT call onDone when nothing was found — that's
+ * "never shown", not "seen", and callers use onDone to mark the tip seen in
+ * localStorage. Marking a tip seen when it never actually rendered means
+ * Mika silently never gets another chance to show it.
+ */
 async function runTour(
   steps: RunStep[],
   lang: TourLang,
@@ -64,7 +69,7 @@ async function runTour(
 ): Promise<void> {
   if (typeof window === 'undefined') return;
   const present = steps.filter((s) => document.querySelector(s.element));
-  if (present.length === 0) { opts.onDone?.(); return; }
+  if (present.length === 0) return;
 
   const { driver } = await import('driver.js');
   const d = driver({
@@ -90,6 +95,43 @@ async function runTour(
 
 function detectLang(): TourLang {
   return readTripLanguagePref() === 'he' ? 'he' : 'en';
+}
+
+/**
+ * Poll for at least one of `selectors` to appear before calling `launch`,
+ * instead of a single fixed-delay check — the target's mount time varies
+ * (code-split chunks, async data, entrance animations), and a one-shot check
+ * that fires too early finds nothing and never retries. Returns a cleanup
+ * function for the calling effect.
+ */
+function waitForTargetThenLaunch(
+  selectors: string[],
+  launch: () => void,
+  opts: { settleMs?: number; pollMs?: number; maxWaitMs?: number } = {},
+): () => void {
+  const { settleMs = 550, pollMs = 200, maxWaitMs = 8000 } = opts;
+  let cancelled = false;
+  let pollId: ReturnType<typeof setInterval> | undefined;
+  let settleId: ReturnType<typeof setTimeout> | undefined;
+  const startedAt = Date.now();
+
+  const attempt = () => {
+    if (cancelled) return;
+    if (selectors.some((sel) => document.querySelector(sel))) {
+      if (pollId) clearInterval(pollId);
+      settleId = setTimeout(() => { if (!cancelled) launch(); }, settleMs);
+    } else if (Date.now() - startedAt > maxWaitMs && pollId) {
+      clearInterval(pollId);
+    }
+  };
+
+  attempt();
+  pollId = setInterval(attempt, pollMs);
+  return () => {
+    cancelled = true;
+    if (pollId) clearInterval(pollId);
+    if (settleId) clearTimeout(settleId);
+  };
 }
 
 // ─── Phase 1: onboarding wizard ────────────────────────────────────────────────
@@ -176,14 +218,18 @@ export function GuestTeaserMikaTour({ lang }: { lang: TourLang }) {
     if (hasSeenTip('guest-teaser') && !tourForced()) return;
     started.current = true;
 
-    const timer = setTimeout(() => {
-      void runTour(
-        [{ element: '[data-tour="guest-cta"]', body: TOUR_COPY[lang].guestTeaser, side: 'top', align: 'center' }],
-        lang,
-        { nextText: TOUR_COPY[lang].gotIt, doneText: TOUR_COPY[lang].gotIt, onDone: () => markTipSeen('guest-teaser') },
-      );
-    }, 700);
-    return () => clearTimeout(timer);
+    const selector = '[data-tour="guest-cta"]';
+    return waitForTargetThenLaunch(
+      [selector],
+      () => {
+        void runTour(
+          [{ element: selector, body: TOUR_COPY[lang].guestTeaser, side: 'top', align: 'center' }],
+          lang,
+          { nextText: TOUR_COPY[lang].gotIt, doneText: TOUR_COPY[lang].gotIt, onDone: () => markTipSeen('guest-teaser') },
+        );
+      },
+      { settleMs: 400 },
+    );
   }, [lang]);
 
   return null;
@@ -198,21 +244,25 @@ export function ResultsMikaTour({ ready, lang }: { ready: boolean; lang: TourLan
     if ((!isResultsTourArmed() || hasSeenTip('results')) && !tourForced()) return;
     started.current = true;
 
-    const timer = setTimeout(() => {
-      void runTour(
-        [
-          { element: '[data-tour="days"]', body: TOUR_COPY[lang].daysMap, side: 'top', align: 'center' },
-          { element: '[data-tour="sidepanel"]', body: TOUR_COPY[lang].sidePanel, side: lang === 'he' ? 'right' : 'left', align: 'center' },
-        ],
-        lang,
-        {
-          nextText: TOUR_COPY[lang].next,
-          doneText: TOUR_COPY[lang].start,
-          onDone: () => { markTipSeen('results'); disarmResultsTour(); },
-        },
-      );
-    }, 900);
-    return () => clearTimeout(timer);
+    const selectors = ['[data-tour="days"]', '[data-tour="sidepanel"]'];
+    return waitForTargetThenLaunch(
+      selectors,
+      () => {
+        void runTour(
+          [
+            { element: '[data-tour="days"]', body: TOUR_COPY[lang].daysMap, side: 'top', align: 'center' },
+            { element: '[data-tour="sidepanel"]', body: TOUR_COPY[lang].sidePanel, side: lang === 'he' ? 'right' : 'left', align: 'center' },
+          ],
+          lang,
+          {
+            nextText: TOUR_COPY[lang].next,
+            doneText: TOUR_COPY[lang].start,
+            onDone: () => { markTipSeen('results'); disarmResultsTour(); },
+          },
+        );
+      },
+      { settleMs: 900 },
+    );
   }, [ready, lang]);
 
   return null;

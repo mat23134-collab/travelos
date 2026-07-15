@@ -84,6 +84,18 @@ const KIND_COLOR: Record<MarkerKind, string> = {
   attraction: '#ef4444', // red
   restaurant: '#f59e0b', // amber
 };
+
+/** Weekly/full-trip map (showRestaurants=false): every marker is an
+ *  attraction, so kind-coloring would make the whole map one color. Color by
+ *  DAY instead so the geographic cluster for each day reads at a glance —
+ *  cycles for trips longer than the palette. */
+const DAY_COLORS = [
+  '#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#a855f7',
+  '#ec4899', '#14b8a6', '#f97316', '#6366f1', '#84cc16',
+];
+function dayColor(dayIndex: number): string {
+  return DAY_COLORS[dayIndex % DAY_COLORS.length];
+}
 const KIND_ICON: Record<MarkerKind, string> = {
   attraction: '📍',
   restaurant: '🍽️',
@@ -202,11 +214,12 @@ function buildMarkers(days: DayPlan[]): MarkerData[] {
 const DayPin = memo(function DayPin({
   marker,
   active,
+  color,
 }: {
   marker: MarkerData;
   active: boolean;
+  color: string;
 }) {
-  const color = KIND_COLOR[marker.kind];
   return (
     <div
       style={{
@@ -259,6 +272,10 @@ function ItineraryMapInner({ days, destination, focusedNeighborhood, basecampMar
   const markers = showRestaurants
     ? buildMarkers(days)
     : buildMarkers(days).filter((m) => m.kind !== 'restaurant');
+  // Weekly/full-trip view: color by day instead of kind (every pin here is an
+  // attraction, so kind-coloring would be a single flat color).
+  const colorByDay = !showRestaurants;
+  const markerColor = (m: MarkerData) => (colorByDay ? dayColor(m.dayIndex) : KIND_COLOR[m.kind]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeBasecamp, setActiveBasecamp] = useState(false);
   const [selectedPoints, setSelectedPoints] = useState<Array<{ id: string; lat: number; lng: number; label: string }>>([]);
@@ -340,7 +357,7 @@ function ItineraryMapInner({ days, destination, focusedNeighborhood, basecampMar
   const initLat  = allPoints.reduce((s, m) => s + m.lat, 0) / allPoints.length;
 
   const activeMarker = activeId ? markers.find((m) => m.id === activeId) ?? null : null;
-  const activeColor  = activeMarker ? KIND_COLOR[activeMarker.kind] : '#fff';
+  const activeColor  = activeMarker ? markerColor(activeMarker) : '#fff';
 
   return (
     <div
@@ -377,7 +394,7 @@ function ItineraryMapInner({ days, destination, focusedNeighborhood, basecampMar
               });
             }}
           >
-            <DayPin marker={m} active={m.id === activeId} />
+            <DayPin marker={m} active={m.id === activeId} color={markerColor(m)} />
           </Marker>
         ))}
 
@@ -512,27 +529,41 @@ function ItineraryMapInner({ days, destination, focusedNeighborhood, basecampMar
         )}
       </Map>
 
-      {/* Kind legend — pins are colored by type (attraction vs restaurant), not
-          by day, so the whole trip reads at a glance regardless of day count. */}
+      {/* Legend — colorByDay: one swatch per day, so each day's geographic
+          cluster reads at a glance. Otherwise (daily view, both kinds mixed
+          together): pins are colored by type. */}
       <div className="absolute bottom-3 left-3 z-10 flex flex-wrap gap-1.5 max-w-xs">
-        {(showRestaurants ? (['attraction', 'restaurant'] as const) : (['attraction'] as const)).map((kind) => (
-          <div
-            key={kind}
-            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"
-            style={{
-              background: 'rgba(8,10,18,0.82)',
-              backdropFilter: 'blur(8px)',
-              border: `1px solid ${KIND_COLOR[kind]}40`,
-              color: KIND_COLOR[kind],
-            }}
-          >
-            <span
-              className="w-2 h-2 rounded-full flex-shrink-0"
-              style={{ background: KIND_COLOR[kind] }}
-            />
-            {KIND_ICON[kind]} {kind === 'attraction' ? 'Attractions' : 'Restaurants'}
-          </div>
-        ))}
+        {colorByDay
+          ? days.map((_, di) => (
+              <div
+                key={di}
+                className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                style={{
+                  background: 'rgba(8,10,18,0.82)',
+                  backdropFilter: 'blur(8px)',
+                  border: `1px solid ${dayColor(di)}40`,
+                  color: dayColor(di),
+                }}
+              >
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: dayColor(di) }} />
+                Day {di + 1}
+              </div>
+            ))
+          : (['attraction', 'restaurant'] as const).map((kind) => (
+              <div
+                key={kind}
+                className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                style={{
+                  background: 'rgba(8,10,18,0.82)',
+                  backdropFilter: 'blur(8px)',
+                  border: `1px solid ${KIND_COLOR[kind]}40`,
+                  color: KIND_COLOR[kind],
+                }}
+              >
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: KIND_COLOR[kind] }} />
+                {KIND_ICON[kind]} {kind === 'attraction' ? 'Attractions' : 'Restaurants'}
+              </div>
+            ))}
       </div>
 
       {(selectedPoints.length > 0 || distanceStats || isComputingDistance) && (

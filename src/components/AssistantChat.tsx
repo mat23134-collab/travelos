@@ -80,6 +80,15 @@ export function AssistantChat({ itinerary, profile, onCommitSwap, sessionAccessT
   // reply lands, then it settles back to idle. `thinking` is driven by loading.
   const [reaction, setReaction] = useState<Exclude<MikaState, 'idle' | 'thinking'> | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // The launcher's text label widens its footprint enough to sit over page
+  // content that scrolls under this fixed corner (reported: covering a link
+  // in the transport card). Auto-collapse to just the avatar after a beat —
+  // still discoverable on load, and again on hover for anyone who wants it.
+  const [labelShown, setLabelShown] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setLabelShown(false), 4000);
+    return () => clearTimeout(t);
+  }, []);
 
   const lang: 'he' | 'en' = profile?.tripLanguage === 'he' ? 'he' : 'en';
   const dir = lang === 'he' ? 'rtl' : 'ltr';
@@ -203,15 +212,26 @@ export function AssistantChat({ itinerary, profile, onCommitSwap, sessionAccessT
             whileTap={{ scale: 0.95 }}
             aria-label={C.launcher}
             dir={dir}
+            onMouseEnter={() => setLabelShown(true)}
             className="fixed bottom-5 right-5 z-[60] flex items-center gap-2.5 group"
           >
-            {/* Label pill — the call to action */}
-            <span
-              className="hidden sm:inline-block px-3.5 py-2 rounded-full text-[13px] font-bold shadow-lg whitespace-nowrap"
-              style={{ background: '#0d2b27', color: '#FDFCF9' }}
-            >
-              {C.launcher}
-            </span>
+            {/* Label pill — the call to action. Auto-collapses after a beat so
+                it doesn't sit over whatever page content scrolls under this
+                fixed corner; reappears on hover. */}
+            <AnimatePresence>
+              {labelShown && (
+                <motion.span
+                  initial={{ opacity: 0, width: 0 }}
+                  animate={{ opacity: 1, width: 'auto' }}
+                  exit={{ opacity: 0, width: 0 }}
+                  transition={{ duration: 0.25 }}
+                  className="hidden sm:inline-block px-3.5 py-2 rounded-full text-[13px] font-bold shadow-lg whitespace-nowrap overflow-hidden"
+                  style={{ background: '#0d2b27', color: '#FDFCF9' }}
+                >
+                  {C.launcher}
+                </motion.span>
+              )}
+            </AnimatePresence>
             {/* Mika avatar in a soft ring */}
             <span
               className="relative rounded-full p-[3px] shadow-xl"
