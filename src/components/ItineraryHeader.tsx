@@ -50,7 +50,13 @@ export function ItineraryHeader({
             exit={{ y: -40, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
             className="fixed top-0 inset-x-0 z-[60] text-sm py-2.5 px-6 text-center shadow-lg print:hidden"
-            style={{ background: '#8f4220', color: '#fff' }}
+            style={{
+              background: '#8f4220',
+              color: '#fff',
+              // Pad clear of the iOS status bar when installed as a
+              // home-screen PWA (viewportFit: cover in layout.tsx).
+              paddingTop: 'calc(0.625rem + env(safe-area-inset-top))',
+            }}
           >
             ✓ {editBanner}
           </motion.div>
@@ -64,6 +70,10 @@ export function ItineraryHeader({
     backdropFilter: 'blur(16px)',
     WebkitBackdropFilter: 'blur(16px)',
     borderBottom: '1px solid rgba(43,38,34,0.10)',
+    // Extra top padding on the OUTER nav (not the inner h-12/h-14 row) so it
+    // clears the iOS status bar when installed as a home-screen PWA
+    // (viewportFit: cover in layout.tsx) without squashing the row's height.
+    paddingTop: 'env(safe-area-inset-top)',
   }}
 >
   {/* ── Row 1: Brand + Back + Actions ─────────────────────────────────── */}

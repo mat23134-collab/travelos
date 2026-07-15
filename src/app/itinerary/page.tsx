@@ -45,7 +45,17 @@ export default function ItineraryPage() {
   if (!itinerary) {
     return (
       <div className="min-h-screen bg-[#091f36]">
-        <div className="sticky top-0 z-40 backdrop-blur-sm border-b" style={{ background: 'rgba(9,31,54,0.90)', borderColor: 'rgba(255,255,255,0.08)' }}>
+        <div
+          className="sticky top-0 z-40 backdrop-blur-sm border-b"
+          style={{
+            background: 'rgba(9,31,54,0.90)',
+            borderColor: 'rgba(255,255,255,0.08)',
+            // Extra top padding (additive, not overriding the inner div's own
+            // px-6 py-4) so this bar clears the iOS status bar when installed
+            // as a home-screen PWA (viewportFit: cover in layout.tsx).
+            paddingTop: 'env(safe-area-inset-top)',
+          }}
+        >
           <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
             <div className="text-lg font-semibold tracking-tight text-white">
               <BrandWordmark accent="#9e363a" className="text-lg" />

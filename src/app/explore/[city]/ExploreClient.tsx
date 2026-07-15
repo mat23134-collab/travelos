@@ -48,7 +48,14 @@ export function ExploreClient({ city, sections, totalPlaces, isAdmin }: ExploreC
       {/* ── Nav ─────────────────────────────────────────────────────────────── */}
       <nav
         className="sticky top-0 z-30 border-b border-white/6"
-        style={{ background: 'rgba(8,11,18,0.85)', backdropFilter: 'blur(20px)' }}
+        style={{
+          background: 'rgba(8,11,18,0.85)',
+          backdropFilter: 'blur(20px)',
+          // Extra top padding (additive, not overriding the inner div's own
+          // padding) so this bar clears the iOS status bar when installed as
+          // a home-screen PWA (viewportFit: cover in layout.tsx).
+          paddingTop: 'env(safe-area-inset-top)',
+        }}
       >
         <div className="max-w-5xl mx-auto px-5 py-4 flex items-center justify-between gap-4">
           <Link href="/" className="text-white tracking-tight">

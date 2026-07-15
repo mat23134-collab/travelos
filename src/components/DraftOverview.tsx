@@ -264,7 +264,14 @@ export function DraftOverview({ itinerary, onUpdate, onFinalize, ui }: Props) {
         {/* Draft header */}
       <div
         className="sticky top-0 z-40 border-b backdrop-blur-sm"
-        style={{ background: 'rgba(18,52,59,0.92)', borderColor: 'rgba(255,255,255,0.08)' }}
+        style={{
+          background: 'rgba(18,52,59,0.92)',
+          borderColor: 'rgba(255,255,255,0.08)',
+          // Extra top padding (additive, not overriding the inner div's own
+          // padding) so this bar clears the iOS status bar when installed as
+          // a home-screen PWA (viewportFit: cover in layout.tsx).
+          paddingTop: 'env(safe-area-inset-top)',
+        }}
       >
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
           <div>

@@ -226,6 +226,10 @@ export default function HomePage() {
           borderBottom: '1px solid',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
+          // Installed as a home-screen PWA, `viewportFit: cover` (layout.tsx)
+          // lets this fixed bar render under the iOS status bar — pad it
+          // clear so the logo/nav never overlaps the clock/signal icons.
+          paddingTop: 'calc(1.25rem + env(safe-area-inset-top))',
         }}
       >
         <Link href="/" className="text-base font-bold text-white">
