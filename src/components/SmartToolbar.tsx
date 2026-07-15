@@ -438,11 +438,21 @@ function RestaurantsPanel({ destination, days, lang, budget, accessToken, onLock
     setStatus('loading');
     try {
       const res = await fetch(`/api/restaurants?${qs.toString()}`);
-      const data = (await res.json()) as { restaurants?: RestaurantRecommendation[]; stale?: boolean };
+      const data = (await res.json()) as {
+        restaurants?: RestaurantRecommendation[];
+        stale?: boolean;
+        needsTopUp?: boolean;
+      };
       if (data.restaurants && data.restaurants.length > 0) {
         setRestaurants(data.restaurants);
         setStatus('ready');
-        if (data.stale) backgroundRevalidate('/api/restaurants/scout', { city, lang }, accessToken);
+        // `needsTopUp`: the bank has rows but too few actually match this
+        // trip's budget (e.g. a first scout that skewed luxury) — kick a
+        // background additive scout for real affordable/mid-range picks so
+        // the NEXT visit is properly stocked, same pattern as `stale` below.
+        if (data.stale || data.needsTopUp) {
+          backgroundRevalidate('/api/restaurants/scout', { city, lang, budget }, accessToken);
+        }
         return;
       }
       if (!accessToken) { setStatus('error'); return; }
@@ -451,7 +461,7 @@ function RestaurantsPanel({ destination, days, lang, budget, accessToken, onLock
       const scoutRes = await fetch('/api/restaurants/scout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ city, lang }),
+        body: JSON.stringify({ city, lang, budget }),
       });
       const scoutData = (await scoutRes.json()) as { restaurants?: RestaurantRecommendation[] };
       if (scoutData.restaurants && scoutData.restaurants.length > 0) {
