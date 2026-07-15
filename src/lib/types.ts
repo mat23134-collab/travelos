@@ -190,6 +190,8 @@ export interface DiningSpot {
   cuisine?: string;
   priceRange?: string;
   mustTry?: string;
+  /** What this place is + why it's worth going to — same convention as Activity.whyThis. */
+  whyThis?: string;
   neighborhood?: string;
   /** GPS coordinates — used to place dining spots on the day map */
   latitude?: number;

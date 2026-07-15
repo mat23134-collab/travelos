@@ -366,6 +366,7 @@ function toDiningSpot(p: AssemblerPlace): DiningSpot {
     name: p.name,
     cuisine: p.culinary_focus?.[0] ?? p.category ?? undefined,
     priceRange: priceRangeLabel(p.price_tier),
+    whyThis: p.description ?? undefined,
     neighborhood: undefined,
     latitude: p.lat ?? undefined,
     longitude: p.lng ?? undefined,

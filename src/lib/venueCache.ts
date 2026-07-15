@@ -124,7 +124,9 @@ export function diningToPlaceSeed(
 
   const cuisine = typeof spot.cuisine === 'string' ? spot.cuisine.trim() : '';
   const mustTry = typeof spot.mustTry === 'string' ? spot.mustTry.trim() : '';
+  const whyThis = typeof spot.whyThis === 'string' ? spot.whyThis.trim() : '';
   const description =
+    whyThis ||
     [mustTry && `Must try: ${mustTry}`, cuisine && `Cuisine: ${cuisine}`]
       .filter(Boolean)
       .join(' · ') || `Recommended ${meal} spot in ${city}`;
