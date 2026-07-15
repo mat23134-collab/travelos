@@ -70,6 +70,10 @@ export interface Props {
     label?: string;
   } | null;
   labels: ItineraryMapLabels;
+  /** Restaurants clutter the full-trip overview map — daily maps (per-day
+   *  detail view) keep them, but the weekly/full-trip map shows attractions
+   *  only. Defaults to true for callers that want both kinds. */
+  showRestaurants?: boolean;
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -250,9 +254,11 @@ function googleMapsTransitDirUrl(a: { lat: number; lng: number }, b: { lat: numb
   return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}&travelmode=transit`;
 }
 
-function ItineraryMapInner({ days, destination, focusedNeighborhood, basecampMarker, labels }: Props) {
+function ItineraryMapInner({ days, destination, focusedNeighborhood, basecampMarker, labels, showRestaurants = true }: Props) {
   const mapRef = useRef<MapRef>(null);
-  const markers = buildMarkers(days);
+  const markers = showRestaurants
+    ? buildMarkers(days)
+    : buildMarkers(days).filter((m) => m.kind !== 'restaurant');
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeBasecamp, setActiveBasecamp] = useState(false);
   const [selectedPoints, setSelectedPoints] = useState<Array<{ id: string; lat: number; lng: number; label: string }>>([]);
@@ -509,7 +515,7 @@ function ItineraryMapInner({ days, destination, focusedNeighborhood, basecampMar
       {/* Kind legend — pins are colored by type (attraction vs restaurant), not
           by day, so the whole trip reads at a glance regardless of day count. */}
       <div className="absolute bottom-3 left-3 z-10 flex flex-wrap gap-1.5 max-w-xs">
-        {(['attraction', 'restaurant'] as const).map((kind) => (
+        {(showRestaurants ? (['attraction', 'restaurant'] as const) : (['attraction'] as const)).map((kind) => (
           <div
             key={kind}
             className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"

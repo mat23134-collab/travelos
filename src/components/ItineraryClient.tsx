@@ -1281,6 +1281,7 @@ function MobileMapOverlay({
               focusedNeighborhood={focusedNeighborhood}
               basecampMarker={basecampMarker}
               labels={mapLabels}
+              showRestaurants={false}
             />
           </div>
         </motion.div>
@@ -1586,7 +1587,7 @@ export function ItineraryClient({
               </>
             )}
 
-            {/* Full trip map */}
+            {/* Full trip map — attractions only; restaurants stay on the per-day maps. */}
             <section className="mx-3 sm:mx-12 mt-10 mb-2 hidden sm:block print:hidden">
               <ItineraryMap
                 days={itin.itinerary.days}
@@ -1594,6 +1595,7 @@ export function ItineraryClient({
                 focusedNeighborhood={itin.focusedNeighborhood}
                 basecampMarker={itin.basecampMarker}
                 labels={itin.mapLabels}
+                showRestaurants={false}
               />
             </section>
 
