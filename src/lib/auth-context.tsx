@@ -36,7 +36,13 @@ export interface AuthContextValue {
   signUp:  (
     email: string,
     password: string,
-    profile?: { phone?: string; gender?: 'male' | 'female'; age?: number; username: string },
+    profile?: {
+      phone?: string;
+      gender?: 'male' | 'female';
+      age?: number;
+      username: string;
+      marketingOptIn?: boolean;
+    },
   ) => Promise<{ error: string | null }>;
   signIn:  (email: string, password: string) => Promise<{ error: string | null }>;
   /** `next` — path to land on after the OAuth round-trip (default: /dashboard,
@@ -108,7 +114,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = async (
     email: string,
     password: string,
-    profile?: { phone?: string; gender?: 'male' | 'female'; age?: number; username: string },
+    profile?: {
+      phone?: string;
+      gender?: 'male' | 'female';
+      age?: number;
+      username: string;
+      /** Opt-in to marketing emails (Israeli anti-spam law requires explicit
+       *  opt-in). Stored in Supabase Auth user metadata — no table schema
+       *  needed, same as phone/gender/age above. */
+      marketingOptIn?: boolean;
+    },
   ) => {
     try {
       const { error } = await supabaseAuth.auth.signUp({

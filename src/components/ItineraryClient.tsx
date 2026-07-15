@@ -1281,6 +1281,7 @@ function MobileMapOverlay({
               focusedNeighborhood={focusedNeighborhood}
               basecampMarker={basecampMarker}
               labels={mapLabels}
+              showRestaurants={false}
             />
           </div>
         </motion.div>
@@ -1362,6 +1363,13 @@ export function ItineraryClient({
     return () => { cancelled = true; };
   }, [isUnclaimed, justClaimed, session?.access_token, itin.itinerary._id]);
 
+  // Hooks must run unconditionally on every render — declared here, before the
+  // early returns below, so the teaser render (fewer branches) and the full
+  // render don't call a different number of hooks within the same mount (that
+  // mismatch is exactly what happens right after a guest's trip gets claimed:
+  // justClaimed flips true and this component re-renders in place).
+  const openSidePanel = useSidePanel((s) => s.openPanel);
+
   // Draft mode — unchanged
   if (itin.viewMode === 'draft') {
     return (
@@ -1387,7 +1395,6 @@ export function ItineraryClient({
     );
   }
 
-  const openSidePanel = useSidePanel((s) => s.openPanel);
   const days = itin.itinerary.days ?? [];
   const tripStats = deriveTripStats(itin.itinerary);
   const statLists = deriveTripStatLists(itin.itinerary);
@@ -1462,6 +1469,7 @@ export function ItineraryClient({
           ownerUsername={ownerUsername}
           collaborators={collaborators}
           session={session}
+          lang={itin.ui.lang === 'he' ? 'he' : 'en'}
         />
 
 
@@ -1580,7 +1588,7 @@ export function ItineraryClient({
               </>
             )}
 
-            {/* Full trip map */}
+            {/* Full trip map — attractions only; restaurants stay on the per-day maps. */}
             <section className="mx-3 sm:mx-12 mt-10 mb-2 hidden sm:block print:hidden">
               <ItineraryMap
                 days={itin.itinerary.days}
@@ -1588,6 +1596,7 @@ export function ItineraryClient({
                 focusedNeighborhood={itin.focusedNeighborhood}
                 basecampMarker={itin.basecampMarker}
                 labels={itin.mapLabels}
+                showRestaurants={false}
               />
             </section>
 

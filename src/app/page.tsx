@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/auth-context';
 import type { TripLanguage } from '@/lib/types';
 import { persistTripLanguagePref } from '@/lib/tripLanguagePref';
@@ -12,6 +12,7 @@ import { BrandWordmark } from '@/components/BrandWordmark';
 import { DESTINATIONS } from '@/lib/destinations';
 import type { Destination } from '@/lib/destinations';
 import { COUNTRIES } from '@/lib/countries';
+import { savePendingIntent } from '@/lib/pendingIntent';
 import { CinematicHeroBackground } from '@/components/CinematicHeroBackground';
 import { resolveBackgroundImage } from '@/lib/stepBackgrounds';
 import { hasRequiredLegalConsent, requestLegalConsent } from '@/lib/legalConsent';
@@ -147,6 +148,7 @@ export default function HomePage() {
   const { user, loading } = useAuth();
 
   const [showLangModal,   setShowLangModal]   = useState(false);
+  const [showAuthGate,    setShowAuthGate]    = useState(false);
   const [scrolled,        setScrolled]        = useState(false);
   const [pendingDest,     setPendingDest]     = useState<Destination | null>(null);
 
@@ -179,14 +181,34 @@ export default function HomePage() {
     setShowLangModal(true);
   };
 
-  const confirmTripLanguage = (lang: TripLanguage) => {
-    persistTripLanguagePref(lang);
-    setShowLangModal(false);
-    if (pendingDest) {
-      router.push(buildOnboardingHref(pendingDest));
+  const goToOnboarding = (destination: Destination | null) => {
+    if (destination) {
+      router.push(buildOnboardingHref(destination));
     } else {
       router.push('/onboarding');
     }
+  };
+
+  const confirmTripLanguage = (lang: TripLanguage) => {
+    persistTripLanguagePref(lang);
+    setShowLangModal(false);
+    if (!user) {
+      setShowAuthGate(true);
+      return;
+    }
+    goToOnboarding(pendingDest);
+  };
+
+  // "Continue as guest" from the auth gate — no account needed to plan/generate.
+  const continueAsGuest = () => {
+    setShowAuthGate(false);
+    goToOnboarding(pendingDest);
+  };
+
+  // "Log In / Sign Up" from the auth gate — carries the destination through
+  // the /auth round trip so it lands the user back on onboarding pre-filled.
+  const goToAuthFromGate = () => {
+    savePendingIntent({ destination: pendingDest?.name });
   };
 
   return (
@@ -613,6 +635,70 @@ export default function HomePage() {
         onSelect={confirmTripLanguage}
         onCancel={() => setShowLangModal(false)}
       />
+
+      <AnimatePresence>
+        {showAuthGate && (
+          <motion.div
+            key="auth-gate-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center px-4"
+            style={{ background: 'rgba(7,12,22,0.88)', backdropFilter: 'blur(10px)' }}
+          >
+            <motion.div
+              key="auth-gate-modal"
+              initial={{ opacity: 0, scale: 0.93, y: 24 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.93, y: 24 }}
+              transition={{ type: 'spring', stiffness: 340, damping: 26 }}
+              className="w-full max-w-md rounded-3xl p-8"
+              style={{
+                background: '#fffdf7',
+                border: '1px solid rgba(43,38,34,0.10)',
+                boxShadow: '0 24px 60px -20px rgba(43,38,34,0.35)',
+              }}
+            >
+              <h3
+                className="text-xl font-black mb-2"
+                style={{ letterSpacing: '-0.025em' }}
+              >
+                Sign in — or just try it out
+              </h3>
+              <p className="text-sm mb-7" style={{ color: MUTED }}>
+                Create a free account to save your trips across devices, or jump straight in as a guest —
+                you can always sign up later to keep what you build.
+              </p>
+              <div className="flex flex-col gap-3">
+                <Link
+                  href="/auth"
+                  onClick={goToAuthFromGate}
+                  className="text-center px-4 py-3 rounded-xl text-sm font-bold text-white"
+                  style={{ background: REDLINE }}
+                >
+                  Log In / Sign Up
+                </Link>
+                <button
+                  type="button"
+                  onClick={continueAsGuest}
+                  className="px-4 py-3 rounded-xl text-sm font-bold transition-colors hover-border-subtle"
+                  style={{ border: `1px solid ${REDLINE}`, color: REDLINE }}
+                >
+                  Continue as guest
+                </button>
+                <button
+                  type="button"
+                  className="px-4 py-3 rounded-xl text-sm font-semibold transition-colors hover-border-subtle"
+                  style={{ color: MUTED }}
+                  onClick={() => setShowAuthGate(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }
