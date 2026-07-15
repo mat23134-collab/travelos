@@ -1727,8 +1727,14 @@ export function ItineraryClient({
       {/* Mika's Phase-2 guided tour — runs once, after generation lands here. */}
       <ResultsMikaTour ready={!!itin.itinerary} lang={itin.ui.lang === 'he' ? 'he' : 'en'} />
 
-      {/* Turn a shared view (non-owner / logged-out) into a funnel entry. */}
-      {!(session?.user?.id && ownerUserId && session.user.id === ownerUserId) && (
+      {/* Turn a shared view (non-owner / logged-out) into a funnel entry.
+          `justClaimed` covers the guest-mode case: right after a guest signs
+          up and claims their own trip, `ownerUserId` is still the stale
+          server-fetched prop from before the claim (null), so the plain
+          owner-match check below can't yet see that this viewer IS the
+          owner — without this, someone gets pitched to "build your own trip"
+          on the trip they just built. */}
+      {!justClaimed && !(session?.user?.id && ownerUserId && session.user.id === ownerUserId) && (
         <AnonymousViewerCTA destination={itin.itinerary.destination ?? ''} lang={itin.ui.lang === 'he' ? 'he' : 'en'} />
       )}
 

@@ -211,19 +211,26 @@ function TimelineItem({
           <DayPhoto query={photoQuery} alt={row.name} height={164} dark />
         </div>
 
-        {/* Top row: time + emoji (start), Hidden Gem (end) */}
-        <div className="absolute top-2.5 inset-x-2.5 flex items-start justify-between">
+        {/* Top row: time + emoji (start), Hidden Gem / advance-booking (end) */}
+        <div className="absolute top-2.5 inset-x-2.5 flex items-start justify-between gap-1.5">
           <span
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold text-white"
             style={{ background: 'rgba(0,0,0,0.42)', backdropFilter: 'blur(6px)' }}
           >
             <span>{row.emoji}</span>{row.time}
           </span>
-          {row.activity?.isHiddenGem && (
-            <span className="px-2 py-0.5 rounded-full text-[9px] font-black text-white" style={{ background: 'rgba(184,119,46,0.92)' }}>
-              💎 Hidden Gem
-            </span>
-          )}
+          <div className="flex flex-col items-end gap-1">
+            {row.activity?.requiresAdvanceBooking && (
+              <span className="px-2 py-0.5 rounded-full text-[9px] font-black text-white whitespace-nowrap" style={{ background: 'rgba(220,38,38,0.92)' }}>
+                🎫 {he ? 'הזמינו כרטיסים מראש' : 'Book tickets ahead'}
+              </span>
+            )}
+            {row.activity?.isHiddenGem && (
+              <span className="px-2 py-0.5 rounded-full text-[9px] font-black text-white" style={{ background: 'rgba(184,119,46,0.92)' }}>
+                💎 Hidden Gem
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Bottom: type tag + name + neighborhood over the scrim */}
@@ -277,6 +284,18 @@ function TimelineItem({
           </svg>
           Navigate
         </a>
+
+        {row.activity?.requiresAdvanceBooking && row.activity.bookingUrl && (
+          <a
+            href={row.activity.bookingUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg text-white transition-transform hover:-translate-y-0.5"
+            style={{ background: '#dc2626' }}
+          >
+            🎫 {he ? 'קניית כרטיסים' : 'Buy Tickets'}
+          </a>
+        )}
 
         {/* See it on social — jump to short-form video/photos of this place */}
         <a
