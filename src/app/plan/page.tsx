@@ -795,6 +795,28 @@ function PlanPage() {
     router.push('/onboarding?resume=1');
   };
 
+  // ── Auto-advance on single-select "cube" tap ─────────────────────────────
+  // setForm() is async, so calling handleNext() right after setValue() would
+  // validate() against the pre-click value. Instead, flip a ref and let an
+  // effect fire handleNext() once the state update this ref was set for has
+  // actually committed — that render's handleNext() closes over the fresh
+  // form/activeQuestions, so validation and "is there a next question" both
+  // see the just-picked answer.
+  const pendingAutoAdvanceRef = useRef(false);
+  const selectAndAdvance = useCallback((key: string, value: string) => {
+    setValue(key, value);
+    pendingAutoAdvanceRef.current = true;
+  }, [setValue]);
+  useEffect(() => {
+    if (!pendingAutoAdvanceRef.current) return;
+    pendingAutoAdvanceRef.current = false;
+    // Small delay so the selection's checkmark/highlight animation is visible
+    // before the step transitions away.
+    const id = setTimeout(() => handleNext(), 320);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form]);
+
   const handleSubmit = async () => {
     setIsSubmitting(true);
     trackFunnelEvent('generation_started', { destination: String(form['destination'] ?? '') });
@@ -1400,7 +1422,7 @@ function PlanPage() {
                           variants={optionVariant}
                           onClick={() => {
                             if (question.key !== 'groupType') {
-                              setValue(question.key, opt.value);
+                              selectAndAdvance(question.key, opt.value);
                               return;
                             }
                             if (opt.value === 'family') {
@@ -1418,6 +1440,7 @@ function PlanPage() {
                               familyKidsByAge: {} as FamilyKidsByAge,
                             }));
                             setError('');
+                            pendingAutoAdvanceRef.current = true;
                           }}
                           whileHover={{ scale: 1.03, y: -2 }}
                           whileTap={{ scale: 0.97 }}

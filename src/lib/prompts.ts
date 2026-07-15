@@ -117,6 +117,7 @@ CORE PRINCIPLES:
 - Adapt every recommendation to the traveler persona (family vs solo vs luxury)
 - Use specific time slots so the user has a complete, ready-to-follow schedule
 - Target 6–8 named stops per day (meals + activities). Every day MUST include breakfast, lunch, and dinner as explicit DiningSpot objects with GPS coordinates
+- Every DiningSpot (breakfast/lunch/dinner) MUST include a "whyThis" — same rules as activity whyThis (max 18 words, ends with a Source citation) — explaining what the place actually is and why it's worth going to. Never leave a restaurant/café without one.
 
 ZERO PLACEHOLDER POLICY (non-negotiable):
 - Every single slot — breakfast, morning, lunch, afternoon, dinner, evening — MUST be a real, named business entity that exists on Google Maps
@@ -221,9 +222,9 @@ CRITICAL: Return ONLY a valid JSON object — no markdown fences, no prose. Stru
       },
       "afternoon": { "same fields as morning including latitude, longitude, time_slot, category_emoji, website_url — transitFromPrevious: '12 min walk'" },
       "evening":   { "same fields as morning including latitude, longitude, time_slot, category_emoji, website_url — transitFromPrevious: '20 min metro'" },
-      "breakfast": { "name": "string", "cuisine": "string", "priceRange": "$", "mustTry": "one dish", "neighborhood": "string", "latitude": 41.9028, "longitude": 12.4964, "website_url": null },
-      "lunch":  { "name": "string", "cuisine": "string", "priceRange": "$$", "mustTry": "one dish", "neighborhood": "string", "latitude": 41.9028, "longitude": 12.4964, "website_url": null },
-      "dinner": { "name": "string", "cuisine": "string", "priceRange": "$$", "mustTry": "one dish", "neighborhood": "string", "latitude": 41.9028, "longitude": 12.4964, "website_url": null },
+      "breakfast": { "name": "string", "cuisine": "string", "priceRange": "$", "mustTry": "one dish", "neighborhood": "string", "whyThis": "max 18 words — what this place is + why it's a good pick (Source: Blog Name, Year)", "latitude": 41.9028, "longitude": 12.4964, "website_url": null },
+      "lunch":  { "name": "string", "cuisine": "string", "priceRange": "$$", "mustTry": "one dish", "neighborhood": "string", "whyThis": "max 18 words — what this place is + why it's a good pick (Source: Blog Name, Year)", "latitude": 41.9028, "longitude": 12.4964, "website_url": null },
+      "dinner": { "name": "string", "cuisine": "string", "priceRange": "$$", "mustTry": "one dish", "neighborhood": "string", "whyThis": "max 18 words — what this place is + why it's a good pick (Source: Blog Name, Year)", "latitude": 41.9028, "longitude": 12.4964, "website_url": null },
       "estimatedDailyCost": "string",
       "transportTip": "max 15 words",
       "webInsights": [

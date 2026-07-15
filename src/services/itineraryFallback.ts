@@ -269,6 +269,7 @@ function toDining(item: ReturnType<typeof normalizeFallbackPool>[number], meal: 
     cuisine: item.category === 'cafe' ? 'Cafe' : 'Local',
     priceRange: '$$',
     mustTry: item.description || `${meal} signature pick`,
+    whyThis: item.description || undefined,
     neighborhood: item.city || 'Central area',
     latitude: Number(item.lat),
     longitude: Number(item.lng),

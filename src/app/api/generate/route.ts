@@ -901,7 +901,7 @@ export async function POST(req: NextRequest) {
           category:       slot,
           description:    isActivity
                             ? (item.description ?? null)
-                            : ((item.mustTry ? `Must try: ${item.mustTry}` : item.cuisine) ?? null),
+                            : (item.whyThis ?? (item.mustTry ? `Must try: ${item.mustTry}` : item.cuisine) ?? null),
           lat:            item.latitude        != null ? Number(item.latitude)  : null,
           lng:            item.longitude       != null ? Number(item.longitude) : null,
           google_place_id: null,
