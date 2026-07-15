@@ -1362,6 +1362,13 @@ export function ItineraryClient({
     return () => { cancelled = true; };
   }, [isUnclaimed, justClaimed, session?.access_token, itin.itinerary._id]);
 
+  // Hooks must run unconditionally on every render — declared here, before the
+  // early returns below, so the teaser render (fewer branches) and the full
+  // render don't call a different number of hooks within the same mount (that
+  // mismatch is exactly what happens right after a guest's trip gets claimed:
+  // justClaimed flips true and this component re-renders in place).
+  const openSidePanel = useSidePanel((s) => s.openPanel);
+
   // Draft mode — unchanged
   if (itin.viewMode === 'draft') {
     return (
@@ -1387,7 +1394,6 @@ export function ItineraryClient({
     );
   }
 
-  const openSidePanel = useSidePanel((s) => s.openPanel);
   const days = itin.itinerary.days ?? [];
   const tripStats = deriveTripStats(itin.itinerary);
   const statLists = deriveTripStatLists(itin.itinerary);

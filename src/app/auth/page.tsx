@@ -37,6 +37,7 @@ export default function AuthPage() {
   const [busy,     setBusy]     = useState(false);
   const [success,  setSuccess]  = useState('');
   const [legalAccepted, setLegalAccepted] = useState(false);
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
 
   const syncProfileFromSession = useCallback(async () => {
     const { data: { session } } = await supabaseAuth.auth.getSession();
@@ -197,6 +198,7 @@ export default function AuthPage() {
         gender: gender || undefined,
         age: age.trim() ? Number(age) : undefined,
         username: normalizeUsername(username),
+        marketingOptIn,
       });
       authError = result.error;
     }
@@ -576,6 +578,27 @@ export default function AuthPage() {
                       Cookie Policy
                     </Link>
                     , and required cookies/local storage.
+                  </span>
+                </label>
+              )}
+
+              {mode === 'signup' && (
+                <label
+                  className="flex items-start gap-3 rounded-2xl border px-3.5 py-3 text-xs leading-relaxed"
+                  style={{
+                    borderColor: marketingOptIn ? 'rgba(184,85,46,0.35)' : 'rgba(255,255,255,0.10)',
+                    background: marketingOptIn ? 'rgba(184,85,46,0.08)' : 'rgba(255,255,255,0.035)',
+                    color: 'rgba(255,255,255,0.58)',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={marketingOptIn}
+                    onChange={(e) => setMarketingOptIn(e.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    Send me trip ideas, tips, and offers by email. Optional — you can unsubscribe anytime.
                   </span>
                 </label>
               )}
