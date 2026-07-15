@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useAuth } from '@/lib/auth-context';
 import type { TripLanguage } from '@/lib/types';
 import { persistTripLanguagePref } from '@/lib/tripLanguagePref';
@@ -12,7 +12,6 @@ import { BrandWordmark } from '@/components/BrandWordmark';
 import { DESTINATIONS } from '@/lib/destinations';
 import type { Destination } from '@/lib/destinations';
 import { COUNTRIES } from '@/lib/countries';
-import { savePendingIntent } from '@/lib/pendingIntent';
 import { CinematicHeroBackground } from '@/components/CinematicHeroBackground';
 import { resolveBackgroundImage } from '@/lib/stepBackgrounds';
 import { hasRequiredLegalConsent, requestLegalConsent } from '@/lib/legalConsent';
@@ -148,7 +147,6 @@ export default function HomePage() {
   const { user, loading } = useAuth();
 
   const [showLangModal,   setShowLangModal]   = useState(false);
-  const [showAuthGate,    setShowAuthGate]    = useState(false);
   const [scrolled,        setScrolled]        = useState(false);
   const [pendingDest,     setPendingDest]     = useState<Destination | null>(null);
 
@@ -184,11 +182,6 @@ export default function HomePage() {
   const confirmTripLanguage = (lang: TripLanguage) => {
     persistTripLanguagePref(lang);
     setShowLangModal(false);
-    if (!user) {
-      savePendingIntent({ destination: pendingDest?.name });
-      setShowAuthGate(true);
-      return;
-    }
     if (pendingDest) {
       router.push(buildOnboardingHref(pendingDest));
     } else {
@@ -324,7 +317,7 @@ export default function HomePage() {
             </Link>
 
             <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.20)' }}>
-              {user ? '~60 seconds · Ready to plan' : 'Account required · Free to start'}
+              ~60 seconds · No account needed
             </span>
           </motion.div>
 
@@ -594,7 +587,7 @@ export default function HomePage() {
           </Link>
 
           <p className="mt-6 text-xs" style={{ color: 'rgba(255,255,255,0.14)' }}>
-            {user ? 'Signed in · continue to onboarding' : 'Create a free account to continue'}
+            No account needed to start
           </p>
         </motion.div>
       </section>
@@ -620,60 +613,6 @@ export default function HomePage() {
         onSelect={confirmTripLanguage}
         onCancel={() => setShowLangModal(false)}
       />
-
-      <AnimatePresence>
-        {showAuthGate && (
-          <motion.div
-            key="auth-gate-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center px-4"
-            style={{ background: 'rgba(7,12,22,0.88)', backdropFilter: 'blur(10px)' }}
-          >
-            <motion.div
-              key="auth-gate-modal"
-              initial={{ opacity: 0, scale: 0.93, y: 24 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.93, y: 24 }}
-              transition={{ type: 'spring', stiffness: 340, damping: 26 }}
-              className="w-full max-w-md rounded-3xl p-8"
-              style={{
-                background: '#fffdf7',
-                border: '1px solid rgba(43,38,34,0.10)',
-                boxShadow: '0 24px 60px -20px rgba(43,38,34,0.35)',
-              }}
-            >
-              <h3
-                className="text-xl font-black mb-2"
-                style={{ letterSpacing: '-0.025em' }}
-              >
-                Sign in to create a trip
-              </h3>
-              <p className="text-sm mb-7" style={{ color: MUTED }}>
-                To generate personalised itineraries, please log in or create a free account.
-              </p>
-              <div className="flex gap-3">
-                <Link
-                  href="/auth"
-                  className="flex-1 text-center px-4 py-3 rounded-xl text-sm font-bold text-white"
-                  style={{ background: REDLINE }}
-                >
-                  Log In / Sign Up
-                </Link>
-                <button
-                  type="button"
-                  className="px-4 py-3 rounded-xl text-sm font-semibold transition-colors hover-border-subtle"
-                  style={{ border: '1px solid rgba(43,38,34,0.18)' }}
-                  onClick={() => setShowAuthGate(false)}
-                >
-                  Cancel
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </main>
   );
 }
