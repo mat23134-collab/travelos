@@ -18,6 +18,11 @@ const BUDGET_LEVELS: readonly BudgetLevel[] = ['budget', 'mid-range', 'luxury'];
  * pricier ones only as a backfill so the panel is never sparse). Pass
  * `splurge=1` alongside it to lift the cap — the traveler explicitly asking to
  * see the full (often pricier) list regardless of their trip budget.
+ *
+ * `limit` lets the panel pull a wider pool (rows carry the book-ahead engine
+ * fields) that the client-side ranker then re-orders by per-trip fit and trims.
+ * `splurgeAvailable` tells the panel whether pricier picks exist above the
+ * budget ceiling, so it can offer the "show splurge picks too" toggle.
  */
 export async function GET(req: NextRequest) {
   const city = req.nextUrl.searchParams.get('city')?.trim() ?? '';
@@ -37,8 +42,13 @@ export async function GET(req: NextRequest) {
     : null;
   const maxPriceLevel = budget && !showSplurge ? MAX_PRICE_LEVEL_BY_BUDGET[budget] : undefined;
 
+  // Wider pool (capped) so the client-side ranker has candidates to diversify
+  // and fit-rank over; it trims back to the 4–8 shown.
+  const limitParam = Number(req.nextUrl.searchParams.get('limit'));
+  const limit = Number.isFinite(limitParam) ? Math.min(40, Math.max(4, limitParam)) : 12;
+
   const [restaurants, lastUpdated, budgetStats] = await Promise.all([
-    fetchRestaurantsForCity(supabase, city, { lang, maxPriceLevel }),
+    fetchRestaurantsForCity(supabase, city, { lang, maxPriceLevel, limit }),
     cityLastUpdated(supabase, city),
     maxPriceLevel != null ? cityBudgetStats(supabase, city, maxPriceLevel) : Promise.resolve(null),
   ]);
@@ -53,11 +63,17 @@ export async function GET(req: NextRequest) {
   const needsTopUp =
     budgetStats != null && budgetStats.total > 0 && budgetStats.inBudget < MIN_IN_BUDGET;
 
+  // Are there pricier picks above the budget ceiling? (Only meaningful when we
+  // actually applied a ceiling.) Drives the panel's splurge opt-in toggle.
+  const splurgeAvailable =
+    budgetStats != null && budgetStats.total > budgetStats.inBudget;
+
   // `stale` tells the client to render this cached data now but trigger a
   // background re-scout so the next visitor gets fresh data.
   return NextResponse.json({
     restaurants,
     stale: isStale(lastUpdated, REC_TTL_DAYS),
     needsTopUp,
+    splurgeAvailable,
   });
 }

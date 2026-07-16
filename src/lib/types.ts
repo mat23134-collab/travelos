@@ -271,6 +271,40 @@ export interface RestaurantRecommendation {
   source?: 'scout' | 'manual';
   /** Ranking score from the scout's scoring algorithm (higher = better). */
   score?: number;
+
+  // ── Book-Ahead engine fields (populated by the extended scout) ──────────────
+  /** Canonical cuisine genre key, e.g. "omakase-counter" (see restaurantGenre.ts). */
+  cuisineGenre?: string | null;
+  /** Which meal slots the place is for, e.g. ["lunch","dinner"]. */
+  mealSlots?: string[] | null;
+  /** 0–3 how much reserving ahead matters (0 walk-in … 3 lottery/months out). */
+  bookAheadLevel?: number | null;
+  /** Typical advance-booking lead time, in days. */
+  bookAheadDays?: number | null;
+  /** Dietary tokens the place caters to, e.g. ["vegetarian-friendly","kosher"]. */
+  dietaryTags?: string[] | null;
+  /** Group-fit tokens (reuses scoringEngine vocab: couple/family/group/solo). */
+  groupSuitability?: string[] | null;
+  /** Normalized neighborhood slug — join key to itinerary day neighborhoods. */
+  neighborhoodSlug?: string | null;
+  /** ISO-2 country code — drives reservation-platform routing (platformRouter.ts). */
+  countryCode?: string | null;
+  /** Precomputed Bayesian-shrunk rating (0–5). */
+  bayesRating?: number | null;
+  /** Precomputed user-independent base score (0–1 range * weights). */
+  compositeScore?: number | null;
+  /** ISO timestamp of the last Google Places re-verification. */
+  lastVerifiedAt?: string | null;
+
+  // ── Request-time only (computed per trip by the ranker, never stored) ───────
+  /** "Book by" date (ISO) derived from bookAheadDays + trip start date. */
+  bookByDate?: string | null;
+  /** Suggested itinerary day index this pick geographically fits, or null. */
+  suggestedDay?: number | null;
+  /** Resolved reservation platform + CTA for this market. */
+  platform?: { name: string; url: string; ctaLabel: string } | null;
+  /** Human-readable reasons this pick fits the trip (from the fit scoring terms). */
+  fitReasons?: string[] | null;
 }
 
 /** Localizable attraction text fields, produced per site language. */

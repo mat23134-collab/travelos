@@ -13,7 +13,7 @@
  * can be added later by dropping in another entry.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type {
   Activity,
@@ -25,6 +25,10 @@ import type {
 } from '@/lib/types';
 import type { Landmark } from '@/app/api/landmarks/route';
 import { AttractionDetailModal } from '@/components/AttractionDetailModal';
+import { rankBookAhead, type TripDayGeo } from '@/lib/bookAheadRanker';
+import { normalizeNeighborhoodSlug } from '@/lib/restaurantBank';
+import { genreLabel } from '@/lib/restaurantGenre';
+import { trackReservationCtaClick, trackBookAheadPanelShown } from '@/lib/bookAheadMetrics';
 
 // ─── Design tokens (light "paper" overview theme) ─────────────────────────────
 const INK       = 'var(--color-ink-warm)';        // near-black warm text
@@ -53,6 +57,7 @@ const COPY = {
     splurgeToggleOff: '💰 חזרה לתקציב שלי',
     refresh: 'רענון מסעדות',
     refreshing: 'מחפשים עוד מסעדות מתאימות…',
+    bookByLabel: (d: string) => `כדאי להזמין עד ${d}`,
     loading: 'טוען המלצות…',
     scouting: (city: string) => `מאתרים את השולחנות הכי שווים ב${city}…`,
     signIn: 'התחברו כדי לטעון המלצות מסעדות.',
@@ -109,6 +114,7 @@ const COPY = {
     splurgeToggleOff: '💰 Back to my budget',
     refresh: 'Refresh restaurants',
     refreshing: 'Finding more matching restaurants…',
+    bookByLabel: (d: string) => `Book by ${d}`,
     loading: 'Loading recommendations…',
     scouting: (city: string) => `Finding the best reservable tables in ${city}…`,
     signIn: 'Sign in to load restaurant recommendations.',
@@ -170,6 +176,12 @@ interface SmartToolbarProps {
   /** Trip's chosen budget tier — scopes the restaurant panel to matching price
    *  levels by default (traveler can opt into pricier picks explicitly). */
   budget?: BudgetLevel | null;
+  /** Trip group type (solo/couple/family/group) — feeds restaurant GroupFit. */
+  groupType?: string | null;
+  /** Trip interests / culinary focus — feed restaurant GenreFit. */
+  interests?: string[] | null;
+  /** Free-text dietary restrictions — feed the restaurant dietary gate. */
+  dietary?: string | null;
   accessToken: string | null;
   onLockReservation: (dayIndex: number, activity: Activity) => Promise<void>;
   recalculateDayLoading: boolean;
@@ -421,10 +433,11 @@ function ExploreCard({ l, lang, onOpen }: { l: Landmark; lang: Lang; onOpen: () 
 
 // ─── Restaurants feature ────────────────────────────────────────────────────────
 
-function RestaurantsPanel({ destination, days, lang, budget, accessToken, onLockReservation, recalculateDayLoading }: SmartToolbarProps) {
+function RestaurantsPanel({ destination, days, lang, budget, groupType, interests, dietary, startDate, accessToken, onLockReservation, recalculateDayLoading }: SmartToolbarProps) {
   const t = COPY[lang];
   const [status, setStatus] = useState<'idle' | 'loading' | 'scouting' | 'ready' | 'error'>('idle');
   const [restaurants, setRestaurants] = useState<RestaurantRecommendation[]>([]);
+  const [splurgeAvailable, setSplurgeAvailable] = useState(false);
   const [picked, setPicked] = useState<RestaurantRecommendation | null>(null);
   // Off by default (unless the trip is already 'luxury', which the server
   // treats as unfiltered anyway) — the traveler opts INTO pricier picks,
@@ -443,6 +456,9 @@ function RestaurantsPanel({ destination, days, lang, budget, accessToken, onLock
     const qs = new URLSearchParams({ city, lang });
     if (budget) qs.set('budget', budget);
     if (showSplurge) qs.set('splurge', '1');
+    // Pull a wider pool so the client-side ranker has candidates to diversify
+    // and fit-rank over before trimming back to the handful shown.
+    qs.set('limit', '30');
 
     setStatus('loading');
     try {
@@ -451,7 +467,9 @@ function RestaurantsPanel({ destination, days, lang, budget, accessToken, onLock
         restaurants?: RestaurantRecommendation[];
         stale?: boolean;
         needsTopUp?: boolean;
+        splurgeAvailable?: boolean;
       };
+      setSplurgeAvailable(!!data.splurgeAvailable);
       if (data.restaurants && data.restaurants.length > 0) {
         setRestaurants(data.restaurants);
         setStatus('ready');
@@ -488,6 +506,47 @@ function RestaurantsPanel({ destination, days, lang, budget, accessToken, onLock
   // dependency) changes — not just when status is 'idle', so flipping the
   // toggle actually re-queries instead of silently no-oping.
   useEffect(() => { void load(); }, [load]);
+
+  // Per-day geography for GeoFit: a neighborhood slug + centroid from each day's
+  // activities (morning/afternoon/evening carry lat/lng + neighborhood).
+  const dayGeo: TripDayGeo[] = useMemo(() => {
+    return days.map((d) => {
+      const acts = [d.morning, d.afternoon, d.evening].filter(Boolean) as Activity[];
+      const pts = acts
+        .filter((a) => typeof a.latitude === 'number' && typeof a.longitude === 'number')
+        .map((a) => ({ lat: a.latitude as number, lng: a.longitude as number }));
+      const centroid = pts.length
+        ? { lat: pts.reduce((s, p) => s + p.lat, 0) / pts.length, lng: pts.reduce((s, p) => s + p.lng, 0) / pts.length }
+        : null;
+      const hood = acts.find((a) => a.neighborhood)?.neighborhood ?? null;
+      return { neighborhoodSlug: normalizeNeighborhoodSlug(hood), centroid };
+    });
+  }, [days]);
+
+  // Request-time ranking: layer per-trip fit + diversity over the fetched pool,
+  // trimming to the handful actually shown (§4/§6/§8). Recomputes only when the
+  // pool or trip context changes.
+  const picks = useMemo(
+    () =>
+      rankBookAhead(restaurants, {
+        budget,
+        groupType,
+        culinaryTags: interests ?? undefined,
+        dietary: dietary ? dietary.toLowerCase().split(/[,\n;]+/).map((s) => s.trim()).filter(Boolean) : undefined,
+        days: dayGeo,
+        nights: days.length,
+        startDate,
+        splurge: showSplurge,
+        lang,
+        limit: 8,
+      }),
+    [restaurants, budget, groupType, interests, dietary, dayGeo, days.length, startDate, showSplurge, lang],
+  );
+
+  // North-star denominator: the panel actually showed the traveler picks (§12).
+  useEffect(() => {
+    if (status === 'ready' && picks.length > 0) trackBookAheadPanelShown(picks.length);
+  }, [status, picks.length]);
 
   const refreshRestaurants = useCallback(async () => {
     const city = destination.trim();
@@ -557,8 +616,9 @@ function RestaurantsPanel({ destination, days, lang, budget, accessToken, onLock
   }
 
   // Only offer the toggle when there's actually a tier to escalate TO — a
-  // 'luxury' trip (or no budget on file) already sees every price level.
-  const canToggleSplurge = budget === 'budget' || budget === 'mid-range';
+  // 'luxury' trip (or no budget on file) already sees every price level — AND
+  // the bank actually has pricier picks above the ceiling to reveal.
+  const canToggleSplurge = (budget === 'budget' || budget === 'mid-range') && (splurgeAvailable || showSplurge);
 
   return (
     <div>
@@ -594,12 +654,19 @@ function RestaurantsPanel({ destination, days, lang, budget, accessToken, onLock
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-        {restaurants.map((r, i) => (
+        {(picks.length > 0 ? picks : restaurants.slice(0, 8)).map((r, i) => (
           <RestaurantCard key={r.id ?? `${r.name}-${i}`} r={r} lang={lang} onAdd={() => setPicked(r)} />
         ))}
       </div>
     </div>
   );
+}
+
+/** Short localized date for the "book by" chip, e.g. "Aug 27" / "27 באוג׳". */
+function formatBookByDate(iso: string, lang: Lang): string {
+  const d = new Date(`${iso.slice(0, 10)}T12:00:00`);
+  if (!Number.isFinite(d.getTime())) return iso;
+  return d.toLocaleDateString(lang === 'he' ? 'he-IL' : 'en-US', { month: 'short', day: 'numeric' });
 }
 
 function RestaurantCard({ r, lang, onAdd }: { r: RestaurantRecommendation; lang: Lang; onAdd: () => void }) {
@@ -653,14 +720,14 @@ function RestaurantCard({ r, lang, onAdd }: { r: RestaurantRecommendation; lang:
       <div className="p-3.5 flex flex-col gap-2 flex-1">
         <div>
           <p className="text-[15px] font-bold leading-tight" style={{ color: INK }}>{r.name}</p>
-          {(r.cuisineStyle || r.neighborhood) && (
+          {(r.cuisineStyle || r.neighborhood || r.cuisineGenre) && (
             <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-              {r.cuisineStyle && (
+              {(r.cuisineStyle || genreLabel(r.cuisineGenre, lang)) && (
                 <span
                   className="px-2 py-0.5 rounded-md text-[11px] font-semibold"
                   style={{ background: TERRA_SOFT, color: ACCENT_DEEP }}
                 >
-                  {r.cuisineStyle}
+                  {r.cuisineStyle ?? genreLabel(r.cuisineGenre, lang)}
                 </span>
               )}
               {r.neighborhood && (
@@ -669,6 +736,21 @@ function RestaurantCard({ r, lang, onAdd }: { r: RestaurantRecommendation; lang:
             </div>
           )}
         </div>
+
+        {/* Why this pick fits the trip — reasons emitted by the ranker (§11). */}
+        {r.fitReasons && r.fitReasons.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {r.fitReasons.slice(0, 3).map((reason) => (
+              <span
+                key={reason}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-semibold"
+                style={{ background: PAPER_SUNK, color: INK_MUT }}
+              >
+                ✓ {reason}
+              </span>
+            ))}
+          </div>
+        )}
 
         {r.description && (
           <p className="text-[12.5px] leading-relaxed" style={{ color: INK_MUT }}>{r.description}</p>
@@ -681,15 +763,24 @@ function RestaurantCard({ r, lang, onAdd }: { r: RestaurantRecommendation; lang:
           </p>
         )}
 
-        {/* Booking lead time — how far ahead it's customary to reserve */}
-        {r.bookingLeadTime && (
+        {/* Concrete "book by" deadline — start date minus the typical lead time
+            (§7/§8). Falls back to the qualitative lead-time phrase when we have
+            no trip start date to anchor a real date. */}
+        {r.bookByDate ? (
+          <span
+            className="self-start inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold"
+            style={{ background: '#8f4220', color: '#fff' }}
+          >
+            ⏳ {t.bookByLabel(formatBookByDate(r.bookByDate, lang))}
+          </span>
+        ) : r.bookingLeadTime ? (
           <span
             className="self-start inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold"
             style={{ background: PAPER_SUNK, color: ACCENT_DEEP }}
           >
             ⏳ {t.bookAhead}: {r.bookingLeadTime}
           </span>
-        )}
+        ) : null}
 
         {/* Booking urgency — why reserving is critical */}
         {r.bookingUrgency && (
@@ -710,15 +801,17 @@ function RestaurantCard({ r, lang, onAdd }: { r: RestaurantRecommendation; lang:
           >
             {t.add}
           </button>
-          {r.reservationUrl && (
+          {(r.platform?.url || r.reservationUrl) && (
             <a
-              href={r.reservationUrl}
+              href={r.platform?.url ?? r.reservationUrl ?? undefined}
               target="_blank"
               rel="noopener noreferrer"
+              title={r.platform?.ctaLabel ?? t.book}
+              onClick={() => trackReservationCtaClick(r.platform?.name)}
               className="py-2.5 px-3 rounded-xl text-[13px] font-semibold whitespace-nowrap"
               style={{ background: 'rgba(255,255,255,0.7)', border: BORDER, color: INK }}
             >
-              {t.book} ↗
+              {r.platform?.ctaLabel ?? t.book} ↗
             </a>
           )}
           {r.socialUrl && (
