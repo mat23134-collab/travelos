@@ -28,6 +28,7 @@ import { AttractionDetailModal } from '@/components/AttractionDetailModal';
 import { rankBookAhead, type TripDayGeo } from '@/lib/bookAheadRanker';
 import { normalizeNeighborhoodSlug } from '@/lib/restaurantBank';
 import { genreLabel } from '@/lib/restaurantGenre';
+import { trackReservationCtaClick, trackBookAheadPanelShown } from '@/lib/bookAheadMetrics';
 
 // ─── Design tokens (light "paper" overview theme) ─────────────────────────────
 const INK       = 'var(--color-ink-warm)';        // near-black warm text
@@ -542,6 +543,11 @@ function RestaurantsPanel({ destination, days, lang, budget, groupType, interest
     [restaurants, budget, groupType, interests, dietary, dayGeo, days.length, startDate, showSplurge, lang],
   );
 
+  // North-star denominator: the panel actually showed the traveler picks (§12).
+  useEffect(() => {
+    if (status === 'ready' && picks.length > 0) trackBookAheadPanelShown(picks.length);
+  }, [status, picks.length]);
+
   const refreshRestaurants = useCallback(async () => {
     const city = destination.trim();
     if (!city || !accessToken || refreshing) return;
@@ -801,6 +807,7 @@ function RestaurantCard({ r, lang, onAdd }: { r: RestaurantRecommendation; lang:
               target="_blank"
               rel="noopener noreferrer"
               title={r.platform?.ctaLabel ?? t.book}
+              onClick={() => trackReservationCtaClick(r.platform?.name)}
               className="py-2.5 px-3 rounded-xl text-[13px] font-semibold whitespace-nowrap"
               style={{ background: 'rgba(255,255,255,0.7)', border: BORDER, color: INK }}
             >
