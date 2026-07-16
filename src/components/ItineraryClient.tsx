@@ -1518,6 +1518,9 @@ export function ItineraryClient({
                 startDate={itin.profile?.startDate ?? null}
                 endDate={itin.profile?.endDate ?? null}
                 budget={itin.profile?.budget ?? null}
+                groupType={itin.profile?.groupType ?? null}
+                interests={itin.profile?.interests ?? null}
+                dietary={itin.profile?.dietaryRestrictions ?? null}
                 accessToken={itin.session?.access_token ?? null}
                 onLockReservation={itin.recalculateDay}
                 recalculateDayLoading={itin.recalculateDayLoading}

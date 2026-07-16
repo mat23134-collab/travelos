@@ -216,10 +216,14 @@ export async function fetchRestaurantsForCity(
   // Pull a wider pool than `limit` when budget-filtering so partitioning still
   // has enough in-budget candidates to fill the panel from.
   const fetchLimit = maxPriceLevel != null ? Math.max(limit * 2, 24) : limit;
+  // Order by the new composite_score (nulls last for un-rescouted rows), then
+  // fall back to the legacy `score` so mixed old/new banks still sort sensibly.
+  // The request-time ranker re-orders this pool by personal fit anyway.
   const { data, error } = await sb
     .from(TABLE)
     .select('*')
     .eq('city_normalized', normalizeCity(city))
+    .order('composite_score', { ascending: false, nullsFirst: false })
     .order('score', { ascending: false })
     .limit(fetchLimit);
 
