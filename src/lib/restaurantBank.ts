@@ -216,16 +216,30 @@ export async function fetchRestaurantsForCity(
   // Pull a wider pool than `limit` when budget-filtering so partitioning still
   // has enough in-budget candidates to fill the panel from.
   const fetchLimit = maxPriceLevel != null ? Math.max(limit * 2, 24) : limit;
+  const cityNorm = normalizeCity(city);
+
   // Order by the new composite_score (nulls last for un-rescouted rows), then
   // fall back to the legacy `score` so mixed old/new banks still sort sensibly.
   // The request-time ranker re-orders this pool by personal fit anyway.
-  const { data, error } = await sb
+  let { data, error } = await sb
     .from(TABLE)
     .select('*')
-    .eq('city_normalized', normalizeCity(city))
+    .eq('city_normalized', cityNorm)
     .order('composite_score', { ascending: false, nullsFirst: false })
     .order('score', { ascending: false })
     .limit(fetchLimit);
+
+  // Resilience during the deploy window BEFORE the composite_score migration is
+  // applied: that column won't exist yet, so the ordered query errors. Fall back
+  // to the legacy score ordering so the panel never goes dark mid-rollout.
+  if (error) {
+    ({ data, error } = await sb
+      .from(TABLE)
+      .select('*')
+      .eq('city_normalized', cityNorm)
+      .order('score', { ascending: false })
+      .limit(fetchLimit));
+  }
 
   if (error || !data) return [];
   const all = data.map(rowToRec);
