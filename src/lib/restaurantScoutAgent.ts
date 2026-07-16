@@ -18,6 +18,9 @@
 
 import { RestaurantRecommendation, RestaurantLocaleText, SITE_LANGUAGES, SiteLanguage } from '@/lib/types';
 import { searchWeb } from '@/lib/rag';
+import { RESTAURANT_GENRES, canonicalizeGenre } from '@/lib/restaurantGenre';
+import { cityMeanRating, bayesRating, computeCompositeScore } from '@/lib/restaurantScoring';
+import { normalizeNeighborhoodSlug } from '@/lib/restaurantBank';
 
 /** Human-readable names so the prompt can request each site language explicitly. */
 const LANGUAGE_NAMES: Record<SiteLanguage, string> = {
@@ -93,6 +96,18 @@ interface GeminiCandidate {
   priceLevel?: number;
   neighborhood?: string;
   bookingPlatform?: string;
+  /** Canonical cuisine genre key (§5). */
+  cuisineGenre?: string;
+  /** 0–3 book-ahead necessity (§7). */
+  bookAheadLevel?: number;
+  /** Typical advance-booking lead time in days (§7). */
+  bookAheadDays?: number;
+  /** Which meals this place is for, e.g. ["lunch","dinner"]. */
+  mealSlots?: string[];
+  /** Dietary tokens the place caters to. */
+  dietaryTags?: string[];
+  /** Group-fit tokens (couple/family/group/solo). */
+  groupSuitability?: string[];
   /** Localizable text per language code, e.g. { en: {...}, he: {...} }. */
   translations?: Partial<Record<SiteLanguage, RestaurantLocaleText>>;
 }
@@ -112,12 +127,19 @@ function candidateSystemPrompt(maxPriceLevel?: number): string {
     .map((l) => `"${l}": { "highlight": "…", "cuisineStyle": "…", "description": "…", "signatureDish": "…", "bookingUrgency": "…", "bookingLeadTime": "…" }`)
     .join(', ');
 
+  const genreList = RESTAURANT_GENRES.join(', ');
   const outputContract = `Rules:
 - Only real, currently-operating restaurants you are confident exist. No invented names.
 - "priceRange" MUST be an approximate real cost band PER PERSON for a typical meal, in the LOCAL currency, with numbers — e.g. "€45–70 pp", "¥18,000–25,000 pp", "$120–180 pp". NEVER just symbols like "€€€".
 - "priceLevel" is 1 (cheap) to 4 (very expensive).
 - "bookingPlatform" is your best guess: "TheFork", "OpenTable", "website", or "phone".
 - "name" and "neighborhood" stay in their original/local form (do NOT translate proper place names).
+- "cuisineGenre" MUST be exactly one of: ${genreList}. Pick the single best fit.
+- "bookAheadLevel" is 0–3: 0 = walk-in / no reservations; 1 = book same week; 2 = book 1–4 weeks out (famous, weekend-impossible); 3 = book 1–3 months out or lottery (tasting menus, hardest tables). Be honest — a great walk-in counter is 0.
+- "bookAheadDays" is the typical advance-booking lead time in DAYS as a plain integer (e.g. 3, 14, 60).
+- "mealSlots" is an array from ["breakfast","lunch","dinner"] — the meals this place is genuinely for.
+- "dietaryTags" is an array (possibly empty) from ["vegetarian-friendly","vegan-friendly","kosher","halal","gluten-free"] — only what the place genuinely accommodates.
+- "groupSuitability" is an array (possibly empty) from ["solo","couple","family","group"] — who the place suits best.
 
 LOCALIZATION — write the following NATIVELY in EACH of these languages: ${langList} (natural, not a literal translation):
   - "highlight": a punchy 2–4 word badge of what makes it special, e.g. "Michelin tasting menu", "Cult carbonara", "Chef's counter", "Viral on TikTok".
@@ -128,7 +150,7 @@ LOCALIZATION — write the following NATIVELY in EACH of these languages: ${lang
   - "bookingLeadTime": ONLY the concrete typical advance-booking window, as a short phrase — e.g. "2–3 weeks ahead", "1–2 months ahead", "same week is fine". No full sentence.
 
 Return ONLY a JSON array. Each object:
-{ "name", "neighborhood", "priceRange", "priceLevel", "bookingPlatform", "translations": { ${translationsShape} } }.`;
+{ "name", "neighborhood", "priceRange", "priceLevel", "bookingPlatform", "cuisineGenre", "bookAheadLevel", "bookAheadDays", "mealSlots", "dietaryTags", "groupSuitability", "translations": { ${translationsShape} } }.`;
 
   if (maxPriceLevel != null) {
     // Budget-scoped run: a DEDICATED prompt that only ever asks for in-range
@@ -251,12 +273,25 @@ async function synthesizeCandidates(city: string, snippets: string, maxPriceLeve
           bookingLeadTime: str(c.bookingLeadTime) ?? null,
         };
       }
+      const strArray = (v: unknown): string[] | undefined =>
+        Array.isArray(v)
+          ? v.map((x) => (typeof x === 'string' ? x.trim().toLowerCase() : '')).filter(Boolean)
+          : undefined;
+
       return {
         name: str(c.name),
         priceRange: str(c.priceRange),
         priceLevel: Number.isFinite(c.priceLevel) ? Math.min(4, Math.max(1, Math.round(c.priceLevel))) : undefined,
         neighborhood: str(c.neighborhood),
         bookingPlatform: str(c.bookingPlatform),
+        cuisineGenre: canonicalizeGenre(str(c.cuisineGenre)) ?? undefined,
+        bookAheadLevel: Number.isFinite(c.bookAheadLevel)
+          ? Math.min(3, Math.max(0, Math.round(c.bookAheadLevel)))
+          : undefined,
+        bookAheadDays: Number.isFinite(c.bookAheadDays) ? Math.max(0, Math.round(c.bookAheadDays)) : undefined,
+        mealSlots: strArray(c.mealSlots),
+        dietaryTags: strArray(c.dietaryTags),
+        groupSuitability: strArray(c.groupSuitability),
         translations,
       };
     })
@@ -265,26 +300,10 @@ async function synthesizeCandidates(city: string, snippets: string, maxPriceLeve
 }
 
 // ─── Step 3 + 4: verify against Google Places, then score ───────────────────────
-
-/**
- * Scoring algorithm. Blends real-world signal (Google rating & review volume)
- * with how actionable the row is (verified + has a booking link). Kept simple
- * and explainable so it's easy to tune later.
- *
- *   base       = rating (0–5), default 3.2 when unknown
- *   popularity = log10(reviewCount) capped at 4  → rewards well-reviewed spots
- *   verified   = +1.5 when Google confirmed the place exists
- *   bookable   = +1.0 when we have a reservation/website URL
- */
-function scoreRestaurant(r: RestaurantRecommendation): number {
-  const base = (r.rating ?? 3.2);
-  const popularity = r.ratingCount && r.ratingCount > 0
-    ? Math.min(4, Math.log10(r.ratingCount))
-    : 0;
-  const verified = r.googlePlaceId ? 1.5 : 0;
-  const bookable = r.reservationUrl || r.websiteUrl ? 1.0 : 0;
-  return Number((base + popularity + verified + bookable).toFixed(3));
-}
+//
+// Scoring now lives in restaurantScoring.ts (Bayesian-adjusted composite, §6) —
+// computed in a batch pass at the end of runRestaurantScoutAgent so the city
+// mean is available. The old naive scoreRestaurant() was removed with it.
 
 /** Run an async mapper over items with a fixed concurrency cap. */
 async function mapWithConcurrency<T, R>(
@@ -318,6 +337,7 @@ interface PlaceLookup {
   website?: string | null;
   mapsUrl?: string | null;
   photoUrl?: string | null;
+  countryCode?: string | null;  // ISO-2, from Place Details address components
 }
 
 const EMPTY_LOOKUP: PlaceLookup = { found: false };
@@ -388,20 +408,25 @@ async function lookupRestaurantPlace(name: string, city: string): Promise<PlaceL
       photoUrl: photoRef ? await resolvePhotoUrl(photoRef, apiKey) : null,
     };
 
-    // Follow-up Place Details for the official website (Find Place can't return it).
+    // Follow-up Place Details for the official website + country (Find Place
+    // can't return either). Country drives reservation-platform routing (§9).
     if (cand.place_id) {
       try {
         const detUrl =
           `https://maps.googleapis.com/maps/api/place/details/json` +
-          `?place_id=${cand.place_id}&fields=website,url&key=${apiKey}`;
+          `?place_id=${cand.place_id}&fields=website,url,address_components&key=${apiKey}`;
         const detRes = await withTimeout(fetch(detUrl, { cache: 'no-store' }), PLACES_FETCH_MS);
         if (detRes.ok) {
           /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
           const det = (await detRes.json()) as any;
           lookup.website = det.result?.website ?? null;
           if (det.result?.url) lookup.mapsUrl = det.result.url;
+          /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+          const components = (det.result?.address_components ?? []) as any[];
+          const country = components.find((c) => Array.isArray(c.types) && c.types.includes('country'));
+          lookup.countryCode = country?.short_name ?? null;
         }
-      } catch { /* website is optional */ }
+      } catch { /* website + country are optional */ }
     }
 
     return lookup;
@@ -487,8 +512,17 @@ export async function runRestaurantScoutAgent(
       photoUrl: v.photoUrl ?? null,
       source: 'scout',
       score: 0,
+      // ── Book-Ahead engine fields ──────────────────────────────────────────
+      cuisineGenre: cand.cuisineGenre ?? canonicalizeGenre(enText.cuisineStyle) ?? null,
+      mealSlots: cand.mealSlots ?? null,
+      bookAheadLevel: cand.bookAheadLevel ?? null,
+      bookAheadDays: cand.bookAheadDays ?? null,
+      dietaryTags: cand.dietaryTags ?? null,
+      groupSuitability: cand.groupSuitability ?? null,
+      neighborhoodSlug: normalizeNeighborhoodSlug(cand.neighborhood),
+      countryCode: v.countryCode ?? null,
+      lastVerifiedAt: v.found ? new Date().toISOString() : null,
     };
-    rec.score = scoreRestaurant(rec);
     return { rec, googlePriceLevel: v.priceLevel ?? null };
   });
 
@@ -500,7 +534,21 @@ export async function runRestaurantScoutAgent(
     ? verified
     : verified.filter(({ googlePriceLevel }) => googlePriceLevel == null || googlePriceLevel <= maxPriceLevel);
 
-  // 4. Rank best-first. Even when few places verify, we still return the AI
-  //    shortlist (unverified rows score lower but keep the UI from being empty).
-  return filtered.map(({ rec }) => rec).sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+  const recs = filtered.map(({ rec }) => rec);
+
+  // 4. Composite scoring (§6). The Bayesian city-mean prior is computed across
+  //    this batch, then each rec gets a stored bayes_rating + composite_score.
+  //    `score` mirrors composite_score so the existing order-by-score read path
+  //    (and older callers) keep a sensible best-first ordering; the request-time
+  //    ranker re-orders by composite + personal fit.
+  const cityMean = cityMeanRating(recs);
+  for (const rec of recs) {
+    rec.bayesRating = Number(bayesRating(rec.rating, rec.ratingCount, cityMean).toFixed(3));
+    rec.compositeScore = computeCompositeScore(rec, cityMean);
+    rec.score = rec.compositeScore;
+  }
+
+  // Even when few places verify, we still return the AI shortlist (unverified
+  // rows score lower but keep the UI from being empty).
+  return recs.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 }

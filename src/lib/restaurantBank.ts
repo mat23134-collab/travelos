@@ -32,6 +32,23 @@ export function normalizeCity(city: string): string {
   return city.trim().toLowerCase();
 }
 
+/**
+ * Normalize a neighborhood name into a stable slug used to join a restaurant to
+ * an itinerary day's neighborhood (GeoFit, §6.5). Lower-cases, strips accents
+ * and punctuation, collapses whitespace to single hyphens. Returns null for
+ * empty input so callers can treat "no neighborhood" as unknown, not "".
+ */
+export function normalizeNeighborhoodSlug(name: string | null | undefined): string | null {
+  if (!name) return null;
+  const slug = name
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')      // strip Latin diacritics
+    .toLowerCase()
+    .replace(/[^a-z0-9֐-׿]+/g, '-') // keep latin + Hebrew, else hyphen
+    .replace(/^-+|-+$/g, '');
+  return slug || null;
+}
+
 function normalizeName(name: string): string {
   return name.trim().toLowerCase();
 }
@@ -60,6 +77,17 @@ function rowToRec(row: any): RestaurantRecommendation {
     photoUrl: row.photo_url,
     source: row.source,
     score: row.score,
+    cuisineGenre: row.cuisine_genre ?? null,
+    mealSlots: row.meal_slots ?? null,
+    bookAheadLevel: row.book_ahead_level ?? null,
+    bookAheadDays: row.book_ahead_days ?? null,
+    dietaryTags: row.dietary_tags ?? null,
+    groupSuitability: row.group_suitability ?? null,
+    neighborhoodSlug: row.neighborhood_slug ?? null,
+    countryCode: row.country_code ?? null,
+    bayesRating: row.bayes_rating != null ? Number(row.bayes_rating) : null,
+    compositeScore: row.composite_score != null ? Number(row.composite_score) : null,
+    lastVerifiedAt: row.last_verified_at ?? null,
   };
 }
 
@@ -87,6 +115,17 @@ function recToRow(rec: RestaurantRecommendation) {
     photo_url: rec.photoUrl ?? null,
     source: rec.source ?? 'scout',
     score: rec.score ?? 0,
+    cuisine_genre: rec.cuisineGenre ?? null,
+    meal_slots: rec.mealSlots ?? null,
+    book_ahead_level: rec.bookAheadLevel ?? null,
+    book_ahead_days: rec.bookAheadDays ?? null,
+    dietary_tags: rec.dietaryTags ?? null,
+    group_suitability: rec.groupSuitability ?? null,
+    neighborhood_slug: rec.neighborhoodSlug ?? null,
+    country_code: rec.countryCode ?? null,
+    bayes_rating: rec.bayesRating ?? null,
+    composite_score: rec.compositeScore ?? null,
+    last_verified_at: rec.lastVerifiedAt ?? null,
     updated_at: new Date().toISOString(),
   };
 }
