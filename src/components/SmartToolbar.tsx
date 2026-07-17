@@ -71,6 +71,7 @@ const COPY = {
     tierName2: 'מחיר ביניים',
     tierName3: 'יוקרתי',
     tierName4: 'פרימיום',
+    yourBudgetTag: 'שלך',
     emptyTier: 'אין עדיין מסעדות ברמה הזו',
     badgeKosher: 'כשר',
     badgeKosherStyle: 'כשר סטייל',
@@ -147,6 +148,7 @@ const COPY = {
     tierName2: 'Mid-range',
     tierName3: 'Upscale',
     tierName4: 'Premium',
+    yourBudgetTag: 'yours',
     emptyTier: 'No restaurants at this level yet',
     badgeKosher: 'Kosher',
     badgeKosherStyle: 'Kosher-style',
@@ -259,42 +261,105 @@ export function SmartToolbar(props: SmartToolbarProps) {
             <motion.button
               key={f.key}
               onClick={() => setActive(on ? null : f.key)}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold transition-colors"
+              whileHover={{ scale: 1.03, y: -1 }}
+              whileTap={{ scale: 0.97 }}
+              className="flex items-center gap-2 px-4 py-2 rounded-full text-[13px] font-semibold"
               style={{
                 background: on ? ACCENT : CARD_BG,
                 border: on ? BORDER_ACC : BORDER,
                 color: on ? '#fff' : INK,
+                boxShadow: on ? '0 6px 18px -6px rgba(184,85,46,0.55)' : '0 2px 6px -4px rgba(43,38,34,0.35)',
               }}
             >
-              <span>{f.emoji}</span>
+              <span className="text-[15px] leading-none">{f.emoji}</span>
               {COPY[lang][f.labelKey]}
             </motion.button>
           );
         })}
       </div>
 
-      <AnimatePresence initial={false} mode="wait">
+      {/* Feature content opens in a floating overlay (not inline below). */}
+      <AnimatePresence>
         {active !== null && (
-          <motion.div
-            key={active}
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.28 }}
-            className="overflow-hidden"
+          <FeatureModal
+            title={`${FEATURES.find((f) => f.key === active)!.emoji}  ${COPY[lang][active]}`}
+            lang={lang}
+            onClose={() => setActive(null)}
           >
-            <div className="pt-4">
-              {active === 'explore' && <ExplorePanel {...props} />}
-              {active === 'restaurants' && <RestaurantsPanel {...props} />}
-              {active === 'attractions' && <AttractionsPanel {...props} />}
-              {active === 'events' && <EventsPanel {...props} />}
-            </div>
-          </motion.div>
+            {active === 'explore' && <ExplorePanel {...props} />}
+            {active === 'restaurants' && <RestaurantsPanel {...props} />}
+            {active === 'attractions' && <AttractionsPanel {...props} />}
+            {active === 'events' && <EventsPanel {...props} />}
+          </FeatureModal>
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+/**
+ * FeatureModal — the floating overlay a concierge feature opens into (a mobile
+ * bottom-sheet, a centered desktop dialog). Replaces the old inline expand so
+ * the content floats above the page instead of pushing it down.
+ */
+function FeatureModal({
+  title, lang, onClose, children,
+}: {
+  title: string;
+  lang: Lang;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  const t = COPY[lang];
+  const dir = lang === 'he' ? 'rtl' : 'ltr';
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => { document.body.style.overflow = prev; window.removeEventListener('keydown', onKey); };
+  }, [onClose]);
+
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <motion.div
+      className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center p-0 sm:p-6"
+      dir={dir}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <div className="fixed inset-0 bg-[#1a130c]/55 backdrop-blur-md" onClick={onClose} />
+      <motion.div
+        className="relative z-10 w-full sm:max-w-4xl max-h-[94dvh] sm:max-h-[90dvh] flex flex-col overflow-hidden rounded-t-[26px] sm:rounded-[26px] shadow-2xl"
+        style={{ background: 'var(--color-paper, #efe3cd)', boxShadow: '0 24px 60px -12px rgba(26,19,12,0.55)' }}
+        initial={{ y: 48, opacity: 0.85, scale: 0.99 }}
+        animate={{ y: 0, opacity: 1, scale: 1 }}
+        exit={{ y: 48, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 360, damping: 34 }}
+      >
+        {/* Grab handle (mobile) */}
+        <div className="sm:hidden flex justify-center pt-2.5 pb-1">
+          <span className="w-10 h-1 rounded-full" style={{ background: 'rgba(43,38,34,0.22)' }} />
+        </div>
+        <div className="flex items-center justify-between gap-4 px-5 sm:px-6 pt-3 sm:pt-5 pb-3 border-b" style={{ borderColor: 'rgba(43,38,34,0.10)' }}>
+          <h2 className="text-[17px] sm:text-[19px] font-bold leading-tight" style={{ color: INK }}>{title}</h2>
+          <button
+            onClick={onClose}
+            aria-label={t.close ?? 'Close'}
+            className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-[15px] font-bold transition-transform active:scale-90"
+            style={{ background: CARD_BG, border: BORDER, color: INK }}
+          >
+            ✕
+          </button>
+        </div>
+        <div className="overflow-y-auto overscroll-contain px-5 sm:px-6 py-4">
+          {children}
+        </div>
+      </motion.div>
+    </motion.div>,
+    document.body,
   );
 }
 
@@ -683,15 +748,6 @@ function RestaurantsPanel({ destination, days, lang, budget, groupType, interest
     );
   }
 
-  // Price-range selector: the traveler's budget ceiling, plus a step up a tier,
-  // plus all-the-way-to-luxury. Only shown when there's actually a tier above
-  // their budget to browse (a luxury/no-budget trip already sees everything).
-  const tierOptions: { label: string; level: number }[] = [];
-  if (budgetCeiling < 4) {
-    tierOptions.push({ label: t.tierMyBudget, level: budgetCeiling });
-    if (budgetCeiling + 1 < 4) tierOptions.push({ label: t.tierOneUp, level: budgetCeiling + 1 });
-    tierOptions.push({ label: t.tierLuxury, level: 4 });
-  }
 
   return (
     <div>
@@ -704,38 +760,14 @@ function RestaurantsPanel({ destination, days, lang, budget, groupType, interest
             <button
               onClick={() => void refreshRestaurants()}
               disabled={refreshing}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11.5px] font-bold whitespace-nowrap transition-colors disabled:opacity-60"
-              style={{ background: CARD_BG, border: BORDER, color: INK }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11.5px] font-bold whitespace-nowrap transition-transform active:scale-95 disabled:opacity-60"
+              style={{ background: CARD_BG, border: BORDER, color: INK, boxShadow: '0 2px 6px -4px rgba(43,38,34,0.35)' }}
             >
               {refreshing ? <Spinner /> : '🔄'}
               {refreshing ? t.refreshing : t.refresh}
             </button>
           )}
-          {tierOptions.length > 1 && (
-            <div className="flex items-center gap-2">
-              <span className="text-[10.5px] font-semibold" style={{ color: INK_FAINT }}>{t.priceRangeLabel}</span>
-              <div className="flex rounded-xl overflow-hidden" style={{ border: BORDER }}>
-                {tierOptions.map((opt, i) => {
-                  const on = viewLevel === opt.level;
-                  return (
-                    <button
-                      key={opt.level}
-                      onClick={() => setViewLevel(opt.level)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-[11.5px] font-bold whitespace-nowrap transition-colors"
-                      style={{
-                        background: on ? ACCENT : CARD_BG,
-                        color: on ? '#fff' : INK,
-                        borderInlineStart: i > 0 ? BORDER : undefined,
-                      }}
-                    >
-                      <PriceTierPips level={opt.level} active={on} />
-                      {opt.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          <PriceLadder viewLevel={viewLevel} budgetCeiling={budgetCeiling} onSelect={setViewLevel} lang={lang} />
         </div>
       </div>
 
@@ -962,6 +994,58 @@ function DietaryBadge({ label, tone }: { label: string; tone: 'kosher' | 'kosher
 /** Localized name for a 1–4 price tier. */
 function tierName(level: number, t: (typeof COPY)[Lang]): string {
   return [t.tierName1, t.tierName2, t.tierName3, t.tierName4][Math.min(3, Math.max(0, level - 1))];
+}
+
+/**
+ * PriceLadder — the price-range selector. All four levels as a single connected
+ * "ladder" (great value → premium); tapping a rung shows everything up to it.
+ * The trip's own budget rung is marked so the traveler always knows their
+ * baseline while browsing up. Replaces the old two-preset toggle.
+ */
+function PriceLadder({
+  viewLevel, budgetCeiling, onSelect, lang,
+}: {
+  viewLevel: number;
+  budgetCeiling: number;
+  onSelect: (level: number) => void;
+  lang: Lang;
+}) {
+  const t = COPY[lang];
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[10.5px] font-semibold whitespace-nowrap" style={{ color: INK_FAINT }}>{t.priceRangeLabel}</span>
+      <div className="flex rounded-xl p-0.5 gap-0.5" style={{ background: 'rgba(43,38,34,0.06)', border: BORDER }}>
+        {[1, 2, 3, 4].map((level) => {
+          const on = viewLevel === level;
+          const isBudget = level === budgetCeiling;
+          return (
+            <button
+              key={level}
+              onClick={() => onSelect(level)}
+              title={tierName(level, t)}
+              className="relative flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all"
+              style={{
+                background: on ? ACCENT : 'transparent',
+                color: on ? '#fff' : INK,
+                boxShadow: on ? '0 2px 8px -3px rgba(184,85,46,0.6)' : undefined,
+              }}
+            >
+              <PriceTierPips level={level} active={on} />
+              <span className="hidden sm:inline">{tierName(level, t)}</span>
+              {isBudget && (
+                <span
+                  className="text-[8.5px] font-bold px-1 py-px rounded-full leading-none"
+                  style={{ background: on ? 'rgba(255,255,255,0.28)' : TERRA_SOFT, color: on ? '#fff' : ACCENT_DEEP }}
+                >
+                  {t.yourBudgetTag}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 /** Four pips, filled up to `level` — a clean, language-neutral price indicator. */
