@@ -344,13 +344,37 @@ export async function upsertRestaurants(
 
   if (rows.length === 0) return 0;
 
-  const { error, count } = await sb
-    .from(TABLE)
-    .insert(rows, { count: 'exact' });
+  return insertResilient(sb, rows);
+}
 
-  if (error) {
-    console.warn('[restaurantBank] insert failed:', error.message);
-    return 0;
+/**
+ * Insert rows, self-healing around columns that don't exist in the DB yet — the
+ * deploy ships ahead of its migration (schema changes are applied out-of-band,
+ * not by the app). PostgREST reports a missing column by name (code PGRST204);
+ * we strip that column from every row and retry, so a fresh scout still writes
+ * its core fields during the window before a new migration lands. Mirrors the
+ * read-path fallback in fetchRestaurantsForCity.
+ */
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+async function insertResilient(sb: SupabaseClient, rows: any[]): Promise<number> {
+  let attemptRows = rows;
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const { error, count } = await sb.from(TABLE).insert(attemptRows, { count: 'exact' });
+    if (!error) return count ?? attemptRows.length;
+
+    // "Could not find the 'X' column of 'restaurant_recommendations' in the schema cache"
+    const missing = /find the '([^']+)' column/i.exec(error.message)?.[1]
+      ?? /column "([^"]+)" of relation/i.exec(error.message)?.[1];
+    if (!missing || !(missing in attemptRows[0])) {
+      console.warn('[restaurantBank] insert failed:', error.message);
+      return 0;
+    }
+    console.warn(`[restaurantBank] column "${missing}" not in schema yet — retrying without it`);
+    attemptRows = attemptRows.map((r) => {
+      const { [missing]: _drop, ...rest } = r;
+      return rest;
+    });
   }
-  return count ?? rows.length;
+  console.warn('[restaurantBank] insert failed after stripping unknown columns');
+  return 0;
 }
