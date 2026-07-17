@@ -458,7 +458,7 @@ function ExplorePanel({ destination, days, lang, accessToken, onLockReservation,
 
   return (
     <div>
-      <p className="text-[12.5px] leading-relaxed mb-4 mx-1" style={{ color: INK_MUT }}>
+      <p className="text-[13.5px] leading-[1.65] font-medium mb-4 mx-1 max-w-[62ch]" style={{ color: INK_MUT }}>
         {t.exploreIntro(destination)}
       </p>
       <div className="flex flex-col gap-5">
@@ -751,24 +751,24 @@ function RestaurantsPanel({ destination, days, lang, budget, groupType, interest
 
   return (
     <div>
-      <div className="flex items-start justify-between gap-3 mb-4 mx-1">
-        <p className="text-[12.5px] leading-relaxed" style={{ color: INK_MUT }}>
-          {t.intro(destination)}
-        </p>
-        <div className="flex flex-col items-end gap-2 shrink-0">
-          {accessToken && (
-            <button
-              onClick={() => void refreshRestaurants()}
-              disabled={refreshing}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11.5px] font-bold whitespace-nowrap transition-transform active:scale-95 disabled:opacity-60"
-              style={{ background: CARD_BG, border: BORDER, color: INK, boxShadow: '0 2px 6px -4px rgba(43,38,34,0.35)' }}
-            >
-              {refreshing ? <Spinner /> : '🔄'}
-              {refreshing ? t.refreshing : t.refresh}
-            </button>
-          )}
-          <PriceLadder viewLevel={viewLevel} budgetCeiling={budgetCeiling} onSelect={setViewLevel} lang={lang} />
-        </div>
+      {/* Intro spans the full width so it reads as a paragraph, not a squeezed
+          column; controls sit on their own row below. */}
+      <p className="text-[13.5px] leading-[1.65] font-medium mb-4 mx-1 max-w-[62ch]" style={{ color: INK_MUT }}>
+        {t.intro(destination)}
+      </p>
+      <div className="flex items-center justify-between gap-2 flex-wrap mb-4 mx-1">
+        <PriceLadder viewLevel={viewLevel} budgetCeiling={budgetCeiling} onSelect={setViewLevel} lang={lang} />
+        {accessToken && (
+          <button
+            onClick={() => void refreshRestaurants()}
+            disabled={refreshing}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11.5px] font-bold whitespace-nowrap transition-transform active:scale-95 disabled:opacity-60"
+            style={{ background: CARD_BG, border: BORDER, color: INK, boxShadow: '0 2px 6px -4px rgba(43,38,34,0.35)' }}
+          >
+            {refreshing ? <Spinner /> : '🔄'}
+            {refreshing ? t.refreshing : t.refresh}
+          </button>
+        )}
       </div>
 
       {/* Filter row: cuisine-concept chips (only those present in this city's
@@ -1435,7 +1435,7 @@ function AttractionsPanel({ destination, days, lang, accessToken, onLockReservat
 
   return (
     <div>
-      <p className="text-[12.5px] leading-relaxed mb-4 mx-1" style={{ color: INK_MUT }}>
+      <p className="text-[13.5px] leading-[1.65] font-medium mb-4 mx-1 max-w-[62ch]" style={{ color: INK_MUT }}>
         {t.attractionsIntro(destination)}
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -1684,7 +1684,7 @@ function EventsPanel({ destination, days, lang, startDate, endDate, accessToken,
 
   return (
     <div>
-      <p className="text-[12.5px] leading-relaxed mb-4 mx-1" style={{ color: INK_MUT }}>
+      <p className="text-[13.5px] leading-[1.65] font-medium mb-4 mx-1 max-w-[62ch]" style={{ color: INK_MUT }}>
         {t.eventsIntro(destination)}
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
