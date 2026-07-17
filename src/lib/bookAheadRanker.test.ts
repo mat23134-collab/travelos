@@ -1,7 +1,7 @@
 // src/lib/bookAheadRanker.test.ts
 // Run: npx tsx src/lib/bookAheadRanker.test.ts
 import assert from 'node:assert/strict';
-import { bayesRating, computeCompositeScore, cityMeanRating } from './restaurantScoring';
+import { bayesRating, computeCompositeScore, cityMeanRating, computeValueScore, touristTrapPenalty } from './restaurantScoring';
 import { rankBookAhead } from './bookAheadRanker';
 import { routeReservation } from './platformRouter';
 import { canonicalizeGenre, genreFit } from './restaurantGenre';
@@ -114,6 +114,76 @@ assert.equal(genreFit([], ['pasta']), 0.5, 'no trip taste → neutral');
   });
   assert.equal(picks[0].suggestedDay, 1, 'matches Day index 1 by neighborhood');
   assert.equal(picks[0].bookByDate, '2026-08-27', 'book-by = start − 14d');
+}
+
+// ── price-range selector: browsing one level up surfaces that tier ────────────
+{
+  const mk = (name: string, level: number, comp: number): RestaurantRecommendation => ({
+    city: 'Tokyo', name, cuisineGenre: level >= 3 ? 'fine-dining' : 'trattoria-bistro',
+    priceLevel: level, bookAheadLevel: level >= 3 ? 3 : 1, rating: 4.6, ratingCount: 1500,
+    googlePlaceId: `g-${name}`, reservationUrl: `https://r/${name}`, neighborhoodSlug: `nb-${name}`,
+    compositeScore: comp,
+  });
+  // Budget-tier rows score a touch higher on composite; without the view bump a
+  // budget trip (target 2) keeps level-3 picks penalized/buried.
+  const bank = [
+    mk('b1', 2, 0.80), mk('b2', 2, 0.79), mk('b3', 2, 0.78), mk('b4', 2, 0.77),
+    mk('up1', 3, 0.76), mk('up2', 3, 0.75), mk('up3', 3, 0.74),
+  ];
+
+  const atBudget = rankBookAhead(bank, { budget: 'budget', nights: 4, viewMaxLevel: 2, limit: 4 });
+  assert.ok(
+    atBudget.every((p) => (p.priceLevel ?? 0) <= 2) || atBudget.filter((p) => p.priceLevel === 3).length <= 1,
+    'at-budget view stays budget-weighted',
+  );
+
+  const oneUp = rankBookAhead(bank, { budget: 'budget', nights: 4, viewMaxLevel: 3, limit: 4 });
+  const upCount = oneUp.filter((p) => p.priceLevel === 3).length;
+  assert.ok(upCount >= 2, `browsing one level up should surface level-3 picks, got ${upCount}`);
+}
+
+// ── browsing luxury lifts the hero cap ────────────────────────────────────────
+{
+  const heroes = Array.from({ length: 6 }, (_, i): RestaurantRecommendation => ({
+    city: 'Paris', name: `lux-${i}`, cuisineGenre: 'fine-dining', priceLevel: 4,
+    bookAheadLevel: 3, rating: 4.7, ratingCount: 2000, googlePlaceId: `h${i}`,
+    reservationUrl: `https://r/${i}`, neighborhoodSlug: `n${i}`, compositeScore: 0.85 - i * 0.001,
+  }));
+  const picks = rankBookAhead(heroes, { budget: 'budget', nights: 3, viewMaxLevel: 4, limit: 5 });
+  const heroCount = picks.filter((p) => (p.priceLevel ?? 0) >= 4).length;
+  assert.ok(heroCount >= 4, `luxury browse should lift the hero cap, got ${heroCount}`);
+}
+
+// ── value-for-money: cheap+great beats expensive+mediocre ─────────────────────
+{
+  const cheapGreat = computeValueScore({ city: 'x', name: 'a', rating: 4.7, ratingCount: 3000, priceLevel: 1 });
+  const dearMeh = computeValueScore({ city: 'x', name: 'b', rating: 4.1, ratingCount: 3000, priceLevel: 4 });
+  assert.ok(cheapGreat > dearMeh, `value: cheap+great(${cheapGreat}) > dear+meh(${dearMeh})`);
+  assert.ok(cheapGreat <= 1 && dearMeh >= 0, 'value stays in [0,1]');
+}
+
+// ── tourist-trap penalty: pricey + mediocre + on-landmark drops; unknown = 1 ───
+{
+  const trap = touristTrapPenalty({ city: 'x', name: 't', rating: 4.0, ratingCount: 800, priceLevel: 4, nearLandmark: true });
+  assert.ok(trap < 1, `trap penalty applies (${trap})`);
+  const clean = touristTrapPenalty({ city: 'x', name: 'c', rating: 4.0, ratingCount: 800, priceLevel: 4 });
+  assert.equal(clean, 1, 'no landmark signal → no penalty');
+  const goodNearby = touristTrapPenalty({ city: 'x', name: 'g', rating: 4.7, ratingCount: 5000, priceLevel: 4, nearLandmark: true });
+  assert.equal(goodNearby, 1, 'genuinely great place near a landmark is not penalized');
+  // The penalty measurably lowers composite rank.
+  const trapComposite = computeCompositeScore({ city: 'x', name: 't', rating: 4.0, ratingCount: 800, priceLevel: 4, nearLandmark: true, googlePlaceId: 'g', reservationUrl: 'https://r' });
+  const cleanComposite = computeCompositeScore({ city: 'x', name: 'c', rating: 4.0, ratingCount: 800, priceLevel: 4, googlePlaceId: 'g', reservationUrl: 'https://r' });
+  assert.ok(trapComposite < cleanComposite, 'tourist trap ranks below its clean twin');
+}
+
+// ── kosher gate: a kosher trip excludes a known non-kosher place, keeps others ─
+{
+  const nonKosher: RestaurantRecommendation = { city: 'x', name: 'pork', kosherStatus: 'none', priceLevel: 2, bookAheadLevel: 2, rating: 4.6, ratingCount: 2000, googlePlaceId: 'p', reservationUrl: 'https://r', compositeScore: 0.9 };
+  const certified: RestaurantRecommendation = { city: 'x', name: 'kosher', kosherStatus: 'certified', priceLevel: 2, bookAheadLevel: 2, rating: 4.5, ratingCount: 1500, googlePlaceId: 'k', reservationUrl: 'https://r2', compositeScore: 0.6 };
+  const unknown: RestaurantRecommendation = { city: 'x', name: 'unknown', priceLevel: 2, bookAheadLevel: 2, rating: 4.5, ratingCount: 1500, googlePlaceId: 'u', reservationUrl: 'https://r3', compositeScore: 0.55 };
+  const picks = rankBookAhead([nonKosher, certified, unknown], { dietary: ['kosher'], limit: 6 });
+  assert.ok(!picks.some((p) => p.name === 'pork'), 'known non-kosher excluded for kosher trip');
+  assert.ok(picks.some((p) => p.name === 'kosher') && picks.some((p) => p.name === 'unknown'), 'certified + unknown kept');
 }
 
 console.log('✓ bookAheadRanker/scoring/platform/genre tests passed');

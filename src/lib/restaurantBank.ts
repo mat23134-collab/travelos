@@ -89,6 +89,15 @@ export function rowToRec(row: any): RestaurantRecommendation {
     bayesRating: row.bayes_rating != null ? Number(row.bayes_rating) : null,
     compositeScore: row.composite_score != null ? Number(row.composite_score) : null,
     lastVerifiedAt: row.last_verified_at ?? null,
+    kosherStatus: row.kosher_status ?? null,
+    vegetarianFriendly: row.vegetarian_friendly ?? null,
+    veganFriendly: row.vegan_friendly ?? null,
+    nearLandmark: row.near_landmark ?? null,
+    landmarkDistanceM: row.landmark_distance_m ?? null,
+    lastReviewAt: row.last_review_at ?? null,
+    valueScore: row.value_score != null ? Number(row.value_score) : null,
+    touristTrapPenalty: row.tourist_trap_penalty != null ? Number(row.tourist_trap_penalty) : null,
+    hebrewSocialUrl: row.hebrew_social_url ?? null,
   };
 }
 
@@ -127,6 +136,15 @@ function recToRow(rec: RestaurantRecommendation) {
     bayes_rating: rec.bayesRating ?? null,
     composite_score: rec.compositeScore ?? null,
     last_verified_at: rec.lastVerifiedAt ?? null,
+    kosher_status: rec.kosherStatus ?? null,
+    vegetarian_friendly: rec.vegetarianFriendly ?? null,
+    vegan_friendly: rec.veganFriendly ?? null,
+    near_landmark: rec.nearLandmark ?? null,
+    landmark_distance_m: rec.landmarkDistanceM ?? null,
+    last_review_at: rec.lastReviewAt ?? null,
+    value_score: rec.valueScore ?? null,
+    tourist_trap_penalty: rec.touristTrapPenalty ?? null,
+    hebrew_social_url: rec.hebrewSocialUrl ?? null,
     updated_at: new Date().toISOString(),
   };
 }
@@ -326,13 +344,37 @@ export async function upsertRestaurants(
 
   if (rows.length === 0) return 0;
 
-  const { error, count } = await sb
-    .from(TABLE)
-    .insert(rows, { count: 'exact' });
+  return insertResilient(sb, rows);
+}
 
-  if (error) {
-    console.warn('[restaurantBank] insert failed:', error.message);
-    return 0;
+/**
+ * Insert rows, self-healing around columns that don't exist in the DB yet — the
+ * deploy ships ahead of its migration (schema changes are applied out-of-band,
+ * not by the app). PostgREST reports a missing column by name (code PGRST204);
+ * we strip that column from every row and retry, so a fresh scout still writes
+ * its core fields during the window before a new migration lands. Mirrors the
+ * read-path fallback in fetchRestaurantsForCity.
+ */
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+async function insertResilient(sb: SupabaseClient, rows: any[]): Promise<number> {
+  let attemptRows = rows;
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const { error, count } = await sb.from(TABLE).insert(attemptRows, { count: 'exact' });
+    if (!error) return count ?? attemptRows.length;
+
+    // "Could not find the 'X' column of 'restaurant_recommendations' in the schema cache"
+    const missing = /find the '([^']+)' column/i.exec(error.message)?.[1]
+      ?? /column "([^"]+)" of relation/i.exec(error.message)?.[1];
+    if (!missing || !(missing in attemptRows[0])) {
+      console.warn('[restaurantBank] insert failed:', error.message);
+      return 0;
+    }
+    console.warn(`[restaurantBank] column "${missing}" not in schema yet — retrying without it`);
+    attemptRows = attemptRows.map((r) => {
+      const { [missing]: _drop, ...rest } = r;
+      return rest;
+    });
   }
-  return count ?? rows.length;
+  console.warn('[restaurantBank] insert failed after stripping unknown columns');
+  return 0;
 }

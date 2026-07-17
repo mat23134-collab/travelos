@@ -40,7 +40,19 @@ export async function GET(req: NextRequest) {
   const budget: BudgetLevel | null = BUDGET_LEVELS.includes(budgetParam as BudgetLevel)
     ? (budgetParam as BudgetLevel)
     : null;
-  const maxPriceLevel = budget && !showSplurge ? MAX_PRICE_LEVEL_BY_BUDGET[budget] : undefined;
+
+  // `maxLevel` (1–4) from the panel's price-range selector takes precedence: it
+  // sets the ceiling directly so the traveler can browse one tier above their
+  // budget without jumping straight to the full unfiltered (splurge) list.
+  // Falls back to the budget-derived ceiling, and `splurge=1` still lifts it.
+  const maxLevelParam = Number(req.nextUrl.searchParams.get('maxLevel'));
+  const maxLevel = Number.isFinite(maxLevelParam) ? Math.min(4, Math.max(1, Math.round(maxLevelParam))) : null;
+  const maxPriceLevel =
+    maxLevel != null
+      ? (maxLevel >= 4 ? undefined : maxLevel)                 // 4 = show everything
+      : budget && !showSplurge
+        ? MAX_PRICE_LEVEL_BY_BUDGET[budget]
+        : undefined;
 
   // Wider pool (capped) so the client-side ranker has candidates to diversify
   // and fit-rank over; it trims back to the 4–8 shown.

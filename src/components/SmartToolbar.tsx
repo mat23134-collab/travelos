@@ -26,8 +26,9 @@ import type {
 import type { Landmark } from '@/app/api/landmarks/route';
 import { AttractionDetailModal } from '@/components/AttractionDetailModal';
 import { rankBookAhead, type TripDayGeo } from '@/lib/bookAheadRanker';
-import { normalizeNeighborhoodSlug } from '@/lib/restaurantBank';
+import { normalizeNeighborhoodSlug, MAX_PRICE_LEVEL_BY_BUDGET } from '@/lib/restaurantBank';
 import { genreLabel } from '@/lib/restaurantGenre';
+import { availableConcepts, matchesConcept } from '@/lib/restaurantConcepts';
 import { trackReservationCtaClick, trackBookAheadPanelShown } from '@/lib/bookAheadMetrics';
 
 // ─── Design tokens (light "paper" overview theme) ─────────────────────────────
@@ -55,6 +56,15 @@ const COPY = {
       `בחרנו עבורכם את המסעדות המומלצות ב${city} שכדאי להזמין מראש, בהתאמה לתקציב שבחרתם בטיול — מסוננות לפי דירוגים, ביקורות אמיתיות וזמינות. בחרו מקום, קבעו יום ושעה, ואנחנו נשבץ אותו במסלול ונארגן מחדש את היום סביב ההזמנה.`,
     splurgeToggleOn:  '✨ הציגו גם מסעדות יוקרה',
     splurgeToggleOff: '💰 חזרה לתקציב שלי',
+    priceRangeLabel: 'טווח מחירים',
+    tierMyBudget: 'התקציב שלי',
+    tierOneUp: 'רמה מעל',
+    tierLuxury: 'כולל יוקרה',
+    conceptAll: 'הכול',
+    badgeKosher: 'כשר',
+    badgeKosherStyle: 'כשר סטייל',
+    badgeVeg: 'צמחוני',
+    badgeVegan: 'טבעוני',
     refresh: 'רענון מסעדות',
     refreshing: 'מחפשים עוד מסעדות מתאימות…',
     bookByLabel: (d: string) => `כדאי להזמין עד ${d}`,
@@ -112,6 +122,15 @@ const COPY = {
       `We've curated the restaurants in ${city} worth reserving ahead, matched to the budget you picked for this trip — filtered by rating, real reviews and availability. Pick a place, choose a day and time, and we'll slot it into your itinerary and reschedule that day around it.`,
     splurgeToggleOn:  '✨ Show splurge picks too',
     splurgeToggleOff: '💰 Back to my budget',
+    priceRangeLabel: 'Price range',
+    tierMyBudget: 'My budget',
+    tierOneUp: 'One level up',
+    tierLuxury: 'Incl. luxury',
+    conceptAll: 'All',
+    badgeKosher: 'Kosher',
+    badgeKosherStyle: 'Kosher-style',
+    badgeVeg: 'Vegetarian',
+    badgeVegan: 'Vegan',
     refresh: 'Refresh restaurants',
     refreshing: 'Finding more matching restaurants…',
     bookByLabel: (d: string) => `Book by ${d}`,
@@ -437,12 +456,20 @@ function RestaurantsPanel({ destination, days, lang, budget, groupType, interest
   const t = COPY[lang];
   const [status, setStatus] = useState<'idle' | 'loading' | 'scouting' | 'ready' | 'error'>('idle');
   const [restaurants, setRestaurants] = useState<RestaurantRecommendation[]>([]);
-  const [splurgeAvailable, setSplurgeAvailable] = useState(false);
   const [picked, setPicked] = useState<RestaurantRecommendation | null>(null);
-  // Off by default (unless the trip is already 'luxury', which the server
-  // treats as unfiltered anyway) — the traveler opts INTO pricier picks,
-  // rather than the panel defaulting to splurge-only.
-  const [showSplurge, setShowSplurge] = useState(false);
+  // The trip budget's default price ceiling (budget→2, mid-range→3, luxury→4).
+  // A trip with no budget on file sees everything.
+  const budgetCeiling = budget ? MAX_PRICE_LEVEL_BY_BUDGET[budget] : 4;
+  // Which max price level the traveler is currently browsing. Defaults to their
+  // budget ceiling; the price-range selector lets them step up a tier ("one
+  // level up") or all the way to luxury — instead of the old binary toggle.
+  const [viewLevel, setViewLevel] = useState(budgetCeiling);
+  // Reset the view when the trip budget changes.
+  useEffect(() => { setViewLevel(budgetCeiling); }, [budgetCeiling]);
+  // Cuisine-concept filter (ramen / sushi / pizza / …) — null = all concepts.
+  const [activeConcept, setActiveConcept] = useState<string | null>(null);
+  // Drop the concept filter when the city changes (its concepts differ).
+  useEffect(() => { setActiveConcept(null); }, [destination]);
   // Manual, foreground top-up: the automatic background revalidate (on
   // `stale`/`needsTopUp`) is fire-and-forget and invisible, so a traveler
   // stuck with a luxury-skewed bank has no way to see it actually happen.
@@ -455,7 +482,8 @@ function RestaurantsPanel({ destination, days, lang, budget, groupType, interest
 
     const qs = new URLSearchParams({ city, lang });
     if (budget) qs.set('budget', budget);
-    if (showSplurge) qs.set('splurge', '1');
+    // The price-range selector's max level (defaults to the budget ceiling).
+    qs.set('maxLevel', String(viewLevel));
     // Pull a wider pool so the client-side ranker has candidates to diversify
     // and fit-rank over before trimming back to the handful shown.
     qs.set('limit', '30');
@@ -467,9 +495,7 @@ function RestaurantsPanel({ destination, days, lang, budget, groupType, interest
         restaurants?: RestaurantRecommendation[];
         stale?: boolean;
         needsTopUp?: boolean;
-        splurgeAvailable?: boolean;
       };
-      setSplurgeAvailable(!!data.splurgeAvailable);
       if (data.restaurants && data.restaurants.length > 0) {
         setRestaurants(data.restaurants);
         setStatus('ready');
@@ -500,11 +526,11 @@ function RestaurantsPanel({ destination, days, lang, budget, groupType, interest
     } catch {
       setStatus('error');
     }
-  }, [destination, accessToken, lang, budget, showSplurge]);
+  }, [destination, accessToken, lang, budget, viewLevel]);
 
-  // Re-fetch on mount AND whenever the splurge toggle (or any other `load`
-  // dependency) changes — not just when status is 'idle', so flipping the
-  // toggle actually re-queries instead of silently no-oping.
+  // Re-fetch on mount AND whenever the price-range selector (or any other `load`
+  // dependency) changes — not just when status is 'idle', so changing the tier
+  // actually re-queries instead of silently no-oping.
   useEffect(() => { void load(); }, [load]);
 
   // Per-day geography for GeoFit: a neighborhood slug + centroid from each day's
@@ -523,12 +549,22 @@ function RestaurantsPanel({ destination, days, lang, budget, groupType, interest
     });
   }, [days]);
 
+  // Which cuisine concepts actually have matches in this city's results — only
+  // these become chips, so the facet is always relevant to what's on screen.
+  const concepts = useMemo(() => availableConcepts(restaurants, 1), [restaurants]);
+  // Narrow the ranking pool to the chosen concept (before ranking, so the best
+  // picks WITHIN that concept surface rather than filtering the final 8).
+  const conceptPool = useMemo(
+    () => (activeConcept ? restaurants.filter((r) => matchesConcept(r, activeConcept)) : restaurants),
+    [restaurants, activeConcept],
+  );
+
   // Request-time ranking: layer per-trip fit + diversity over the fetched pool,
   // trimming to the handful actually shown (§4/§6/§8). Recomputes only when the
   // pool or trip context changes.
   const picks = useMemo(
     () =>
-      rankBookAhead(restaurants, {
+      rankBookAhead(conceptPool, {
         budget,
         groupType,
         culinaryTags: interests ?? undefined,
@@ -536,11 +572,11 @@ function RestaurantsPanel({ destination, days, lang, budget, groupType, interest
         days: dayGeo,
         nights: days.length,
         startDate,
-        splurge: showSplurge,
+        viewMaxLevel: viewLevel,
         lang,
         limit: 8,
       }),
-    [restaurants, budget, groupType, interests, dietary, dayGeo, days.length, startDate, showSplurge, lang],
+    [conceptPool, budget, groupType, interests, dietary, dayGeo, days.length, startDate, viewLevel, lang],
   );
 
   // North-star denominator: the panel actually showed the traveler picks (§12).
@@ -615,10 +651,15 @@ function RestaurantsPanel({ destination, days, lang, budget, groupType, interest
     );
   }
 
-  // Only offer the toggle when there's actually a tier to escalate TO — a
-  // 'luxury' trip (or no budget on file) already sees every price level — AND
-  // the bank actually has pricier picks above the ceiling to reveal.
-  const canToggleSplurge = (budget === 'budget' || budget === 'mid-range') && (splurgeAvailable || showSplurge);
+  // Price-range selector: the traveler's budget ceiling, plus a step up a tier,
+  // plus all-the-way-to-luxury. Only shown when there's actually a tier above
+  // their budget to browse (a luxury/no-budget trip already sees everything).
+  const tierOptions: { label: string; level: number }[] = [];
+  if (budgetCeiling < 4) {
+    tierOptions.push({ label: t.tierMyBudget, level: budgetCeiling });
+    if (budgetCeiling + 1 < 4) tierOptions.push({ label: t.tierOneUp, level: budgetCeiling + 1 });
+    tierOptions.push({ label: t.tierLuxury, level: 4 });
+  }
 
   return (
     <div>
@@ -638,27 +679,89 @@ function RestaurantsPanel({ destination, days, lang, budget, groupType, interest
               {refreshing ? t.refreshing : t.refresh}
             </button>
           )}
-          {canToggleSplurge && (
-            <button
-              onClick={() => setShowSplurge((v) => !v)}
-              className="shrink-0 px-3 py-1.5 rounded-lg text-[11.5px] font-bold whitespace-nowrap transition-colors"
-              style={{
-                background: showSplurge ? ACCENT : CARD_BG,
-                border: showSplurge ? BORDER_ACC : BORDER,
-                color: showSplurge ? '#fff' : INK,
-              }}
-            >
-              {showSplurge ? t.splurgeToggleOff : t.splurgeToggleOn}
-            </button>
+          {tierOptions.length > 1 && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10.5px] font-semibold" style={{ color: INK_FAINT }}>{t.priceRangeLabel}</span>
+              <div className="flex rounded-lg overflow-hidden" style={{ border: BORDER }}>
+                {tierOptions.map((opt, i) => {
+                  const on = viewLevel === opt.level;
+                  return (
+                    <button
+                      key={opt.level}
+                      onClick={() => setViewLevel(opt.level)}
+                      className="px-2.5 py-1.5 text-[11px] font-bold whitespace-nowrap transition-colors"
+                      style={{
+                        background: on ? ACCENT : CARD_BG,
+                        color: on ? '#fff' : INK,
+                        borderInlineStart: i > 0 ? BORDER : undefined,
+                      }}
+                    >
+                      {'$'.repeat(opt.level)} · {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
       </div>
+
+      {/* Cuisine-concept filter — only the concepts present in this city's
+          results (Tokyo → ramen/sushi/omakase, Rome → pizza/pasta, …). */}
+      {concepts.length > 1 && (
+        <div className="flex items-center gap-1.5 flex-wrap mb-3.5 mx-1">
+          <button
+            onClick={() => setActiveConcept(null)}
+            className="px-2.5 py-1 rounded-full text-[11.5px] font-bold transition-colors"
+            style={{
+              background: activeConcept === null ? ACCENT : CARD_BG,
+              border: activeConcept === null ? BORDER_ACC : BORDER,
+              color: activeConcept === null ? '#fff' : INK,
+            }}
+          >
+            {t.conceptAll}
+          </button>
+          {concepts.map((c) => {
+            const on = activeConcept === c.key;
+            return (
+              <button
+                key={c.key}
+                onClick={() => setActiveConcept(on ? null : c.key)}
+                className="px-2.5 py-1 rounded-full text-[11.5px] font-bold transition-colors"
+                style={{
+                  background: on ? ACCENT : CARD_BG,
+                  border: on ? BORDER_ACC : BORDER,
+                  color: on ? '#fff' : INK,
+                }}
+              >
+                {c.label[lang]}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-        {(picks.length > 0 ? picks : restaurants.slice(0, 8)).map((r, i) => (
+        {(picks.length > 0 ? picks : conceptPool.slice(0, 8)).map((r, i) => (
           <RestaurantCard key={r.id ?? `${r.name}-${i}`} r={r} lang={lang} onAdd={() => setPicked(r)} />
         ))}
       </div>
     </div>
+  );
+}
+
+/** Scannable dietary badge for the restaurant card. */
+function DietaryBadge({ label, tone }: { label: string; tone: 'kosher' | 'kosherStyle' | 'veg' }) {
+  const styles: Record<string, { bg: string; color: string }> = {
+    kosher:      { bg: 'rgba(59,130,120,0.14)',  color: '#2f6f63' },
+    kosherStyle: { bg: 'rgba(59,130,120,0.10)',  color: '#3f7a6f' },
+    veg:         { bg: 'rgba(96,140,60,0.14)',   color: '#4b7a2a' },
+  };
+  const s = styles[tone];
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10.5px] font-bold" style={{ background: s.bg, color: s.color }}>
+      {label}
+    </span>
   );
 }
 
@@ -736,6 +839,16 @@ function RestaurantCard({ r, lang, onAdd }: { r: RestaurantRecommendation; lang:
             </div>
           )}
         </div>
+
+        {/* Dietary badges — scannable at a glance (Israeli calibration). */}
+        {(r.kosherStatus === 'certified' || r.kosherStatus === 'kosher-style' || r.vegetarianFriendly || r.veganFriendly) && (
+          <div className="flex flex-wrap gap-1.5">
+            {r.kosherStatus === 'certified' && <DietaryBadge label={`✡️ ${t.badgeKosher}`} tone="kosher" />}
+            {r.kosherStatus === 'kosher-style' && <DietaryBadge label={`✡️ ${t.badgeKosherStyle}`} tone="kosherStyle" />}
+            {r.veganFriendly ? <DietaryBadge label={`🌱 ${t.badgeVegan}`} tone="veg" />
+              : r.vegetarianFriendly && <DietaryBadge label={`🥗 ${t.badgeVeg}`} tone="veg" />}
+          </div>
+        )}
 
         {/* Why this pick fits the trip — reasons emitted by the ranker (§11). */}
         {r.fitReasons && r.fitReasons.length > 0 && (

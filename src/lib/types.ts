@@ -296,6 +296,25 @@ export interface RestaurantRecommendation {
   /** ISO timestamp of the last Google Places re-verification. */
   lastVerifiedAt?: string | null;
 
+  // ── Israeli-calibration signals ─────────────────────────────────────────────
+  /** Graduated kosher status: 'certified' | 'kosher-style' | 'none' (null=unknown). */
+  kosherStatus?: string | null;
+  /** Scannable dietary badges. */
+  vegetarianFriendly?: boolean | null;
+  veganFriendly?: boolean | null;
+  /** Within ~200m of a major attraction (tourist-trap input). */
+  nearLandmark?: boolean | null;
+  /** Meters to the nearest major attraction. */
+  landmarkDistanceM?: number | null;
+  /** Most-recent Google review time (ISO) — recency signal. */
+  lastReviewAt?: string | null;
+  /** Precomputed value-for-money score (0–1). */
+  valueScore?: number | null;
+  /** Precomputed tourist-trap penalty multiplier applied (1.0 = none). */
+  touristTrapPenalty?: number | null;
+  /** Israeli-community / Hebrew-source link, when found. */
+  hebrewSocialUrl?: string | null;
+
   // ── Request-time only (computed per trip by the ranker, never stored) ───────
   /** "Book by" date (ISO) derived from bookAheadDays + trip start date. */
   bookByDate?: string | null;

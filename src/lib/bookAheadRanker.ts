@@ -37,6 +37,14 @@ export interface RankContext {
   startDate?: string | null;
   /** Traveler opted into pricier picks (lifts the budget-target nudge). */
   splurge?: boolean;
+  /**
+   * The max price level the traveler is currently browsing (1–4), from the
+   * panel's price-range selector. When set ABOVE their budget's everyday
+   * target, it becomes the new BudgetFit anchor — so "one level up" actually
+   * surfaces that tier's picks — and relaxes the hero cap so a deliberate
+   * luxury browse isn't clamped to a couple of picks.
+   */
+  viewMaxLevel?: number;
   lang?: SiteLanguage;
   /** Max picks to return (default 8). */
   limit?: number;
@@ -114,10 +122,23 @@ function geoFit(
 const MEAT_CENTRIC_GENRES = new Set(['steak-grill', 'seafood', 'omakase-counter']);
 function dietaryGate(r: RestaurantRecommendation, dietary: string[] | undefined): boolean {
   if (!dietary || dietary.length === 0) return true;
-  const wantsVeg = dietary.some((d) => /vegetarian|vegan|plant/.test(d));
+
+  // Kosher (Israeli calibration): when the trip states a kosher need, exclude
+  // places we KNOW are non-kosher (kosherStatus 'none'); keep certified,
+  // kosher-style, and unknown (null) — a "kosher-style" default, conservative
+  // so sparse/unlabelled banks aren't emptied. (Strict certified-only awaits a
+  // structured profile toggle.)
+  const wantsKosher = dietary.some((d) => /kosher|כשר/.test(d));
+  if (wantsKosher && r.kosherStatus === 'none') return false;
+
+  const wantsVeg = dietary.some((d) => /vegetarian|vegan|plant|צמחוני|טבעוני/.test(d));
   if (!wantsVeg) return true;
   const tags = r.dietaryTags ?? [];
-  const vegFriendly = tags.some((t) => /vegetarian|vegan|plant/.test(t)) || r.cuisineGenre === 'vegetarian-vegan';
+  const vegFriendly =
+    tags.some((t) => /vegetarian|vegan|plant/.test(t)) ||
+    r.vegetarianFriendly === true ||
+    r.veganFriendly === true ||
+    r.cuisineGenre === 'vegetarian-vegan';
   if (vegFriendly) return true;
   // No veg signal AND a clearly meat/fish-centric concept → conflict.
   return !MEAT_CENTRIC_GENRES.has(r.cuisineGenre ?? '');
@@ -126,7 +147,7 @@ function dietaryGate(r: RestaurantRecommendation, dietary: string[] | undefined)
 // ── fitReasons (localized) ───────────────────────────────────────────────────
 
 const REASONS: Record<SiteLanguage, {
-  taste: string; group: string; budget: string; near: (d: number) => string; hero: string;
+  taste: string; group: string; budget: string; near: (d: number) => string; hero: string; value: string;
 }> = {
   en: {
     taste: 'Matches your food taste',
@@ -134,6 +155,7 @@ const REASONS: Record<SiteLanguage, {
     budget: 'Fits your budget',
     near: (d) => `Near your Day ${d} area`,
     hero: 'Worth-the-splurge pick',
+    value: 'Great value for money',
   },
   he: {
     taste: 'מתאים לטעם הקולינרי שלכם',
@@ -141,8 +163,12 @@ const REASONS: Record<SiteLanguage, {
     budget: 'מתאים לתקציב שלכם',
     near: (d) => `ליד אזור יום ${d}`,
     hero: 'שווה את הפינוק',
+    value: 'תמורה מצוינת למחיר',
   },
 };
+
+/** Value score above which a pick earns the "great value" fit reason. */
+const HIGH_VALUE_THRESHOLD = 0.7;
 
 // ── Ranking ──────────────────────────────────────────────────────────────────
 
@@ -175,7 +201,12 @@ export function rankBookAhead(
   const lang = ctx.lang ?? 'en';
   const limit = ctx.limit ?? 8;
   const budget = ctx.budget ?? null;
-  const target = budget ? BUDGET_TARGET_LEVEL[budget] : 3;
+  const budgetTarget = budget ? BUDGET_TARGET_LEVEL[budget] : 3;
+  // When the traveler browses a level above their budget, that level becomes
+  // the BudgetFit anchor so its picks actually rise to the top (otherwise the
+  // budget tier always dominates and "one level up" shows nothing new).
+  const browsingUp = ctx.viewMaxLevel != null && ctx.viewMaxLevel > budgetTarget;
+  const target = browsingUp ? ctx.viewMaxLevel! : budgetTarget;
   const heroCeiling = budget ? HERO_CEILING[budget] : 4;
   const r = REASONS[lang];
 
@@ -202,6 +233,8 @@ export function rankBookAhead(
     const isHero = (rec.priceLevel ?? 0) >= Math.min(heroCeiling, 4) && (rec.priceLevel ?? 0) >= 3;
 
     const fitReasons: string[] = [];
+    // Value leads for this audience — surface it first when it's genuinely high.
+    if ((rec.valueScore ?? 0) >= HIGH_VALUE_THRESHOLD) fitReasons.push(r.value);
     if (gf >= 0.5 && (ctx.culinaryTags?.length ?? 0) > 0) fitReasons.push(r.taste);
     if (grp >= 1.0) fitReasons.push(r.group);
     if (bf >= 0.7) fitReasons.push(r.budget);
@@ -214,8 +247,10 @@ export function rankBookAhead(
   scored.sort((a, b) => b.personal - a.personal);
 
   // Diversity re-rank via MMR over the top pool (§6.4), capping hero-tier picks
-  // so the panel is a barbell, not all-splurge (§4).
-  const selected = mmrSelect(scored.slice(0, MMR_POOL), limit, ctx.nights);
+  // so the panel is a barbell, not all-splurge (§4). A deliberate browse above
+  // budget lifts the cap — the traveler asked to see that pricier tier.
+  const heroCap = browsingUp ? limit : Math.max(1, Math.min(3, Math.ceil((ctx.nights ?? 3) / 3)));
+  const selected = mmrSelect(scored.slice(0, MMR_POOL), limit, heroCap);
 
   // Annotate the chosen picks with platform, book-by, suggested day, reasons.
   return selected.map(({ rec, suggestedDay, fitReasons }) => ({
@@ -248,12 +283,8 @@ function similarity(a: RestaurantRecommendation, b: RestaurantRecommendation): n
   return s;
 }
 
-function mmrSelect(candidates: Scored[], limit: number, nights?: number): Scored[] {
+function mmrSelect(candidates: Scored[], limit: number, heroCap: number): Scored[] {
   if (candidates.length === 0) return [];
-  // Hero cap: min(2 + luxury bonus, ceil(nights/3)) — here we don't know the
-  // tier bonus at this layer, so use ceil(nights/3) with a floor of 1 and a
-  // sensible cap of 3 (§4.1 rule).
-  const heroCap = Math.max(1, Math.min(3, Math.ceil((nights ?? 3) / 3)));
 
   const selected: Scored[] = [];
   const remaining = [...candidates];
