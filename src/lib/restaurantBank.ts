@@ -89,6 +89,15 @@ export function rowToRec(row: any): RestaurantRecommendation {
     bayesRating: row.bayes_rating != null ? Number(row.bayes_rating) : null,
     compositeScore: row.composite_score != null ? Number(row.composite_score) : null,
     lastVerifiedAt: row.last_verified_at ?? null,
+    kosherStatus: row.kosher_status ?? null,
+    vegetarianFriendly: row.vegetarian_friendly ?? null,
+    veganFriendly: row.vegan_friendly ?? null,
+    nearLandmark: row.near_landmark ?? null,
+    landmarkDistanceM: row.landmark_distance_m ?? null,
+    lastReviewAt: row.last_review_at ?? null,
+    valueScore: row.value_score != null ? Number(row.value_score) : null,
+    touristTrapPenalty: row.tourist_trap_penalty != null ? Number(row.tourist_trap_penalty) : null,
+    hebrewSocialUrl: row.hebrew_social_url ?? null,
   };
 }
 
@@ -127,6 +136,15 @@ function recToRow(rec: RestaurantRecommendation) {
     bayes_rating: rec.bayesRating ?? null,
     composite_score: rec.compositeScore ?? null,
     last_verified_at: rec.lastVerifiedAt ?? null,
+    kosher_status: rec.kosherStatus ?? null,
+    vegetarian_friendly: rec.vegetarianFriendly ?? null,
+    vegan_friendly: rec.veganFriendly ?? null,
+    near_landmark: rec.nearLandmark ?? null,
+    landmark_distance_m: rec.landmarkDistanceM ?? null,
+    last_review_at: rec.lastReviewAt ?? null,
+    value_score: rec.valueScore ?? null,
+    tourist_trap_penalty: rec.touristTrapPenalty ?? null,
+    hebrew_social_url: rec.hebrewSocialUrl ?? null,
     updated_at: new Date().toISOString(),
   };
 }

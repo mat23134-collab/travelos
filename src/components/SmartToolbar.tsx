@@ -61,6 +61,10 @@ const COPY = {
     tierOneUp: 'רמה מעל',
     tierLuxury: 'כולל יוקרה',
     conceptAll: 'הכול',
+    badgeKosher: 'כשר',
+    badgeKosherStyle: 'כשר סטייל',
+    badgeVeg: 'צמחוני',
+    badgeVegan: 'טבעוני',
     refresh: 'רענון מסעדות',
     refreshing: 'מחפשים עוד מסעדות מתאימות…',
     bookByLabel: (d: string) => `כדאי להזמין עד ${d}`,
@@ -123,6 +127,10 @@ const COPY = {
     tierOneUp: 'One level up',
     tierLuxury: 'Incl. luxury',
     conceptAll: 'All',
+    badgeKosher: 'Kosher',
+    badgeKosherStyle: 'Kosher-style',
+    badgeVeg: 'Vegetarian',
+    badgeVegan: 'Vegan',
     refresh: 'Refresh restaurants',
     refreshing: 'Finding more matching restaurants…',
     bookByLabel: (d: string) => `Book by ${d}`,
@@ -742,6 +750,21 @@ function RestaurantsPanel({ destination, days, lang, budget, groupType, interest
   );
 }
 
+/** Scannable dietary badge for the restaurant card. */
+function DietaryBadge({ label, tone }: { label: string; tone: 'kosher' | 'kosherStyle' | 'veg' }) {
+  const styles: Record<string, { bg: string; color: string }> = {
+    kosher:      { bg: 'rgba(59,130,120,0.14)',  color: '#2f6f63' },
+    kosherStyle: { bg: 'rgba(59,130,120,0.10)',  color: '#3f7a6f' },
+    veg:         { bg: 'rgba(96,140,60,0.14)',   color: '#4b7a2a' },
+  };
+  const s = styles[tone];
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10.5px] font-bold" style={{ background: s.bg, color: s.color }}>
+      {label}
+    </span>
+  );
+}
+
 /** Short localized date for the "book by" chip, e.g. "Aug 27" / "27 באוג׳". */
 function formatBookByDate(iso: string, lang: Lang): string {
   const d = new Date(`${iso.slice(0, 10)}T12:00:00`);
@@ -816,6 +839,16 @@ function RestaurantCard({ r, lang, onAdd }: { r: RestaurantRecommendation; lang:
             </div>
           )}
         </div>
+
+        {/* Dietary badges — scannable at a glance (Israeli calibration). */}
+        {(r.kosherStatus === 'certified' || r.kosherStatus === 'kosher-style' || r.vegetarianFriendly || r.veganFriendly) && (
+          <div className="flex flex-wrap gap-1.5">
+            {r.kosherStatus === 'certified' && <DietaryBadge label={`✡️ ${t.badgeKosher}`} tone="kosher" />}
+            {r.kosherStatus === 'kosher-style' && <DietaryBadge label={`✡️ ${t.badgeKosherStyle}`} tone="kosherStyle" />}
+            {r.veganFriendly ? <DietaryBadge label={`🌱 ${t.badgeVegan}`} tone="veg" />
+              : r.vegetarianFriendly && <DietaryBadge label={`🥗 ${t.badgeVeg}`} tone="veg" />}
+          </div>
+        )}
 
         {/* Why this pick fits the trip — reasons emitted by the ranker (§11). */}
         {r.fitReasons && r.fitReasons.length > 0 && (

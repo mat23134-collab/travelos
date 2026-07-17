@@ -57,11 +57,20 @@ export function effectiveBookAheadLevel(r: RestaurantRecommendation): number {
  * Composite base score (§6.2), 0..1. Deliberately stored so per-request ranking
  * only has to layer cheap personal-fit multipliers on top.
  *
- *   0.40·Q  Bayesian quality (normalized)
- * + 0.15·P  popularity      (log10 review count, capped)
- * + 0.15·V  verification    (has a google_place_id)
- * + 0.15·B  bookability     (reservation link > website > none)
- * + 0.15·A  book-ahead relevance (why the panel exists)
+ * Weights (book-ahead path, Israeli-calibrated — value carries the heaviest
+ * single non-quality weight because these travelers benchmark against an
+ * expensive home dining scene, so "worth it" beats "impressive"):
+ *
+ *   0.30·Q      Bayesian quality (normalized)
+ * + 0.12·P      popularity      (log10 review count, capped)
+ * + 0.13·V      verification    (has a google_place_id)
+ * + 0.13·B      bookability     (reservation link > website > none)
+ * + 0.12·A      book-ahead relevance (why the panel exists)
+ * + 0.20·value  value-for-money (quality relative to price)
+ *
+ * …then the whole thing is multiplied by a tourist-trap penalty (≤1) so a
+ * pricey, only-okay place hugging a landmark measurably drops in rank rather
+ * than merely losing a fraction of one term.
  */
 export function computeCompositeScore(
   r: RestaurantRecommendation,
@@ -74,7 +83,64 @@ export function computeCompositeScore(
   const V = r.googlePlaceId ? 1 : 0;
   const B = r.reservationUrl ? 1 : r.websiteUrl ? 0.6 : 0;
   const A = effectiveBookAheadLevel(r) / 3;
-  return round3(0.4 * Q + 0.15 * P + 0.15 * V + 0.15 * B + 0.15 * A);
+  const value = computeValueScore(r, cityMean);
+  const base = 0.3 * Q + 0.12 * P + 0.13 * V + 0.13 * B + 0.12 * A + 0.2 * value;
+  return round3(base * touristTrapPenalty(r, cityMean));
+}
+
+// ─── Value-for-money (§ Israeli calibration) ────────────────────────────────────
+
+/** How hard price weighs against quality in the value score (tunable). */
+export const VALUE_PRICE_SENSITIVITY = 0.5;
+
+/** Normalize a 1–4 price level to 0 (cheap) … 1 (very expensive); null → 0.5. */
+function priceNorm(priceLevel: number | null | undefined): number {
+  if (priceLevel == null) return 0.5;
+  return clamp01((priceLevel - 1) / 3);
+}
+
+/**
+ * Value-for-money score, 0..1 (§ "worth it" beats "impressive"). Rewards strong
+ * quality at a low price and punishes an expensive place that's only okay:
+ *
+ *   value = clamp( Q − sensitivity·priceNorm + sensitivity/2 )
+ *
+ * so a cheap-and-great place tops out near 1, an expensive-but-mediocre place
+ * sinks toward 0, and price-unknown rows land neutrally (priceNorm 0.5).
+ */
+export function computeValueScore(r: RestaurantRecommendation, cityMean = DEFAULT_CITY_MEAN): number {
+  const Q = clamp01((bayesRating(r.rating, r.ratingCount, cityMean) - 3.5) / 1.3);
+  return round3(clamp01(Q - VALUE_PRICE_SENSITIVITY * priceNorm(r.priceLevel) + VALUE_PRICE_SENSITIVITY / 2));
+}
+
+// ─── Tourist-trap penalty (§ first-class negative signal) ────────────────────────
+
+/** Bayes rating below which a pricey landmark-adjacent place looks like a trap. */
+export const TRAP_BAYES_THRESHOLD = 4.2;
+/** Multiplier applied to a clear tourist-trap (pricey + mediocre + on a landmark). */
+export const TRAP_PENALTY = 0.7;
+/** Softer multiplier for a stale bank (no fresh reviews) — recency signal. */
+export const STALE_REVIEW_PENALTY = 0.9;
+const STALE_REVIEW_MS = 180 * 86_400_000; // ~6 months
+
+/**
+ * Tourist-trap / staleness penalty multiplier (≤1). Deliberately conservative:
+ * only fires on a CLEAR signal so we never quietly bury a genuinely good place.
+ *   • near a major attraction AND price_level ≥ 3 AND bayes < 4.2  → ×0.7
+ *   • no review in ~6 months (when we know the last-review date)   → ×0.9
+ * Unknown inputs (null) never penalize.
+ */
+export function touristTrapPenalty(r: RestaurantRecommendation, cityMean = DEFAULT_CITY_MEAN): number {
+  let penalty = 1;
+  const bayes = bayesRating(r.rating, r.ratingCount, cityMean);
+  if (r.nearLandmark === true && (r.priceLevel ?? 0) >= 3 && bayes < TRAP_BAYES_THRESHOLD) {
+    penalty *= TRAP_PENALTY;
+  }
+  if (r.lastReviewAt) {
+    const t = new Date(r.lastReviewAt).getTime();
+    if (Number.isFinite(t) && Date.now() - t > STALE_REVIEW_MS) penalty *= STALE_REVIEW_PENALTY;
+  }
+  return round3(penalty);
 }
 
 function clamp01(x: number): number {

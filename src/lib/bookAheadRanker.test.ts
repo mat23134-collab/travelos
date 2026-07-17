@@ -1,7 +1,7 @@
 // src/lib/bookAheadRanker.test.ts
 // Run: npx tsx src/lib/bookAheadRanker.test.ts
 import assert from 'node:assert/strict';
-import { bayesRating, computeCompositeScore, cityMeanRating } from './restaurantScoring';
+import { bayesRating, computeCompositeScore, cityMeanRating, computeValueScore, touristTrapPenalty } from './restaurantScoring';
 import { rankBookAhead } from './bookAheadRanker';
 import { routeReservation } from './platformRouter';
 import { canonicalizeGenre, genreFit } from './restaurantGenre';
@@ -152,6 +152,38 @@ assert.equal(genreFit([], ['pasta']), 0.5, 'no trip taste → neutral');
   const picks = rankBookAhead(heroes, { budget: 'budget', nights: 3, viewMaxLevel: 4, limit: 5 });
   const heroCount = picks.filter((p) => (p.priceLevel ?? 0) >= 4).length;
   assert.ok(heroCount >= 4, `luxury browse should lift the hero cap, got ${heroCount}`);
+}
+
+// ── value-for-money: cheap+great beats expensive+mediocre ─────────────────────
+{
+  const cheapGreat = computeValueScore({ city: 'x', name: 'a', rating: 4.7, ratingCount: 3000, priceLevel: 1 });
+  const dearMeh = computeValueScore({ city: 'x', name: 'b', rating: 4.1, ratingCount: 3000, priceLevel: 4 });
+  assert.ok(cheapGreat > dearMeh, `value: cheap+great(${cheapGreat}) > dear+meh(${dearMeh})`);
+  assert.ok(cheapGreat <= 1 && dearMeh >= 0, 'value stays in [0,1]');
+}
+
+// ── tourist-trap penalty: pricey + mediocre + on-landmark drops; unknown = 1 ───
+{
+  const trap = touristTrapPenalty({ city: 'x', name: 't', rating: 4.0, ratingCount: 800, priceLevel: 4, nearLandmark: true });
+  assert.ok(trap < 1, `trap penalty applies (${trap})`);
+  const clean = touristTrapPenalty({ city: 'x', name: 'c', rating: 4.0, ratingCount: 800, priceLevel: 4 });
+  assert.equal(clean, 1, 'no landmark signal → no penalty');
+  const goodNearby = touristTrapPenalty({ city: 'x', name: 'g', rating: 4.7, ratingCount: 5000, priceLevel: 4, nearLandmark: true });
+  assert.equal(goodNearby, 1, 'genuinely great place near a landmark is not penalized');
+  // The penalty measurably lowers composite rank.
+  const trapComposite = computeCompositeScore({ city: 'x', name: 't', rating: 4.0, ratingCount: 800, priceLevel: 4, nearLandmark: true, googlePlaceId: 'g', reservationUrl: 'https://r' });
+  const cleanComposite = computeCompositeScore({ city: 'x', name: 'c', rating: 4.0, ratingCount: 800, priceLevel: 4, googlePlaceId: 'g', reservationUrl: 'https://r' });
+  assert.ok(trapComposite < cleanComposite, 'tourist trap ranks below its clean twin');
+}
+
+// ── kosher gate: a kosher trip excludes a known non-kosher place, keeps others ─
+{
+  const nonKosher: RestaurantRecommendation = { city: 'x', name: 'pork', kosherStatus: 'none', priceLevel: 2, bookAheadLevel: 2, rating: 4.6, ratingCount: 2000, googlePlaceId: 'p', reservationUrl: 'https://r', compositeScore: 0.9 };
+  const certified: RestaurantRecommendation = { city: 'x', name: 'kosher', kosherStatus: 'certified', priceLevel: 2, bookAheadLevel: 2, rating: 4.5, ratingCount: 1500, googlePlaceId: 'k', reservationUrl: 'https://r2', compositeScore: 0.6 };
+  const unknown: RestaurantRecommendation = { city: 'x', name: 'unknown', priceLevel: 2, bookAheadLevel: 2, rating: 4.5, ratingCount: 1500, googlePlaceId: 'u', reservationUrl: 'https://r3', compositeScore: 0.55 };
+  const picks = rankBookAhead([nonKosher, certified, unknown], { dietary: ['kosher'], limit: 6 });
+  assert.ok(!picks.some((p) => p.name === 'pork'), 'known non-kosher excluded for kosher trip');
+  assert.ok(picks.some((p) => p.name === 'kosher') && picks.some((p) => p.name === 'unknown'), 'certified + unknown kept');
 }
 
 console.log('✓ bookAheadRanker/scoring/platform/genre tests passed');

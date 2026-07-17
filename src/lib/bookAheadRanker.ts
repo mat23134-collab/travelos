@@ -122,10 +122,23 @@ function geoFit(
 const MEAT_CENTRIC_GENRES = new Set(['steak-grill', 'seafood', 'omakase-counter']);
 function dietaryGate(r: RestaurantRecommendation, dietary: string[] | undefined): boolean {
   if (!dietary || dietary.length === 0) return true;
-  const wantsVeg = dietary.some((d) => /vegetarian|vegan|plant/.test(d));
+
+  // Kosher (Israeli calibration): when the trip states a kosher need, exclude
+  // places we KNOW are non-kosher (kosherStatus 'none'); keep certified,
+  // kosher-style, and unknown (null) — a "kosher-style" default, conservative
+  // so sparse/unlabelled banks aren't emptied. (Strict certified-only awaits a
+  // structured profile toggle.)
+  const wantsKosher = dietary.some((d) => /kosher|כשר/.test(d));
+  if (wantsKosher && r.kosherStatus === 'none') return false;
+
+  const wantsVeg = dietary.some((d) => /vegetarian|vegan|plant|צמחוני|טבעוני/.test(d));
   if (!wantsVeg) return true;
   const tags = r.dietaryTags ?? [];
-  const vegFriendly = tags.some((t) => /vegetarian|vegan|plant/.test(t)) || r.cuisineGenre === 'vegetarian-vegan';
+  const vegFriendly =
+    tags.some((t) => /vegetarian|vegan|plant/.test(t)) ||
+    r.vegetarianFriendly === true ||
+    r.veganFriendly === true ||
+    r.cuisineGenre === 'vegetarian-vegan';
   if (vegFriendly) return true;
   // No veg signal AND a clearly meat/fish-centric concept → conflict.
   return !MEAT_CENTRIC_GENRES.has(r.cuisineGenre ?? '');
@@ -134,7 +147,7 @@ function dietaryGate(r: RestaurantRecommendation, dietary: string[] | undefined)
 // ── fitReasons (localized) ───────────────────────────────────────────────────
 
 const REASONS: Record<SiteLanguage, {
-  taste: string; group: string; budget: string; near: (d: number) => string; hero: string;
+  taste: string; group: string; budget: string; near: (d: number) => string; hero: string; value: string;
 }> = {
   en: {
     taste: 'Matches your food taste',
@@ -142,6 +155,7 @@ const REASONS: Record<SiteLanguage, {
     budget: 'Fits your budget',
     near: (d) => `Near your Day ${d} area`,
     hero: 'Worth-the-splurge pick',
+    value: 'Great value for money',
   },
   he: {
     taste: 'מתאים לטעם הקולינרי שלכם',
@@ -149,8 +163,12 @@ const REASONS: Record<SiteLanguage, {
     budget: 'מתאים לתקציב שלכם',
     near: (d) => `ליד אזור יום ${d}`,
     hero: 'שווה את הפינוק',
+    value: 'תמורה מצוינת למחיר',
   },
 };
+
+/** Value score above which a pick earns the "great value" fit reason. */
+const HIGH_VALUE_THRESHOLD = 0.7;
 
 // ── Ranking ──────────────────────────────────────────────────────────────────
 
@@ -215,6 +233,8 @@ export function rankBookAhead(
     const isHero = (rec.priceLevel ?? 0) >= Math.min(heroCeiling, 4) && (rec.priceLevel ?? 0) >= 3;
 
     const fitReasons: string[] = [];
+    // Value leads for this audience — surface it first when it's genuinely high.
+    if ((rec.valueScore ?? 0) >= HIGH_VALUE_THRESHOLD) fitReasons.push(r.value);
     if (gf >= 0.5 && (ctx.culinaryTags?.length ?? 0) > 0) fitReasons.push(r.taste);
     if (grp >= 1.0) fitReasons.push(r.group);
     if (bf >= 0.7) fitReasons.push(r.budget);

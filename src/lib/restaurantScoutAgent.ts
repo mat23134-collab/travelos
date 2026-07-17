@@ -19,7 +19,7 @@
 import { RestaurantRecommendation, RestaurantLocaleText, SITE_LANGUAGES, SiteLanguage } from '@/lib/types';
 import { searchWeb } from '@/lib/rag';
 import { RESTAURANT_GENRES, canonicalizeGenre } from '@/lib/restaurantGenre';
-import { cityMeanRating, bayesRating, computeCompositeScore } from '@/lib/restaurantScoring';
+import { cityMeanRating, bayesRating, computeCompositeScore, computeValueScore, touristTrapPenalty } from '@/lib/restaurantScoring';
 import { normalizeNeighborhoodSlug } from '@/lib/restaurantBank';
 
 /** Human-readable names so the prompt can request each site language explicitly. */
@@ -106,6 +106,11 @@ interface GeminiCandidate {
   mealSlots?: string[];
   /** Dietary tokens the place caters to. */
   dietaryTags?: string[];
+  /** Graduated kosher: 'certified' | 'kosher-style' | 'none'. */
+  kosherStatus?: string;
+  /** Scannable dietary badges. */
+  vegetarianFriendly?: boolean;
+  veganFriendly?: boolean;
   /** Group-fit tokens (couple/family/group/solo). */
   groupSuitability?: string[];
   /** Localizable text per language code, e.g. { en: {...}, he: {...} }. */
@@ -139,6 +144,8 @@ function candidateSystemPrompt(maxPriceLevel?: number): string {
 - "bookAheadDays" is the typical advance-booking lead time in DAYS as a plain integer (e.g. 3, 14, 60).
 - "mealSlots" is an array from ["breakfast","lunch","dinner"] — the meals this place is genuinely for.
 - "dietaryTags" is an array (possibly empty) from ["vegetarian-friendly","vegan-friendly","kosher","halal","gluten-free"] — only what the place genuinely accommodates.
+- "kosherStatus" is exactly one of "certified" (rabbinate/teudah-certified kosher), "kosher-style" (no pork/shellfish, not certified), or "none". Use "none" unless you are confident.
+- "vegetarianFriendly" and "veganFriendly" are booleans — true only if the place genuinely has good options for that diet.
 - "groupSuitability" is an array (possibly empty) from ["solo","couple","family","group"] — who the place suits best.
 
 LOCALIZATION — write the following NATIVELY in EACH of these languages: ${langList} (natural, not a literal translation):
@@ -150,7 +157,7 @@ LOCALIZATION — write the following NATIVELY in EACH of these languages: ${lang
   - "bookingLeadTime": ONLY the concrete typical advance-booking window, as a short phrase — e.g. "2–3 weeks ahead", "1–2 months ahead", "same week is fine". No full sentence.
 
 Return ONLY a JSON array. Each object:
-{ "name", "neighborhood", "priceRange", "priceLevel", "bookingPlatform", "cuisineGenre", "bookAheadLevel", "bookAheadDays", "mealSlots", "dietaryTags", "groupSuitability", "translations": { ${translationsShape} } }.`;
+{ "name", "neighborhood", "priceRange", "priceLevel", "bookingPlatform", "cuisineGenre", "bookAheadLevel", "bookAheadDays", "mealSlots", "dietaryTags", "kosherStatus", "vegetarianFriendly", "veganFriendly", "groupSuitability", "translations": { ${translationsShape} } }.`;
 
   if (maxPriceLevel != null) {
     // Budget-scoped run: a DEDICATED prompt that only ever asks for in-range
@@ -291,6 +298,11 @@ async function synthesizeCandidates(city: string, snippets: string, maxPriceLeve
         bookAheadDays: Number.isFinite(c.bookAheadDays) ? Math.max(0, Math.round(c.bookAheadDays)) : undefined,
         mealSlots: strArray(c.mealSlots),
         dietaryTags: strArray(c.dietaryTags),
+        kosherStatus: ['certified', 'kosher-style', 'none'].includes(str(c.kosherStatus) ?? '')
+          ? str(c.kosherStatus)
+          : undefined,
+        vegetarianFriendly: typeof c.vegetarianFriendly === 'boolean' ? c.vegetarianFriendly : undefined,
+        veganFriendly: typeof c.veganFriendly === 'boolean' ? c.veganFriendly : undefined,
         groupSuitability: strArray(c.groupSuitability),
         translations,
       };
@@ -518,9 +530,15 @@ export async function runRestaurantScoutAgent(
       bookAheadLevel: cand.bookAheadLevel ?? null,
       bookAheadDays: cand.bookAheadDays ?? null,
       dietaryTags: cand.dietaryTags ?? null,
+      kosherStatus: cand.kosherStatus ?? null,
+      vegetarianFriendly: cand.vegetarianFriendly ?? null,
+      veganFriendly: cand.veganFriendly ?? null,
       groupSuitability: cand.groupSuitability ?? null,
       neighborhoodSlug: normalizeNeighborhoodSlug(cand.neighborhood),
       countryCode: v.countryCode ?? null,
+      // A Hebrew Google search always resolves to real, current Israeli-audience
+      // coverage (blogs, forums, reviews) without risking a hallucinated link.
+      hebrewSocialUrl: `https://www.google.com/search?hl=iw&q=${encodeURIComponent(`${displayName} ${c} ביקורת`)}`,
       lastVerifiedAt: v.found ? new Date().toISOString() : null,
     };
     return { rec, googlePriceLevel: v.priceLevel ?? null };
@@ -544,6 +562,8 @@ export async function runRestaurantScoutAgent(
   const cityMean = cityMeanRating(recs);
   for (const rec of recs) {
     rec.bayesRating = Number(bayesRating(rec.rating, rec.ratingCount, cityMean).toFixed(3));
+    rec.valueScore = computeValueScore(rec, cityMean);
+    rec.touristTrapPenalty = touristTrapPenalty(rec, cityMean);
     rec.compositeScore = computeCompositeScore(rec, cityMean);
     rec.score = rec.compositeScore;
   }
