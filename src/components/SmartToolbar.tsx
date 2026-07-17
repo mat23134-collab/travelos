@@ -28,6 +28,7 @@ import { AttractionDetailModal } from '@/components/AttractionDetailModal';
 import { rankBookAhead, type TripDayGeo } from '@/lib/bookAheadRanker';
 import { normalizeNeighborhoodSlug, MAX_PRICE_LEVEL_BY_BUDGET } from '@/lib/restaurantBank';
 import { genreLabel } from '@/lib/restaurantGenre';
+import { availableConcepts, matchesConcept } from '@/lib/restaurantConcepts';
 import { trackReservationCtaClick, trackBookAheadPanelShown } from '@/lib/bookAheadMetrics';
 
 // ─── Design tokens (light "paper" overview theme) ─────────────────────────────
@@ -59,6 +60,7 @@ const COPY = {
     tierMyBudget: 'התקציב שלי',
     tierOneUp: 'רמה מעל',
     tierLuxury: 'כולל יוקרה',
+    conceptAll: 'הכול',
     refresh: 'רענון מסעדות',
     refreshing: 'מחפשים עוד מסעדות מתאימות…',
     bookByLabel: (d: string) => `כדאי להזמין עד ${d}`,
@@ -120,6 +122,7 @@ const COPY = {
     tierMyBudget: 'My budget',
     tierOneUp: 'One level up',
     tierLuxury: 'Incl. luxury',
+    conceptAll: 'All',
     refresh: 'Refresh restaurants',
     refreshing: 'Finding more matching restaurants…',
     bookByLabel: (d: string) => `Book by ${d}`,
@@ -455,6 +458,10 @@ function RestaurantsPanel({ destination, days, lang, budget, groupType, interest
   const [viewLevel, setViewLevel] = useState(budgetCeiling);
   // Reset the view when the trip budget changes.
   useEffect(() => { setViewLevel(budgetCeiling); }, [budgetCeiling]);
+  // Cuisine-concept filter (ramen / sushi / pizza / …) — null = all concepts.
+  const [activeConcept, setActiveConcept] = useState<string | null>(null);
+  // Drop the concept filter when the city changes (its concepts differ).
+  useEffect(() => { setActiveConcept(null); }, [destination]);
   // Manual, foreground top-up: the automatic background revalidate (on
   // `stale`/`needsTopUp`) is fire-and-forget and invisible, so a traveler
   // stuck with a luxury-skewed bank has no way to see it actually happen.
@@ -534,12 +541,22 @@ function RestaurantsPanel({ destination, days, lang, budget, groupType, interest
     });
   }, [days]);
 
+  // Which cuisine concepts actually have matches in this city's results — only
+  // these become chips, so the facet is always relevant to what's on screen.
+  const concepts = useMemo(() => availableConcepts(restaurants, 1), [restaurants]);
+  // Narrow the ranking pool to the chosen concept (before ranking, so the best
+  // picks WITHIN that concept surface rather than filtering the final 8).
+  const conceptPool = useMemo(
+    () => (activeConcept ? restaurants.filter((r) => matchesConcept(r, activeConcept)) : restaurants),
+    [restaurants, activeConcept],
+  );
+
   // Request-time ranking: layer per-trip fit + diversity over the fetched pool,
   // trimming to the handful actually shown (§4/§6/§8). Recomputes only when the
   // pool or trip context changes.
   const picks = useMemo(
     () =>
-      rankBookAhead(restaurants, {
+      rankBookAhead(conceptPool, {
         budget,
         groupType,
         culinaryTags: interests ?? undefined,
@@ -551,7 +568,7 @@ function RestaurantsPanel({ destination, days, lang, budget, groupType, interest
         lang,
         limit: 8,
       }),
-    [restaurants, budget, groupType, interests, dietary, dayGeo, days.length, startDate, viewLevel, lang],
+    [conceptPool, budget, groupType, interests, dietary, dayGeo, days.length, startDate, viewLevel, lang],
   );
 
   // North-star denominator: the panel actually showed the traveler picks (§12).
@@ -680,8 +697,44 @@ function RestaurantsPanel({ destination, days, lang, budget, groupType, interest
           )}
         </div>
       </div>
+
+      {/* Cuisine-concept filter — only the concepts present in this city's
+          results (Tokyo → ramen/sushi/omakase, Rome → pizza/pasta, …). */}
+      {concepts.length > 1 && (
+        <div className="flex items-center gap-1.5 flex-wrap mb-3.5 mx-1">
+          <button
+            onClick={() => setActiveConcept(null)}
+            className="px-2.5 py-1 rounded-full text-[11.5px] font-bold transition-colors"
+            style={{
+              background: activeConcept === null ? ACCENT : CARD_BG,
+              border: activeConcept === null ? BORDER_ACC : BORDER,
+              color: activeConcept === null ? '#fff' : INK,
+            }}
+          >
+            {t.conceptAll}
+          </button>
+          {concepts.map((c) => {
+            const on = activeConcept === c.key;
+            return (
+              <button
+                key={c.key}
+                onClick={() => setActiveConcept(on ? null : c.key)}
+                className="px-2.5 py-1 rounded-full text-[11.5px] font-bold transition-colors"
+                style={{
+                  background: on ? ACCENT : CARD_BG,
+                  border: on ? BORDER_ACC : BORDER,
+                  color: on ? '#fff' : INK,
+                }}
+              >
+                {c.label[lang]}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-        {(picks.length > 0 ? picks : restaurants.slice(0, 8)).map((r, i) => (
+        {(picks.length > 0 ? picks : conceptPool.slice(0, 8)).map((r, i) => (
           <RestaurantCard key={r.id ?? `${r.name}-${i}`} r={r} lang={lang} onAdd={() => setPicked(r)} />
         ))}
       </div>
