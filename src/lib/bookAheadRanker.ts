@@ -37,6 +37,14 @@ export interface RankContext {
   startDate?: string | null;
   /** Traveler opted into pricier picks (lifts the budget-target nudge). */
   splurge?: boolean;
+  /**
+   * The max price level the traveler is currently browsing (1–4), from the
+   * panel's price-range selector. When set ABOVE their budget's everyday
+   * target, it becomes the new BudgetFit anchor — so "one level up" actually
+   * surfaces that tier's picks — and relaxes the hero cap so a deliberate
+   * luxury browse isn't clamped to a couple of picks.
+   */
+  viewMaxLevel?: number;
   lang?: SiteLanguage;
   /** Max picks to return (default 8). */
   limit?: number;
@@ -175,7 +183,12 @@ export function rankBookAhead(
   const lang = ctx.lang ?? 'en';
   const limit = ctx.limit ?? 8;
   const budget = ctx.budget ?? null;
-  const target = budget ? BUDGET_TARGET_LEVEL[budget] : 3;
+  const budgetTarget = budget ? BUDGET_TARGET_LEVEL[budget] : 3;
+  // When the traveler browses a level above their budget, that level becomes
+  // the BudgetFit anchor so its picks actually rise to the top (otherwise the
+  // budget tier always dominates and "one level up" shows nothing new).
+  const browsingUp = ctx.viewMaxLevel != null && ctx.viewMaxLevel > budgetTarget;
+  const target = browsingUp ? ctx.viewMaxLevel! : budgetTarget;
   const heroCeiling = budget ? HERO_CEILING[budget] : 4;
   const r = REASONS[lang];
 
@@ -214,8 +227,10 @@ export function rankBookAhead(
   scored.sort((a, b) => b.personal - a.personal);
 
   // Diversity re-rank via MMR over the top pool (§6.4), capping hero-tier picks
-  // so the panel is a barbell, not all-splurge (§4).
-  const selected = mmrSelect(scored.slice(0, MMR_POOL), limit, ctx.nights);
+  // so the panel is a barbell, not all-splurge (§4). A deliberate browse above
+  // budget lifts the cap — the traveler asked to see that pricier tier.
+  const heroCap = browsingUp ? limit : Math.max(1, Math.min(3, Math.ceil((ctx.nights ?? 3) / 3)));
+  const selected = mmrSelect(scored.slice(0, MMR_POOL), limit, heroCap);
 
   // Annotate the chosen picks with platform, book-by, suggested day, reasons.
   return selected.map(({ rec, suggestedDay, fitReasons }) => ({
@@ -248,12 +263,8 @@ function similarity(a: RestaurantRecommendation, b: RestaurantRecommendation): n
   return s;
 }
 
-function mmrSelect(candidates: Scored[], limit: number, nights?: number): Scored[] {
+function mmrSelect(candidates: Scored[], limit: number, heroCap: number): Scored[] {
   if (candidates.length === 0) return [];
-  // Hero cap: min(2 + luxury bonus, ceil(nights/3)) — here we don't know the
-  // tier bonus at this layer, so use ceil(nights/3) with a floor of 1 and a
-  // sensible cap of 3 (§4.1 rule).
-  const heroCap = Math.max(1, Math.min(3, Math.ceil((nights ?? 3) / 3)));
 
   const selected: Scored[] = [];
   const remaining = [...candidates];

@@ -116,4 +116,42 @@ assert.equal(genreFit([], ['pasta']), 0.5, 'no trip taste → neutral');
   assert.equal(picks[0].bookByDate, '2026-08-27', 'book-by = start − 14d');
 }
 
+// ── price-range selector: browsing one level up surfaces that tier ────────────
+{
+  const mk = (name: string, level: number, comp: number): RestaurantRecommendation => ({
+    city: 'Tokyo', name, cuisineGenre: level >= 3 ? 'fine-dining' : 'trattoria-bistro',
+    priceLevel: level, bookAheadLevel: level >= 3 ? 3 : 1, rating: 4.6, ratingCount: 1500,
+    googlePlaceId: `g-${name}`, reservationUrl: `https://r/${name}`, neighborhoodSlug: `nb-${name}`,
+    compositeScore: comp,
+  });
+  // Budget-tier rows score a touch higher on composite; without the view bump a
+  // budget trip (target 2) keeps level-3 picks penalized/buried.
+  const bank = [
+    mk('b1', 2, 0.80), mk('b2', 2, 0.79), mk('b3', 2, 0.78), mk('b4', 2, 0.77),
+    mk('up1', 3, 0.76), mk('up2', 3, 0.75), mk('up3', 3, 0.74),
+  ];
+
+  const atBudget = rankBookAhead(bank, { budget: 'budget', nights: 4, viewMaxLevel: 2, limit: 4 });
+  assert.ok(
+    atBudget.every((p) => (p.priceLevel ?? 0) <= 2) || atBudget.filter((p) => p.priceLevel === 3).length <= 1,
+    'at-budget view stays budget-weighted',
+  );
+
+  const oneUp = rankBookAhead(bank, { budget: 'budget', nights: 4, viewMaxLevel: 3, limit: 4 });
+  const upCount = oneUp.filter((p) => p.priceLevel === 3).length;
+  assert.ok(upCount >= 2, `browsing one level up should surface level-3 picks, got ${upCount}`);
+}
+
+// ── browsing luxury lifts the hero cap ────────────────────────────────────────
+{
+  const heroes = Array.from({ length: 6 }, (_, i): RestaurantRecommendation => ({
+    city: 'Paris', name: `lux-${i}`, cuisineGenre: 'fine-dining', priceLevel: 4,
+    bookAheadLevel: 3, rating: 4.7, ratingCount: 2000, googlePlaceId: `h${i}`,
+    reservationUrl: `https://r/${i}`, neighborhoodSlug: `n${i}`, compositeScore: 0.85 - i * 0.001,
+  }));
+  const picks = rankBookAhead(heroes, { budget: 'budget', nights: 3, viewMaxLevel: 4, limit: 5 });
+  const heroCount = picks.filter((p) => (p.priceLevel ?? 0) >= 4).length;
+  assert.ok(heroCount >= 4, `luxury browse should lift the hero cap, got ${heroCount}`);
+}
+
 console.log('✓ bookAheadRanker/scoring/platform/genre tests passed');
