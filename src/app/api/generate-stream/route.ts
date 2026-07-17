@@ -719,7 +719,7 @@ async function runPipeline(
     // doesn't exit before the Gemini call + DB write complete (void was killed).
     try {
       await Promise.race([
-        ensureTransportationForCity(dbWrite, destCity, profile.duration),
+        ensureTransportationForCity(dbWrite, destCity, profile.duration, profile.tripLanguage ?? 'en'),
         new Promise<void>((resolve) => setTimeout(resolve, 60_000)),
       ]);
     } catch (e) {

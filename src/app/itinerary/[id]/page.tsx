@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { CjAffiliateScript } from '@/components/CjAffiliateScript';
 import { ItineraryClient } from '@/components/ItineraryClient';
 import { Itinerary, TravelerProfile, type CityTransportGuide } from '@/lib/types';
 import { fetchTransportGuideForCity, ensureTransportationForCity } from '@/lib/tripTransport';
@@ -123,17 +124,18 @@ export default async function ItineraryByIdPage({ params }: PageProps) {
   }
 
   if (city) {
+    const tripLang = _profile?.tripLanguage ?? 'en';
     try {
-      transportFromDb = await fetchTransportGuideForCity(supabase, city);
+      transportFromDb = await fetchTransportGuideForCity(supabase, city, tripLang);
     } catch (e) {
       console.warn('[itinerary/id] transportation fetch skipped:', e instanceof Error ? e.message : e);
     }
     if (!transportFromDb) {
-      // Scout is missing for this city — fire in the background so the next
-      // page load will have the data. Uses service-role client (bypasses RLS).
+      // Scout is missing for this city/language — fire in the background so the
+      // next page load will have the data. Uses service-role client (bypasses RLS).
       const scoutClient = createServiceRoleClient();
       if (scoutClient) {
-        void ensureTransportationForCity(scoutClient, city).catch((e) =>
+        void ensureTransportationForCity(scoutClient, city, _profile?.duration, tripLang).catch((e) =>
           console.warn('[itinerary/id] background transport scout failed:', e instanceof Error ? e.message : e)
         );
       }
@@ -141,16 +143,22 @@ export default async function ItineraryByIdPage({ params }: PageProps) {
   }
 
   return (
-    <ItineraryClient
-      initialItinerary={itinerary}
-      initialProfile={_profile ?? null}
-      initialViewMode="final"
-      initialTransportFromDb={transportFromDb}
-      initialTripSummaryUsername={tripSummaryUsername}
-      ownerUserId={ownerUserId}
-      ownerUsername={ownerUsername}
-      collaborators={collaborators}
-    />
+    <>
+      <ItineraryClient
+        initialItinerary={itinerary}
+        initialProfile={_profile ?? null}
+        initialViewMode="final"
+        initialTransportFromDb={transportFromDb}
+        initialTripSummaryUsername={tripSummaryUsername}
+        ownerUserId={ownerUserId}
+        ownerUsername={ownerUsername}
+        collaborators={collaborators}
+      />
+      {/* CJ Affiliate page-based link tools — auto-monetizes outbound links to
+          CJ advertisers + page impression reporting. Consent-gated (analytics),
+          so it only loads once the user opts in. */}
+      <CjAffiliateScript />
+    </>
   );
 }
 

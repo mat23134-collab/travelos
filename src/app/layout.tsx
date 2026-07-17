@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Script from 'next/script';
 import { Assistant, Cormorant_Garamond, Fraunces, Inter } from 'next/font/google';
 import Link from 'next/link';
 import './globals.css';
@@ -56,25 +57,25 @@ function Footer() {
     <footer
       className="px-6 py-8"
       style={{
-        background: '#071629',
-        borderTop: '1px solid rgba(255,255,255,0.06)',
+        background: '#e7dbc2',
+        borderTop: '1px solid rgba(43,38,34,0.08)',
       }}
     >
       <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-5 text-center sm:flex-row sm:text-left">
-        <p className="text-xs tracking-wide" style={{ color: 'rgba(255,255,255,0.34)' }}>
+        <p className="text-xs tracking-wide" style={{ color: '#6b6358' }}>
           © 2026 SARTO. All rights reserved.
         </p>
         <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-xs font-semibold">
-          <Link className="transition-colors hover:text-white" href="/privacy" style={{ color: 'rgba(255,255,255,0.52)' }}>
+          <Link className="transition-colors hover:text-[#2b2622]" href="/privacy" style={{ color: '#6b6358' }}>
             Privacy Policy
           </Link>
-          <Link className="transition-colors hover:text-white" href="/terms" style={{ color: 'rgba(255,255,255,0.52)' }}>
+          <Link className="transition-colors hover:text-[#2b2622]" href="/terms" style={{ color: '#6b6358' }}>
             Terms of Service
           </Link>
           <a
-            className="transition-colors hover:text-white"
+            className="transition-colors hover:text-[#2b2622]"
             href="mailto:travelos23@gmail.com?subject=SARTO%20Support%20Request"
-            style={{ color: 'rgba(255,255,255,0.52)' }}
+            style={{ color: '#6b6358' }}
           >
             Support
           </a>
@@ -88,6 +89,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${inter.variable} ${body.variable} ${brandSerif.variable} ${display.variable} h-full`}>
       <body className="min-h-full antialiased">
+        {/* Microsoft Clarity — UX analytics (heatmaps + session recordings) */}
+        <Script id="ms-clarity" strategy="afterInteractive">
+          {`(function(c,l,a,r,i,t,y){
+              c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+              t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+              y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+            })(window, document, "clarity", "script", "xcnbnwmi2y");`}
+        </Script>
         <SiteBackground />
         <MotionProvider>
           <AuthProvider>

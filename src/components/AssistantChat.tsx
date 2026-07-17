@@ -8,6 +8,7 @@ import type { Itinerary, TravelerProfile, Activity } from '@/lib/types';
 import type { AssistantPlaceCard, AssistantChatTurn, SwapTarget } from '@/lib/assistantTypes';
 import { buildAssistantContext, anchorSlotForDining } from '@/lib/assistantContext';
 import { AssistantAvatar } from '@/components/AssistantAvatar';
+import { MikaAvatar, type MikaState } from '@/components/MikaAvatar';
 
 interface AssistantTurn {
   role: 'user' | 'assistant';
@@ -42,11 +43,30 @@ export function AssistantChat({ itinerary, profile, onCommitSwap, sessionAccessT
   const [loading, setLoading] = useState(false);
   const [swappingId, setSwappingId] = useState<string | null>(null);
   const [bankPrompt, setBankPrompt] = useState<{ oldPlace: Activity; targetField: string } | null>(null);
+  // Transient Mika reaction ('success' / 'correction') shown for a beat after a
+  // reply lands, then it settles back to idle. `thinking` is driven by loading.
+  const [reaction, setReaction] = useState<Exclude<MikaState, 'idle' | 'thinking'> | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [turns, loading, bankPrompt]);
+
+  // Classify the newest assistant reply → a short-lived facial reaction.
+  useEffect(() => {
+    const last = turns[turns.length - 1];
+    if (!last || last.role !== 'assistant' || !last.text) return;
+    const text = last.text.toLowerCase();
+    const correction = /\bactually\b|note that|instead of|not day|is on day|heads[- ]?up|בעצם|שים לב|למעשה|לא ביום/.test(text);
+    const success = /recommend|top pick|winning|perfect|great choice|my pick|added|מומלץ|בחירה מנצחת|הוספתי|מושלם/.test(text);
+    const next = correction ? 'correction' : success ? 'success' : null;
+    if (!next) return;
+    setReaction(next);
+    const t = setTimeout(() => setReaction(null), 3200);
+    return () => clearTimeout(t);
+  }, [turns]);
+
+  const mikaState: MikaState = loading ? 'thinking' : (reaction ?? 'idle');
 
   async function send() {
     const text = input.trim();
@@ -160,7 +180,7 @@ export function AssistantChat({ itinerary, profile, onCommitSwap, sessionAccessT
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 shrink-0" style={{ background: '#0d2b27', color: '#FDFCF9' }}>
               <div className="flex items-center gap-2">
-                <AssistantAvatar size={30} />
+                <MikaAvatar size={34} state={mikaState} />
                 <div className="leading-tight">
                   <div className="text-sm font-bold">Mika</div>
                   <div className="text-[10px] opacity-70">Your itinerary assistant</div>
@@ -173,7 +193,7 @@ export function AssistantChat({ itinerary, profile, onCommitSwap, sessionAccessT
             <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-3" style={{ background: '#FDFCF9' }}>
               {turns.length === 0 && (
                 <div className="flex flex-col items-center text-center mt-6 gap-2">
-                  <AssistantAvatar size={52} />
+                  <MikaAvatar size={76} state={mikaState} />
                   <p className="text-xs" style={{ color: '#5a908a' }}>
                     Hi, I&rsquo;m Mika. Ask me to swap something — e.g. &ldquo;replace my lunch on day 2&rdquo;.
                   </p>

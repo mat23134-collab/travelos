@@ -24,6 +24,7 @@ import { Suspense, useEffect, useState, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useOnboardingStore } from '@/state/onboardingStore';
+import { trackOnboardingStep, ONBOARDING_STEP_KEYS } from '@/lib/onboardingAnalytics';
 import { readTripLanguagePref } from '@/lib/tripLanguagePref';
 import { useAuth } from '@/lib/auth-context';
 import { BrandWordmark } from '@/components/BrandWordmark';
@@ -31,17 +32,78 @@ import { resolveBackgroundImage } from '@/lib/stepBackgrounds';
 import { COUNTRIES } from '@/lib/countries';
 import { THEME, BACKDROP_VEIL } from '@/lib/onboardingTheme';
 import { getStepCopy } from '@/lib/stepCopy';
+import { onboardingUi } from '@/lib/onboardingUi';
 
 // ── Chunk-load resilience ────────────────────────────────────────────────────
 // Mobile networks + post-deploy chunk-hash changes make a single dynamic import
-// occasionally fail, leaving the step area blank until a manual refresh. We
-// retry the import a few times with backoff before surfacing the error, which
-// turns almost all transient failures into a brief skeleton instead of a dead
-// screen. (A global ChunkLoadError auto-reload handler in the component covers
-// the stale-deploy case where the file is simply gone.)
+// occasionally fail, leaving the step area blank until a manual refresh.
+//
+// Strategy:
+//   1. On ChunkLoadError (new hash after deploy): reload the page immediately
+//      so the browser picks up fresh HTML + chunk references. A sessionStorage
+//      guard prevents infinite loops — we only auto-reload once per session.
+//   2. On other transient errors (network blip): retry up to 4 times with
+//      exponential backoff (350 ms → ~2.5 s max) before giving up.
+//
+// IMPORTANT: dynamic() swallows the rejected promise internally, so a bare
+// throw from retryImport would leave the <StepSkeleton /> showing forever.
+// Handling ChunkLoadError here — inside the catch — ensures the reload fires
+// even when Next.js doesn't propagate it as an unhandledrejection.
+const CHUNK_RELOAD_AT_KEY = 'sarto_chunk_reloaded_at';
+const CHUNK_RELOAD_COUNT_KEY = 'sarto_chunk_reload_count';
+const RELOAD_COOLDOWN_MS = 10_000; // don't reload twice within 10s (loop guard)
+const MAX_RELOADS = 3;             // hard cap per session
+
+function looksLikeChunkError(err: unknown): boolean {
+  const msg = [
+    (err as { message?: string })?.message ?? '',
+    (err as { name?: string })?.name ?? '',
+  ].join(' ');
+  return /ChunkLoadError|Loading chunk [\d]+ failed|Loading CSS chunk|error loading dynamically imported module|importing a module script failed/i.test(msg);
+}
+
+/**
+ * Trigger a one-shot page reload to recover from a stale/failed chunk, guarded
+ * against loops by BOTH a 10s cooldown and a per-session count cap. Returns true
+ * when a reload was started (caller should then hang, since the page is going
+ * away).
+ *
+ * The previous implementation reloaded only ONCE per session, which meant that
+ * if an early step auto-recovered, a LATER step failing (e.g. the hotel step)
+ * could never reload itself — it just showed a blank <StepSkeleton /> until the
+ * user manually refreshed. That cost us users who left instead of refreshing.
+ */
+function tryRecoveryReload(): boolean {
+  try {
+    const lastAt = Number(sessionStorage.getItem(CHUNK_RELOAD_AT_KEY) ?? '0');
+    const count = Number(sessionStorage.getItem(CHUNK_RELOAD_COUNT_KEY) ?? '0');
+    if (count >= MAX_RELOADS) return false;
+    if (Date.now() - lastAt < RELOAD_COOLDOWN_MS) return false;
+    sessionStorage.setItem(CHUNK_RELOAD_AT_KEY, String(Date.now()));
+    sessionStorage.setItem(CHUNK_RELOAD_COUNT_KEY, String(count + 1));
+    window.location.reload();
+    return true;
+  } catch {
+    // sessionStorage unavailable (private / in-app browsers) — reload once
+    // unguarded rather than risk a permanent blank step.
+    try { window.location.reload(); return true; } catch { return false; }
+  }
+}
+
 function retryImport<T>(factory: () => Promise<T>, retries = 4, delay = 350): Promise<T> {
   return factory().catch((err) => {
-    if (retries <= 0) throw err;
+    // ChunkLoadError: retrying the same stale URL keeps 404-ing. Reload for
+    // fresh HTML + chunk hashes (loop-guarded).
+    if (looksLikeChunkError(err) && tryRecoveryReload()) {
+      return new Promise<T>(() => {}); // page is reloading
+    }
+    if (retries <= 0) {
+      // Retries exhausted. A reload usually fixes even non-chunk transient
+      // failures (network blips) — try it as a last resort before giving up,
+      // so the step area never stays permanently blank.
+      if (tryRecoveryReload()) return new Promise<T>(() => {});
+      throw err;
+    }
     return new Promise<T>((resolve, reject) => {
       setTimeout(() => {
         retryImport(factory, retries - 1, Math.min(delay * 1.6, 2500)).then(resolve, reject);
@@ -123,11 +185,21 @@ const slide = {
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 function StepSkeleton() {
+  // Safety net: a normal chunk loads in well under a second. If this skeleton
+  // is still mounted after 8s the dynamic import failed silently (dynamic()
+  // swallows the rejection), leaving a permanent blank step. Trigger the
+  // loop-guarded recovery reload so the user isn't stuck — the #1 reason people
+  // used to abandon the hotel step.
+  useEffect(() => {
+    const id = setTimeout(() => { tryRecoveryReload(); }, 10_000);
+    return () => clearTimeout(id);
+  }, []);
+
   return (
     <div className="flex flex-col gap-4 animate-pulse">
-      <div className="h-8 w-48 rounded-xl" style={{ background: 'rgba(31,36,33,0.06)' }} />
-      <div className="h-4 w-64 rounded-lg" style={{ background: 'rgba(31,36,33,0.04)' }} />
-      <div className="h-40 rounded-2xl mt-2" style={{ background: 'rgba(31,36,33,0.04)' }} />
+      <div className="h-8 w-48 rounded-xl" style={{ background: 'rgba(31,36,33,0.12)' }} />
+      <div className="h-4 w-64 rounded-lg" style={{ background: 'rgba(31,36,33,0.08)' }} />
+      <div className="h-40 rounded-2xl mt-2" style={{ background: 'rgba(31,36,33,0.08)' }} />
     </div>
   );
 }
@@ -167,42 +239,31 @@ function OnboardingPageContent() {
     if (!loading && !user) router.replace('/auth');
   }, [loading, user, router]);
 
-  // ── ChunkLoadError safety net ───────────────────────────────────────────────
-  // After a new deploy, an open client holds HTML that references old chunk
-  // hashes which no longer exist on the server. Loading a lazy step then 404s
-  // and the area stays blank. We catch that specific error once and hard-reload
-  // to pull fresh HTML + chunk references. A sessionStorage guard prevents any
-  // reload loop.
+  // ── Warm upcoming step chunks so navigation never suspends mid-transition ────
+  // Steps are code-split via dynamic(ssr:false). If a step's chunk is still
+  // loading when the user navigates to it, the entering child SUSPENDS inside
+  // <AnimatePresence mode="wait"> — which interrupts the slide-in animation and
+  // can leave the step MOUNTED BUT INVISIBLE (stuck at the enter variant's
+  // opacity:0), looking blank until a manual refresh. This was the bug on the
+  // (heavier) accommodation step.
+  //
+  // Prefetch the current + next two chunks whenever the step changes, so each
+  // step is already in the module cache before it's shown and resolves without
+  // suspending. import() is cached, so repeat calls are cheap.
   useEffect(() => {
-    const RELOAD_KEY = 'sarto_chunk_reloaded';
-    function looksLikeChunkError(message: string): boolean {
-      return /ChunkLoadError|Loading chunk [\d]+ failed|Loading CSS chunk|error loading dynamically imported module|importing a module script failed/i.test(message);
+    const importers = [
+      () => import('./sections/DestinationSection'),
+      () => import('./sections/DatesSection'),
+      () => import('./sections/PreferencesSection'),
+      () => import('./sections/VibeSection'),
+      () => import('./sections/SmartHotelStep'),
+      () => import('./sections/FinishingTouchesSection'),
+      () => import('./sections/TopSightsSection'),
+    ];
+    for (const s of [wizardStep, wizardStep + 1, wizardStep + 2]) {
+      importers[s]?.().catch(() => {});
     }
-    function handle(message: string) {
-      if (!looksLikeChunkError(message)) return;
-      try {
-        if (sessionStorage.getItem(RELOAD_KEY)) return; // already retried once
-        sessionStorage.setItem(RELOAD_KEY, '1');
-      } catch { /* ignore */ }
-      window.location.reload();
-    }
-    const onError = (e: ErrorEvent) => handle(e?.message ?? e?.error?.message ?? '');
-    const onRejection = (e: PromiseRejectionEvent) => {
-      const r = e?.reason;
-      handle(typeof r === 'string' ? r : (r?.message ?? ''));
-    };
-    // Clear the guard once a load fully succeeds so a future real deploy can retry.
-    const clearGuard = () => { try { sessionStorage.removeItem(RELOAD_KEY); } catch { /* ignore */ } };
-
-    window.addEventListener('error', onError);
-    window.addEventListener('unhandledrejection', onRejection);
-    const settle = setTimeout(clearGuard, 8000);
-    return () => {
-      window.removeEventListener('error', onError);
-      window.removeEventListener('unhandledrejection', onRejection);
-      clearTimeout(settle);
-    };
-  }, []);
+  }, [wizardStep]);
 
   // Seed destination / resume from query params
   useEffect(() => {
@@ -244,6 +305,19 @@ function OnboardingPageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  // ── Step funnel tracking (Clarity tags + Supabase events) ───────────────────
+  // Fire-and-forget (see lib/onboardingAnalytics) — tags the Clarity session
+  // with the current step and logs a per-attempt row so we can measure exactly
+  // where people drop off (e.g. the "hotel" step). Cannot block or break the
+  // wizard. `destination` is read as context only, not as a trigger.
+  useEffect(() => {
+    if (!user) return;
+    const key = ONBOARDING_STEP_KEYS[wizardStep];
+    if (!key) return;
+    trackOnboardingStep(wizardStep, key, { userId: user.id, destination });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wizardStep, user]);
+
   if (loading || !user) {
     return (
       <main className="min-h-screen flex items-center justify-center px-8">
@@ -271,70 +345,76 @@ function OnboardingPageContent() {
     ? Math.round((new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000)
     : null;
 
+  const tripLang = readTripLanguagePref() ?? 'en';
+  const ui = onboardingUi(tripLang);
+
+  // Grid-heavy steps (Destination, Our Picks) spread across the full screen on
+  // desktop; form steps stay centered at a readable width. Mobile is full-width
+  // either way. This is what drives the responsive desktop ↔ mobile layout.
+  const isWideStep = wizardStep === 0 || wizardStep === STEPS.length - 1;
+  const shellWidth = isWideStep
+    ? 'max-w-xl lg:max-w-none lg:px-12 xl:px-20'
+    : 'max-w-xl';
+
   const stepCopy = getStepCopy(wizardStep, {
     cityName:  cities[0]?.name ?? (destination.trim() || null),
     nights:    nightCount,
     groupType: groupType || null,
-  });
+  }, tripLang);
 
   const stepState: { canContinue: boolean; label: string } = (() => {
     switch (wizardStep) {
       case 0:
-        if (!country)        return { canContinue: false, label: 'Pick a country' };
-        if (!tripType)       return { canContinue: false, label: 'Single or multi-city?' };
-        if (!cities.length)  return { canContinue: false, label: 'Select at least one city' };
+        if (!country)        return { canContinue: false, label: ui.pickCountry };
+        if (!tripType)       return { canContinue: false, label: ui.singleOrMulti };
+        if (!cities.length)  return { canContinue: false, label: ui.selectCity };
         return {
           canContinue: true,
           label: cities.length > 1
-            ? `Plan ${cities.length}-city tour →`
-            : `Plan ${cities[0]?.name ?? country} →`,
+            ? ui.planCityTour(cities.length)
+            : ui.planTrip(cities[0]?.name ?? country),
         };
       case 1:
-        if (!startDate || !endDate) return { canContinue: false, label: 'Pick your travel dates' };
-        return { canContinue: true, label: nightCount ? `${nightCount} nights · Continue →` : 'Continue →' };
+        if (!startDate || !endDate) return { canContinue: false, label: ui.pickDates };
+        return { canContinue: true, label: nightCount ? ui.nightsContinue(nightCount) : ui.continueArrow };
       case 2:
-        if (!budget) return { canContinue: false, label: 'Pick a budget level' };
-        return { canContinue: true, label: 'Next: travel style →' };
+        if (!budget) return { canContinue: false, label: ui.pickBudget };
+        return { canContinue: true, label: ui.nextTravelStyle };
       case 3: {
-        if (!groupType) return { canContinue: false, label: "Who's coming?" };
+        if (!groupType) return { canContinue: false, label: ui.whoComing };
         if (groupType === 'family') {
-          if (!familyAdults || familyAdults < 1) return { canContinue: false, label: 'Add at least one adult' };
+          if (!familyAdults || familyAdults < 1) return { canContinue: false, label: ui.addAdult };
         }
         if (groupType === 'group' && (!groupSize || groupSize < 3)) {
-          return { canContinue: false, label: 'Pick your group size' };
+          return { canContinue: false, label: ui.pickGroupSize };
         }
         // Dynamics required for everyone except Family (whose composition acts as its dynamics).
         const needsDyn = groupType === 'solo' || groupType === 'couple' || groupType === 'group';
-        if (needsDyn && !groupDynamics) return { canContinue: false, label: 'Pick your style of travel' };
-        if (!pace) return { canContinue: false, label: 'Choose your pace' };
-        return { canContinue: true, label: 'Continue' };
+        if (needsDyn && !groupDynamics) return { canContinue: false, label: ui.pickStyle };
+        if (!pace) return { canContinue: false, label: ui.choosePace };
+        return { canContinue: true, label: ui.continue };
       }
       case 4:
         // Path A: hotel geocoded and confirmed
-        if (hotelAddress) return { canContinue: true, label: 'Next: dining rules →' };
+        if (hotelAddress) return { canContinue: true, label: ui.nextDiningRules };
         // Path B: all three required blocks complete (amenities are optional)
         if (accommodation && hotelNightlyBudget && hotelLocationPref.length > 0)
-          return { canContinue: true, label: 'Next: dining rules →' };
+          return { canContinue: true, label: ui.nextDiningRules };
         // Path B partial — tell user exactly what's missing
         if (accommodation && hotelNightlyBudget)
-          return { canContinue: false, label: 'Pick your location preference' };
+          return { canContinue: false, label: ui.pickLocationPref };
         if (accommodation)
-          return { canContinue: false, label: 'Pick nightly budget' };
+          return { canContinue: false, label: ui.pickNightlyBudget };
         // Nothing selected — user must complete a path or tap Skip
-        return { canContinue: false, label: 'Select an option or skip' };
+        return { canContinue: false, label: ui.selectOrSkip };
       case 5:
-        return { canContinue: true, label: 'Next: our recommendations →' };
+        return { canContinue: true, label: ui.nextRecommendations };
       case 6: {
         const picks = mustHaveItems.length;
-        const label = picks === 0
-          ? 'Skip & generate'
-          : picks === 1
-            ? 'Generate with 1 pick'
-            : `Generate with ${picks} picks`;
-        return { canContinue: true, label };
+        return { canContinue: true, label: picks === 0 ? ui.skipGenerate : ui.generateWithPicks(picks) };
       }
       default:
-        return { canContinue: false, label: 'Continue' };
+        return { canContinue: false, label: ui.continue };
     }
   })();
 
@@ -346,6 +426,9 @@ function OnboardingPageContent() {
 
   // ── Final action: generate trip ─────────────────────────────────────────────
   function handleGenerateTrip() {
+    // Mark the funnel endpoint: user reached "Generate". Fire-and-forget.
+    trackOnboardingStep(STEPS.length, 'generate', { userId: user?.id ?? null, destination });
+
     const params = new URLSearchParams();
 
     // Core
@@ -405,6 +488,7 @@ function OnboardingPageContent() {
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <main
+      dir={ui.dir}
       className="min-h-screen relative"
       style={{
         // Full-bleed destination photo for depth, softened by the airy
@@ -425,7 +509,7 @@ function OnboardingPageContent() {
       </div>
 
       {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <div className="relative z-10 max-w-xl mx-auto px-5 sm:px-8 pt-8">
+      <div className={`relative z-10 ${shellWidth} mx-auto px-5 sm:px-8 pt-8`}>
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
             {/* Back arrow */}
@@ -487,7 +571,7 @@ function OnboardingPageContent() {
             initial="enter"
             animate="center"
             exit="exit"
-            className="max-w-xl mx-auto px-5 sm:px-8 pb-40"
+            className={`${shellWidth} mx-auto px-5 sm:px-8 pb-40`}
           >
             <Suspense fallback={<StepSkeleton />}>
 
@@ -558,7 +642,7 @@ function OnboardingPageContent() {
           paddingTop: 36,
         }}
       >
-        <div className="max-w-xl mx-auto px-5 sm:px-8 pb-8 flex items-center gap-3">
+        <div className="max-w-xl lg:max-w-3xl mx-auto px-5 sm:px-8 pb-8 flex items-center gap-3">
 
           {/* Back */}
           <AnimatePresence>
@@ -577,7 +661,7 @@ function OnboardingPageContent() {
                   color: THEME.textMuted,
                 }}
               >
-                ‹ Back
+                ‹ {ui.back}
               </motion.button>
             )}
           </AnimatePresence>
@@ -599,9 +683,9 @@ function OnboardingPageContent() {
                   ? wizardStep === STEPS.length - 1 ? THEME.gold : THEME.ink
                   : THEME.border,
                 color: stepState.canContinue
-                  ? wizardStep === STEPS.length - 1 ? THEME.ink : '#FDFCF9'
+                  ? wizardStep === STEPS.length - 1 ? THEME.ink : '#faf3e8'
                   : THEME.textFaint,
-                boxShadow: stepState.canContinue ? '0 6px 18px -6px rgba(31,36,33,0.35)' : 'none',
+                boxShadow: stepState.canContinue ? '0 6px 18px -6px rgba(43,38,34,0.35)' : 'none',
                 opacity: stepState.canContinue ? 1 : 0.7,
                 cursor: stepState.canContinue ? 'pointer' : 'default',
               }}

@@ -34,6 +34,21 @@ const nextConfig = {
     NEXT_PUBLIC_BUILD_ID,
     NEXT_PUBLIC_BUILT_AT,
   },
+  // @react-pdf/renderer v3 ships CJS that Next.js can't tree-shake cleanly —
+  // transpiling it avoids "Cannot find module 'canvas'" and similar runtime
+  // crashes when the PDF is generated client-side.
+  transpilePackages: ['@react-pdf/renderer'],
+  webpack(config, { isServer }) {
+    if (!isServer) {
+      // @react-pdf/renderer pulls in canvas as an optional dep; the browser
+      // doesn't have it, so alias it to false to prevent bundler errors.
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        canvas: false,
+      };
+    }
+    return config;
+  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'images.unsplash.com' },

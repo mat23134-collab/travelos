@@ -19,6 +19,7 @@ import { getCityImage, getCountryImage, DEFAULT_HERO } from '@/lib/travelImagery
 import { useOnboardingStore } from '@/state/onboardingStore';
 import { THEME, CARD } from '@/lib/onboardingTheme';
 import { MapPin, Map, Search, X } from 'lucide-react';
+import { readTripLanguagePref } from '@/lib/tripLanguagePref';
 import type { LucideIcon } from 'lucide-react';
 
 // ── Variants ──────────────────────────────────────────────────────────────────
@@ -158,6 +159,8 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
     destination,
   } = useOnboardingStore();
 
+  const he = (readTripLanguagePref() ?? 'en') === 'he';
+
   const [search, setSearch] = useState('');
   const [customInput, setCustomInput] = useState('');
   const [geocoding, setGeocoding] = useState(false);
@@ -241,7 +244,7 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
     const cityLabel = cities.length === 1
       ? cities[0].name
       : cities.map((c) => c.name).join(' → ');
-    const typeLabel = tripType === 'multi' ? 'Multi-city' : 'Single city';
+    const typeLabel = tripType === 'multi' ? (he ? 'מרובת ערים' : 'Multi-city') : (he ? 'עיר אחת' : 'Single city');
 
     return (
       <motion.div
@@ -266,7 +269,7 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
           className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors hover-bg-subtle"
           style={{ color: THEME.textMuted, border: `1px solid ${THEME.border}` }}
         >
-          Edit
+          {he ? 'עריכה' : 'Edit'}
         </button>
       </motion.div>
     );
@@ -276,15 +279,15 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
   return (
     <div className="flex flex-col gap-6">
 
-      {/* Country search */}
+      {/* Country search — capped so it doesn't span the full-bleed grid width */}
       <div
-        className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl"
+        className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl w-full max-w-2xl"
         style={{ background: THEME.surface, border: `1px solid ${THEME.border}` }}
       >
         <Search size={16} strokeWidth={1.75} style={{ color: THEME.textMuted }} className="shrink-0" />
         <input
           type="text"
-          placeholder="Search countries…"
+          placeholder={he ? 'חיפוש מדינות…' : 'Search countries…'}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="flex-1 bg-transparent text-sm outline-none"
@@ -297,13 +300,11 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
         )}
       </div>
 
-      {/* Country grid */}
+      {/* Country grid — scrollable, with a bottom fade so "more below" reads clearly */}
+      <div className="relative">
       <div
-        className="grid grid-cols-2 sm:grid-cols-3 gap-3 overflow-y-auto pr-1"
-        style={{
-          maxHeight: '320px',
-          scrollbarWidth: 'thin',
-        }}
+        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 overflow-y-auto pr-1 max-h-[340px] lg:max-h-[58vh]"
+        style={{ scrollbarWidth: 'thin' }}
       >
         {filtered.map((c, i) => (
           <motion.div
@@ -322,8 +323,17 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
         ))}
         {filtered.length === 0 && (
           <p className="col-span-full text-sm text-center py-6" style={{ color: THEME.textMuted }}>
-            No countries found for &ldquo;{search}&rdquo;
+            {he ? `לא נמצאו מדינות עבור "${search}"` : `No countries found for “${search}”`}
           </p>
+        )}
+      </div>
+        {/* Scroll affordance — fade hints there's more to scroll */}
+        {filtered.length > 6 && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-10 rounded-b-2xl"
+            style={{ background: 'linear-gradient(to top, rgba(239,227,205,0.95), rgba(239,227,205,0))' }}
+          />
         )}
       </div>
 
@@ -341,12 +351,12 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
           >
             <div className="h-px" style={{ background: THEME.border }} />
             <p className="text-sm font-semibold" style={{ color: THEME.textBody }}>
-              How would you like to explore {selectedCountry?.flag} {country}?
+              {he ? 'איך תרצו לחקור את' : 'How would you like to explore'} {selectedCountry?.flag} {country}?
             </p>
             <div className="grid grid-cols-2 gap-3">
               {[
-                { value: 'single' as const, icon: MapPin as LucideIcon, label: 'Single city', sub: 'Dive deep into one destination', comingSoon: false },
-                { value: 'multi'  as const, icon: Map as LucideIcon, label: 'Multi-city tour', sub: 'Visit multiple cities', comingSoon: true },
+                { value: 'single' as const, icon: MapPin as LucideIcon, label: he ? 'עיר אחת' : 'Single city', sub: he ? 'להעמיק ביעד אחד' : 'Dive deep into one destination', comingSoon: false },
+                { value: 'multi'  as const, icon: Map as LucideIcon, label: he ? 'סיור רב-ערים' : 'Multi-city tour', sub: he ? 'לבקר בכמה ערים' : 'Visit multiple cities', comingSoon: true },
               ].map((opt) => {
                 const { value, icon: Icon, label, sub, comingSoon } = opt;
                 const active = tripType === value;
@@ -370,7 +380,7 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
                         className="absolute top-2.5 right-2.5 text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-full"
                         style={{ background: THEME.surfaceSel, color: THEME.gold, border: `1px solid ${THEME.borderSel}` }}
                       >
-                        Coming soon
+                        {he ? 'בקרוב' : 'Coming soon'}
                       </span>
                     )}
                     <Icon
@@ -382,7 +392,7 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
                     <div>
                       <p className="text-sm font-bold" style={{ color: active ? THEME.deepGreen : THEME.textBody }}>{label}</p>
                       <p className="text-[11px] mt-0.5" style={{ color: THEME.textMuted }}>
-                        {comingSoon ? 'In the works — single city for now' : sub}
+                        {comingSoon ? (he ? 'בפיתוח — עיר אחת בינתיים' : 'In the works — single city for now') : sub}
                       </p>
                     </div>
                   </motion.button>
@@ -410,9 +420,9 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
             {/* Popular cities */}
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: THEME.textMuted }}>
-                Popular in {country}
+                {he ? 'פופולרי ב-' : 'Popular in '}{country}
               </p>
-              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7">
                 {selectedCountry.cities.map((city) => (
                   <CityChip
                     key={city.name}
@@ -449,7 +459,7 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
                 className="px-4 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-40"
                 style={{ background: THEME.gold }}
               >
-                {geocoding ? '…' : 'Add'}
+                {geocoding ? '…' : (he ? 'הוסף' : 'Add')}
               </motion.button>
             </div>
 
@@ -464,7 +474,7 @@ export function DestinationSection({ isCompleted, onComplete, onEdit }: Props) {
                   exit="exit"
                   className="flex flex-col gap-2"
                 >
-                  <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: THEME.textMuted }}>Your route</p>
+                  <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: THEME.textMuted }}>{he ? 'המסלול שלך' : 'Your route'}</p>
                   <div className="flex items-center flex-wrap gap-1.5">
                     {cities.map((city, i) => (
                       <div key={city.name} className="flex items-center gap-1.5">

@@ -8,7 +8,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Itinerary, TravelerProfile, Basecamp, HotelRecommendation, type BookedHotelAround, type Activity, type CityTransportGuide } from '@/lib/types';
 import { DayCard } from '@/components/DayCard';
 import { DayPhoto } from '@/components/DayPhoto';
-import { QuickEdit } from '@/components/QuickEdit';
 import { SharePanel, type SharePanelCopy } from '@/components/SharePanel';
 import { LogisticsDashboard } from '@/components/LogisticsDashboard';
 import { DraftOverview } from '@/components/DraftOverview';
@@ -16,7 +15,8 @@ import { TrendingTicker } from '@/components/TrendingTicker';
 import { TripStoryCube } from '@/components/TripStoryCube';
 import { FeedbackSurveyModal, type FeedbackPayload } from '@/components/FeedbackSurveyModal';
 import { itineraryUi, type ItineraryUiStrings } from '@/lib/tripUiCopy';
-import { hotelOtaSearchUrl, mergeHotelOtaRows, isOtaSoldOut, hasBookableOtaRate, type HotelOtaLinkOpts } from '@/lib/hotelOtaLinks';
+import { hotelOtaSearchUrl, mergeHotelOtaRows, isOtaSoldOut, hasBookableOtaRate, otaPartyFromProfile, googleHotelsSearchUrl, type HotelOtaLinkOpts } from '@/lib/hotelOtaLinks';
+import { cjDeepLink } from '@/lib/cjAffiliate';
 
 /** Strip trailing "/night" variants the AI sometimes appends to indicativeNightly
  *  so we don't double-up when we add our own "· /night (est.)" suffix. */
@@ -40,6 +40,9 @@ import { TripStats } from '@/components/TripStats';
 import { deriveTripStats, deriveTripStatLists } from '@/lib/tripStats';
 import { budgetToUsd } from '@/lib/currency';
 import { DayDetailPanel } from '@/components/DayDetailPanel';
+import { SmartToolbar } from '@/components/SmartToolbar';
+import { SidePanel } from '@/components/side-panel/SidePanel';
+import { useSidePanel } from '@/state/sidePanelStore';
 import { HotelSelectionCard } from '@/components/HotelSelectionCard';
 import { AssistantChat } from '@/components/AssistantChat';
 import { formatTripDateRange } from '@/lib/formatTripDateRange';
@@ -78,6 +81,31 @@ function hasAnyBookableChannel(hotel: HotelRecommendation): boolean {
   return activeOtaRowsForHotel(hotel).some(hasBookableOtaRate);
 }
 
+/**
+ * Resolve a hotel name → a DIRECT Booking property URL (with dates/occupancy) so
+ * the Booking link lands on live availability, not the flaky free-text search.
+ * Returns null until resolved / if no match; callers fall back to the search URL.
+ */
+function useBookingDirectLink(name: string, city: string, opts: HotelOtaLinkOpts): string | null {
+  const [url, setUrl] = useState<string | null>(null);
+  const ci = opts.checkIn, co = opts.checkOut, ad = opts.adults, kids = (opts.children ?? []).join(',');
+  useEffect(() => {
+    if (!name) return;
+    const p = new URLSearchParams({ name, city: city ?? '' });
+    if (ci) p.set('checkin', ci);
+    if (co) p.set('checkout', co);
+    if (ad) p.set('adults', String(ad));
+    if (kids) p.set('children', kids);
+    let cancelled = false;
+    fetch(`/api/booking-link?${p.toString()}`)
+      .then((r) => r.json())
+      .then((d) => { if (!cancelled) setUrl(d?.url ?? null); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [name, city, ci, co, ad, kids]);
+  return url;
+}
+
 function HotelDetailCube({
   hotel,
   destination,
@@ -93,8 +121,9 @@ function HotelDetailCube({
 }) {
   const checkIn = profile?.startDate?.slice(0, 10);
   const checkOut = profile?.endDate?.slice(0, 10);
-  const adults = profile?.groupSize && profile.groupSize > 0 ? profile.groupSize : 2;
-  const otaOpts = { checkIn, checkOut, adults };
+  const party = otaPartyFromProfile(profile);
+  const otaOpts = { checkIn, checkOut, adults: party.adults, children: party.children };
+  const bookingDirect = useBookingDirectLink(hotel.name, destination, otaOpts);
   const otaRows = activeOtaRowsForHotel(hotel);
   const reviewsHref = `https://www.google.com/search?q=${encodeURIComponent(`${hotel.name} hotel ${destination} reviews`)}`;
   const stars = starRow(hotel.ratingStars);
@@ -270,7 +299,7 @@ function HotelDetailCube({
                       </span>
                     ) : (
                       <a
-                        href={hotelOtaSearchUrl(row.id, hotel.name, destination, otaOpts)}
+                        href={cjDeepLink(row.id === 'booking' && bookingDirect ? bookingDirect : hotelOtaSearchUrl(row.id, hotel.name, destination, otaOpts))}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="shrink-0 inline-flex items-center justify-center px-3 py-2 rounded-lg text-[11px] font-bold border transition-colors hover-bg-surface"
@@ -299,6 +328,16 @@ function HotelDetailCube({
           </div>
 
           <div className="flex flex-col gap-2">
+            {/* Google Hotels — reliable availability + price comparison (no Booking interstitial) */}
+            <a
+              href={googleHotelsSearchUrl(hotel.name, destination)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-3 rounded-xl text-sm font-bold text-center text-white transition-opacity hover:opacity-95"
+              style={{ background: '#1a73e8', boxShadow: '0 4px 18px rgba(26,115,232,0.28)' }}
+            >
+              {ui.dir === 'rtl' ? 'זמינות ומחירים ב-Google' : 'Availability & prices on Google'}
+            </a>
             {hotel.websiteUrl && (
               <a
                 href={hotel.websiteUrl}
@@ -539,7 +578,7 @@ function HotelCard({
   // ── Pricing helpers ──
   const checkIn  = profile?.startDate?.slice(0, 10);
   const checkOut = profile?.endDate?.slice(0, 10);
-  const adults   = profile?.groupSize && profile.groupSize > 0 ? profile.groupSize : 2;
+  const party    = otaPartyFromProfile(profile);
 
   const nights = useMemo(() => {
     if (!checkIn || !checkOut) return null;
@@ -576,7 +615,8 @@ function HotelCard({
       : null;
 
   // OTA deep-link URLs (dates + party size pre-filled)
-  const otaOpts = { checkIn, checkOut, adults };
+  const otaOpts = { checkIn, checkOut, adults: party.adults, children: party.children };
+  const bookingDirect = useBookingDirectLink(hotel.name, destination, otaOpts);
 
   // Only render links for OTAs that the AI actually returned data for
   const activeOtaRows = otaRows.filter((r) => r.hasData);
@@ -783,7 +823,7 @@ function HotelCard({
                 return (
                   <a
                     key={row.id}
-                    href={hotelOtaSearchUrl(row.id, hotel.name, destination, otaOpts)}
+                    href={cjDeepLink(row.id === 'booking' && bookingDirect ? bookingDirect : hotelOtaSearchUrl(row.id, hotel.name, destination, otaOpts))}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}
@@ -796,11 +836,18 @@ function HotelCard({
                   </a>
                 );
               })}
-              {activeOtaRows.length === 0 && (
-                <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.22)' }}>
-                  No pricing data
-                </span>
-              )}
+              {/* Always-on Google Hotels chip — reliable availability + prices */}
+              <a
+                href={googleHotelsSearchUrl(hotel.name, destination)}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                title="Availability & prices on Google Hotels"
+                className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all hover:scale-105"
+                style={{ background: 'rgba(26,115,232,0.14)', border: '1px solid rgba(26,115,232,0.4)', color: '#1a73e8' }}
+              >
+                <span>Google</span>
+              </a>
             </div>
 
             {/* Tap hint */}
@@ -1287,6 +1334,7 @@ export function ItineraryClient({
     );
   }
 
+  const openSidePanel = useSidePanel((s) => s.openPanel);
   const days = itin.itinerary.days ?? [];
   const tripStats = deriveTripStats(itin.itinerary);
   const statLists = deriveTripStatLists(itin.itinerary);
@@ -1392,12 +1440,29 @@ export function ItineraryClient({
           />
         ) : (
           /* ══ OVERVIEW ════════════════════════════════════════════════════ */
-          <div className="max-w-5xl mx-auto py-4">
+          /* Width scales up on large desktops so the content fills the screen
+             instead of leaving big empty gutters; mobile/tablet unchanged. */
+          <div className="max-w-5xl xl:max-w-7xl 2xl:max-w-[1600px] mx-auto py-4">
             <ItineraryHero
               destination={itin.itinerary.destination}
               dateRange={formatTripDateRange(itin.profile?.startDate, itin.profile?.endDate)}
               totalDays={days.length}
             />
+
+            {/* Bottom margin cancels TripStats' negative top margin (-mt-10/-12)
+                so the stat cards sit BELOW the toolbar instead of overlapping it. */}
+            <div className="px-4 mt-5 mb-16 sm:mb-20 relative z-10">
+              <SmartToolbar
+                destination={itin.itinerary.destination}
+                days={days}
+                lang={itin.ui.lang === 'he' ? 'he' : 'en'}
+                startDate={itin.profile?.startDate ?? null}
+                endDate={itin.profile?.endDate ?? null}
+                accessToken={itin.session?.access_token ?? null}
+                onLockReservation={itin.recalculateDay}
+                recalculateDayLoading={itin.recalculateDayLoading}
+              />
+            </div>
 
             <TripStats
               photoQuery={`${itin.itinerary.destination} skyline golden hour`}
@@ -1424,7 +1489,7 @@ export function ItineraryClient({
               ]}
             />
 
-            <SectionLabel>Your days</SectionLabel>
+            <SectionLabel>{itin.ui.dir === 'rtl' ? 'הימים שלך' : 'Your days'}</SectionLabel>
 
             <DayCarousel
               days={days}
@@ -1446,7 +1511,7 @@ export function ItineraryClient({
             {/* Budget summary */}
             {itin.itinerary.budgetSummary && (
               <>
-              <SectionLabel>Budget</SectionLabel>
+              <SectionLabel>{itin.ui.dir === 'rtl' ? 'תקציב' : 'Budget'}</SectionLabel>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -1485,7 +1550,7 @@ export function ItineraryClient({
             </div>
 
             {((itin.itinerary.packingTips?.length ?? 0) > 0 || (itin.itinerary.bestLocalTips?.length ?? 0) > 0) && (
-              <SectionLabel>Before you go</SectionLabel>
+              <SectionLabel>{itin.ui.dir === 'rtl' ? 'לפני שיוצאים' : 'Before you go'}</SectionLabel>
             )}
 
             {/* Packing tips */}
@@ -1587,10 +1652,6 @@ export function ItineraryClient({
         </AnimatePresence>
 
         <div className="print:hidden">
-          <QuickEdit itinerary={itin.itinerary} onUpdate={itin.handleQuickEditUpdate} />
-        </div>
-
-        <div className="print:hidden">
           <FeedbackSurveyModal
             open={itin.feedbackOpen}
             onSubmit={itin.handleFeedbackSubmit}
@@ -1599,6 +1660,34 @@ export function ItineraryClient({
         </div>
 
       </div>
+
+      {/* ── Trip companion drawer — available on every itinerary screen ─────── */}
+      <button
+        onClick={() => openSidePanel('documents')}
+        aria-label={itin.ui.dir === 'rtl' ? 'כלי הטיול' : 'Trip tools'}
+        className="fixed top-1/2 -translate-y-1/2 z-[60] print:hidden flex flex-col items-center gap-1.5 px-2 py-3.5 text-white shadow-lg"
+        style={{
+          ...(itin.ui.dir === 'rtl'
+            ? { left: 0, borderRadius: '0 16px 16px 0' }
+            : { right: 0, borderRadius: '16px 0 0 16px' }),
+          background: 'linear-gradient(180deg, var(--color-terracotta), var(--color-terracotta-deep))',
+        }}
+      >
+        <span className="text-[15px]">📎</span>
+        <span className="text-[15px]">✨</span>
+      </button>
+
+      <SidePanel
+        itineraryId={itin.itinerary._id ?? null}
+        destination={itin.itinerary.destination}
+        days={days}
+        lang={itin.ui.lang === 'he' ? 'he' : 'en'}
+        startDate={itin.profile?.startDate ?? null}
+        endDate={itin.profile?.endDate ?? null}
+        accessToken={itin.session?.access_token ?? null}
+        onLockReservation={itin.recalculateDay}
+        recalculateDayLoading={itin.recalculateDayLoading}
+      />
 
       <AssistantChat
         itinerary={itin.itinerary}

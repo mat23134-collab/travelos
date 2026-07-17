@@ -8,9 +8,8 @@ import { DaySummaryCard } from '@/components/DaySummaryCard';
 import { DayTimeline, DayGlance, type TimelineRow, type SwapTarget } from '@/components/DayTimeline';
 import { PlaceDetailCube } from '@/components/PlaceDetailCube';
 import { AlternativePickerPanel } from '@/components/AlternativePickerPanel';
-import { AttractionsBank } from '@/components/AttractionsBank';
-import { useAttractionBank, type BankItem } from '@/hooks/useAttractionBank';
 import { AuthGateModal } from '@/components/AuthGateModal';
+import { useSidePanel } from '@/state/sidePanelStore';
 import type { DayPlan, Itinerary, TravelerProfile, Activity } from '@/lib/types';
 import type { ItineraryUiStrings } from '@/lib/tripUiCopy';
 import type { ItineraryMapLabels } from '@/components/ItineraryMap';
@@ -68,9 +67,8 @@ export function DayDetailPanel({
 
   const [activePlace, setActivePlace] = useState<TimelineRow | null>(null);
   const [activeSwap, setActiveSwap] = useState<SwapTarget | null>(null);
-  const [pendingSlot, setPendingSlot] = useState<SwapTarget | null>(null);
   const [showAuthGate, setShowAuthGate] = useState(false);
-  const bank = useAttractionBank({ itineraryId, destination, itinerary, session });
+  const openSidePanel = useSidePanel((s) => s.openPanel);
 
   const requireAuth = (action: () => void) => {
     if (!session) {
@@ -84,37 +82,6 @@ export function DayDetailPanel({
     if (!activeSwap) return;
     onCommitActivitySwap(dayIndex, activeSwap.slot, activity, summary, diningField);
     setActiveSwap(null);
-    setPendingSlot(null);
-  };
-
-  const handleScheduleFromBank = async (item: BankItem, target: SwapTarget) => {
-    if (!session) {
-      setShowAuthGate(true);
-      return;
-    }
-    const replacementActivity: Activity = {
-      name: item.name,
-      description: item.description ?? '',
-      latitude: item.lat ?? undefined,
-      longitude: item.lng ?? undefined,
-      category_emoji: item.category_emoji ?? undefined,
-      website_url: item.website_url ?? undefined,
-      neighborhood: target.neighborhood,
-    };
-
-    try {
-      await onCommitActivitySwap(
-        dayIndex,
-        target.slot,
-        replacementActivity,
-        `הוחלף ב${item.name} מבנק האטרקציות`,
-        target.diningField,
-      );
-      await bank.removeItem(item.id);
-      if (pendingSlot) setPendingSlot(null);
-    } catch {
-      // swap failed — keep the item in the bank so the user can retry
-    }
   };
 
   return (
@@ -155,23 +122,20 @@ export function DayDetailPanel({
 
           {/* 2-col grid */}
           <div className="grid gap-5 grid-cols-1 sm:grid-cols-2">
-            {/* Left */}
+            {/* Left — schedule first: opening a day lands on the hourly plan +
+                summary, not on photos or the map. */}
             <div className="flex flex-col gap-3">
-              <div className="relative rounded-2xl overflow-hidden h-[200px]" style={{ boxShadow: '0 6px 20px rgba(0,0,0,0.12)' }}>
-                <DayPhoto query={photoQuery} alt={day.theme ?? destination} ratio="3/2" />
-              </div>
-
-              <div className="flex items-center gap-4 px-4 py-3 rounded-2xl" style={{ background: 'var(--color-paper)', boxShadow: 'var(--shadow-card)' }}>
-                <span className="text-3xl">{weatherEmoji}</span>
-                <div>
-                  <div className="text-[22px] font-black leading-none" style={{ color: 'var(--color-ink-warm)' }}>—°</div>
-                  <div className="text-[11px] mt-0.5" style={{ color: 'var(--color-ink-warm-mut)' }}>Typical weather · {destination}</div>
-                </div>
-              </div>
-
               <DayGlance day={day} />
 
               <DaySummaryCard day={day} dayIndex={dayIndex} ui={ui} />
+
+              <div className="relative rounded-2xl overflow-hidden h-[160px]" style={{ boxShadow: '0 6px 20px rgba(0,0,0,0.12)' }}>
+                <DayPhoto query={photoQuery} alt={day.theme ?? destination} height={160} />
+                <div className="absolute bottom-2 left-3 flex items-center gap-2 px-2.5 py-1 rounded-full" style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)' }}>
+                  <span className="text-base">{weatherEmoji}</span>
+                  <span className="text-[11px] font-medium text-white/90">Typical weather · {destination}</span>
+                </div>
+              </div>
 
               <DayTimeline
                 day={day}
@@ -181,7 +145,7 @@ export function DayDetailPanel({
                 onSwapSlot={onSwapSlot}
                 onNeighborhoodClick={onNeighborhoodClick}
                 onExplore={(row) => setActivePlace(row)}
-                onFindAlternative={(target) => requireAuth(() => { setActiveSwap(target); setPendingSlot(target); })}
+                onFindAlternative={(target) => requireAuth(() => setActiveSwap(target))}
               />
 
               {/* Mobile map button */}
@@ -197,8 +161,8 @@ export function DayDetailPanel({
               )}
             </div>
 
-            {/* Right: Map + Attractions Bank — sticky so it stays in view while
-                the (taller) activity list scrolls, filling the empty column. */}
+            {/* Right: Map + concierge CTA — sticky so it stays in view while the
+                (taller) schedule scrolls. */}
             <div className="flex flex-col gap-3 sm:self-start sm:sticky sm:top-20">
               <div
                 className="rounded-2xl overflow-hidden"
@@ -221,18 +185,27 @@ export function DayDetailPanel({
                 </div>
               </div>
 
-              <AttractionsBank
-                items={bank.items}
-                loading={bank.loading}
-                pendingSlot={pendingSlot}
-                day={day}
-                dayIndex={dayIndex}
-                ui={ui}
-                onAddManual={bank.addManualItem}
-                onRemove={bank.removeItem}
-                onSchedule={handleScheduleFromBank}
-                onCancelPending={() => setPendingSlot(null)}
-              />
+              {/* Swap / add via the concierge drawer (restaurants, attractions,
+                  events) — replaces the old inline attraction bank. */}
+              <button
+                type="button"
+                onClick={() => openSidePanel('discover')}
+                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-right transition-colors"
+                style={{ background: 'var(--color-paper)', boxShadow: 'var(--shadow-card)', border: '1px solid rgba(184,85,46,0.18)' }}
+              >
+                <span className="text-2xl shrink-0">✨</span>
+                <span className="flex-1">
+                  <span className="block text-[13.5px] font-bold" style={{ color: 'var(--color-ink-warm)' }}>
+                    {ui.dir === 'rtl' ? 'להחליף או להוסיף למסלול?' : 'Swap or add to this day?'}
+                  </span>
+                  <span className="block text-[11.5px] mt-0.5" style={{ color: 'var(--color-ink-warm-mut)' }}>
+                    {ui.dir === 'rtl'
+                      ? 'פתחו את הקונסיירז׳ — מסעדות, אטרקציות ופסטיבלים'
+                      : 'Open the concierge — restaurants, attractions & events'}
+                  </span>
+                </span>
+                <span className="shrink-0" style={{ color: 'var(--color-terracotta)' }}>←</span>
+              </button>
             </div>
           </div>
 
@@ -257,7 +230,7 @@ export function DayDetailPanel({
           itinerary={itinerary}
           profile={profile}
           onCommit={handleCommit}
-          onClose={() => { setActiveSwap(null); setPendingSlot(null); }}
+          onClose={() => setActiveSwap(null)}
         />
       )}
 

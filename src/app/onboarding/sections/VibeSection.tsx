@@ -19,48 +19,70 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { useOnboardingStore } from '@/state/onboardingStore';
-import { THEME } from '@/lib/onboardingTheme';
+import { readTripLanguagePref } from '@/lib/tripLanguagePref';
 import type {
   SoloDynamics, CoupleDynamics, GroupDynamics as GroupDyn,
   GroupDynamicsPayload,
 } from '@/lib/types';
 
-const BORDER = `1px solid ${THEME.border}`;
-const BORDER_SEL = `1px solid ${THEME.borderSel}`;
+/**
+ * Editorial Warmth pilot — VibeSection reads the results-page warmth tokens
+ * (paper / sunrise / ink-warm from globals.css) directly instead of the shared
+ * onboardingTheme. Same shape as THEME so a green-lit rollout is just copying
+ * these values into onboardingTheme.ts.
+ */
+const WARM = {
+  gold:       'var(--color-sunrise-deep)',         // accent: selection dot (contrast-safe on paper)
+  goldSoft:   'rgba(184,119,46,0.45)',             // faint accent (chevrons)
+  ink:        'var(--color-ink-warm)',             // strongest text
+  deepGreen:  'var(--color-ink-warm)',             // headlines
+  textBody:   'var(--color-ink-warm)',             // card option titles
+  textMuted:  'var(--color-ink-warm-mut)',         // sub-labels
+  textFaint:  '#9a8f7e',                           // hints, tertiary copy (warm faint)
+  ivory:      'var(--color-paper)',                // page ground
+  surface:    '#fffdf7',                           // warm-white card on paper
+  surfaceSel: '#f6ead2',                           // sunrise-tinted selected card
+  border:     'rgba(43,38,34,0.12)',               // unselected border (warm ink, faint)
+  borderSel:  'var(--color-sunrise-deep)',         // selected border
+} as const;
+
+const CARD_SHADOW = 'var(--shadow-card)';
+
+const BORDER = `1px solid ${WARM.border}`;
+const BORDER_SEL = `1px solid ${WARM.borderSel}`;
 
 const GROUP_OPTIONS = [
-  { value: 'solo',   label: 'Solo',   sub: 'Just me'      },
-  { value: 'couple', label: 'Couple', sub: 'Two of us'    },
-  { value: 'family', label: 'Family', sub: 'Kids in tow'  },
-  { value: 'group',  label: 'Group',  sub: '3+ friends'   },
+  { value: 'solo',   label: 'Solo',   labelHe: 'סולו',  sub: 'Just me',     subHe: 'רק אני'   },
+  { value: 'couple', label: 'Couple', labelHe: 'זוג',   sub: 'Two of us',   subHe: 'שנינו'    },
+  { value: 'family', label: 'Family', labelHe: 'משפחה', sub: 'Kids in tow', subHe: 'עם ילדים' },
+  { value: 'group',  label: 'Group',  labelHe: 'חבורה', sub: '3+ friends',  subHe: '3+ חברים' },
 ] as const;
 
 const PACE_OPTIONS = [
-  { value: 'relaxed',  label: 'Slow & Intentional', sub: '2–3 stops a day, room to breathe'        },
-  { value: 'moderate', label: 'A Measured Pace',    sub: 'A balanced mix of sights and downtime'   },
-  { value: 'intense',  label: 'See It All',         sub: 'Pack the days — make every hour count'   },
+  { value: 'relaxed',  label: 'Relaxed',  labelHe: 'רגוע',      sub: '2–3 stops a day',          subHe: '2–3 עצירות ביום' },
+  { value: 'moderate', label: 'Balanced', labelHe: 'מאוזן',     sub: 'Sights with time to rest', subHe: 'אתרים עם זמן למנוחה' },
+  { value: 'intense',  label: 'Packed',   labelHe: 'אינטנסיבי', sub: 'See as much as possible',  subHe: 'לראות כמה שיותר' },
 ] as const;
 
 // ── Dynamics (style of travel within the chosen group type) ──────────────────
-// Editorial voice: short serif noun + four-word sub. Family is intentionally
-// excluded — its dynamics are derived from the kids-ages composition.
+// Plain, friendly labels. Family is excluded — its dynamics come from the
+// kids-ages composition.
 
-const SOLO_DYN: Array<{ value: SoloDynamics; label: string; sub: string }> = [
-  { value: 'digital-nomad', label: 'Nomad',    sub: 'Work-friendly cafés, slow afternoons' },
-  { value: 'deep-recharge', label: 'Recharge', sub: 'Quiet spaces, intentional solitude'    },
-  { value: 'adventure',     label: 'Seeker',   sub: 'Off-the-grid, edge-of-map'             },
+const SOLO_DYN: Array<{ value: SoloDynamics; label: string; labelHe: string; sub: string; subHe: string }> = [
+  { value: 'deep-recharge', label: 'Relax & Recharge', labelHe: 'מנוחה',     sub: 'Easy days, slow pace',  subHe: 'ימים רגועים, קצב נינוח' },
+  { value: 'adventure',     label: 'Adventure',        labelHe: 'הרפתקה',    sub: 'Active, explore freely', subHe: 'אקטיבי, חקירה חופשית' },
+  { value: 'digital-nomad', label: 'Work & Travel',    labelHe: 'עבודה ונסיעה', sub: 'Cafés, slow afternoons', subHe: 'בתי קפה, אחר-צהריים רגוע' },
 ];
 
-const COUPLE_DYN: Array<{ value: CoupleDynamics; label: string; sub: string }> = [
-  { value: 'romantic',     label: 'Romantic',       sub: 'Candlelit dinners, quiet streets' },
-  { value: 'parent-child', label: 'Parent & Child', sub: 'One adult, one child'             },
-  { value: 'reconnecting', label: 'Reconnecting',   sub: 'Old chapters, new pages'          },
+const COUPLE_DYN: Array<{ value: CoupleDynamics; label: string; labelHe: string; sub: string; subHe: string }> = [
+  { value: 'romantic',     label: 'Partners', labelHe: 'בני זוג', sub: 'A getaway for two', subHe: 'חופשה לשניים' },
+  { value: 'reconnecting', label: 'Married',  labelHe: 'נשואים',  sub: 'Time together',     subHe: 'זמן יחד' },
 ];
 
-const GROUP_DYN: Array<{ value: GroupDyn; label: string; sub: string }> = [
-  { value: 'best-friends', label: 'Inner Circle',       sub: 'Old friends, inside jokes'    },
-  { value: 'mixed-ages',   label: 'Mixed Generations',  sub: 'Pace tuned to every age'      },
-  { value: 'work-crew',    label: 'Colleagues',         sub: 'Coworkers, off the clock'     },
+const GROUP_DYN: Array<{ value: GroupDyn; label: string; labelHe: string; sub: string; subHe: string }> = [
+  { value: 'best-friends', label: 'Friends',    labelHe: 'חברים',         sub: 'Good friends, good times', subHe: 'חברים טובים, כיף' },
+  { value: 'mixed-ages',   label: 'Mixed Ages', labelHe: 'גילאים מעורבים', sub: 'Something for everyone',   subHe: 'משהו לכל אחד' },
+  { value: 'work-crew',    label: 'Work Trip',  labelHe: 'טיול עבודה',     sub: 'Colleagues, off the clock', subHe: 'עמיתים, אחרי העבודה' },
 ];
 
 function dynamicsForGroup(groupType: string) {
@@ -85,6 +107,7 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
     setGroupSize,
   } = useOnboardingStore();
 
+  const he = (readTripLanguagePref() ?? 'en') === 'he';
   const dynamicsOptions = dynamicsForGroup(groupType);
   const needsDynamics = dynamicsOptions.length > 0; // family skips
   const dynamicsAnswered = !needsDynamics || groupDynamics !== null;
@@ -93,7 +116,7 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
   if (isCompleted) {
     const groupOpt = GROUP_OPTIONS.find((g) => g.value === groupType);
     const paceOpt  = PACE_OPTIONS.find((p) => p.value === pace);
-    const compositionLine = composeSummary(groupType, familyAdults, familyChildAges, groupSize);
+    const compositionLine = composeSummary(groupType, familyAdults, familyChildAges, groupSize, he);
     const dynamicsOpt = groupDynamics
       ? [...SOLO_DYN, ...COUPLE_DYN, ...GROUP_DYN].find((d) => d.value === groupDynamics.subType)
       : null;
@@ -103,37 +126,37 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
         initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
         className="flex items-center justify-between px-6 py-4 rounded-2xl"
         style={{
-          background: THEME.surface,
+          background: WARM.surface,
           border: BORDER,
-          boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+          boxShadow: CARD_SHADOW,
         }}
       >
         <div className="flex items-baseline gap-3 flex-wrap">
-          <span className="font-serif text-base tracking-tight" style={{ color: THEME.deepGreen }}>
-            {groupOpt?.label}
+          <span className="font-serif text-base tracking-tight" style={{ color: WARM.deepGreen }}>
+            {groupOpt ? (he ? groupOpt.labelHe : groupOpt.label) : ''}
           </span>
           {compositionLine && (
-            <span className="text-xs tracking-wide" style={{ color: THEME.textMuted }}>
+            <span className="text-xs tracking-wide" style={{ color: WARM.textMuted }}>
               · {compositionLine}
             </span>
           )}
           {dynamicsOpt && (
-            <span className="text-xs tracking-wide" style={{ color: THEME.textMuted }}>
-              · {dynamicsOpt.label}
+            <span className="text-xs tracking-wide" style={{ color: WARM.textMuted }}>
+              · {he ? dynamicsOpt.labelHe : dynamicsOpt.label}
             </span>
           )}
           {paceOpt && (
-            <span className="text-xs tracking-wide" style={{ color: THEME.textMuted }}>
-              · {paceOpt.label}
+            <span className="text-xs tracking-wide" style={{ color: WARM.textMuted }}>
+              · {he ? paceOpt.labelHe : paceOpt.label}
             </span>
           )}
         </div>
         <button
           onClick={onEdit}
           className="text-[11px] uppercase tracking-[0.18em] px-3 py-1.5 rounded-full transition-colors"
-          style={{ color: THEME.textMuted, border: BORDER }}
+          style={{ color: WARM.textMuted, border: BORDER }}
         >
-          Edit
+          {he ? 'עריכה' : 'Edit'}
         </button>
       </motion.div>
     );
@@ -146,9 +169,9 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
       <div
         className="rounded-3xl p-3"
         style={{
-          background: THEME.surface,
+          background: WARM.surface,
           border: BORDER,
-          boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+          boxShadow: CARD_SHADOW,
         }}
       >
         <div className="grid grid-cols-2 gap-2">
@@ -160,29 +183,29 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
                 onClick={() => setGroupType(opt.value)}
                 whileTap={{ scale: 0.985 }}
                 transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-                className="relative px-5 py-5 rounded-2xl text-left transition-colors"
+                className="relative px-5 py-5 rounded-2xl text-start transition-colors"
                 style={{
-                  background: sel ? THEME.surfaceSel : THEME.surface,
+                  background: sel ? WARM.surfaceSel : WARM.surface,
                   border: sel ? BORDER_SEL : BORDER,
                 }}
               >
                 <div
                   className="font-serif text-[19px] leading-none tracking-[-0.01em]"
-                  style={{ color: sel ? THEME.deepGreen : THEME.textBody }}
+                  style={{ color: sel ? WARM.deepGreen : WARM.textBody }}
                 >
-                  {opt.label}
+                  {he ? opt.labelHe : opt.label}
                 </div>
                 <div
                   className="mt-2 text-[11px] tracking-wide"
-                  style={{ color: sel ? THEME.textMuted : THEME.textFaint }}
+                  style={{ color: sel ? WARM.textMuted : WARM.textFaint }}
                 >
-                  {opt.sub}
+                  {he ? opt.subHe : opt.sub}
                 </div>
                 {sel && (
                   <motion.span
                     layoutId="vibe-group-dot"
                     className="absolute top-4 right-4 w-1.5 h-1.5 rounded-full"
-                    style={{ background: THEME.gold }}
+                    style={{ background: WARM.gold }}
                   />
                 )}
               </motion.button>
@@ -201,36 +224,38 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
             exit={{ opacity: 0, y: -6, transition: { duration: 0.18 } }}
             className="rounded-3xl p-6"
             style={{
-              background: THEME.surface,
+              background: WARM.surface,
               border: BORDER,
-              boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+              boxShadow: CARD_SHADOW,
             }}
           >
-            <p className="text-[11px] uppercase tracking-[0.22em] mb-5" style={{ color: THEME.textMuted }}>
-              Family composition
+            <p className="text-[11px] uppercase tracking-[0.22em] mb-5" style={{ color: WARM.textMuted }}>
+              {he ? 'הרכב המשפחה' : 'Family composition'}
             </p>
 
             <div className="flex flex-col gap-5">
               {/* Adults */}
-              <FieldRow label="Adults">
+              <FieldRow label={he ? 'מבוגרים' : 'Adults'}>
                 <QuietSelect
                   value={String(familyAdults)}
                   onChange={(v) => setFamilyAdults(Number(v))}
                   options={[
-                    { value: '1', label: '1 adult'  },
-                    { value: '2', label: '2 adults' },
+                    { value: '1', label: he ? 'מבוגר אחד' : '1 adult'  },
+                    { value: '2', label: he ? '2 מבוגרים' : '2 adults' },
                   ]}
                 />
               </FieldRow>
 
               {/* Children count */}
-              <FieldRow label="Children">
+              <FieldRow label={he ? 'ילדים' : 'Children'}>
                 <QuietSelect
                   value={String(familyChildAges.length)}
                   onChange={(v) => setFamilyChildCount(Number(v))}
                   options={Array.from({ length: 9 }, (_, i) => ({
                     value: String(i),
-                    label: i === 0 ? 'No children' : i === 1 ? '1 child' : `${i} children`,
+                    label: he
+                      ? (i === 0 ? 'ללא ילדים' : i === 1 ? 'ילד אחד' : `${i} ילדים`)
+                      : (i === 0 ? 'No children' : i === 1 ? '1 child' : `${i} children`),
                   }))}
                 />
               </FieldRow>
@@ -244,19 +269,21 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
                     animate={{ opacity: 1, y: 0, transition: { duration: 0.28 } }}
                     exit={{ opacity: 0, y: -4, transition: { duration: 0.15 } }}
                     className="pt-2 border-t flex flex-col gap-3"
-                    style={{ borderColor: THEME.border }}
+                    style={{ borderColor: WARM.border }}
                   >
-                    <p className="text-[11px] uppercase tracking-[0.22em] pt-3" style={{ color: THEME.textMuted }}>
-                      Children&apos;s ages
+                    <p className="text-[11px] uppercase tracking-[0.22em] pt-3" style={{ color: WARM.textMuted }}>
+                      {he ? 'גילאי הילדים' : "Children's ages"}
                     </p>
                     {familyChildAges.map((age, idx) => (
-                      <FieldRow key={idx} label={`Child ${idx + 1}`} compact>
+                      <FieldRow key={idx} label={he ? `ילד ${idx + 1}` : `Child ${idx + 1}`} compact>
                         <QuietSelect
                           value={String(age)}
                           onChange={(v) => setFamilyChildAge(idx, Number(v))}
                           options={Array.from({ length: 18 }, (_, n) => ({
                             value: String(n),
-                            label: n === 0 ? 'Under 1' : n === 1 ? '1 year' : `${n} years`,
+                            label: he
+                              ? (n === 0 ? 'מתחת לשנה' : n === 1 ? 'שנה' : `${n} שנים`)
+                              : (n === 0 ? 'Under 1' : n === 1 ? '1 year' : `${n} years`),
                           }))}
                         />
                       </FieldRow>
@@ -276,21 +303,21 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
             exit={{ opacity: 0, y: -6, transition: { duration: 0.18 } }}
             className="rounded-3xl p-6"
             style={{
-              background: THEME.surface,
+              background: WARM.surface,
               border: BORDER,
-              boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+              boxShadow: CARD_SHADOW,
             }}
           >
-            <p className="text-[11px] uppercase tracking-[0.22em] mb-5" style={{ color: THEME.textMuted }}>
-              Group size
+            <p className="text-[11px] uppercase tracking-[0.22em] mb-5" style={{ color: WARM.textMuted }}>
+              {he ? 'גודל החבורה' : 'Group size'}
             </p>
-            <FieldRow label="Total travelers">
+            <FieldRow label={he ? 'סך הנוסעים' : 'Total travelers'}>
               <QuietSelect
                 value={String(groupSize)}
                 onChange={(v) => setGroupSize(Number(v))}
                 options={Array.from({ length: 10 }, (_, i) => {
                   const n = i + 3;
-                  return { value: String(n), label: `${n} travelers` };
+                  return { value: String(n), label: he ? `${n} נוסעים` : `${n} travelers` };
                 })}
               />
             </FieldRow>
@@ -307,10 +334,10 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
             animate={{ opacity: 1, y: 0, transition: { duration: 0.34, ease: [0.22, 1, 0.36, 1] } }}
             exit={{ opacity: 0, y: -6, transition: { duration: 0.18 } }}
           >
-            <p className="text-[11px] uppercase tracking-[0.22em] mb-3" style={{ color: THEME.textMuted }}>
-              {groupType === 'solo'  && 'Style of travel'}
-              {groupType === 'couple' && 'Style of travel'}
-              {groupType === 'group'  && 'Group vibe'}
+            <p className="text-[11px] uppercase tracking-[0.22em] mb-3" style={{ color: WARM.textMuted }}>
+              {groupType === 'solo'  && (he ? 'סגנון הטיול' : 'Style of travel')}
+              {groupType === 'couple' && (he ? 'סגנון הטיול' : 'Style of travel')}
+              {groupType === 'group'  && (he ? 'אופי החבורה' : 'Group vibe')}
             </p>
             <div className="flex flex-col gap-2">
               {dynamicsOptions.map((opt) => {
@@ -321,31 +348,31 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
                     onClick={() => setGroupDynamics({ subType: opt.value as GroupDynamicsPayload['subType'] })}
                     whileTap={{ scale: 0.99 }}
                     transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-                    className="flex items-center justify-between px-5 py-4 rounded-2xl text-left transition-colors"
+                    className="flex items-center justify-between px-5 py-4 rounded-2xl text-start transition-colors"
                     style={{
-                      background: sel ? THEME.surfaceSel : THEME.surface,
+                      background: sel ? WARM.surfaceSel : WARM.surface,
                       border: sel ? BORDER_SEL : BORDER,
                     }}
                   >
                     <div>
                       <div
                         className="font-serif text-[16px] leading-tight tracking-[-0.01em]"
-                        style={{ color: sel ? THEME.deepGreen : THEME.textBody }}
+                        style={{ color: sel ? WARM.deepGreen : WARM.textBody }}
                       >
-                        {opt.label}
+                        {he ? opt.labelHe : opt.label}
                       </div>
                       <div
                         className="text-[11px] mt-1 tracking-wide"
-                        style={{ color: sel ? THEME.textMuted : THEME.textFaint }}
+                        style={{ color: sel ? WARM.textMuted : WARM.textFaint }}
                       >
-                        {opt.sub}
+                        {he ? opt.subHe : opt.sub}
                       </div>
                     </div>
                     {sel && (
                       <motion.span
                         layoutId="vibe-dynamics-dot"
                         className="w-1.5 h-1.5 rounded-full shrink-0 ml-3"
-                        style={{ background: THEME.gold }}
+                        style={{ background: WARM.gold }}
                       />
                     )}
                   </motion.button>
@@ -365,8 +392,8 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
             animate={{ opacity: 1, y: 0, transition: { duration: 0.36, ease: [0.22, 1, 0.36, 1] } }}
             exit={{ opacity: 0 }}
           >
-            <p className="text-[11px] uppercase tracking-[0.22em] mb-3" style={{ color: THEME.textMuted }}>
-              Pace
+            <p className="text-[11px] uppercase tracking-[0.22em] mb-3" style={{ color: WARM.textMuted }}>
+              {he ? 'קצב' : 'Pace'}
             </p>
             <div className="flex flex-col gap-2">
               {PACE_OPTIONS.map((opt) => {
@@ -377,31 +404,31 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
                     onClick={() => setPace(opt.value)}
                     whileTap={{ scale: 0.99 }}
                     transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-                    className="flex items-center justify-between px-5 py-4 rounded-2xl text-left transition-colors"
+                    className="flex items-center justify-between px-5 py-4 rounded-2xl text-start transition-colors"
                     style={{
-                      background: sel ? THEME.surfaceSel : THEME.surface,
+                      background: sel ? WARM.surfaceSel : WARM.surface,
                       border: sel ? BORDER_SEL : BORDER,
                     }}
                   >
                     <div>
                       <div
                         className="font-serif text-[16px] leading-tight tracking-[-0.01em]"
-                        style={{ color: sel ? THEME.deepGreen : THEME.textBody }}
+                        style={{ color: sel ? WARM.deepGreen : WARM.textBody }}
                       >
-                        {opt.label}
+                        {he ? opt.labelHe : opt.label}
                       </div>
                       <div
                         className="text-[11px] mt-1 tracking-wide"
-                        style={{ color: sel ? THEME.textMuted : THEME.textFaint }}
+                        style={{ color: sel ? WARM.textMuted : WARM.textFaint }}
                       >
-                        {opt.sub}
+                        {he ? opt.subHe : opt.sub}
                       </div>
                     </div>
                     {sel && (
                       <motion.span
                         layoutId="vibe-pace-dot"
                         className="w-1.5 h-1.5 rounded-full shrink-0 ml-3"
-                        style={{ background: THEME.gold }}
+                        style={{ background: WARM.gold }}
                       />
                     )}
                   </motion.button>
@@ -430,7 +457,7 @@ function FieldRow({
     <div className={`flex items-center justify-between ${compact ? '' : ''}`}>
       <label
         className="text-[13px] tracking-wide"
-        style={{ color: compact ? THEME.textMuted : THEME.deepGreen }}
+        style={{ color: compact ? WARM.textMuted : WARM.deepGreen }}
       >
         {label}
       </label>
@@ -455,21 +482,21 @@ function QuietSelect({
         onChange={(e) => onChange(e.target.value)}
         className="appearance-none bg-transparent text-[13px] pr-7 pl-3 py-2 rounded-lg transition-colors cursor-pointer"
         style={{
-          color: THEME.textBody,
+          color: WARM.textBody,
           border: BORDER,
-          background: THEME.surface,
+          background: WARM.surface,
           minWidth: 160,
         }}
       >
         {options.map((o) => (
-          <option key={o.value} value={o.value} style={{ background: '#fff', color: THEME.textBody }}>
+          <option key={o.value} value={o.value} style={{ background: '#fff', color: WARM.textBody }}>
             {o.label}
           </option>
         ))}
       </select>
       <span
         className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px]"
-        style={{ color: THEME.goldSoft }}
+        style={{ color: WARM.goldSoft }}
       >
         ▾
       </span>
@@ -484,13 +511,18 @@ function composeSummary(
   familyAdults: number,
   familyChildAges: number[],
   groupSize: number,
+  he = false,
 ): string | null {
   if (groupType === 'family') {
-    const adultsLabel = `${familyAdults} ${familyAdults === 1 ? 'adult' : 'adults'}`;
+    const adultsLabel = he
+      ? `${familyAdults} ${familyAdults === 1 ? 'מבוגר' : 'מבוגרים'}`
+      : `${familyAdults} ${familyAdults === 1 ? 'adult' : 'adults'}`;
     if (familyChildAges.length === 0) return adultsLabel;
-    const kidsLabel = `${familyChildAges.length} ${familyChildAges.length === 1 ? 'child' : 'children'}`;
+    const kidsLabel = he
+      ? `${familyChildAges.length} ${familyChildAges.length === 1 ? 'ילד' : 'ילדים'}`
+      : `${familyChildAges.length} ${familyChildAges.length === 1 ? 'child' : 'children'}`;
     return `${adultsLabel}, ${kidsLabel}`;
   }
-  if (groupType === 'group') return `${groupSize} travelers`;
+  if (groupType === 'group') return he ? `${groupSize} נוסעים` : `${groupSize} travelers`;
   return null;
 }

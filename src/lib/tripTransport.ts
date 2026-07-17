@@ -17,29 +17,33 @@ export function normalizeCityKey(city: string): string {
 export async function fetchTransportGuideForCity(
   db: SupabaseClient,
   city: string,
+  lang: string = 'en',
 ): Promise<CityTransportGuide | null> {
   const key = normalizeCityKey(city);
   if (!key) return null;
-  const { data, error } = await db.from('transportation').select('guide').eq('city_norm', key).maybeSingle();
+  const { data, error } = await db.from('transportation').select('guide, guide_he').eq('city_norm', key).maybeSingle();
   if (error) {
     console.warn('[tripTransport] transportation select:', error.message);
     return null;
   }
-  return parseTransportGuideJson(data?.guide);
+  // Hebrew guide when present; fall back to the English guide.
+  const raw = lang === 'he' && data?.guide_he ? data.guide_he : data?.guide;
+  return parseTransportGuideJson(raw);
 }
 
 export async function upsertTransportationGuide(
   db: SupabaseClient,
   cityDisplay: string,
   guide: CityTransportGuide,
+  lang: string = 'en',
 ): Promise<void> {
   const city_name = cityDisplay.trim();
   if (!city_name) return;
-  const row = {
-    city_name,
-    guide,
-    updated_at: new Date().toISOString(),
-  };
+  // Hebrew guides go in guide_he so the English `guide` is preserved (a user can
+  // choose either language). Only the relevant column is written on upsert.
+  const row: Record<string, unknown> = { city_name, updated_at: new Date().toISOString() };
+  if (lang === 'he') row.guide_he = guide;
+  else row.guide = guide;
   const { error } = await db.from('transportation').upsert(row, { onConflict: 'city_norm' });
   if (error) {
     const e = error as unknown as { message?: string; details?: string; hint?: string; code?: string };
@@ -61,6 +65,7 @@ export async function ensureTransportationForCity(
   db: SupabaseClient,
   cityRaw: string,
   tripDays?: number,
+  lang: string = 'en',
 ): Promise<void> {
   const city = cityRaw.trim();
   if (!city) return;
@@ -68,7 +73,7 @@ export async function ensureTransportationForCity(
   const STALE_MS = 90 * 24 * 60 * 60 * 1000; // 3 months
 
   const key = normalizeCityKey(city);
-  const { data: existing, error: selErr } = await db.from('transportation').select('id, updated_at').eq('city_norm', key).maybeSingle();
+  const { data: existing, error: selErr } = await db.from('transportation').select('id, updated_at, guide, guide_he').eq('city_norm', key).maybeSingle();
   if (selErr) {
     const e = selErr as unknown as { message?: string; details?: string; hint?: string; code?: string };
     console.log('❌ SUPABASE ERROR DETECTED IN TRANSPORTATION (select check):');
@@ -78,24 +83,26 @@ export async function ensureTransportationForCity(
     console.log('  Code:   ', e.code);
     return;
   }
-  if (existing) {
+  // Per-language: the row may exist with an English guide but no Hebrew yet.
+  const langGuide = lang === 'he' ? existing?.guide_he : existing?.guide;
+  if (existing && langGuide) {
     const updatedAt = existing.updated_at ? new Date(existing.updated_at).getTime() : 0;
     const isStale = Date.now() - updatedAt > STALE_MS;
     if (!isStale) {
-      console.log('ℹ️  transportation already exists for city:', city, '— skipping scout');
+      console.log(`ℹ️  transportation (${lang}) already exists for city:`, city, '— skipping scout');
       return;
     }
     console.log('🔄 transportation data for city:', city, 'is older than 3 months — refreshing…');
   }
 
-  console.log('🔍 transportation missing for city:', city, '— running scout agent…');
+  console.log(`🔍 transportation (${lang}) missing for city:`, city, '— running scout agent…');
   try {
-    const guide = await runTransportScoutAgent(city, { tripDays });
+    const guide = await runTransportScoutAgent(city, { tripDays, lang });
     if (!guide || !hasTransportContent(guide)) {
       console.warn('⚠️  scout returned empty guide for', city);
       return;
     }
-    await upsertTransportationGuide(db, city, guide);
+    await upsertTransportationGuide(db, city, guide, lang);
   } catch (e) {
     console.warn('⚠️  transportation scout failed (non-critical):', e instanceof Error ? e.message : e);
   }

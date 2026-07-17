@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import { tiktokSearchUrl } from '@/lib/socialSearch';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 interface Props {
   videoUrl?: string;
@@ -10,6 +12,7 @@ interface Props {
 
 export function VideoPreview({ videoUrl, activityName }: Props) {
   const [playing, setPlaying] = useState(false);
+  const isMobile = useIsMobile();
 
   // ── Actual video ─────────────────────────────────────────────────────────
   if (videoUrl) {
@@ -46,7 +49,7 @@ export function VideoPreview({ videoUrl, activityName }: Props) {
   // ── "Watch on Social" CTA (no video URL) ─────────────────────────────────
   return (
     <motion.a
-      href={`https://www.tiktok.com/search?q=${encodeURIComponent(activityName + ' Tokyo')}`}
+      href={tiktokSearchUrl(activityName, null, { mobile: isMobile })}
       target="_blank"
       rel="noopener noreferrer"
       whileHover={{ scale: 1.02, y: -1 }}

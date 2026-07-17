@@ -25,7 +25,6 @@ type FindPlaceResponse = {
     formatted_address?: string;
     geometry?: { location?: { lat?: number; lng?: number } };
     photos?: Array<{ photo_reference?: string }>;
-    website?: string;
     rating?: number;
     user_ratings_total?: number;
   }>;
@@ -63,6 +62,26 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   });
 }
 
+/**
+ * Fetch a place's official website via Place Details. `website` is NOT a valid
+ * field on the Find Place endpoint (requesting it there returns INVALID_REQUEST
+ * and zero candidates — that was the bug that silently disabled all
+ * verification), so it must come from a follow-up Details call. Best-effort.
+ */
+async function fetchPlaceWebsite(placeId: string, apiKey: string): Promise<string | null> {
+  try {
+    const detailsUrl =
+      `https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(placeId)}` +
+      `&fields=website&key=${apiKey}`;
+    const res = await withTimeout(fetch(detailsUrl, { cache: 'no-store' }), VERIFY_TIMEOUT_MS, 'place details website');
+    if (!res.ok) return null;
+    const data = (await res.json()) as { result?: { website?: string } };
+    return data.result?.website ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** Resolve a photo_reference to its CDN URL via the redirect trick (key stays server-side). */
 async function resolvePhotoCdnUrl(photoRef: string, apiKey: string): Promise<string | null> {
   try {
@@ -91,7 +110,10 @@ export async function verifyPlaceOnGoogle(
   if (!cleanName) return EMPTY_RESULT;
 
   const query = encodeURIComponent(`${cleanName}${city ? ` ${city}` : ''}`);
-  const fields = 'place_id,name,formatted_address,geometry,photos,website,rating,user_ratings_total';
+  // NOTE: `website` is intentionally absent — it is NOT a supported Find Place
+  // field and requesting it makes Google return INVALID_REQUEST with zero
+  // candidates. It's fetched via a Place Details follow-up below instead.
+  const fields = 'place_id,name,formatted_address,geometry,photos,rating,user_ratings_total';
   const searchUrl =
     `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${query}&inputtype=textquery&fields=${fields}&key=${apiKey}`;
 
@@ -110,7 +132,13 @@ export async function verifyPlaceOnGoogle(
   const lat = candidate.geometry?.location?.lat;
   const lng = candidate.geometry?.location?.lng;
   const photoRef = candidate.photos?.[0]?.photo_reference;
-  const photoUrl = photoRef ? await resolvePhotoCdnUrl(photoRef, apiKey) : null;
+  const placeId = candidate.place_id ?? null;
+
+  // Photo (from Find Place) and website (needs a Details call) run in parallel.
+  const [photoUrl, website] = await Promise.all([
+    photoRef ? resolvePhotoCdnUrl(photoRef, apiKey) : Promise.resolve(null),
+    placeId ? fetchPlaceWebsite(placeId, apiKey) : Promise.resolve(null),
+  ]);
 
   return {
     found: true,
@@ -119,10 +147,10 @@ export async function verifyPlaceOnGoogle(
     latitude: typeof lat === 'number' && Number.isFinite(lat) ? lat : undefined,
     longitude: typeof lng === 'number' && Number.isFinite(lng) ? lng : undefined,
     photoUrl,
-    website: candidate.website ?? null,
+    website,
     rating: typeof candidate.rating === 'number' ? candidate.rating : null,
     userRatingsTotal: typeof candidate.user_ratings_total === 'number' ? candidate.user_ratings_total : null,
-    googlePlaceId: candidate.place_id ?? null,
+    googlePlaceId: placeId,
   };
 }
 

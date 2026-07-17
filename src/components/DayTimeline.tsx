@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { DayPhoto } from '@/components/DayPhoto';
 import { tiktokSearchUrl, instagramSearchUrl } from '@/lib/socialSearch';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { budgetToUsd } from '@/lib/currency';
 import type { DayPlan, Activity, DiningSpot } from '@/lib/types';
 import type { ItineraryUiStrings } from '@/lib/tripUiCopy';
@@ -134,9 +135,9 @@ export function DayTimeline({
   onNeighborhoodClick,
   onExplore = () => {},
   onFindAlternative = () => {},
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  ui: _ui,
+  ui,
 }: DayTimelineProps) {
+  const he = ui?.dir === 'rtl';
   const rows = buildTimelineRows(day);
 
   if (rows.length === 0) {
@@ -163,6 +164,7 @@ export function DayTimeline({
             row={row}
             index={i}
             destination={destination}
+            he={he}
             onExplore={() => onExplore(row)}
             onFindAlternative={() => onFindAlternative(swapTarget)}
             onNeighborhoodClick={onNeighborhoodClick}
@@ -174,15 +176,17 @@ export function DayTimeline({
 }
 
 function TimelineItem({
-  row, index, destination, onExplore, onFindAlternative, onNeighborhoodClick,
+  row, index, destination, he, onExplore, onFindAlternative, onNeighborhoodClick,
 }: {
   row: TimelineRow;
   index: number;
   destination: string;
+  he: boolean;
   onExplore: () => void;
   onFindAlternative: () => void;
   onNeighborhoodClick: (n: string) => void;
 }) {
+  const isMobile = useIsMobile();
   const isCheckIn = row.type === 'activity' && row.activity && isHotelCheckIn(row.activity);
   const neighborhood = row.activity?.neighborhood ?? row.dining?.neighborhood;
   const mapsUrl = buildMapsDirectionsUrl(row.name, neighborhood, destination);
@@ -247,18 +251,18 @@ function TimelineItem({
       <div className="flex flex-wrap gap-1.5 items-center p-3">
         {isCheckIn ? (
           <>
-            <TlBtn onClick={onExplore}>Hotel Details</TlBtn>
-            <TlBtn onClick={onFindAlternative} primary>Change Hotel</TlBtn>
+            <TlBtn onClick={onExplore}>{he ? 'פרטי מלון' : 'Hotel Details'}</TlBtn>
+            <TlBtn onClick={onFindAlternative} primary>{he ? 'החלפת מלון' : 'Change Hotel'}</TlBtn>
           </>
         ) : row.type === 'dining' ? (
           <>
-            <TlBtn onClick={onFindAlternative} primary>Find Alternative</TlBtn>
-            <TlBtn onClick={onExplore}>Explore Details</TlBtn>
+            <TlBtn onClick={onFindAlternative} primary>{he ? 'מצא חלופה' : 'Find Alternative'}</TlBtn>
+            <TlBtn onClick={onExplore}>{he ? 'פרטים' : 'Explore Details'}</TlBtn>
           </>
         ) : (
           <>
-            <TlBtn onClick={onFindAlternative} primary>Modify</TlBtn>
-            <TlBtn onClick={onExplore}>Explore Details</TlBtn>
+            <TlBtn onClick={onFindAlternative} primary>{he ? 'שינוי' : 'Modify'}</TlBtn>
+            <TlBtn onClick={onExplore}>{he ? 'פרטים' : 'Explore Details'}</TlBtn>
           </>
         )}
         <a
@@ -276,7 +280,7 @@ function TimelineItem({
 
         {/* See it on social — jump to short-form video/photos of this place */}
         <a
-          href={tiktokSearchUrl(row.name, destination)}
+          href={tiktokSearchUrl(row.name, destination, { mobile: isMobile })}
           target="_blank"
           rel="noopener noreferrer"
           aria-label={`Watch ${row.name} on TikTok`}
@@ -286,7 +290,7 @@ function TimelineItem({
           🎵 TikTok
         </a>
         <a
-          href={instagramSearchUrl(row.name, destination)}
+          href={instagramSearchUrl(row.name, destination, { mobile: isMobile })}
           target="_blank"
           rel="noopener noreferrer"
           aria-label={`See ${row.name} on Instagram`}

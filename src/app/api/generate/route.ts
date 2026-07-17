@@ -847,7 +847,7 @@ export async function POST(req: NextRequest) {
 
       // ── transportation scout: intentionally fire-and-forget (can take 10-30 s).
       // It will be populated on the NEXT read if this background task is killed.
-      void ensureTransportationForCity(dbWrite, destCity, profile.duration).catch((e) => {
+      void ensureTransportationForCity(dbWrite, destCity, profile.duration, profile.tripLanguage ?? 'en').catch((e) => {
         console.warn('[generate] transportation scout failed (non-critical):', e instanceof Error ? e.message : e);
       });
     }
