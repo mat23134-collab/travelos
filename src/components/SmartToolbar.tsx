@@ -14,6 +14,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import type {
   Activity,
@@ -61,6 +62,16 @@ const COPY = {
     tierOneUp: 'רמה מעל',
     tierLuxury: 'כולל יוקרה',
     conceptAll: 'הכול',
+    seeAll: 'כל המסעדות',
+    allTitle: (city: string) => `כל המסעדות ב${city}`,
+    allSubtitle: 'מסודר לפי רמת מחיר — מהמשתלם ועד הפרימיום',
+    perPerson: 'לאדם',
+    close: 'סגירה',
+    tierName1: 'זול ומשתלם',
+    tierName2: 'מחיר ביניים',
+    tierName3: 'יוקרתי',
+    tierName4: 'פרימיום',
+    emptyTier: 'אין עדיין מסעדות ברמה הזו',
     badgeKosher: 'כשר',
     badgeKosherStyle: 'כשר סטייל',
     badgeVeg: 'צמחוני',
@@ -127,6 +138,16 @@ const COPY = {
     tierOneUp: 'One level up',
     tierLuxury: 'Incl. luxury',
     conceptAll: 'All',
+    seeAll: 'All restaurants',
+    allTitle: (city: string) => `All restaurants in ${city}`,
+    allSubtitle: 'Organized by price level — from great value to premium',
+    perPerson: 'per person',
+    close: 'Close',
+    tierName1: 'Great value',
+    tierName2: 'Mid-range',
+    tierName3: 'Upscale',
+    tierName4: 'Premium',
+    emptyTier: 'No restaurants at this level yet',
     badgeKosher: 'Kosher',
     badgeKosherStyle: 'Kosher-style',
     badgeVeg: 'Vegetarian',
@@ -466,6 +487,8 @@ function RestaurantsPanel({ destination, days, lang, budget, groupType, interest
   const [viewLevel, setViewLevel] = useState(budgetCeiling);
   // Reset the view when the trip budget changes.
   useEffect(() => { setViewLevel(budgetCeiling); }, [budgetCeiling]);
+  // "All restaurants" modal (grouped by price tier).
+  const [showAll, setShowAll] = useState(false);
   // Cuisine-concept filter (ramen / sushi / pizza / …) — null = all concepts.
   const [activeConcept, setActiveConcept] = useState<string | null>(null);
   // Drop the concept filter when the city changes (its concepts differ).
@@ -482,11 +505,11 @@ function RestaurantsPanel({ destination, days, lang, budget, groupType, interest
 
     const qs = new URLSearchParams({ city, lang });
     if (budget) qs.set('budget', budget);
-    // The price-range selector's max level (defaults to the budget ceiling).
-    qs.set('maxLevel', String(viewLevel));
-    // Pull a wider pool so the client-side ranker has candidates to diversify
-    // and fit-rank over before trimming back to the handful shown.
-    qs.set('limit', '30');
+    // Always pull the FULL pool across every price level (in-budget rows still
+    // sort first, server-side). The tier selector then filters client-side —
+    // instant, no refetch — and the "all restaurants" modal shows every tier.
+    qs.set('maxLevel', '4');
+    qs.set('limit', '40');
 
     setStatus('loading');
     try {
@@ -552,23 +575,32 @@ function RestaurantsPanel({ destination, days, lang, budget, groupType, interest
   // Which cuisine concepts actually have matches in this city's results — only
   // these become chips, so the facet is always relevant to what's on screen.
   const concepts = useMemo(() => availableConcepts(restaurants, 1), [restaurants]);
-  // Narrow the ranking pool to the chosen concept (before ranking, so the best
-  // picks WITHIN that concept surface rather than filtering the final 8).
+  // Narrow the ranking pool by concept, then (for the inline view) by the tier
+  // selector's ceiling — client-side, so switching tiers is instant. Rows with
+  // an unknown price level are kept (never hidden by a filter we can't confirm).
   const conceptPool = useMemo(
     () => (activeConcept ? restaurants.filter((r) => matchesConcept(r, activeConcept)) : restaurants),
     [restaurants, activeConcept],
+  );
+  const visiblePool = useMemo(
+    () => conceptPool.filter((r) => r.priceLevel == null || r.priceLevel <= viewLevel),
+    [conceptPool, viewLevel],
   );
 
   // Request-time ranking: layer per-trip fit + diversity over the fetched pool,
   // trimming to the handful actually shown (§4/§6/§8). Recomputes only when the
   // pool or trip context changes.
+  const dietaryTokens = useMemo(
+    () => (dietary ? dietary.toLowerCase().split(/[,\n;]+/).map((s) => s.trim()).filter(Boolean) : undefined),
+    [dietary],
+  );
   const picks = useMemo(
     () =>
-      rankBookAhead(conceptPool, {
+      rankBookAhead(visiblePool, {
         budget,
         groupType,
         culinaryTags: interests ?? undefined,
-        dietary: dietary ? dietary.toLowerCase().split(/[,\n;]+/).map((s) => s.trim()).filter(Boolean) : undefined,
+        dietary: dietaryTokens,
         days: dayGeo,
         nights: days.length,
         startDate,
@@ -576,7 +608,7 @@ function RestaurantsPanel({ destination, days, lang, budget, groupType, interest
         lang,
         limit: 8,
       }),
-    [conceptPool, budget, groupType, interests, dietary, dayGeo, days.length, startDate, viewLevel, lang],
+    [visiblePool, budget, groupType, interests, dietaryTokens, dayGeo, days.length, startDate, viewLevel, lang],
   );
 
   // North-star denominator: the panel actually showed the traveler picks (§12).
@@ -680,23 +712,24 @@ function RestaurantsPanel({ destination, days, lang, budget, groupType, interest
             </button>
           )}
           {tierOptions.length > 1 && (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <span className="text-[10.5px] font-semibold" style={{ color: INK_FAINT }}>{t.priceRangeLabel}</span>
-              <div className="flex rounded-lg overflow-hidden" style={{ border: BORDER }}>
+              <div className="flex rounded-xl overflow-hidden" style={{ border: BORDER }}>
                 {tierOptions.map((opt, i) => {
                   const on = viewLevel === opt.level;
                   return (
                     <button
                       key={opt.level}
                       onClick={() => setViewLevel(opt.level)}
-                      className="px-2.5 py-1.5 text-[11px] font-bold whitespace-nowrap transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-[11.5px] font-bold whitespace-nowrap transition-colors"
                       style={{
                         background: on ? ACCENT : CARD_BG,
                         color: on ? '#fff' : INK,
                         borderInlineStart: i > 0 ? BORDER : undefined,
                       }}
                     >
-                      {'$'.repeat(opt.level)} · {opt.label}
+                      <PriceTierPips level={opt.level} active={on} />
+                      {opt.label}
                     </button>
                   );
                 })}
@@ -706,47 +739,208 @@ function RestaurantsPanel({ destination, days, lang, budget, groupType, interest
         </div>
       </div>
 
-      {/* Cuisine-concept filter — only the concepts present in this city's
-          results (Tokyo → ramen/sushi/omakase, Rome → pizza/pasta, …). */}
-      {concepts.length > 1 && (
-        <div className="flex items-center gap-1.5 flex-wrap mb-3.5 mx-1">
-          <button
-            onClick={() => setActiveConcept(null)}
-            className="px-2.5 py-1 rounded-full text-[11.5px] font-bold transition-colors"
-            style={{
-              background: activeConcept === null ? ACCENT : CARD_BG,
-              border: activeConcept === null ? BORDER_ACC : BORDER,
-              color: activeConcept === null ? '#fff' : INK,
-            }}
-          >
-            {t.conceptAll}
-          </button>
-          {concepts.map((c) => {
-            const on = activeConcept === c.key;
-            return (
-              <button
-                key={c.key}
-                onClick={() => setActiveConcept(on ? null : c.key)}
-                className="px-2.5 py-1 rounded-full text-[11.5px] font-bold transition-colors"
-                style={{
-                  background: on ? ACCENT : CARD_BG,
-                  border: on ? BORDER_ACC : BORDER,
-                  color: on ? '#fff' : INK,
-                }}
-              >
-                {c.label[lang]}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      {/* Filter row: cuisine-concept chips (only those present in this city's
+          results) + a prominent "all restaurants" entry point. */}
+      <div className="flex items-center gap-1.5 flex-wrap mb-3.5 mx-1">
+        {concepts.length > 1 && (
+          <>
+            <button
+              onClick={() => setActiveConcept(null)}
+              className="px-2.5 py-1 rounded-full text-[11.5px] font-bold transition-colors"
+              style={{
+                background: activeConcept === null ? ACCENT : CARD_BG,
+                border: activeConcept === null ? BORDER_ACC : BORDER,
+                color: activeConcept === null ? '#fff' : INK,
+              }}
+            >
+              {t.conceptAll}
+            </button>
+            {concepts.map((c) => {
+              const on = activeConcept === c.key;
+              return (
+                <button
+                  key={c.key}
+                  onClick={() => setActiveConcept(on ? null : c.key)}
+                  className="px-2.5 py-1 rounded-full text-[11.5px] font-bold transition-colors"
+                  style={{
+                    background: on ? ACCENT : CARD_BG,
+                    border: on ? BORDER_ACC : BORDER,
+                    color: on ? '#fff' : INK,
+                  }}
+                >
+                  {c.label[lang]}
+                </button>
+              );
+            })}
+          </>
+        )}
+        <button
+          onClick={() => setShowAll(true)}
+          className="ms-auto flex items-center gap-1.5 px-3 py-1 rounded-full text-[11.5px] font-bold transition-colors"
+          style={{ background: 'transparent', border: BORDER_ACC, color: ACCENT_DEEP }}
+        >
+          {t.seeAll} · {restaurants.length}
+          <span aria-hidden>↗</span>
+        </button>
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-        {(picks.length > 0 ? picks : conceptPool.slice(0, 8)).map((r, i) => (
+        {(picks.length > 0 ? picks : visiblePool.slice(0, 8)).map((r, i) => (
           <RestaurantCard key={r.id ?? `${r.name}-${i}`} r={r} lang={lang} onAdd={() => setPicked(r)} />
         ))}
       </div>
+
+      {showAll && (
+        <AllRestaurantsModal
+          city={destination}
+          restaurants={restaurants}
+          lang={lang}
+          onPick={(r) => { setShowAll(false); setPicked(r); }}
+          onClose={() => setShowAll(false)}
+        />
+      )}
     </div>
+  );
+}
+
+/**
+ * "All restaurants" modal — the full city list, grouped into clean price-tier
+ * sections (Great value → Premium) so tiers never blend, with a concept filter.
+ * Within each tier, sorted by composite quality/value.
+ */
+function AllRestaurantsModal({
+  city, restaurants, lang, onPick, onClose,
+}: {
+  city: string;
+  restaurants: RestaurantRecommendation[];
+  lang: Lang;
+  onPick: (r: RestaurantRecommendation) => void;
+  onClose: () => void;
+}) {
+  const t = COPY[lang];
+  const [concept, setConcept] = useState<string | null>(null);
+  const dir = lang === 'he' ? 'rtl' : 'ltr';
+
+  const concepts = useMemo(() => availableConcepts(restaurants, 1), [restaurants]);
+  const filtered = useMemo(
+    () => (concept ? restaurants.filter((r) => matchesConcept(r, concept)) : restaurants),
+    [restaurants, concept],
+  );
+
+  // Group by price tier (4 → 1, premium first). Unknown-price rows go last.
+  const tiers = useMemo(() => {
+    const byLevel = new Map<number, RestaurantRecommendation[]>();
+    const unknown: RestaurantRecommendation[] = [];
+    for (const r of filtered) {
+      if (r.priceLevel && r.priceLevel >= 1 && r.priceLevel <= 4) {
+        (byLevel.get(r.priceLevel) ?? byLevel.set(r.priceLevel, []).get(r.priceLevel)!).push(r);
+      } else {
+        unknown.push(r);
+      }
+    }
+    const sortByScore = (a: RestaurantRecommendation, b: RestaurantRecommendation) =>
+      (b.compositeScore ?? b.score ?? 0) - (a.compositeScore ?? a.score ?? 0);
+    const sections = [4, 3, 2, 1]
+      .filter((lvl) => (byLevel.get(lvl)?.length ?? 0) > 0)
+      .map((lvl) => ({ level: lvl, items: byLevel.get(lvl)!.sort(sortByScore) }));
+    if (unknown.length) sections.push({ level: 0, items: unknown.sort(sortByScore) });
+    return sections;
+  }, [filtered]);
+
+  // Lock body scroll while open.
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <motion.div
+      className="fixed inset-0 z-[130] flex items-end sm:items-center justify-center p-0 sm:p-6"
+      dir={dir}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <div className="fixed inset-0 bg-black/55 backdrop-blur-sm" onClick={onClose} />
+      <motion.div
+        className="relative z-10 w-full sm:max-w-4xl max-h-[92dvh] sm:max-h-[88dvh] flex flex-col overflow-hidden rounded-t-3xl sm:rounded-3xl shadow-2xl"
+        style={{ background: 'var(--color-paper, #f3ead9)' }}
+        initial={{ y: 40, opacity: 0.9 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 40, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 380, damping: 34 }}
+      >
+        {/* Header */}
+        <div className="sticky top-0 px-5 sm:px-6 pt-5 pb-3 border-b" style={{ background: 'var(--color-paper, #f3ead9)', borderColor: 'rgba(43,38,34,0.10)' }}>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h3 className="text-[19px] font-bold leading-tight" style={{ color: INK }}>{t.allTitle(city)}</h3>
+              <p className="text-[12px] mt-0.5" style={{ color: INK_MUT }}>{t.allSubtitle}</p>
+            </div>
+            <button
+              onClick={onClose}
+              aria-label={t.close}
+              className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-[15px] font-bold transition-colors"
+              style={{ background: CARD_BG, border: BORDER, color: INK }}
+            >
+              ✕
+            </button>
+          </div>
+          {concepts.length > 1 && (
+            <div className="flex items-center gap-1.5 flex-wrap mt-3">
+              <button
+                onClick={() => setConcept(null)}
+                className="px-2.5 py-1 rounded-full text-[11.5px] font-bold transition-colors"
+                style={{ background: concept === null ? ACCENT : CARD_BG, border: concept === null ? BORDER_ACC : BORDER, color: concept === null ? '#fff' : INK }}
+              >
+                {t.conceptAll}
+              </button>
+              {concepts.map((c) => {
+                const on = concept === c.key;
+                return (
+                  <button
+                    key={c.key}
+                    onClick={() => setConcept(on ? null : c.key)}
+                    className="px-2.5 py-1 rounded-full text-[11.5px] font-bold transition-colors"
+                    style={{ background: on ? ACCENT : CARD_BG, border: on ? BORDER_ACC : BORDER, color: on ? '#fff' : INK }}
+                  >
+                    {c.label[lang]}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Body — tier sections */}
+        <div className="overflow-y-auto px-5 sm:px-6 py-4 flex flex-col gap-6">
+          {tiers.map((section) => (
+            <div key={section.level}>
+              <div className="flex items-center gap-2 mb-3">
+                {section.level > 0 && <PriceTierPips level={section.level} active={false} />}
+                <span className="text-[13.5px] font-bold" style={{ color: INK }}>
+                  {section.level > 0 ? tierName(section.level, t) : '—'}
+                </span>
+                <span className="text-[11.5px] font-semibold" style={{ color: INK_FAINT }}>· {section.items.length}</span>
+                <span className="flex-1 h-px" style={{ background: 'rgba(43,38,34,0.10)' }} />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {section.items.map((r, i) => (
+                  <RestaurantCard key={r.id ?? `${r.name}-${i}`} r={r} lang={lang} onAdd={() => onPick(r)} />
+                ))}
+              </div>
+            </div>
+          ))}
+          {tiers.length === 0 && (
+            <p className="text-center py-10 text-[13px]" style={{ color: INK_MUT }}>{t.emptyTier}</p>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>,
+    document.body,
   );
 }
 
@@ -763,6 +957,35 @@ function DietaryBadge({ label, tone }: { label: string; tone: 'kosher' | 'kosher
       {label}
     </span>
   );
+}
+
+/** Localized name for a 1–4 price tier. */
+function tierName(level: number, t: (typeof COPY)[Lang]): string {
+  return [t.tierName1, t.tierName2, t.tierName3, t.tierName4][Math.min(3, Math.max(0, level - 1))];
+}
+
+/** Four pips, filled up to `level` — a clean, language-neutral price indicator. */
+function PriceTierPips({ level, active = true }: { level: number; active?: boolean }) {
+  return (
+    <span className="inline-flex items-center gap-[3px]" dir="ltr" aria-label={`price level ${level}`}>
+      {[1, 2, 3, 4].map((i) => (
+        <span
+          key={i}
+          className="rounded-full"
+          style={{
+            width: 6, height: 6,
+            background: i <= level ? (active ? '#fff' : ACCENT) : 'currentColor',
+            opacity: i <= level ? 1 : 0.28,
+          }}
+        />
+      ))}
+    </span>
+  );
+}
+
+/** Price range rendered left-to-right so currency + numbers never flip in RTL. */
+function PriceRange({ value, className, style }: { value: string; className?: string; style?: React.CSSProperties }) {
+  return <span dir="ltr" className={className} style={style}>{value}</span>;
 }
 
 /** Short localized date for the "book by" chip, e.g. "Aug 27" / "27 באוג׳". */
@@ -798,13 +1021,14 @@ function RestaurantCard({ r, lang, onAdd }: { r: RestaurantRecommendation; lang:
             {r.ratingCount ? <span style={{ color: INK_FAINT }}>· {r.ratingCount.toLocaleString()}</span> : null}
           </div>
         )}
-        {/* Price badge */}
-        {r.priceRange && (
+        {/* Price badge — level pips + LTR range so currency never flips in RTL */}
+        {(r.priceRange || r.priceLevel) && (
           <div
-            className="absolute top-2.5 right-2.5 px-2 py-1 rounded-lg text-[12px] font-bold"
+            className="absolute top-2.5 right-2.5 flex items-center gap-1.5 px-2 py-1 rounded-lg text-[12px] font-bold"
             style={{ background: 'rgba(255,255,255,0.92)', color: ACCENT_DEEP }}
           >
-            {r.priceRange}
+            {r.priceLevel ? <PriceTierPips level={r.priceLevel} active={false} /> : null}
+            {r.priceRange && <PriceRange value={r.priceRange} />}
           </div>
         )}
         {/* Highlight badge — what makes this an experience */}
@@ -1169,7 +1393,7 @@ function AttractionCard({ a, lang, onAdd }: { a: AttractionRecommendation; lang:
             className="absolute top-2.5 right-2.5 px-2 py-1 rounded-lg text-[12px] font-bold"
             style={{ background: 'rgba(255,255,255,0.92)', color: ACCENT_DEEP }}
           >
-            {a.priceRange}
+            <PriceRange value={a.priceRange} />
           </div>
         )}
         {a.highlight && (
@@ -1420,7 +1644,7 @@ function EventCard({ e, lang, onAdd }: { e: EventRecommendation; lang: Lang; onA
             )}
             {e.venue && <span className="text-[11.5px]" style={{ color: INK_FAINT }}>📍 {e.venue}</span>}
             {e.priceRange && (
-              <span className="text-[11.5px] font-semibold" style={{ color: ACCENT_DEEP }}>{e.priceRange}</span>
+              <PriceRange value={e.priceRange} className="text-[11.5px] font-semibold" style={{ color: ACCENT_DEEP }} />
             )}
           </div>
         </div>
