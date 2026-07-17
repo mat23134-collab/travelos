@@ -29,7 +29,7 @@ import { AttractionDetailModal } from '@/components/AttractionDetailModal';
 import { rankBookAhead, type TripDayGeo } from '@/lib/bookAheadRanker';
 import { normalizeNeighborhoodSlug, MAX_PRICE_LEVEL_BY_BUDGET } from '@/lib/restaurantBank';
 import { genreLabel } from '@/lib/restaurantGenre';
-import { availableConcepts, matchesConcept } from '@/lib/restaurantConcepts';
+import { availableConcepts, matchesConcept, resolveCountry } from '@/lib/restaurantConcepts';
 import { trackReservationCtaClick, trackBookAheadPanelShown } from '@/lib/bookAheadMetrics';
 
 // ─── Design tokens (light "paper" overview theme) ─────────────────────────────
@@ -637,9 +637,10 @@ function RestaurantsPanel({ destination, days, lang, budget, groupType, interest
     });
   }, [days]);
 
-  // Which cuisine concepts actually have matches in this city's results — only
-  // these become chips, so the facet is always relevant to what's on screen.
-  const concepts = useMemo(() => availableConcepts(restaurants, 1), [restaurants]);
+  // Concept chips: gated to the destination's country (Italian city → pizza/
+  // pasta/meat, never sushi) and to concepts actually present in the results.
+  const country = useMemo(() => resolveCountry(restaurants, destination), [restaurants, destination]);
+  const concepts = useMemo(() => availableConcepts(restaurants, { country, min: 1 }), [restaurants, country]);
   // Narrow the ranking pool by concept, then (for the inline view) by the tier
   // selector's ceiling — client-side, so switching tiers is instant. Rows with
   // an unknown price level are kept (never hidden by a filter we can't confirm).
@@ -853,7 +854,8 @@ function AllRestaurantsModal({
   const [concept, setConcept] = useState<string | null>(null);
   const dir = lang === 'he' ? 'rtl' : 'ltr';
 
-  const concepts = useMemo(() => availableConcepts(restaurants, 1), [restaurants]);
+  const country = useMemo(() => resolveCountry(restaurants, city), [restaurants, city]);
+  const concepts = useMemo(() => availableConcepts(restaurants, { country, min: 1 }), [restaurants, country]);
   const filtered = useMemo(
     () => (concept ? restaurants.filter((r) => matchesConcept(r, concept)) : restaurants),
     [restaurants, concept],
