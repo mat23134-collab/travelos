@@ -4,56 +4,95 @@
  * global; travelers think in destination-native CONCEPTS instead — "ramen",
  * "sushi", "omakase", "izakaya" in Japan; "pizza", "pasta", "meat" in Italy.
  *
- * This is deliberately data-driven and schema-free: a concept "matches" a
- * restaurant when its keywords appear anywhere in the place's text (name,
- * cuisine, genre, description, signature dish, localized copy). The panel then
- * only shows the concept chips that actually have matches in that city's
- * results — so the filter is always relevant to what's on screen, and Tokyo vs.
- * Rome light up different chips automatically without a country map.
+ * Two rules keep concepts honest:
+ *   1. Matching only looks at a restaurant's CUISINE-identifying fields (name,
+ *      cuisine style, genre, signature dish, highlight) — never the free-text
+ *      description, whose prose ("better than any sushi joint") caused false
+ *      positives like a Tuscan trattoria surfacing under "sushi".
+ *   2. Region-specific concepts are gated to their country/countries, so an
+ *      Italian city never even offers "sushi"/"ramen". The destination country
+ *      comes from the rows' country_code (majority), with a city fallback.
  */
 
 import { RestaurantRecommendation, SiteLanguage } from '@/lib/types';
+import { normalizeCity } from '@/lib/restaurantBank';
 
 export interface RestaurantConcept {
   key: string;
   label: Record<SiteLanguage, string>;
   /** Lowercased substrings (Latin + native script) that signal this concept. */
   keywords: string[];
+  /** ISO-2 countries this concept belongs to; undefined = universal. */
+  countries?: string[];
 }
 
 // Ordered roughly by how travelers browse (mains before sweets). Keywords are
 // matched case-insensitively as substrings, so include native-script forms too.
+// Region-bound concepts carry a `countries` allow-list.
 export const RESTAURANT_CONCEPTS: RestaurantConcept[] = [
-  { key: 'ramen',       label: { en: 'Ramen',        he: 'ראמן' },        keywords: ['ramen', 'ラーメン', 'ראמן'] },
-  { key: 'sushi',       label: { en: 'Sushi',        he: 'סושי' },        keywords: ['sushi', 'nigiri', 'maki', '寿司', 'סושי'] },
-  { key: 'omakase',     label: { en: 'Omakase',      he: 'אומקסה' },      keywords: ['omakase', 'kaiseki', 'kappo', 'sushiya', 'אומקסה'] },
-  { key: 'izakaya',     label: { en: 'Izakaya',      he: 'איזקאיה' },     keywords: ['izakaya', 'yakitori', 'robata', 'איזקאיה'] },
-  { key: 'tempura',     label: { en: 'Tempura',      he: 'טמפורה' },      keywords: ['tempura', 'טמפורה'] },
-  { key: 'udon-soba',   label: { en: 'Udon & Soba',  he: 'אודון וסובה' }, keywords: ['udon', 'soba', 'אודון', 'סובה'] },
-  { key: 'pizza',       label: { en: 'Pizza',        he: 'פיצה' },        keywords: ['pizza', 'pizzeria', 'napoletana', 'פיצה'] },
-  { key: 'pasta',       label: { en: 'Pasta',        he: 'פסטה' },        keywords: ['pasta', 'trattoria', 'osteria', 'spaghetti', 'carbonara', 'cacio', 'tagliatelle', 'פסטה'] },
-  { key: 'meat-grill',  label: { en: 'Meat & grill', he: 'בשר ועל האש' }, keywords: ['steak', 'grill', 'parrilla', 'yakiniku', 'churrasc', 'asado', 'bistecca', 'bbq', 'barbecue', 'meat', 'בשר', 'על האש'] },
-  { key: 'seafood',     label: { en: 'Seafood',      he: 'פירות ים' },    keywords: ['seafood', 'oyster', 'fish', 'ceviche', 'raw bar', 'פירות ים', 'דגים'] },
-  { key: 'tapas',       label: { en: 'Tapas',        he: 'טאפאס' },       keywords: ['tapas', 'pintxos', 'טאפאס'] },
+  { key: 'ramen',       label: { en: 'Ramen',        he: 'ראמן' },        keywords: ['ramen', 'ラーメン', 'ראמן'], countries: ['JP'] },
+  { key: 'sushi',       label: { en: 'Sushi',        he: 'סושי' },        keywords: ['sushi', 'nigiri', 'sashimi', '寿司', 'סושי'], countries: ['JP'] },
+  { key: 'omakase',     label: { en: 'Omakase',      he: 'אומקסה' },      keywords: ['omakase', 'kaiseki', 'kappo', 'sushiya', 'אומקסה'], countries: ['JP'] },
+  { key: 'izakaya',     label: { en: 'Izakaya',      he: 'איזקאיה' },     keywords: ['izakaya', 'yakitori', 'robata', 'איזקאיה'], countries: ['JP'] },
+  { key: 'tempura',     label: { en: 'Tempura',      he: 'טמפורה' },      keywords: ['tempura', 'טמפורה'], countries: ['JP'] },
+  { key: 'udon-soba',   label: { en: 'Udon & Soba',  he: 'אודון וסובה' }, keywords: ['udon', 'soba', 'אודון', 'סובה'], countries: ['JP'] },
+  { key: 'pizza',       label: { en: 'Pizza',        he: 'פיצה' },        keywords: ['pizza', 'pizzeria', 'napoletana', 'פיצה'], countries: ['IT'] },
+  { key: 'pasta',       label: { en: 'Pasta',        he: 'פסטה' },        keywords: ['pasta', 'trattoria', 'osteria', 'spaghetti', 'carbonara', 'cacio', 'tagliatelle', 'פסטה'], countries: ['IT'] },
+  { key: 'tapas',       label: { en: 'Tapas',        he: 'טאפאס' },       keywords: ['tapas', 'pintxos', 'טאפאס'], countries: ['ES'] },
+  { key: 'meat-grill',  label: { en: 'Meat & grill', he: 'בשר ועל האש' }, keywords: ['steak', 'grill', 'parrilla', 'yakiniku', 'churrasc', 'asado', 'bistecca', 'bbq', 'barbecue', 'בשר', 'על האש'] },
+  { key: 'seafood',     label: { en: 'Seafood',      he: 'פירות ים' },    keywords: ['seafood', 'oyster', 'ceviche', 'raw bar', 'פירות ים'] },
   { key: 'burger',      label: { en: 'Burgers',      he: 'המבורגר' },     keywords: ['burger', 'המבורגר'] },
   { key: 'vegetarian',  label: { en: 'Veg & vegan',  he: 'צמחוני/טבעוני' }, keywords: ['vegetarian', 'vegan', 'plant-based', 'plant based', 'צמחוני', 'טבעוני'] },
-  { key: 'dessert',     label: { en: 'Dessert',      he: 'קינוחים' },     keywords: ['dessert', 'gelato', 'patisserie', 'pâtisserie', 'bakery', 'ice cream', 'kakigori', 'קינוח', 'גלידה'] },
-  { key: 'fine-dining', label: { en: 'Fine dining',  he: 'מסעדת שף' },    keywords: ['michelin', 'tasting menu', 'fine dining', 'gastronomic', 'haute', 'שף', 'טעימות'] },
+  { key: 'dessert',     label: { en: 'Dessert',      he: 'קינוחים' },     keywords: ['dessert', 'gelato', 'patisserie', 'pâtisserie', 'kakigori', 'קינוח', 'גלידה'] },
+  { key: 'fine-dining', label: { en: 'Fine dining',  he: 'מסעדת שף' },    keywords: ['michelin', 'tasting menu', 'fine dining', 'gastronomic', 'haute', 'טעימות'] },
 ];
 
 const CONCEPT_BY_KEY = new Map(RESTAURANT_CONCEPTS.map((c) => [c.key, c]));
 
-/** All the searchable text for a restaurant, lowercased and concatenated. */
+/** Fallback city → ISO-2 for existing rows scouted before country_code existed. */
+const CITY_COUNTRY: Record<string, string> = {
+  tokyo: 'JP', kyoto: 'JP', osaka: 'JP',
+  rome: 'IT', florence: 'IT', venice: 'IT', milan: 'IT', naples: 'IT',
+  barcelona: 'ES', madrid: 'ES', seville: 'ES', 'san sebastian': 'ES',
+  paris: 'FR', bordeaux: 'FR', lyon: 'FR', nice: 'FR',
+  lisbon: 'PT', porto: 'PT',
+  amsterdam: 'NL', london: 'GB', 'new york': 'US', dubai: 'AE', 'tel aviv': 'IL',
+  berlin: 'DE', vienna: 'AT', athens: 'GR', istanbul: 'TR', bangkok: 'TH', singapore: 'SG',
+};
+
+/**
+ * Resolve the destination's country: the majority country_code across the rows,
+ * else a city-name fallback, else null (→ no region gating, show all matches).
+ */
+export function resolveCountry(recs: RestaurantRecommendation[], destination?: string): string | null {
+  const counts = new Map<string, number>();
+  for (const r of recs) {
+    if (r.countryCode) counts.set(r.countryCode, (counts.get(r.countryCode) ?? 0) + 1);
+  }
+  let best: string | null = null;
+  let bestN = 0;
+  for (const [cc, n] of counts) if (n > bestN) { best = cc; bestN = n; }
+  if (best) return best;
+  if (destination) return CITY_COUNTRY[normalizeCity(destination)] ?? null;
+  return null;
+}
+
+/** Cuisine-identifying text only (NOT the free-text description). */
 function searchableText(r: RestaurantRecommendation): string {
   const parts: (string | null | undefined)[] = [
-    r.name, r.cuisineStyle, r.cuisineGenre, r.description, r.signatureDish, r.highlight, r.neighborhood,
+    r.name, r.cuisineStyle, r.cuisineGenre, r.signatureDish, r.highlight,
   ];
   if (r.translations) {
     for (const loc of Object.values(r.translations)) {
-      if (loc) parts.push(loc.cuisineStyle, loc.description, loc.signatureDish, loc.highlight);
+      if (loc) parts.push(loc.cuisineStyle, loc.signatureDish, loc.highlight);
     }
   }
   return parts.filter(Boolean).join(' · ').toLowerCase();
+}
+
+/** True when the concept is allowed for the given country (undefined = any). */
+function inRegion(concept: RestaurantConcept, country: string | null): boolean {
+  return !concept.countries || country == null || concept.countries.includes(country);
 }
 
 /** Does a restaurant match a given concept key? */
@@ -70,12 +109,19 @@ export function conceptLabel(conceptKey: string, lang: SiteLanguage): string | n
 }
 
 /**
- * The concepts worth offering as chips for a set of results: those with at least
- * `min` matching restaurants, in catalog order. Keeps the filter relevant to
- * what's actually on screen (no empty "Sushi" chip for a Rome bank).
+ * The concepts worth offering as chips for a set of results: those (a) allowed
+ * for the destination country and (b) with at least `min` matching restaurants,
+ * in catalog order. So an Italian city offers pizza/pasta/meat/… but never
+ * sushi/ramen, and the filter always reflects what's actually on screen.
  */
-export function availableConcepts(recs: RestaurantRecommendation[], min = 1): RestaurantConcept[] {
+export function availableConcepts(
+  recs: RestaurantRecommendation[],
+  opts: { country?: string | null; min?: number } = {},
+): RestaurantConcept[] {
+  const { country = null, min = 1 } = opts;
   return RESTAURANT_CONCEPTS.filter(
-    (concept) => recs.filter((r) => concept.keywords.some((k) => searchableText(r).includes(k))).length >= min,
+    (concept) =>
+      inRegion(concept, country) &&
+      recs.filter((r) => concept.keywords.some((k) => searchableText(r).includes(k))).length >= min,
   );
 }
