@@ -55,7 +55,7 @@ export function PlaceDetailCube({ row, destination, onClose }: PlaceDetailCubePr
         >
           {/* Photo header */}
           <div className="relative flex-shrink-0 h-[180px] overflow-hidden">
-            <DayPhoto query={photoQuery} alt={name} height={180} dark />
+            <DayPhoto query={photoQuery} alt={name} ratio="3/2" dark />
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent pointer-events-none" />
             <motion.button
               type="button"

@@ -158,7 +158,7 @@ export function DayDetailPanel({
             {/* Left */}
             <div className="flex flex-col gap-3">
               <div className="relative rounded-2xl overflow-hidden h-[200px]" style={{ boxShadow: '0 6px 20px rgba(0,0,0,0.12)' }}>
-                <DayPhoto query={photoQuery} alt={day.theme ?? destination} height={200} />
+                <DayPhoto query={photoQuery} alt={day.theme ?? destination} ratio="3/2" />
               </div>
 
               <div className="flex items-center gap-4 px-4 py-3 rounded-2xl" style={{ background: 'var(--color-paper)', boxShadow: 'var(--shadow-card)' }}>

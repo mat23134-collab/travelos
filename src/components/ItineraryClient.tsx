@@ -123,7 +123,7 @@ function HotelDetailCube({
         transition={HOTEL_DETAIL_SPRING}
       >
         <div className="relative flex-shrink-0">
-          <DayPhoto query={photoQuery} alt={hotel.name} height={220} dark />
+          <DayPhoto query={photoQuery} alt={hotel.name} ratio="3/2" dark />
           <motion.button
             type="button"
             onClick={onClose}

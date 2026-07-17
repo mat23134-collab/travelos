@@ -157,7 +157,7 @@ export function TransportCard({
         {/* Editorial photo header with serif overlay title */}
         <div className="relative h-[200px] sm:h-[224px] overflow-hidden">
           <div className="absolute inset-0 transition-transform duration-700 group-hover:scale-105">
-            <DayPhoto query={`${city} metro public transport`} alt={city} height={224} dark />
+            <DayPhoto query={`${city} metro public transport`} alt={city} ratio="3/2" dark />
           </div>
 
           {/* Eyebrow pill (start) */}
