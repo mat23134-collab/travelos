@@ -11,18 +11,43 @@ interface PhotoData {
   source: 'unsplash' | 'picsum' | 'pexels';
 }
 
+/** Supported card frame ratios (width / height). */
+type PhotoRatio = '3/2' | '16/9' | '1/1' | '4/5';
+
 interface Props {
   query: string;
   alt: string;
+  /**
+   * Fixed pixel height. Used when `ratio` is not set (backwards-compatible
+   * default). Prefer `ratio` for display cards so the frame scales with width.
+   */
   height?: number;
+  /**
+   * Aspect ratio for the frame. When set, overrides `height` and lets the
+   * image box scale proportionally with its container width.
+   */
+  ratio?: PhotoRatio;
+  /** CSS `object-position` focal point, e.g. `'50% 30%'` to keep the top in frame. */
+  focus?: string;
   dark?: boolean;
   /** Hide the photographer credit (for faint decorative backgrounds). */
   hideCredit?: boolean;
 }
 
-export function DayPhoto({ query, alt, height = 180, dark = false, hideCredit = false }: Props) {
+export function DayPhoto({
+  query,
+  alt,
+  height = 180,
+  ratio,
+  focus = '50% 50%',
+  dark = false,
+  hideCredit = false,
+}: Props) {
   const [photo, setPhoto] = useState<PhotoData | null>(null);
   const [loaded, setLoaded] = useState(false);
+
+  // `ratio` (aspect-ratio box) takes precedence over the legacy fixed `height`.
+  const frameStyle = ratio ? { aspectRatio: ratio.replace('/', ' / ') } : { height };
 
   useEffect(() => {
     let cancelled = false;
@@ -37,18 +62,19 @@ export function DayPhoto({ query, alt, height = 180, dark = false, hideCredit = 
     return (
       <div
         className={`w-full animate-pulse ${dark ? 'bg-[#1a1d26]' : 'bg-gradient-to-br from-[#f0ede4] to-[#e5e0d5]'}`}
-        style={{ height }}
+        style={frameStyle}
       />
     );
   }
 
   return (
-    <div className="relative w-full overflow-hidden" style={{ height }}>
+    <div className="relative w-full overflow-hidden" style={frameStyle}>
       <Image
         src={photo.thumb || photo.url}
         alt={alt}
         fill
         sizes="(max-width: 768px) 100vw, 800px"
+        style={{ objectPosition: focus }}
         className={`object-cover transition-opacity duration-700 ${loaded ? 'opacity-100' : 'opacity-0'}`}
         onLoad={() => setLoaded(true)}
         loading="lazy"

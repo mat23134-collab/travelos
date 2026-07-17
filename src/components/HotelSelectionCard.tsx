@@ -175,7 +175,7 @@ function HotelColumn({
       {/* Photo with overlay */}
       <div className="relative h-[180px] overflow-hidden">
         <div className="absolute inset-0 transition-transform duration-700 group-hover:scale-105">
-          <DayPhoto query={photoQuery} alt={hotel.name} height={180} dark />
+          <DayPhoto query={photoQuery} alt={hotel.name} ratio="3/2" dark />
         </div>
 
         {/* Top row: rating (start), Selected (end) */}

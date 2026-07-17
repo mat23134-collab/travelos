@@ -26,6 +26,7 @@ import Map, {
   type MapRef,
 } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import { MAP_STYLE_URL } from '@/lib/mapTheme';
 
 // ── Public interface ──────────────────────────────────────────────────────────
 
@@ -352,7 +353,7 @@ function InteractiveMapInner({ places, flyToId, height = 280, className = '' }: 
         mapboxAccessToken={TOKEN}
         initialViewState={{ longitude: initLng, latitude: initLat, zoom: 12 }}
         style={{ width: '100%', height: '100%' }}
-        mapStyle="mapbox://styles/mapbox/dark-v11"
+        mapStyle={MAP_STYLE_URL}
         onLoad={onLoad}
         cooperativeGestures={false}
         attributionControl

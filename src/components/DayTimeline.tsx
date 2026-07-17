@@ -208,7 +208,7 @@ function TimelineItem({
       {/* Photo header */}
       <div className="relative h-[164px] overflow-hidden">
         <div className="absolute inset-0 transition-transform duration-700 group-hover:scale-105">
-          <DayPhoto query={photoQuery} alt={row.name} height={164} dark />
+          <DayPhoto query={photoQuery} alt={row.name} ratio="3/2" dark />
         </div>
 
         {/* Top row: time + emoji (start), Hidden Gem (end) */}

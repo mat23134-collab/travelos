@@ -13,6 +13,7 @@ import Map, { Marker, Popup, NavigationControl, type MapRef } from 'react-map-gl
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { DayPlan } from '@/lib/types';
 import type { ItineraryUiStrings } from '@/lib/tripUiCopy';
+import { DAY_COLORS, MAP_STYLE_URL } from '@/lib/mapTheme';
 
 /** Strings for the distance / transit overlay — pass `Pick` from `itineraryUi(...)`. */
 export type ItineraryMapLabels = Pick<
@@ -66,12 +67,6 @@ export interface Props {
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
-
-const DAY_COLORS = [
-  '#ff5a5f', '#3b82f6', '#10b981', '#8b5cf6',
-  '#f59e0b', '#ec4899', '#06b6d4', '#84cc16',
-  '#f97316', '#6366f1',
-];
 
 const TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? '';
 
@@ -305,7 +300,7 @@ function ItineraryMapInner({ days, destination, focusedNeighborhood, basecampMar
         mapboxAccessToken={TOKEN}
         initialViewState={{ longitude: initLng, latitude: initLat, zoom: 11 }}
         style={{ width: '100%', height: '100%' }}
-        mapStyle="mapbox://styles/mapbox/dark-v11"
+        mapStyle={MAP_STYLE_URL}
         onLoad={handleLoad}
         cooperativeGestures={false}
         attributionControl

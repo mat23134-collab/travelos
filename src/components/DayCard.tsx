@@ -515,7 +515,7 @@ function ActivityModal({
         />
 
         <div className="relative flex-shrink-0">
-          <DayPhoto query={photoQuery} alt={activity.name} height={260} />
+          <DayPhoto query={photoQuery} alt={activity.name} ratio="3/2" />
 
           <motion.button
             onClick={onClose}
@@ -1427,12 +1427,12 @@ export function DayCard({
             href={routeInfo.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="group flex items-center justify-center gap-1.5 flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all hover:brightness-115 hover:shadow-[0_0_32px_rgba(72,180,190,0.30)] active:scale-[0.98]"
+            className="group flex items-center justify-center gap-1.5 flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all hover:brightness-115 hover:shadow-[0_0_32px_rgba(184,85,46,0.30)] active:scale-[0.98]"
             style={{
-              background: 'linear-gradient(145deg, rgba(52,130,138,0.55) 0%, rgba(45,84,94,0.92) 42%, rgba(30,68,76,0.98) 100%)',
-              border: '2px solid rgba(110, 198, 208, 0.75)',
+              background: 'linear-gradient(145deg, rgba(184,85,46,0.60) 0%, rgba(143,66,32,0.94) 42%, rgba(125,43,47,0.98) 100%)',
+              border: '2px solid rgba(224,164,75,0.70)',
               boxShadow:
-                '0 0 0 1px rgba(201,168,76,0.35), 0 6px 22px rgba(0,0,0,0.35), 0 0 28px rgba(72, 180, 190, 0.22)',
+                '0 0 0 1px rgba(224,164,75,0.35), 0 6px 22px rgba(0,0,0,0.35), 0 0 28px rgba(184,85,46,0.24)',
               color: '#f8fafc',
             }}
           >

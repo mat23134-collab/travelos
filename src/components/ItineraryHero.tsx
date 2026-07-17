@@ -15,7 +15,7 @@ export function ItineraryHero({ destination, dateRange, totalDays }: Props) {
       <div className="relative sm:rounded-[28px] overflow-hidden" style={{ boxShadow: 'var(--shadow-soft)' }}>
         {/* Cinematic photo with a slow Ken Burns drift */}
         <div className="kenburns">
-          <DayPhoto query={`${destination} skyline golden hour`} alt={destination} height={540} dark />
+          <DayPhoto query={`${destination} skyline golden hour`} alt={destination} ratio="16/9" focus="50% 40%" dark />
         </div>
 
         {/* Extra bottom gradient for drama / legibility */}
