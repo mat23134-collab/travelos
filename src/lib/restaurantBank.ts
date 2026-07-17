@@ -54,7 +54,8 @@ function normalizeName(name: string): string {
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-function rowToRec(row: any): RestaurantRecommendation {
+/** Map a DB row to a RestaurantRecommendation. Exported for the backfill scripts. */
+export function rowToRec(row: any): RestaurantRecommendation {
   return {
     id: row.id,
     city: row.city,
