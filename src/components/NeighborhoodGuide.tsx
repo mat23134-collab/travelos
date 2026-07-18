@@ -13,7 +13,7 @@
  */
 
 import { useMemo } from 'react';
-import type { NeighborhoodProfile } from '@/services/neighborhood/types';
+import type { NeighborhoodProfile, ProfilerPoi } from '@/services/neighborhood/types';
 
 // Warm "paper" palette, consistent with the rest of the app.
 const INK = '#2b2622';
@@ -25,10 +25,13 @@ const CARD = '#fffaf1';
 
 export function NeighborhoodGuide({
   profile,
+  pois = [],
   loading = false,
   error = null,
 }: {
   profile?: NeighborhoodProfile | null;
+  /** The day's stops — plotted as pins on the map so it reads as a real area. */
+  pois?: ProfilerPoi[];
   loading?: boolean;
   error?: string | null;
 }) {
@@ -54,6 +57,7 @@ export function NeighborhoodGuide({
       <div className="relative min-h-[280px] lg:min-h-full order-first lg:order-last">
         <MapPanel
           geoJson={neighborhood.boundaryGeoJson}
+          pois={pois}
           nameHebrew={guide.name_hebrew}
           nameEnglish={guide.name_english}
         />
@@ -170,16 +174,23 @@ function MatchBadge({ percent }: { percent: number }) {
 }
 
 /**
- * The map placeholder. Draws the real neighborhood polygon (from the GeoJSON the
- * PostGIS query returned) as an SVG over a soft "map" backdrop — so it reads as a
- * highlighted area even before a Google Map layer is wired in behind it.
+ * The map panel. Draws the neighborhood polygon (from the PostGIS GeoJSON) AND
+ * the day's stops as numbered pins — both normalized to a shared bounding box so
+ * you actually see your route sitting inside the area, not an empty box.
  */
-function MapPanel({ geoJson, nameHebrew, nameEnglish }: { geoJson: string | null; nameHebrew: string; nameEnglish: string }) {
-  const path = useMemo(() => geoJsonToSvgPath(geoJson), [geoJson]);
+function MapPanel({
+  geoJson, pois, nameHebrew, nameEnglish,
+}: {
+  geoJson: string | null;
+  pois: ProfilerPoi[];
+  nameHebrew: string;
+  nameEnglish: string;
+}) {
+  const scene = useMemo(() => buildScene(geoJson, pois), [geoJson, pois]);
   return (
     <div
       className="absolute inset-0 flex items-center justify-center"
-      style={{ background: 'radial-gradient(120% 120% at 30% 20%, #e9f0ea 0%, #dce6e0 55%, #cdd9d2 100%)' }}
+      style={{ background: 'radial-gradient(120% 120% at 30% 20%, #eaf0ec 0%, #dde7e0 55%, #cfdbd3 100%)' }}
       data-testid="neighborhood-map"
     >
       {/* faint street grid */}
@@ -188,12 +199,40 @@ function MapPanel({ geoJson, nameHebrew, nameEnglish }: { geoJson: string | null
         style={{
           backgroundImage:
             'linear-gradient(rgba(43,38,34,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(43,38,34,0.06) 1px, transparent 1px)',
-          backgroundSize: '34px 34px',
+          backgroundSize: '30px 30px',
         }}
       />
-      {path ? (
-        <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" className="relative w-[78%] h-[78%]">
-          <path d={path} fill="rgba(184,85,46,0.22)" stroke={ACCENT} strokeWidth={1.4} strokeLinejoin="round" />
+      {scene ? (
+        <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" className="relative w-[88%] h-[82%]">
+          {scene.path && (
+            <path
+              d={scene.path}
+              fill="rgba(184,85,46,0.16)"
+              stroke={ACCENT}
+              strokeWidth={1.1}
+              strokeLinejoin="round"
+              strokeDasharray="2.4 1.6"
+            />
+          )}
+          {/* connecting walk line between the day's stops */}
+          {scene.pins.length > 1 && (
+            <polyline
+              points={scene.pins.map((p) => `${p.x},${p.y}`).join(' ')}
+              fill="none"
+              stroke="rgba(43,38,34,0.35)"
+              strokeWidth={0.8}
+              strokeDasharray="1.5 1.5"
+              strokeLinecap="round"
+            />
+          )}
+          {scene.pins.map((p, i) => (
+            <g key={i}>
+              <circle cx={p.x} cy={p.y} r={2.9} fill={p.color} stroke="#fff" strokeWidth={0.8} />
+              <text x={p.x} y={p.y + 1.05} textAnchor="middle" fontSize={3} fontWeight={800} fill="#fff">
+                {i + 1}
+              </text>
+            </g>
+          ))}
         </svg>
       ) : (
         <div className="relative text-[13px] font-semibold" style={{ color: INK_MUT }}>אזור השכונה</div>
@@ -222,31 +261,61 @@ function GuideSkeleton() {
   );
 }
 
-// ── GeoJSON → normalized SVG path (0..100 viewbox, y-flipped for screen) ──────
+// ── Project polygon + POIs into a shared 0..100 viewbox (y-flipped) ───────────
 
-function geoJsonToSvgPath(geoJson: string | null): string | null {
-  if (!geoJson) return null;
-  try {
-    const parsed = JSON.parse(geoJson) as { type?: string; coordinates?: number[][][] };
-    const ring = parsed?.coordinates?.[0];
-    if (!ring || ring.length < 3) return null;
+interface Scene {
+  path: string | null;
+  pins: { x: number; y: number; color: string }[];
+}
 
-    const lngs = ring.map((c) => c[0]);
-    const lats = ring.map((c) => c[1]);
-    const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
-    const minLat = Math.min(...lats), maxLat = Math.max(...lats);
-    const spanLng = maxLng - minLng || 1e-6;
-    const spanLat = maxLat - minLat || 1e-6;
-    const pad = 8;
-    const scale = 100 - pad * 2;
+const PIN_COLORS: Record<string, string> = {
+  restaurant: '#e0913a', // warm gold
+  attraction: '#c0453f', // terracotta red
+};
 
-    const pts = ring.map(([lng, lat]) => {
-      const x = pad + ((lng - minLng) / spanLng) * scale;
-      const y = pad + (1 - (lat - minLat) / spanLat) * scale; // flip Y for screen space
-      return `${x.toFixed(2)},${y.toFixed(2)}`;
-    });
-    return `M ${pts.join(' L ')} Z`;
-  } catch {
-    return null;
+/**
+ * Build the map scene: the polygon path and the day's POI pins, both normalized
+ * to the SAME bounding box (polygon ring ∪ POIs) so their relative positions are
+ * true — you see your stops clustered inside the neighborhood.
+ */
+function buildScene(geoJson: string | null, pois: ProfilerPoi[]): Scene | null {
+  let ring: number[][] | null = null;
+  if (geoJson) {
+    try {
+      const parsed = JSON.parse(geoJson) as { coordinates?: number[][][] };
+      const r = parsed?.coordinates?.[0];
+      if (r && r.length >= 3) ring = r;
+    } catch { /* ignore */ }
   }
+
+  const geoPois = pois.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+  const all: [number, number][] = [
+    ...(ring ? ring.map((c) => [c[0], c[1]] as [number, number]) : []),
+    ...geoPois.map((p) => [p.lng, p.lat] as [number, number]),
+  ];
+  if (all.length === 0) return null;
+
+  const lngs = all.map((c) => c[0]);
+  const lats = all.map((c) => c[1]);
+  const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
+  const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+  const spanLng = maxLng - minLng || 1e-6;
+  const spanLat = maxLat - minLat || 1e-6;
+  const pad = 12;
+  const scale = 100 - pad * 2;
+  const project = (lng: number, lat: number): [number, number] => [
+    pad + ((lng - minLng) / spanLng) * scale,
+    pad + (1 - (lat - minLat) / spanLat) * scale, // flip Y for screen space
+  ];
+
+  const path = ring
+    ? `M ${ring.map(([lng, lat]) => project(lng, lat).map((n) => n.toFixed(2)).join(',')).join(' L ')} Z`
+    : null;
+
+  const pins = geoPois.map((p) => {
+    const [x, y] = project(p.lng, p.lat);
+    return { x, y, color: PIN_COLORS[(p.category ?? '').toLowerCase()] ?? ACCENT };
+  });
+
+  return { path, pins };
 }
