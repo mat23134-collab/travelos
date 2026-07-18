@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic';
 import { DayPhoto } from '@/components/DayPhoto';
 import { DaySummaryCard } from '@/components/DaySummaryCard';
 import { DayTimeline, DayGlance, type TimelineRow, type SwapTarget } from '@/components/DayTimeline';
+import { DayNeighborhoodGuide } from '@/components/DayNeighborhoodGuide';
 import { PlaceDetailCube } from '@/components/PlaceDetailCube';
 import { AlternativePickerPanel } from '@/components/AlternativePickerPanel';
 import { AuthGateModal } from '@/components/AuthGateModal';
@@ -153,6 +154,15 @@ export function DayDetailPanel({
                 onNeighborhoodClick={onNeighborhoodClick}
                 onExplore={(row) => setActivePlace(row)}
                 onFindAlternative={(target) => requireAuth(() => setActiveSwap(target))}
+              />
+
+              {/* Why this day is grouped here — the Neighborhood Profiler. */}
+              <DayNeighborhoodGuide
+                day={day}
+                dayIndex={dayIndex}
+                destination={destination}
+                session={session}
+                profile={profile}
               />
 
               {/* Mobile map button */}
