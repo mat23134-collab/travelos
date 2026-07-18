@@ -132,3 +132,43 @@ export async function fetchNeighborhoodHighlights(name: string, city: string): P
     sources: [...new Set([...secrets.sources, ...downsides.sources])].slice(0, 8),
   };
 }
+
+// ── City-level variants (for the whole-trip city guide on the results page) ────
+
+/** Tavily facts for a whole city: getting in/around + tourist safety. */
+export async function fetchCityFacts(city: string): Promise<NeighborhoodFacts> {
+  const empty: NeighborhoodFacts = { metroStations: [], walkabilityNotes: [], safetyNotes: [], sources: [] };
+  if (!keyOk(process.env.TAVILY_API_KEY)) return empty;
+
+  const run = (q: string) => withTimeout(tavily(q), SEARCH_TIMEOUT_MS).then(toLines).catch(() => ({ lines: [], sources: [] }));
+  const [transit, walk, safety] = await Promise.all([
+    run(`getting around ${city}: airport to city center, metro / train / transit passes tourists should know`),
+    run(`${city} for first-time visitors — how the city is laid out, walkable central areas vs needing transit`),
+    run(`${city} safety for tourists, common scams and tourist-trap areas to avoid`),
+  ]);
+
+  return {
+    metroStations: transit.lines.slice(0, MAX_PER_BUCKET),
+    walkabilityNotes: walk.lines.slice(0, MAX_PER_BUCKET),
+    safetyNotes: safety.lines.slice(0, MAX_PER_BUCKET),
+    sources: [...new Set([...transit.sources, ...walk.sources, ...safety.sources])].slice(0, 8),
+  };
+}
+
+/** Exa semantic highlights for a whole city: local gems + honest downsides. */
+export async function fetchCityHighlights(city: string): Promise<NeighborhoodHighlights> {
+  const empty: NeighborhoodHighlights = { localSecrets: [], honestDownsides: [], sources: [] };
+  if (!keyOk(process.env.EXA_API_KEY)) return empty;
+
+  const run = (q: string) => withTimeout(exa(q), SEARCH_TIMEOUT_MS).then(collect).catch(() => ({ highlights: [], sources: [] }));
+  const [secrets, downsides] = await Promise.all([
+    run(`underrated experiences and non-touristy things that locals actually love in ${city}`),
+    run(`honest downsides and realistic warnings about visiting ${city}: crowds, prices, scams, weather, overrated spots`),
+  ]);
+
+  return {
+    localSecrets: secrets.highlights.slice(0, MAX_PER_BUCKET),
+    honestDownsides: downsides.highlights.slice(0, MAX_PER_BUCKET),
+    sources: [...new Set([...secrets.sources, ...downsides.sources])].slice(0, 8),
+  };
+}

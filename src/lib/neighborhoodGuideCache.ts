@@ -29,6 +29,7 @@ export function buildGuideCacheKey(
   city: string,
   pois: ProfilerPoi[],
   trip: ProfilerTripContext,
+  scope: 'nb' | 'city' = 'nb',
 ): string {
   const poiSig = pois
     .map((p) => `${p.lat.toFixed(3)},${p.lng.toFixed(3)}`)
@@ -41,7 +42,7 @@ export function buildGuideCacheKey(
     trip.pace ?? '',
     trip.dayNumber ?? '',
   ].join('~');
-  const raw = `${CACHE_VERSION}::${city.toLowerCase().trim()}::${poiSig}::${tripSig}`;
+  const raw = `${CACHE_VERSION}::${scope}::${city.toLowerCase().trim()}::${poiSig}::${tripSig}`;
   return createHash('sha1').update(raw).digest('hex');
 }
 
