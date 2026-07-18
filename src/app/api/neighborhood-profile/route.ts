@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { verifySession, unauthorizedResponse } from '@/lib/apiGuard';
 import { buildNeighborhoodProfile } from '@/services/neighborhood';
 import type { ProfilerPoi, ProfilerTripContext } from '@/services/neighborhood';
+import { buildGuideCacheKey, getCachedGuide, putCachedGuide } from '@/lib/neighborhoodGuideCache';
 
 /** Per-key cooldown so a day's guide isn't re-synthesized on every render. */
 const lastRunAt = new Map<string, number>();
@@ -42,22 +43,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'at least one geo-located POI is required' }, { status: 400 });
   }
 
-  // Cooldown keyed by the day's geometry (rounded centroid) — cheap dedupe.
+  const trip = body?.profile ?? {};
+
+  // Persistent cache: a guide is fully determined by (city, POI geometry, trip
+  // context), so a repeat view is a single DB read and ZERO paid API calls.
+  const cacheKey = buildGuideCacheKey(city, validPois, trip);
+  const cached = await getCachedGuide(cacheKey);
+  if (cached) return NextResponse.json(cached);
+
+  // Cache miss → cooldown keyed by the day's geometry guards against a burst of
+  // concurrent cold builds hammering the paid APIs on a tight render loop.
   const key = `${city.toLowerCase()}:${validPois.map((p) => `${p.lat.toFixed(3)},${p.lng.toFixed(3)}`).sort().join('|')}`;
   const now = Date.now();
   if (now - (lastRunAt.get(key) ?? 0) < COOLDOWN_MS) {
-    // Fall through and recompute is fine, but avoid hammering the paid APIs on a
-    // tight render loop — signal the client to reuse what it has.
     return NextResponse.json({ throttled: true }, { status: 429 });
   }
   lastRunAt.set(key, now);
 
   try {
-    const profile = await buildNeighborhoodProfile(supabase, city, validPois, body?.profile ?? {});
+    const profile = await buildNeighborhoodProfile(supabase, city, validPois, trip);
     if (!profile) {
       // No neighborhood polygons for this city yet — feature simply hidden.
       return new NextResponse(null, { status: 204 });
     }
+    await putCachedGuide(cacheKey, city, profile); // persist for next time
     return NextResponse.json(profile);
   } catch (e) {
     lastRunAt.delete(key); // let the client retry a genuine failure
