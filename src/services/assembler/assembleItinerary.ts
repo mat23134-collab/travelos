@@ -11,6 +11,7 @@
 
 import type { Itinerary, DayPlan, Activity, DiningSpot } from '../../lib/types';
 import { haversineKm, walkingMinutes, centroid, nearestNeighbourOrder, type LatLng } from './geo';
+import { placeQuality, placeGoodness } from './placeQuality';
 import {
   GROUP_TAGS,
   BUDGET_TIERS,
@@ -49,6 +50,8 @@ export interface AssemblerPlace {
   top_pick_category: string | null;
   popularity_rank: number | null;
   google_rating: number | null;
+  /** Google user_ratings_total — optional; enables Bayesian quality when present. */
+  rating_count?: number | null;
   opening_hours: OpeningHours | null;
   website_url: string | null;
   photo_url: string | null;
@@ -120,7 +123,11 @@ function scorePlace(p: AssemblerPlace, interests: string[], familyFitTags: strin
   let s = 0;
   if (typeof p.popularity_rank === 'number') s += Math.max(0, 100 - p.popularity_rank) / 100;
   if (p.top_pick_category) s += 0.5;
-  if (typeof p.google_rating === 'number') s += p.google_rating / 5;
+  // Bayesian-aware quality (when a review count is present) instead of raw
+  // rating, so a 4.9★/40-reviews can't outrank a 4.6★/4,000.
+  if (typeof p.google_rating === 'number') {
+    s += placeQuality({ googleRating: p.google_rating, ratingCount: p.rating_count });
+  }
   if (interests.length) {
     const tagPool = [
       ...(p.vibe ?? []), ...(p.culinary_focus ?? []),
@@ -258,6 +265,11 @@ export function assembleItinerary(
     const dayCentroid = centroid(anchorPts) ?? start;
 
     // 4) Meals near the day's centroid — must actually serve that meal slot.
+    //    Proximity stays primary, but value-for-money + Bayesian quality pull
+    //    better nearby options ahead, and a tourist-trap penalty (pricey + only-
+    //    okay + sitting right on a sight) pushes the classic overpriced-near-the-
+    //    landmark spot DOWN rather than favoring it for being central.
+    const daySightPts = dayActs.filter(hasGeo).map((s) => ll(s));
     const meals: Record<string, DiningSpot | undefined> = {};
     for (const meal of pace.meals) {
       const tokens = MEAL_SLOT_TOKENS[meal];
@@ -265,7 +277,21 @@ export function assembleItinerary(
         .filter((p) => !usedFood.has(p.id))
         .filter((p) => intersects(p.meal_slots, tokens))
         .filter((p) => weekday < 0 || openStatus(p.opening_hours, weekday, meal) !== 'closed')
-        .map((p) => ({ p, dist: haversineKm(dayCentroid, ll(p as LatLng & AssemblerPlace)) - scorePlace(p, interests, familyFitTags) * 0.3 }))
+        .map((p) => {
+          const geo = haversineKm(dayCentroid, ll(p as LatLng & AssemblerPlace));
+          const nearestSightM = hasGeo(p) && daySightPts.length
+            ? Math.min(...daySightPts.map((s) => haversineKm(s, ll(p)) * 1000))
+            : null;
+          const goodness = placeGoodness(
+            { googleRating: p.google_rating, ratingCount: p.rating_count, priceTier: p.price_tier },
+            nearestSightM,
+          );
+          // Effective distance: fit + value/quality/anti-trap can pull a place
+          // ahead by up to ~0.9km, so a great-value non-trap spot beats a bland
+          // one right on the piazza without dragging meals across the city.
+          const rank = geo - scorePlace(p, interests, familyFitTags) * 0.3 - goodness * 0.9;
+          return { p, dist: rank };
+        })
         .sort((a, b) => a.dist - b.dist);
       if (cand[0]) {
         usedFood.add(cand[0].p.id);
