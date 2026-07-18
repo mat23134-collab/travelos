@@ -5,9 +5,11 @@
  *
  * Order of preference:
  *   1. A direct reservation_url the scout already found (always wins).
- *   2. The regional primary OTA (OpenTable / TheFork / Tabelog / Ontopo / Chope),
+ *   2. A Google Maps deep-link to THIS restaurant via the stored google_place_id
+ *      — exact venue, correct country, with Google's "Reserve a table" button
+ *      when bookable. Beats any generic OTA city-search.
+ *   3. The regional primary OTA (OpenTable / TheFork / Tabelog / Ontopo / Chope),
  *      with a genre nudge (tasting menus → Tock, trendy US urban → Resy).
- *   3. Google Reserve via the stored google_place_id — free coverage anywhere.
  *   4. The restaurant's own website.
  *
  * Pure function, no I/O — trivially unit-testable.
@@ -119,21 +121,24 @@ export function routeReservation(input: PlatformRouteInput, lang: SiteLanguage =
     };
   }
 
-  // 2. Regional primary OTA.
-  const primary = primaryFor(countryCode, cuisineGenre);
-
-  // 3. Google Reserve fallback when we have no country signal but do have a
-  //    verified place_id — free coverage that beats a blind OTA search.
-  if (!countryCode && googlePlaceId) {
+  // 2. A verified google_place_id deep-links straight to THIS restaurant —
+  //    exact venue, correct country — which beats a generic OTA city-search
+  //    that lands on a "10 best restaurants in <city>" list (often the wrong
+  //    country entirely). Google's place page surfaces its "Reserve a table"
+  //    button when the venue is bookable.
+  if (googlePlaceId) {
     return {
       name: 'Google',
-      url: `https://www.google.com/maps/reserve/v/dine/c/${googlePlaceId}`,
+      url: `https://www.google.com/maps/search/?api=1&query=${q(`${name} ${city}`)}&query_place_id=${q(googlePlaceId)}`,
       ctaLabel: CTA_GOOGLE[lang],
     };
   }
 
-  // Prefer the regional OTA; if we truly have nothing but a website, use it.
-  if (!countryCode && !googlePlaceId && websiteUrl) {
+  // 3. Regional primary OTA search (no place_id to pin the exact venue).
+  const primary = primaryFor(countryCode, cuisineGenre);
+
+  // If we truly have nothing but a website, use it.
+  if (!countryCode && websiteUrl) {
     return { name: 'Website', url: websiteUrl, ctaLabel: CTA_WEBSITE[lang] };
   }
 

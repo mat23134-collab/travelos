@@ -3,17 +3,16 @@
 /**
  * NeighborhoodGuide — the "Dynamic Neighborhood Profiler" surface.
  *
- * A split-view (Airbnb-style): a map panel on one side highlighting the active
- * neighborhood polygon, and a beautifully organized "Neighborhood Guide" on the
- * other — match badge, the hook, personal relevance, an honest-downsides warning
- * banner (trust), insider secrets as an icon-bullet list, and commute + safety.
+ * A single-column, full-width "Neighborhood Guide": match badge, the hook,
+ * personal relevance, an honest-downsides warning banner (trust), insider
+ * secrets as an icon-bullet list, and commute + safety. No map — the guide copy
+ * carries all the value; the polygon added nothing.
  *
  * RTL-first (the guide copy is Hebrew). Pass a `profile` from
  * POST /api/neighborhood-profile; render `loading`/`error` states as needed.
  */
 
-import { useMemo } from 'react';
-import type { NeighborhoodProfile, ProfilerPoi } from '@/services/neighborhood/types';
+import type { NeighborhoodProfile } from '@/services/neighborhood/types';
 
 // Warm "paper" palette, consistent with the rest of the app.
 const INK = '#2b2622';
@@ -25,13 +24,10 @@ const CARD = '#fffaf1';
 
 export function NeighborhoodGuide({
   profile,
-  pois = [],
   loading = false,
   error = null,
 }: {
   profile?: NeighborhoodProfile | null;
-  /** The day's stops — plotted as pins on the map so it reads as a real area. */
-  pois?: ProfilerPoi[];
   loading?: boolean;
   error?: string | null;
 }) {
@@ -45,25 +41,14 @@ export function NeighborhoodGuide({
   }
   if (!profile) return null;
 
-  const { guide, neighborhood, matchPercent } = profile;
+  const { guide, matchPercent } = profile;
 
   return (
     <div
       dir="rtl"
-      className="grid grid-cols-1 lg:grid-cols-[1fr_1.05fr] overflow-hidden rounded-3xl shadow-xl"
+      className="overflow-hidden rounded-3xl shadow-xl"
       style={{ background: CARD, border: '1px solid rgba(43,38,34,0.10)' }}
     >
-      {/* ── Map panel (highlights the active neighborhood polygon) ───────────── */}
-      <div className="relative min-h-[280px] lg:min-h-full order-first lg:order-last">
-        <MapPanel
-          geoJson={neighborhood.boundaryGeoJson}
-          pois={pois}
-          nameHebrew={guide.name_hebrew}
-          nameEnglish={guide.name_english}
-        />
-      </div>
-
-      {/* ── Guide panel ──────────────────────────────────────────────────────── */}
       <div className="p-6 sm:p-8 flex flex-col gap-6">
         {/* Name + match badge */}
         <div className="flex items-start justify-between gap-4">
@@ -134,7 +119,7 @@ export function NeighborhoodGuide({
 
         {/* Commute + safety — grouped at the bottom */}
         {guide.commute_and_safety_hebrew && (
-          <div className="mt-auto pt-5" style={{ borderTop: '1px solid rgba(43,38,34,0.10)' }}>
+          <div className="pt-5" style={{ borderTop: '1px solid rgba(43,38,34,0.10)' }}>
             <p className="flex items-center gap-2 text-[12.5px] font-black mb-1.5" style={{ color: INK }}>
               <span className="text-[15px]">🚇</span> תחבורה ובטיחות
             </p>
@@ -173,85 +158,9 @@ function MatchBadge({ percent }: { percent: number }) {
   );
 }
 
-/**
- * The map panel. Draws the neighborhood polygon (from the PostGIS GeoJSON) AND
- * the day's stops as numbered pins — both normalized to a shared bounding box so
- * you actually see your route sitting inside the area, not an empty box.
- */
-function MapPanel({
-  geoJson, pois, nameHebrew, nameEnglish,
-}: {
-  geoJson: string | null;
-  pois: ProfilerPoi[];
-  nameHebrew: string;
-  nameEnglish: string;
-}) {
-  const scene = useMemo(() => buildScene(geoJson, pois), [geoJson, pois]);
-  return (
-    <div
-      className="absolute inset-0 flex items-center justify-center"
-      style={{ background: 'radial-gradient(120% 120% at 30% 20%, #eaf0ec 0%, #dde7e0 55%, #cfdbd3 100%)' }}
-      data-testid="neighborhood-map"
-    >
-      {/* faint street grid */}
-      <div
-        className="absolute inset-0 opacity-40"
-        style={{
-          backgroundImage:
-            'linear-gradient(rgba(43,38,34,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(43,38,34,0.06) 1px, transparent 1px)',
-          backgroundSize: '30px 30px',
-        }}
-      />
-      {scene ? (
-        <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" className="relative w-[88%] h-[82%]">
-          {scene.path && (
-            <path
-              d={scene.path}
-              fill="rgba(184,85,46,0.16)"
-              stroke={ACCENT}
-              strokeWidth={1.1}
-              strokeLinejoin="round"
-              strokeDasharray="2.4 1.6"
-            />
-          )}
-          {/* connecting walk line between the day's stops */}
-          {scene.pins.length > 1 && (
-            <polyline
-              points={scene.pins.map((p) => `${p.x},${p.y}`).join(' ')}
-              fill="none"
-              stroke="rgba(43,38,34,0.35)"
-              strokeWidth={0.8}
-              strokeDasharray="1.5 1.5"
-              strokeLinecap="round"
-            />
-          )}
-          {scene.pins.map((p, i) => (
-            <g key={i}>
-              <circle cx={p.x} cy={p.y} r={2.9} fill={p.color} stroke="#fff" strokeWidth={0.8} />
-              <text x={p.x} y={p.y + 1.05} textAnchor="middle" fontSize={3} fontWeight={800} fill="#fff">
-                {i + 1}
-              </text>
-            </g>
-          ))}
-        </svg>
-      ) : (
-        <div className="relative text-[13px] font-semibold" style={{ color: INK_MUT }}>אזור השכונה</div>
-      )}
-      {/* Name pill */}
-      <div
-        className="absolute bottom-4 rounded-full px-4 py-2 text-[13px] font-black shadow-lg"
-        style={{ background: CARD, color: INK, border: '1px solid rgba(43,38,34,0.12)' }}
-      >
-        📍 {nameHebrew} · {nameEnglish}
-      </div>
-    </div>
-  );
-}
-
 function GuideSkeleton() {
   return (
-    <div className="rounded-3xl overflow-hidden grid grid-cols-1 lg:grid-cols-2" style={{ background: CARD, border: '1px solid rgba(43,38,34,0.10)' }}>
-      <div className="min-h-[280px]" style={{ background: '#dce6e0' }} />
+    <div className="rounded-3xl overflow-hidden" style={{ background: CARD, border: '1px solid rgba(43,38,34,0.10)' }}>
       <div className="p-8 flex flex-col gap-4">
         {[70, 40, 90, 80, 60].map((w, i) => (
           <div key={i} className="h-4 rounded-full animate-pulse" style={{ width: `${w}%`, background: 'rgba(43,38,34,0.08)' }} />
@@ -259,63 +168,4 @@ function GuideSkeleton() {
       </div>
     </div>
   );
-}
-
-// ── Project polygon + POIs into a shared 0..100 viewbox (y-flipped) ───────────
-
-interface Scene {
-  path: string | null;
-  pins: { x: number; y: number; color: string }[];
-}
-
-const PIN_COLORS: Record<string, string> = {
-  restaurant: '#e0913a', // warm gold
-  attraction: '#c0453f', // terracotta red
-};
-
-/**
- * Build the map scene: the polygon path and the day's POI pins, both normalized
- * to the SAME bounding box (polygon ring ∪ POIs) so their relative positions are
- * true — you see your stops clustered inside the neighborhood.
- */
-function buildScene(geoJson: string | null, pois: ProfilerPoi[]): Scene | null {
-  let ring: number[][] | null = null;
-  if (geoJson) {
-    try {
-      const parsed = JSON.parse(geoJson) as { coordinates?: number[][][] };
-      const r = parsed?.coordinates?.[0];
-      if (r && r.length >= 3) ring = r;
-    } catch { /* ignore */ }
-  }
-
-  const geoPois = pois.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
-  const all: [number, number][] = [
-    ...(ring ? ring.map((c) => [c[0], c[1]] as [number, number]) : []),
-    ...geoPois.map((p) => [p.lng, p.lat] as [number, number]),
-  ];
-  if (all.length === 0) return null;
-
-  const lngs = all.map((c) => c[0]);
-  const lats = all.map((c) => c[1]);
-  const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
-  const minLat = Math.min(...lats), maxLat = Math.max(...lats);
-  const spanLng = maxLng - minLng || 1e-6;
-  const spanLat = maxLat - minLat || 1e-6;
-  const pad = 12;
-  const scale = 100 - pad * 2;
-  const project = (lng: number, lat: number): [number, number] => [
-    pad + ((lng - minLng) / spanLng) * scale,
-    pad + (1 - (lat - minLat) / spanLat) * scale, // flip Y for screen space
-  ];
-
-  const path = ring
-    ? `M ${ring.map(([lng, lat]) => project(lng, lat).map((n) => n.toFixed(2)).join(',')).join(' L ')} Z`
-    : null;
-
-  const pins = geoPois.map((p) => {
-    const [x, y] = project(p.lng, p.lat);
-    return { x, y, color: PIN_COLORS[(p.category ?? '').toLowerCase()] ?? ACCENT };
-  });
-
-  return { path, pins };
 }
