@@ -39,6 +39,7 @@ import { TripStats } from '@/components/TripStats';
 import { deriveTripStats, deriveTripStatLists } from '@/lib/tripStats';
 import { budgetToUsd } from '@/lib/currency';
 import { DayDetailPanel } from '@/components/DayDetailPanel';
+import { CityGuideSection } from '@/components/CityGuideSection';
 import { SmartToolbar } from '@/components/SmartToolbar';
 import { SidePanel } from '@/components/side-panel/SidePanel';
 import { ResultsMikaTour } from '@/components/tour/MikaTour';
@@ -1551,6 +1552,17 @@ export function ItineraryClient({
                 },
               ]}
             />
+
+            {/* Whole-trip city guide — why this city fits you, local secrets,
+                honest downsides, getting around. Works for every city. */}
+            <div className="mt-6">
+              <CityGuideSection
+                destination={itin.itinerary.destination ?? ''}
+                days={days}
+                session={session}
+                profile={itin.profile}
+              />
+            </div>
 
             <SectionLabel>{itin.ui.dir === 'rtl' ? 'הימים שלך' : 'Your days'}</SectionLabel>
 

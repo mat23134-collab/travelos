@@ -26,10 +26,13 @@ export function NeighborhoodGuide({
   profile,
   loading = false,
   error = null,
+  variant = 'neighborhood',
 }: {
   profile?: NeighborhoodProfile | null;
   loading?: boolean;
   error?: string | null;
+  /** 'city' swaps the copy for the whole-trip city guide on the results page. */
+  variant?: 'neighborhood' | 'city';
 }) {
   if (loading) return <GuideSkeleton />;
   if (error) {
@@ -42,6 +45,9 @@ export function NeighborhoodGuide({
   if (!profile) return null;
 
   const { guide, matchPercent } = profile;
+  const isCity = variant === 'city';
+  const kicker = isCity ? 'מדריך העיר שלכם' : 'מדריך השכונה שלכם';
+  const relevanceTitle = isCity ? 'למה העיר הזו מתאימה לכם' : 'למה שיבצנו אתכם כאן היום';
 
   return (
     <div
@@ -54,14 +60,14 @@ export function NeighborhoodGuide({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-[0.18em]" style={{ color: ACCENT }}>
-              מדריך השכונה שלכם
+              {kicker}
             </p>
             <h2 className="text-[26px] font-black leading-tight mt-1" style={{ color: INK }}>
               {guide.name_hebrew}
             </h2>
             <p className="text-[12.5px] font-semibold" style={{ color: INK_MUT }}>{guide.name_english}</p>
           </div>
-          <MatchBadge percent={matchPercent} />
+          {matchPercent > 0 && <MatchBadge percent={matchPercent} />}
         </div>
 
         {/* The Hook */}
@@ -71,7 +77,7 @@ export function NeighborhoodGuide({
 
         {/* Personal relevance */}
         {guide.personal_relevance_hebrew && (
-          <Section icon="🎯" title="למה שיבצנו אתכם כאן היום">
+          <Section icon="🎯" title={relevanceTitle}>
             <p className="text-[14px] leading-[1.7]" style={{ color: INK_MUT }}>
               {guide.personal_relevance_hebrew}
             </p>
@@ -100,7 +106,7 @@ export function NeighborhoodGuide({
 
         {/* Insider secrets — icon-bullet list */}
         {guide.local_secrets_hebrew.length > 0 && (
-          <Section icon="✨" title="סודות מקומיים בדרך">
+          <Section icon="✨" title={isCity ? 'סודות מקומיים' : 'סודות מקומיים בדרך'}>
             <ul className="flex flex-col gap-2.5">
               {guide.local_secrets_hebrew.map((s, i) => (
                 <li key={i} className="flex items-start gap-2.5">

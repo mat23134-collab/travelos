@@ -105,6 +105,102 @@ export async function synthesizeGuide(
   facts: NeighborhoodFacts,
   highlights: NeighborhoodHighlights,
 ): Promise<NeighborhoodGuideContent> {
+  const obj = await runGemini(systemPrompt(), userPrompt(neighborhood, pois, trip, facts, highlights));
+  return {
+    name_hebrew: asStr(obj.name_hebrew, neighborhood.nameHebrew ?? neighborhood.nameEnglish),
+    name_english: asStr(obj.name_english, neighborhood.nameEnglish),
+    the_hook_hebrew: asStr(obj.the_hook_hebrew),
+    personal_relevance_hebrew: asStr(obj.personal_relevance_hebrew),
+    local_secrets_hebrew: asStrArray(obj.local_secrets_hebrew).slice(0, 3),
+    honest_downsides_hebrew: asStrArray(obj.honest_downsides_hebrew).slice(0, 2),
+    commute_and_safety_hebrew: asStr(obj.commute_and_safety_hebrew),
+  };
+}
+
+// ── City-level guide (whole trip, shown at the top of the results page) ────────
+
+function citySystemPrompt(): string {
+  return `You are a sharp, honest local-travel editor writing for ISRAELI travelers in fluent, natural Hebrew (not translated-sounding). You introduce a whole CITY for someone who is about to spend a few days there — what it actually feels like, why it fits THIS traveler, real local tips, honest warnings, and how to get around.
+
+Return ONE raw JSON object, no Markdown, with EXACTLY these keys:
+{
+  "name_hebrew": string,             // the city name in Hebrew
+  "name_english": string,            // the city name in English
+  "the_hook_hebrew": string,         // one sharp, realistic sentence — what this city actually FEELS like. No clichés, no brochure-speak.
+  "personal_relevance_hebrew": string, // why THIS city suits this specific traveler, tied to their trip profile (interests/group/budget/pace/trip length) and the kinds of stops in their plan
+  "local_secrets_hebrew": string[],  // 3 non-obvious, useful tips for the city (a habit, a timing trick, an area locals prefer) — grounded in the highlights when real; otherwise safe and generic
+  "honest_downsides_hebrew": string[], // 1-2 real, city-wide warnings: scams, overrated spots, crowds, prices, weather
+  "commute_and_safety_hebrew": string  // getting in & around (airport→center, transit passes, walk vs metro) + tourist safety, in one tight paragraph
+}
+
+Rules:
+- Hebrew must be natural and specific. Prefer concrete details (a pass name, an hour, an area) over vague adjectives.
+- Ground claims in the provided facts/highlights. Do NOT invent specific line numbers or place names that aren't supported — keep unsupported tips generic.
+- Be honest in honest_downsides — this builds trust. Never say "there are no downsides".
+- Keep each field tight; this is a guide card, not an essay.`;
+}
+
+function cityUserPrompt(
+  city: string,
+  pois: ProfilerPoi[],
+  trip: ProfilerTripContext,
+  facts: NeighborhoodFacts,
+  highlights: NeighborhoodHighlights,
+): string {
+  const poiList = pois.slice(0, 15).map((p) => `- ${p.name}${p.category ? ` (${p.category})` : ''}`).join('\n');
+  const tripLines = [
+    trip.dayNumber ? `Trip length (days): ${trip.dayNumber}` : '',
+    trip.interests?.length ? `Interests: ${trip.interests.join(', ')}` : '',
+    trip.groupType ? `Group: ${trip.groupType}` : '',
+    trip.budget ? `Budget: ${trip.budget}` : '',
+    trip.pace ? `Pace: ${trip.pace}` : '',
+  ].filter(Boolean).join('\n');
+
+  return `CITY: ${city}
+
+WHAT THE TRAVELER'S PLAN COVERS (sample of stops):
+${poiList || '(none)'}
+
+TRAVELER PROFILE:
+${tripLines || '(not provided)'}
+
+TAVILY FACTS — GETTING IN/AROUND:
+${facts.metroStations.join('\n') || '(none)'}
+TAVILY FACTS — CITY LAYOUT/WALKABILITY:
+${facts.walkabilityNotes.join('\n') || '(none)'}
+TAVILY FACTS — SAFETY/SCAMS:
+${facts.safetyNotes.join('\n') || '(none)'}
+
+EXA — LOCAL GEMS:
+${highlights.localSecrets.join('\n') || '(none)'}
+EXA — HONEST DOWNSIDES:
+${highlights.honestDownsides.join('\n') || '(none)'}
+
+Write the JSON now.`;
+}
+
+export async function synthesizeCityGuide(
+  city: string,
+  pois: ProfilerPoi[],
+  trip: ProfilerTripContext,
+  facts: NeighborhoodFacts,
+  highlights: NeighborhoodHighlights,
+): Promise<NeighborhoodGuideContent> {
+  const obj = await runGemini(citySystemPrompt(), cityUserPrompt(city, pois, trip, facts, highlights));
+  return {
+    name_hebrew: asStr(obj.name_hebrew, city),
+    name_english: asStr(obj.name_english, city),
+    the_hook_hebrew: asStr(obj.the_hook_hebrew),
+    personal_relevance_hebrew: asStr(obj.personal_relevance_hebrew),
+    local_secrets_hebrew: asStrArray(obj.local_secrets_hebrew).slice(0, 3),
+    honest_downsides_hebrew: asStrArray(obj.honest_downsides_hebrew).slice(0, 2),
+    commute_and_safety_hebrew: asStr(obj.commute_and_safety_hebrew),
+  };
+}
+
+// ── Shared Gemini call ─────────────────────────────────────────────────────────
+
+async function runGemini(system: string, user: string): Promise<Record<string, unknown>> {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) throw new Error('GEMINI_API_KEY is not set');
 
@@ -122,8 +218,8 @@ export async function synthesizeGuide(
       headers: { 'Content-Type': 'application/json' },
       signal: ac.signal,
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemPrompt() }] },
-        contents: [{ role: 'user', parts: [{ text: userPrompt(neighborhood, pois, trip, facts, highlights) }] }],
+        systemInstruction: { parts: [{ text: system }] },
+        contents: [{ role: 'user', parts: [{ text: user }] }],
         generationConfig: {
           temperature: 0.5,
           maxOutputTokens: 2048,
@@ -149,14 +245,5 @@ export async function synthesizeGuide(
   const rawText = (data.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? '').join('').trim();
   const obj = safeParseJsonObject(rawText);
   if (!obj) throw new Error('Gemini returned unparseable JSON');
-
-  return {
-    name_hebrew: asStr(obj.name_hebrew, neighborhood.nameHebrew ?? neighborhood.nameEnglish),
-    name_english: asStr(obj.name_english, neighborhood.nameEnglish),
-    the_hook_hebrew: asStr(obj.the_hook_hebrew),
-    personal_relevance_hebrew: asStr(obj.personal_relevance_hebrew),
-    local_secrets_hebrew: asStrArray(obj.local_secrets_hebrew).slice(0, 3),
-    honest_downsides_hebrew: asStrArray(obj.honest_downsides_hebrew).slice(0, 2),
-    commute_and_safety_hebrew: asStr(obj.commute_and_safety_hebrew),
-  };
+  return obj;
 }
