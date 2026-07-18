@@ -156,15 +156,6 @@ export function DayDetailPanel({
                 onFindAlternative={(target) => requireAuth(() => setActiveSwap(target))}
               />
 
-              {/* Why this day is grouped here — the Neighborhood Profiler. */}
-              <DayNeighborhoodGuide
-                day={day}
-                dayIndex={dayIndex}
-                destination={destination}
-                session={session}
-                profile={profile}
-              />
-
               {/* Mobile map button */}
               {onOpenMobileMap && (
                 <button
@@ -201,6 +192,16 @@ export function DayDetailPanel({
                   />
                 </div>
               </div>
+
+              {/* Why this day is grouped here — the Neighborhood Profiler,
+                  directly under the map. */}
+              <DayNeighborhoodGuide
+                day={day}
+                dayIndex={dayIndex}
+                destination={destination}
+                session={session}
+                profile={profile}
+              />
 
               {/* Swap / add via the concierge drawer (restaurants, attractions,
                   events) — replaces the old inline attraction bank. */}

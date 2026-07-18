@@ -118,7 +118,7 @@ export function DayNeighborhoodGuide({
           >
             <div className="px-3 pb-3">
               {status === 'loading' && <NeighborhoodGuide loading />}
-              {status === 'ready' && <NeighborhoodGuide profile={data} />}
+              {status === 'ready' && <NeighborhoodGuide profile={data} pois={pois} />}
               {status === 'error' && (
                 <div className="p-5 text-center text-[13px]" style={{ color: '#6b6358' }}>
                   לא הצלחנו לטעון את מדריך השכונה כרגע.{' '}
