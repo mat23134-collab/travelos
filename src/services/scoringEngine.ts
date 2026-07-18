@@ -46,6 +46,7 @@ export interface InventoryItem {
   website_url?: string | null;
   google_place_id?: string | null;
   google_rating?: number | null;
+  rating_count?: number | null;
   price_tier?: number | null;
   vibe: string[];
   group_suitability: string[];
@@ -120,6 +121,7 @@ type RawInventoryRow = {
   website_url?: string | null;
   google_place_id?: string | null;
   google_rating?: number | string | null;
+  rating_count?: number | string | null;
   price_tier?: number | string | null;
   vibe?: unknown;
   group_suitability?: unknown;
@@ -317,7 +319,7 @@ async function fetchInventoryTable(
     // Select only the columns the scoring/formatting/verification logic uses.
     // photo_url, website_url, google_place_id are included so inventory hits
     // can skip Google Places API calls during generation (already verified).
-    const COLS = 'id,name,city,category,description,lat,lng,category_emoji,social_proof_url,vibe_label,status,created_at,photo_url,website_url,google_place_id,google_rating,price_tier,vibe,group_suitability,culinary_focus';
+    const COLS = 'id,name,city,category,description,lat,lng,category_emoji,social_proof_url,vibe_label,status,created_at,photo_url,website_url,google_place_id,google_rating,rating_count,price_tier,vibe,group_suitability,culinary_focus';
     let query = client.from(table).select(COLS).limit(120);
     if (city) query = query.ilike('city', city);
 
@@ -348,7 +350,9 @@ function scoreInventoryItem(item: InventoryItem, desired: DesiredTags): Inventor
   // Quality (Bayesian-aware) + value-for-money nudge the tag-fit ordering so the
   // inventory handed to the LLM leads with genuinely good, worth-it places —
   // scaled to sit alongside the tag weights without overpowering fit.
-  const q = item.google_rating != null ? placeQuality({ googleRating: item.google_rating }) : 0;
+  const q = item.google_rating != null
+    ? placeQuality({ googleRating: item.google_rating, ratingCount: item.rating_count })
+    : 0;
   const value = item.google_rating != null
     ? placeValueScore({ googleRating: item.google_rating, priceTier: item.price_tier })
     : 0;
@@ -479,6 +483,7 @@ function normalizeInventoryRow(row: RawInventoryRow, sourceTable: 'places' | 're
     website_url: row.website_url ?? null,
     google_place_id: row.google_place_id ?? null,
     google_rating: toNumber(row.google_rating),
+    rating_count: toNumber(row.rating_count),
     price_tier: toNumber(row.price_tier),
     vibe: normalizeTagArray(row.vibe),
     group_suitability: normalizeTagArray(row.group_suitability),
