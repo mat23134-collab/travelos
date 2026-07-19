@@ -24,7 +24,8 @@ import { formatAvailableInventoryForSystemPrompt, getFilteredInventory } from '@
 import { buildFallbackItinerary, validateItineraryOrThrow, type GenerationProvider } from '@/services/itineraryFallback';
 import { assembleItinerary, type AssemblerPlace } from '@/services/assembler';
 import { bankRecsToAssemblerPlaces } from '@/services/assembler/bankMeals';
-import { fetchRestaurantsForCity, MAX_PRICE_LEVEL_BY_BUDGET } from '@/lib/restaurantBank';
+import { fetchRestaurantsForCity, upsertRestaurants, cityLastUpdated, MAX_PRICE_LEVEL_BY_BUDGET } from '@/lib/restaurantBank';
+import { runRestaurantScoutAgent } from '@/lib/restaurantScoutAgent';
 import {
   buildAccommodationContext,
   searchAccommodations,
@@ -313,6 +314,57 @@ async function loadCityBankMeals(
   }
 }
 
+/** Per-city cooldown so concurrent generations don't kick duplicate scouts. */
+const ensureScoutAt = new Map<string, number>();
+const ENSURE_SCOUT_COOLDOWN_MS = 60_000;
+const ENSURE_SCOUT_TIMEOUT_MS = 30_000;
+
+/**
+ * Dev-phase warm-up: ensure the city's restaurant bank is populated at trip
+ * generation, so the everyday-meal picker (and the book-ahead panel) has the
+ * scout agent's inventory to draw from — instead of only warming lazily when the
+ * panel is opened. Runs the scout ONLY when the bank is EMPTY (populated cities
+ * are used as-is; the panel's stale-while-revalidate handles refresh). Best-
+ * effort, time-boxed so generation never hangs, and flag-gated
+ * (SCOUT_ON_GENERATE=0 disables it, e.g. for production cost control).
+ */
+async function ensureCityRestaurantBank(
+  db: ReturnType<typeof createDbWriteClient>,
+  destination: string,
+  budget: BudgetLevel,
+): Promise<void> {
+  if (process.env.SCOUT_ON_GENERATE === '0') return;
+  const cityOnly = (destination ?? '').split(',')[0].trim();
+  if (!cityOnly) return;
+  const key = cityOnly.toLowerCase();
+  if (Date.now() - (ensureScoutAt.get(key) ?? 0) < ENSURE_SCOUT_COOLDOWN_MS) return;
+
+  try {
+    if ((await cityLastUpdated(db, cityOnly)) != null) return; // bank has rows — use as-is
+    ensureScoutAt.set(key, Date.now());
+
+    const maxPriceLevel = MAX_PRICE_LEVEL_BY_BUDGET[budget];
+    const scout = (async () => {
+      const [primary, topUp] = await Promise.all([
+        runRestaurantScoutAgent(cityOnly),
+        maxPriceLevel != null ? runRestaurantScoutAgent(cityOnly, { maxPriceLevel }) : Promise.resolve([]),
+      ]);
+      const recs = [...primary, ...topUp];
+      if (recs.length) await upsertRestaurants(db, recs);
+      console.log(`[generate] warmed restaurant bank for ${cityOnly} — ${recs.length} rows`);
+    })();
+
+    // Time-box: if the scout wins the race the fresh rows are ready for this
+    // trip; if it exceeds, the write may still land for the next generation.
+    await Promise.race([
+      scout,
+      new Promise<void>((resolve) => setTimeout(resolve, ENSURE_SCOUT_TIMEOUT_MS)),
+    ]);
+  } catch (e) {
+    console.warn('[generate] ensure restaurant bank failed (non-critical):', e instanceof Error ? e.message : e);
+  }
+}
+
 /** Merge bank meal candidates into the places pool, skipping name-duplicates. */
 function mergeMealInventory(places: AssemblerPlace[], bank: AssemblerPlace[]): AssemblerPlace[] {
   if (bank.length === 0) return places;
@@ -450,6 +502,9 @@ export async function POST(req: NextRequest) {
     // LLM entirely; otherwise it returns null and we fall through to the AI path.
     try {
       const asmDb = createDbWriteClient();
+      // Dev-phase: warm an empty city's restaurant bank before loading meals, so
+      // the everyday-meal picker gets the scout agent's inventory on this trip.
+      await ensureCityRestaurantBank(asmDb, profile.destination, profile.budget);
       const [placesInv, bankMeals] = await Promise.all([
         loadCityAssemblerPlaces(asmDb, profile.destination),
         loadCityBankMeals(asmDb, profile.destination, profile.budget),
