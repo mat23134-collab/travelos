@@ -1558,9 +1558,7 @@ export function ItineraryClient({
             <div className="mt-6">
               <CityGuideSection
                 destination={itin.itinerary.destination ?? ''}
-                days={days}
                 session={session}
-                profile={itin.profile}
               />
             </div>
 
