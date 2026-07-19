@@ -29,6 +29,8 @@ export interface Landmark {
   photo_url: string | null;
   google_place_id: string | null;
   popularity_rank: number | null;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 const CATEGORIES = ['sightseeing', 'history', 'food'] as const;
@@ -46,6 +48,8 @@ type Row = {
   google_place_id: string | null;
   top_pick_category: Category | null;
   popularity_rank: number | null;
+  lat: number | null;
+  lng: number | null;
 };
 
 function dbClient() {
@@ -65,6 +69,8 @@ function toLandmark(row: Row, lang: string): Landmark {
     photo_url: row.photo_url,
     google_place_id: row.google_place_id,
     popularity_rank: row.popularity_rank,
+    latitude: row.lat,
+    longitude: row.lng,
   };
 }
 
@@ -79,7 +85,7 @@ export async function GET(req: NextRequest) {
   const { data, error } = await db
     .from('places')
     .select(
-      'id, name, city, description, description_he, category_emoji, vibe_label, photo_url, google_place_id, top_pick_category, popularity_rank',
+      'id, name, city, description, description_he, category_emoji, vibe_label, photo_url, google_place_id, top_pick_category, popularity_rank, lat, lng',
     )
     .ilike('city', city)
     .not('top_pick_category', 'is', null)
