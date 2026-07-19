@@ -1089,7 +1089,9 @@ function PlanPage() {
               >
                 ‹
               </motion.button>
-              <BrandWordmark accent={finishingAccent} className="text-sm" />
+              <Link href="/" aria-label="Sarto — home">
+                <BrandWordmark accent={finishingAccent} className="text-sm" />
+              </Link>
             </div>
             <div className="flex items-center gap-1.5">
               {Array.from({ length: planStepTotal }).map((_, i) => (

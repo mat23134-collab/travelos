@@ -20,6 +20,7 @@
  */
 
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { Suspense, useEffect, useState, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -599,7 +600,9 @@ function OnboardingPageContent() {
                 </motion.button>
               )}
             </AnimatePresence>
-            <BrandWordmark accent={THEME.gold} tone="light" className="text-sm" />
+            <Link href="/" aria-label="Sarto — home">
+              <BrandWordmark accent={THEME.gold} tone="light" className="text-sm" />
+            </Link>
           </div>
           <ProgressBar step={wizardStep} total={STEPS.length} />
         </div>
