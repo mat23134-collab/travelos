@@ -95,6 +95,27 @@ function inRegion(concept: RestaurantConcept, country: string | null): boolean {
   return !concept.countries || country == null || concept.countries.includes(country);
 }
 
+/** Public region gate — allowed for a country (undefined countries = any). */
+export function conceptInRegion(concept: RestaurantConcept, country: string | null): boolean {
+  return inRegion(concept, country);
+}
+
+/**
+ * Destination city → ISO-2 country (best-effort), for gating concepts without
+ * needing scouted rows. Used by the everyday-meal assembler, which only has the
+ * destination string.
+ */
+export function countryForCity(destination?: string | null): string | null {
+  if (!destination) return null;
+  return CITY_COUNTRY[normalizeCity(destination)] ?? null;
+}
+
+/** Does arbitrary cuisine-identifying text match a concept's keywords? */
+export function textMatchesConcept(text: string, concept: RestaurantConcept): boolean {
+  const t = text.toLowerCase();
+  return concept.keywords.some((k) => t.includes(k));
+}
+
 /** Does a restaurant match a given concept key? */
 export function matchesConcept(r: RestaurantRecommendation, conceptKey: string): boolean {
   const concept = CONCEPT_BY_KEY.get(conceptKey);

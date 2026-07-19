@@ -13,6 +13,10 @@ import type { Itinerary, DayPlan, Activity, DiningSpot } from '../../lib/types';
 import { haversineKm, walkingMinutes, centroid, nearestNeighbourOrder, type LatLng } from './geo';
 import { placeQuality, placeGoodness } from './placeQuality';
 import {
+  RESTAURANT_CONCEPTS, countryForCity, conceptInRegion, textMatchesConcept,
+  type RestaurantConcept,
+} from '../../lib/restaurantConcepts';
+import {
   GROUP_TAGS,
   BUDGET_TIERS,
   PACE_PLAN,
@@ -89,6 +93,27 @@ const isBar = (p: AssemblerPlace) => ['bar', 'nightlife'].includes(lc(p.category
 const hasGeo = (p: AssemblerPlace): p is AssemblerPlace & { lat: number; lng: number } =>
   typeof p.lat === 'number' && typeof p.lng === 'number';
 const ll = (p: { lat: number; lng: number }): LatLng => ({ lat: p.lat, lng: p.lng });
+
+// ── Per-day dinner cuisine concept (ramen night / pasta night / …) ────────────
+// Soft boost only — it reorders candidates, never filters — so coverage never
+// breaks. Matches only a venue's cuisine-identifying fields (name, cuisine
+// genre/label, culinary focus), never the free-text description.
+const CONCEPT_BOOST_KM = 0.6;
+
+function placeConceptText(p: AssemblerPlace): string {
+  return [p.name, p.subcategory, p.vibe_label, ...(p.culinary_focus ?? [])]
+    .filter(Boolean).join(' · ');
+}
+function placeMatchesConcept(p: AssemblerPlace, concept: RestaurantConcept): boolean {
+  return textMatchesConcept(placeConceptText(p), concept);
+}
+/** Destination-native concepts that actually appear (≥2 venues) in the food pool. */
+function dinnerConceptRotation(food: AssemblerPlace[], destination: string): RestaurantConcept[] {
+  const country = countryForCity(destination);
+  return RESTAURANT_CONCEPTS.filter(
+    (c) => conceptInRegion(c, country) && food.filter((p) => placeMatchesConcept(p, c)).length >= 2,
+  );
+}
 
 function addDays(iso: string | undefined, days: number): Date | null {
   if (!iso) return null;
@@ -212,6 +237,10 @@ export function assembleItinerary(
   const usedThemes = new Set<string>();
   const days: DayPlan[] = [];
 
+  // Rotate a themed dinner concept across the trip (ramen night, pasta night…),
+  // drawn from the destination's cuisines that are actually present in the pool.
+  const dinnerConcepts = dinnerConceptRotation(food, profile.destination);
+
   for (let d = 0; d < profile.duration; d++) {
     const date = addDays(profile.startDate, d);
     const weekday = date ? date.getUTCDay() : -1;
@@ -270,6 +299,8 @@ export function assembleItinerary(
     //    okay + sitting right on a sight) pushes the classic overpriced-near-the-
     //    landmark spot DOWN rather than favoring it for being central.
     const daySightPts = dayActs.filter(hasGeo).map((s) => ll(s));
+    // This day's themed-dinner concept (null when no concepts apply to the city).
+    const dayConcept = dinnerConcepts.length ? dinnerConcepts[d % dinnerConcepts.length] : null;
     const meals: Record<string, DiningSpot | undefined> = {};
     for (const meal of pace.meals) {
       const tokens = MEAL_SLOT_TOKENS[meal];
@@ -286,10 +317,15 @@ export function assembleItinerary(
             { googleRating: p.google_rating, ratingCount: p.rating_count, priceTier: p.price_tier },
             nearestSightM,
           );
+          // Themed dinner: nudge venues matching the day's concept ahead (dinner
+          // only, soft — never excludes), so dinners rotate through the city's
+          // signature cuisines instead of repeating.
+          const conceptBoost = meal === 'dinner' && dayConcept && placeMatchesConcept(p, dayConcept)
+            ? CONCEPT_BOOST_KM : 0;
           // Effective distance: fit + value/quality/anti-trap can pull a place
           // ahead by up to ~0.9km, so a great-value non-trap spot beats a bland
           // one right on the piazza without dragging meals across the city.
-          const rank = geo - scorePlace(p, interests, familyFitTags) * 0.3 - goodness * 0.9;
+          const rank = geo - scorePlace(p, interests, familyFitTags) * 0.3 - goodness * 0.9 - conceptBoost;
           return { p, dist: rank };
         })
         .sort((a, b) => a.dist - b.dist);

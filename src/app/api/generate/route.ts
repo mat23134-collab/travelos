@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { MOCK_ITINERARY } from '@/lib/mockData';
 import { checkRateLimitDurable, getClientIp, rateLimitedResponse, verifySession } from '@/lib/apiGuard';
 import { createClient } from '@supabase/supabase-js';
-import { ClassifiedResult, type Activity, type DiningSpot } from '@/lib/types';
+import { ClassifiedResult, type Activity, type DiningSpot, type BudgetLevel } from '@/lib/types';
 import { TravelerProfileSchema } from '@/lib/schemas';
 import { SYSTEM_PROMPT, buildUserPrompt } from '@/lib/prompts';
 import { runChainOfThoughtSearch } from '@/lib/rag';
@@ -23,6 +23,8 @@ import { persistVenuesToCache, linkPlacesToUserEvents } from '@/lib/venueCache';
 import { formatAvailableInventoryForSystemPrompt, getFilteredInventory } from '@/services/scoringEngine';
 import { buildFallbackItinerary, validateItineraryOrThrow, type GenerationProvider } from '@/services/itineraryFallback';
 import { assembleItinerary, type AssemblerPlace } from '@/services/assembler';
+import { bankRecsToAssemblerPlaces } from '@/services/assembler/bankMeals';
+import { fetchRestaurantsForCity, MAX_PRICE_LEVEL_BY_BUDGET } from '@/lib/restaurantBank';
 import {
   buildAccommodationContext,
   searchAccommodations,
@@ -286,6 +288,38 @@ async function loadCityAssemblerPlaces(
   return data as unknown as AssemblerPlace[];
 }
 
+/**
+ * Load the city's book-ahead restaurant bank (the scout agent's output) as
+ * everyday-meal candidates, so the deterministic day-meal picker draws from the
+ * same calibrated, concept-aware inventory. Budget-gated like the book-ahead
+ * panel; best-effort (never blocks generation).
+ */
+async function loadCityBankMeals(
+  db: ReturnType<typeof createDbWriteClient>,
+  destination: string,
+  budget: BudgetLevel,
+): Promise<AssemblerPlace[]> {
+  const cityOnly = (destination ?? '').split(',')[0].trim();
+  if (!cityOnly) return [];
+  try {
+    const recs = await fetchRestaurantsForCity(db, cityOnly, {
+      limit: 60,
+      maxPriceLevel: MAX_PRICE_LEVEL_BY_BUDGET[budget],
+    });
+    return bankRecsToAssemblerPlaces(recs);
+  } catch (e) {
+    console.warn('[generate] bank meals load failed (non-critical):', e instanceof Error ? e.message : e);
+    return [];
+  }
+}
+
+/** Merge bank meal candidates into the places pool, skipping name-duplicates. */
+function mergeMealInventory(places: AssemblerPlace[], bank: AssemblerPlace[]): AssemblerPlace[] {
+  if (bank.length === 0) return places;
+  const seen = new Set(places.map((p) => (p.name ?? '').trim().toLowerCase()));
+  return [...places, ...bank.filter((b) => !seen.has((b.name ?? '').trim().toLowerCase()))];
+}
+
 export async function POST(req: NextRequest) {
   try {
     // ── Rate limiting (blocks scripted abuse without requiring login) ───────────
@@ -416,7 +450,11 @@ export async function POST(req: NextRequest) {
     // LLM entirely; otherwise it returns null and we fall through to the AI path.
     try {
       const asmDb = createDbWriteClient();
-      const asmPlaces = await loadCityAssemblerPlaces(asmDb, profile.destination);
+      const [placesInv, bankMeals] = await Promise.all([
+        loadCityAssemblerPlaces(asmDb, profile.destination),
+        loadCityBankMeals(asmDb, profile.destination, profile.budget),
+      ]);
+      const asmPlaces = mergeMealInventory(placesInv, bankMeals);
       const asm = assembleItinerary(
         {
           destination: profile.destination,
