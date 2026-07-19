@@ -1,17 +1,20 @@
 import type { Activity, DiningSpot, Itinerary, TravelerProfile } from '@/lib/types';
 
-/** Default time blocks used when an activity has no time_slot/startTime/endTime. */
+/** Default time blocks used when an activity has no time_slot/startTime/endTime.
+ *  Matches the canonical day clock in prompts.ts TIMING RULES and the
+ *  assembler's SLOT_WINDOW (taxonomy.ts) — one schedule across generation,
+ *  the deterministic assembler, and calendar export. */
 const DEFAULT_ACTIVITY_BLOCKS: Record<'morning' | 'afternoon' | 'evening', [string, string]> = {
-  morning: ['09:00', '12:00'],
-  afternoon: ['13:00', '17:00'],
-  evening: ['19:00', '22:00'],
+  morning: ['09:30', '12:30'],
+  afternoon: ['14:00', '17:30'],
+  evening: ['18:00', '21:00'],
 };
 
 /** Default time blocks for meals when no timing info is available. */
 const DEFAULT_MEAL_BLOCKS: Record<'breakfast' | 'lunch' | 'dinner', [string, string]> = {
-  breakfast: ['08:00', '09:00'],
-  lunch: ['13:00', '14:00'],
-  dinner: ['19:30', '21:00'],
+  breakfast: ['08:00', '09:30'],
+  lunch: ['12:30', '14:00'],
+  dinner: ['19:30', '21:30'],
 };
 
 const MEAL_LABEL: Record<'breakfast' | 'lunch' | 'dinner', string> = {

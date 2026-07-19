@@ -147,15 +147,22 @@ DAILY MIX — mandatory structure per day (6–8 stops):
   6. Dinner — sit-down restaurant, ideally reservable (always with GPS)
   7. Evening — bar, cocktail bar, rooftop, live music venue, or late-night cultural experience
 
-TIMING RULES (critical):
+TIMING RULES (critical — a realistic, comfortable clock, not a rushed one):
 - Every activity MUST have startTime/endTime in "HH:MM" 24-hour format
 - Sequence activities with realistic transit gaps (15–30 min between activities in same neighborhood)
-- Morning slot: starts at DAILY_START_TIME if provided, otherwise 08:30. Afternoon: 13:30–17:30. Evening: 19:00–22:00
+- Canonical day clock (use these EXACTLY unless a TIME CONSTRAINT below overrides them):
+    Breakfast   08:00–09:30   (a real café/bakery visit, not a 10-minute grab-and-go)
+    Morning     09:30–12:30   (starts at DAILY_START_TIME if provided, otherwise 09:30 — AFTER breakfast has time to happen, and after most museums/attractions actually open)
+    Lunch       12:30–14:00   (NEVER before 12:00 — sandwiched between morning and afternoon, not squeezed early because the morning activity happened to end sooner)
+    Afternoon   14:00–17:30
+    Evening     18:00–21:00   (a bar/rooftop/show can run alongside or after dinner — both are evening-hours, not a race)
+    Dinner      19:30–21:30
+- These are ANCHOR windows, not a rigid minute-by-minute grid: a morning activity can end at 11:45 or 12:15, but lunch must still land in its 12:30–14:00 window, never drift earlier just because the morning ran short.
 - If ARRIVAL_TIME_DAY1 is set, Day 1 morning slot must start at or after that time plus 45 min transit buffer
 - If DEPARTURE_TIME_LAST_DAY is set, every last-day activity must end at least 2 hours before that time
 - The bestTimeToVisit field MUST contain a specific insight (e.g., "Arrive at 09:00 to beat the tour buses that arrive at 11 AM")
 - transitFromPrevious = estimated travel time from the previous slot's activity
-- time_slot = startTime + " – " + endTime as a single formatted string, e.g. "09:00 – 11:30"
+- time_slot = startTime + " – " + endTime as a single formatted string, e.g. "09:30 – 11:30"
 
 GEO RULES (critical — used for map rendering):
 - Every activity MUST include latitude and longitude as floats with 4 decimal places
@@ -210,9 +217,9 @@ CRITICAL: Return ONLY a valid JSON object — no markdown fences, no prose. Stru
         "name": "string",
         "description": "1 sentence max 20 words",
         "neighborhood": "string",
-        "startTime": "09:00",
+        "startTime": "09:30",
         "endTime": "11:30",
-        "time_slot": "09:00 – 11:30",
+        "time_slot": "09:30 – 11:30",
         "bestTimeToVisit": "max 12 words",
         "transitFromPrevious": null,
         "duration": "2.5 hours",
@@ -791,10 +798,10 @@ CONSTRAINTS — the replacement MUST:
 1. Be in the SAME neighborhood or within 15 min walk of the other activities today
 2. Match the day's vibe (tags: ${vibeContext})
 3. Respect the budget tier
-4. Have specific timing: for ${slot}, use these time ranges:
-   - morning: 08:30–12:00
-   - afternoon: 13:30–17:30
-   - evening: 19:00–22:00
+4. Have specific timing: for ${slot}, use these time ranges (matches the rest of the day's clock — morning ends by 12:30 so lunch isn't squeezed early, afternoon starts after lunch):
+   - morning: 09:30–12:30
+   - afternoon: 14:00–17:30
+   - evening: 18:00–21:00
 5. MUST include latitude and longitude — accurate GPS coordinates (float, 4 decimal places) for the specific venue, NOT the city centre
 6. If the replacement is a real attraction that requires tickets bought online ahead of the visit (no reliable door sales — e.g. Ghibli Museum, Anne Frank House, Alcatraz, timed-entry museums), set requiresAdvanceBooking=true and bookingUrl to the real official ticketing domain when confident, else null. Otherwise false/null.
 
@@ -884,7 +891,7 @@ ${request ? `\nUSER REFINEMENT REQUEST: "${request}" — Both proposals MUST sat
 RULES:
 1. Both picks MUST be real named places Google Maps would resolve — NEVER placeholders.
 2. Same neighborhood cluster as today's other stops OR within ~15 min walk/transit of that cluster.
-3. Respect time window for ${slot}: morning 08:30–12:00, afternoon 13:30–17:30, evening 19:00–22:00 — set startTime/endTime and time_slot accordingly.
+3. Respect time window for ${slot}: morning 09:30–12:30, afternoon 14:00–17:30, evening 18:00–21:00 — set startTime/endTime and time_slot accordingly.
 4. latitude/longitude: accurate floats (4 dp) for each venue.
 5. tags: exactly 3 short tokens; vibeLabel valid enum; category_emoji matches activity type.
 6. placeIntro: max 35 words — what makes this spot distinct.

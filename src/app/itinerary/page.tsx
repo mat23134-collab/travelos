@@ -57,9 +57,9 @@ export default function ItineraryPage() {
           }}
         >
           <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
-            <div className="text-lg font-semibold tracking-tight text-white">
+            <Link href="/" className="text-lg font-semibold tracking-tight text-white">
               <BrandWordmark accent="#9e363a" className="text-lg" />
-            </div>
+            </Link>
             <div className="skeleton-bar w-28 h-7 rounded-lg" />
           </div>
         </div>
