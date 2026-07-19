@@ -14,6 +14,7 @@ import type { Destination } from '@/lib/destinations';
 import { COUNTRIES } from '@/lib/countries';
 import { savePendingIntent } from '@/lib/pendingIntent';
 import { CinematicHeroBackground } from '@/components/CinematicHeroBackground';
+import { RealDayDemo } from '@/components/RealDayDemo';
 import { resolveBackgroundImage } from '@/lib/stepBackgrounds';
 import { hasRequiredLegalConsent, requestLegalConsent } from '@/lib/legalConsent';
 
@@ -159,16 +160,21 @@ export default function HomePage() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // "Start Planning" CTA
-  const openPlanningLanguageStep = (e: React.MouseEvent<HTMLAnchorElement>) => {
+  // "Start Planning" CTA — shared trigger for both the hero Link (which needs
+  // preventDefault, since it also carries a real href) and plain buttons
+  // elsewhere on the page (RealDayDemo) that don't navigate via href.
+  const openPlanningFlow = () => {
     if (loading) return;
-    e.preventDefault();
     if (!hasRequiredLegalConsent()) {
       requestLegalConsent();
       return;
     }
     setPendingDest(null);
     setShowLangModal(true);
+  };
+  const openPlanningLanguageStep = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    openPlanningFlow();
   };
 
   // Postcard click — pre-selects destination
@@ -306,7 +312,7 @@ export default function HomePage() {
           >
             Where will you
             <br />
-            <span style={{ color: 'rgba(255,255,255,0.20)' }}>wake up next?</span>
+            <span style={{ color: 'rgba(255,255,255,0.42)' }}>wake up next?</span>
           </motion.h1>
 
           {/* Sub-copy */}
@@ -393,6 +399,9 @@ export default function HomePage() {
           </span>
         </motion.div>
       </section>
+
+      {/* ── Real Day Demo — proves the "~60 seconds" claim with real DB data ── */}
+      <RealDayDemo onPlanClick={openPlanningFlow} />
 
       {/* ── Destination Postcards ─────────────────────────────────────────── */}
       <section className="py-28 px-8 lg:px-16" style={{ backgroundColor: NIGHT }}>
