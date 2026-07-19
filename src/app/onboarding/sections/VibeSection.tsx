@@ -13,10 +13,16 @@
  *       Solo / Couple → no extra inputs.
  *   • Pace tile-row uses the same minimal selection language.
  *
- * Advances are driven by the onboarding-page footer CTA — this section
- * never auto-advances on selection.
+ * Advances are driven by the onboarding-page footer CTA for every field
+ * EXCEPT the last one: Pace is the terminal choice on this screen (nothing
+ * else is revealed after it, and it's a pure single-select), so picking it
+ * gives a brief selected-state flash and then auto-advances — no reason to
+ * force a second tap on the footer CTA when the decision is already made.
+ * Every earlier field (group type, dynamics, composition) still reveals more
+ * of the form below it and must NOT auto-advance.
  */
 
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useOnboardingStore } from '@/state/onboardingStore';
 import { readTripLanguagePref } from '@/lib/tripLanguagePref';
@@ -98,7 +104,7 @@ interface Props {
   onEdit:      () => void;
 }
 
-export function VibeSection({ isCompleted, onEdit }: Props) {
+export function VibeSection({ isCompleted, onEdit, onComplete }: Props) {
   const {
     groupType, groupDynamics, pace,
     familyAdults, familyChildAges, groupSize,
@@ -111,6 +117,17 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
   const dynamicsOptions = dynamicsForGroup(groupType);
   const needsDynamics = dynamicsOptions.length > 0; // family skips
   const dynamicsAnswered = !needsDynamics || groupDynamics !== null;
+
+  // Terminal single-select auto-advance: pick pace → brief flash → advance.
+  // `advancing` both drives the flash visual and guards against a second tap
+  // re-firing the timer while the transition is already underway.
+  const [advancing, setAdvancing] = useState(false);
+  function handlePaceSelect(value: 'relaxed' | 'moderate' | 'intense') {
+    if (advancing) return;
+    setPace(value);
+    setAdvancing(true);
+    window.setTimeout(() => onComplete?.(), 420);
+  }
 
   // ── Completed summary bar ──────────────────────────────────────────────────
   if (isCompleted) {
@@ -399,16 +416,20 @@ export function VibeSection({ isCompleted, onEdit }: Props) {
             <div className="flex flex-col gap-2">
               {PACE_OPTIONS.map((opt) => {
                 const sel = pace === opt.value;
+                const flashing = sel && advancing;
                 return (
                   <motion.button
                     key={opt.value}
-                    onClick={() => setPace(opt.value)}
+                    onClick={() => handlePaceSelect(opt.value)}
+                    disabled={advancing}
                     whileTap={{ scale: 0.99 }}
-                    transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                    animate={flashing ? { scale: [1, 1.02, 1] } : { scale: 1 }}
+                    transition={{ duration: flashing ? 0.4 : 0.18, ease: [0.22, 1, 0.36, 1] }}
                     className="flex items-center justify-between px-5 py-4 rounded-2xl text-start transition-colors"
                     style={{
                       background: sel ? WARM.surfaceSel : WARM.surface,
                       border: sel ? BORDER_SEL : BORDER,
+                      boxShadow: flashing ? `0 0 0 3px ${WARM.goldSoft}` : undefined,
                     }}
                   >
                     <div>

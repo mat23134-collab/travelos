@@ -18,11 +18,19 @@ import { motion } from 'framer-motion';
 import { useOnboardingStore } from '@/state/onboardingStore';
 import { THEME, CARD } from '@/lib/onboardingTheme';
 import { readTripLanguagePref } from '@/lib/tripLanguagePref';
+import { usdToIlsApprox } from '@/lib/currency';
 import { Wallet, CreditCard, Gem, Landmark, UtensilsCrossed, Mountain, Palette, Moon, Flower2, ShoppingBag } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 // LRI … PDI — keep a price run rendering LTR inside an RTL line.
 const iso = (s: string) => `⁦${s}⁩`;
+
+// Israeli travelers think in shekels day-to-day — show the ₪ figure alongside
+// the $ one in the Hebrew UI so the highest-friction question (money) doesn't
+// also demand a mental FX conversion. Approximate, display-only (usdToIlsApprox).
+const ils = (n: number) => `₪${n.toLocaleString('en-US')}`;
+const ILS_100 = ils(usdToIlsApprox(100));
+const ILS_300 = ils(usdToIlsApprox(300));
 
 const BUDGET_OPTIONS = [
   {
@@ -30,21 +38,21 @@ const BUDGET_OPTIONS = [
     icon:  Wallet as LucideIcon,
     label: 'Budget',  labelHe: 'חסכוני',
     sub:   `Under ${iso('$100')}/day · hostels, street eats, free sights`,
-    subHe: `עד ${iso('$100')} ליום · אכסניות, אוכל רחוב, אתרים חינם`,
+    subHe: `עד ${iso(ILS_100)} (${iso('$100')}) ליום · אכסניות, אוכל רחוב, אתרים חינם`,
   },
   {
     value: 'mid-range',
     icon:  CreditCard as LucideIcon,
     label: 'Comfortable',  labelHe: 'נוח',
     sub:   `${iso('$100–$300')}/day · boutique stays, local favourites`,
-    subHe: `${iso('$100–$300')} ליום · מקומות בוטיק, מועדפים מקומיים`,
+    subHe: `${iso(`${ILS_100}–${ILS_300}`)} (${iso('$100–$300')}) ליום · מקומות בוטיק, מועדפים מקומיים`,
   },
   {
     value: 'luxury',
     icon:  Gem as LucideIcon,
     label: 'Luxury',  labelHe: 'יוקרה',
     sub:   `${iso('$300+')}/day · five-star, fine dining, private tours`,
-    subHe: `${iso('$300+')} ליום · חמישה כוכבים, מסעדות שף, סיורים פרטיים`,
+    subHe: `${iso(`${ILS_300}+`)} (${iso('$300+')}) ליום · חמישה כוכבים, מסעדות שף, סיורים פרטיים`,
   },
 ] as const;
 

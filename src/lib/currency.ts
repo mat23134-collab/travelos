@@ -13,6 +13,22 @@ function usd(numStr: string): string {
   return `$${rounded.toLocaleString('en-US')}`;
 }
 
+const USD_TO_ILS = 3.7; // approximate; display only — inverse of ILS_TO_USD
+
+/** Round a shekel amount to a clean display step (nearest 50/10/5, scaled by size). */
+function roundIls(n: number): number {
+  return n >= 1000 ? Math.round(n / 50) * 50 : n >= 300 ? Math.round(n / 10) * 10 : Math.round(n / 5) * 5;
+}
+
+/**
+ * A US-dollar amount → an approximate, display-only shekel figure (no ₪ sign —
+ * callers wrap it). Used to localize the onboarding budget picker for Israeli
+ * travelers without touching the underlying USD-denominated budget tiers.
+ */
+export function usdToIlsApprox(usdAmount: number): number {
+  return roundIls(usdAmount * USD_TO_ILS);
+}
+
 const MARK = `(?:₪|ש"?ח|שקל\\w*|NIS|ILS)`;
 const NUM = `(\\d[\\d,]*)`;
 const DASH = `\\s*[-–—]\\s*`;
