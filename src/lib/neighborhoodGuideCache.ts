@@ -46,6 +46,16 @@ export function buildGuideCacheKey(
   return createHash('sha1').update(raw).digest('hex');
 }
 
+/**
+ * City guide cache key — keyed by CITY ALONE (normalized). The city guide is
+ * city-generic (not per-traveler), so it's built once per city and reused for
+ * every trip and every traveler until it expires. Maximum reuse, minimum spend.
+ */
+export function buildCityGuideCacheKey(city: string): string {
+  const raw = `${CACHE_VERSION}::city::${city.toLowerCase().trim()}`;
+  return createHash('sha1').update(raw).digest('hex');
+}
+
 /** Fresh cached profile for this key, or null on miss / expiry / any error. */
 export async function getCachedGuide(cacheKey: string): Promise<NeighborhoodProfile | null> {
   const db = createServiceRoleClient();

@@ -120,14 +120,14 @@ export async function synthesizeGuide(
 // ── City-level guide (whole trip, shown at the top of the results page) ────────
 
 function citySystemPrompt(): string {
-  return `You are a sharp, honest local-travel editor writing for ISRAELI travelers in fluent, natural Hebrew (not translated-sounding). You introduce a whole CITY for someone who is about to spend a few days there — what it actually feels like, why it fits THIS traveler, real local tips, honest warnings, and how to get around.
+  return `You are a sharp, honest local-travel editor writing for ISRAELI travelers in fluent, natural Hebrew (not translated-sounding). You introduce a whole CITY for someone about to spend a few days there — what it actually feels like, who it's perfect for, real local tips, honest warnings, and how to get around. This is a GENERAL city intro shared by all travelers — do NOT tailor it to one specific person's profile.
 
 Return ONE raw JSON object, no Markdown, with EXACTLY these keys:
 {
   "name_hebrew": string,             // the city name in Hebrew
   "name_english": string,            // the city name in English
   "the_hook_hebrew": string,         // one sharp, realistic sentence — what this city actually FEELS like. No clichés, no brochure-speak.
-  "personal_relevance_hebrew": string, // why THIS city suits this specific traveler, tied to their trip profile (interests/group/budget/pace/trip length) and the kinds of stops in their plan
+  "personal_relevance_hebrew": string, // who this city is perfect for and what kind of trip it suits (e.g. foodies, couples, families, first-timers, history lovers) — general, not about one specific traveler
   "local_secrets_hebrew": string[],  // 3 non-obvious, useful tips for the city (a habit, a timing trick, an area locals prefer) — grounded in the highlights when real; otherwise safe and generic
   "honest_downsides_hebrew": string[], // 1-2 real, city-wide warnings: scams, overrated spots, crowds, prices, weather
   "commute_and_safety_hebrew": string  // getting in & around (airport→center, transit passes, walk vs metro) + tourist safety, in one tight paragraph
@@ -142,27 +142,10 @@ Rules:
 
 function cityUserPrompt(
   city: string,
-  pois: ProfilerPoi[],
-  trip: ProfilerTripContext,
   facts: NeighborhoodFacts,
   highlights: NeighborhoodHighlights,
 ): string {
-  const poiList = pois.slice(0, 15).map((p) => `- ${p.name}${p.category ? ` (${p.category})` : ''}`).join('\n');
-  const tripLines = [
-    trip.dayNumber ? `Trip length (days): ${trip.dayNumber}` : '',
-    trip.interests?.length ? `Interests: ${trip.interests.join(', ')}` : '',
-    trip.groupType ? `Group: ${trip.groupType}` : '',
-    trip.budget ? `Budget: ${trip.budget}` : '',
-    trip.pace ? `Pace: ${trip.pace}` : '',
-  ].filter(Boolean).join('\n');
-
   return `CITY: ${city}
-
-WHAT THE TRAVELER'S PLAN COVERS (sample of stops):
-${poiList || '(none)'}
-
-TRAVELER PROFILE:
-${tripLines || '(not provided)'}
 
 TAVILY FACTS — GETTING IN/AROUND:
 ${facts.metroStations.join('\n') || '(none)'}
@@ -181,12 +164,10 @@ Write the JSON now.`;
 
 export async function synthesizeCityGuide(
   city: string,
-  pois: ProfilerPoi[],
-  trip: ProfilerTripContext,
   facts: NeighborhoodFacts,
   highlights: NeighborhoodHighlights,
 ): Promise<NeighborhoodGuideContent> {
-  const obj = await runGemini(citySystemPrompt(), cityUserPrompt(city, pois, trip, facts, highlights));
+  const obj = await runGemini(citySystemPrompt(), cityUserPrompt(city, facts, highlights));
   return {
     name_hebrew: asStr(obj.name_hebrew, city),
     name_english: asStr(obj.name_english, city),

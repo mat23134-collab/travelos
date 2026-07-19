@@ -4,49 +4,32 @@
  * CityGuideSection — the whole-trip CITY guide at the top of the results page.
  *
  * Unlike the per-day neighborhood guide, this needs NO polygon data — every trip
- * has a destination city, so it works everywhere. Collapsed by default; on expand
- * it samples the trip's stops, calls POST /api/city-profile (Tavily + Exa +
- * Gemini, cached), and renders the shared guide in its 'city' variant.
+ * has a destination city, so it works everywhere. The guide is CITY-GENERIC and
+ * cached by city alone, so it's built once per city and instant for everyone
+ * after. Collapsed by default; on expand it calls POST /api/city-profile
+ * (Tavily + Exa + Gemini, cached) and renders the shared guide in its 'city'
+ * variant.
  */
 
 import { useCallback, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { NeighborhoodGuide } from '@/components/NeighborhoodGuide';
-import type { DayPlan, TravelerProfile } from '@/lib/types';
-import type { NeighborhoodProfile, ProfilerPoi } from '@/services/neighborhood/types';
+import type { NeighborhoodProfile } from '@/services/neighborhood/types';
 import type { Session } from '@supabase/supabase-js';
 
 type Status = 'idle' | 'loading' | 'ready' | 'empty' | 'signin' | 'error';
 
-/** A representative sample of the trip's stops — attractions first, then meals. */
-function collectTripPois(days: DayPlan[]): ProfilerPoi[] {
-  const attractions: ProfilerPoi[] = [];
-  const meals: ProfilerPoi[] = [];
-  for (const day of days) {
-    for (const a of [day.morning, day.afternoon, day.evening]) {
-      if (a?.name) attractions.push({ name: a.name, lat: a.latitude ?? 0, lng: a.longitude ?? 0, category: 'attraction' });
-    }
-    for (const m of [day.breakfast, day.lunch, day.dinner]) {
-      if (m?.name) meals.push({ name: m.name, lat: m.latitude ?? 0, lng: m.longitude ?? 0, category: 'restaurant' });
-    }
-  }
-  return [...attractions.slice(0, 10), ...meals.slice(0, 5)];
-}
-
 export function CityGuideSection({
-  destination, days, session, profile,
+  destination, session,
 }: {
   destination: string;
-  days: DayPlan[];
   session: Session | null;
-  profile: TravelerProfile | null;
 }) {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<Status>('idle');
   const [data, setData] = useState<NeighborhoodProfile | null>(null);
 
   const cityOnly = (destination ?? '').split(',')[0].trim();
-  const pois = collectTripPois(days);
 
   const load = useCallback(async () => {
     if (!session?.access_token) { setStatus('signin'); return; }
@@ -56,17 +39,7 @@ export function CityGuideSection({
       const res = await fetch('/api/city-profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({
-          city: cityOnly,
-          pois,
-          profile: {
-            interests: profile?.interests ?? [],
-            groupType: profile?.groupType ?? null,
-            budget: profile?.budget ?? null,
-            pace: profile?.pace ?? null,
-            dayNumber: days.length, // trip length
-          },
-        }),
+        body: JSON.stringify({ city: cityOnly }),
       });
       if (res.status === 204) { setStatus('empty'); return; }
       if (!res.ok) { setStatus('error'); return; }
@@ -76,8 +49,7 @@ export function CityGuideSection({
     } catch {
       setStatus('error');
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.access_token, cityOnly, days.length, JSON.stringify(pois)]);
+  }, [session?.access_token, cityOnly]);
 
   if (!cityOnly) return null;
 
@@ -97,7 +69,7 @@ export function CityGuideSection({
           <span className="text-[20px]">🏙️</span>
           <span className="flex flex-col">
             <span className="text-[15px] font-black" style={{ color: '#2b2622' }}>מדריך העיר — {cityOnly}</span>
-            <span className="text-[12px]" style={{ color: '#6b6358' }}>למה העיר מתאימה לכם, סודות מקומיים, אמת בלי לייפות, ואיך מסתובבים</span>
+            <span className="text-[12px]" style={{ color: '#6b6358' }}>למי העיר מתאימה, סודות מקומיים, אמת בלי לייפות, ואיך מסתובבים</span>
           </span>
         </span>
         <motion.span animate={{ rotate: open ? 180 : 0 }} className="text-[13px]" style={{ color: '#b8552e' }}>▾</motion.span>
@@ -122,7 +94,7 @@ export function CityGuideSection({
                 </div>
               )}
               {status === 'signin' && (
-                <div className="p-5 text-center text-[13px]" style={{ color: '#6b6358' }}>התחברו כדי לקבל מדריך עיר מותאם אישית.</div>
+                <div className="p-5 text-center text-[13px]" style={{ color: '#6b6358' }}>התחברו כדי לקבל את מדריך העיר.</div>
               )}
               {status === 'empty' && (
                 <div className="p-5 text-center text-[13px]" style={{ color: '#6b6358' }}>אין מספיק מידע ליצירת מדריך עיר.</div>

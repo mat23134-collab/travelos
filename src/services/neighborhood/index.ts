@@ -50,16 +50,14 @@ export async function buildNeighborhoodProfile(
 
 /**
  * City-level guide for the results page — no PostGIS / polygon dependency, so it
- * works for EVERY city. Anchored on the city itself; reuses the same
- * Tavily + Exa + Gemini grounding, and the same NeighborhoodProfile shape so the
- * existing guide component renders it unchanged. matchPercent is 0 (no coverage
- * signal at city scope) → the component hides the "% match" badge.
+ * works for EVERY city. It is CITY-GENERIC (not per-traveler): the same intro is
+ * built once per city and reused for every trip and traveler, keyed by city
+ * alone (see buildCityGuideCacheKey). Reuses the same Tavily + Exa + Gemini
+ * grounding and the same NeighborhoodProfile shape so the existing guide
+ * component renders it unchanged. matchPercent is 0 (no coverage signal at city
+ * scope) → the component hides the "% match" badge.
  */
-export async function buildCityProfile(
-  city: string,
-  pois: ProfilerPoi[],
-  trip: ProfilerTripContext = {},
-): Promise<NeighborhoodProfile | null> {
+export async function buildCityProfile(city: string): Promise<NeighborhoodProfile | null> {
   const trimmed = city.trim();
   if (!trimmed) return null;
 
@@ -68,14 +66,14 @@ export async function buildCityProfile(
     fetchCityHighlights(trimmed).catch(() => ({ localSecrets: [], honestDownsides: [], sources: [] })),
   ]);
 
-  const guide = await synthesizeCityGuide(trimmed, pois, trip, facts, highlights);
+  const guide = await synthesizeCityGuide(trimmed, facts, highlights);
 
   const anchor: AnchorNeighborhood = {
     id: `city:${trimmed.toLowerCase()}`,
     nameEnglish: trimmed,
     nameHebrew: null,
-    matched: pois.length,
-    total: pois.length,
+    matched: 0,
+    total: 0,
     centroid: { lat: 0, lng: 0 },
     boundaryGeoJson: null,
   };

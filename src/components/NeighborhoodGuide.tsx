@@ -47,7 +47,7 @@ export function NeighborhoodGuide({
   const { guide, matchPercent } = profile;
   const isCity = variant === 'city';
   const kicker = isCity ? 'מדריך העיר שלכם' : 'מדריך השכונה שלכם';
-  const relevanceTitle = isCity ? 'למה העיר הזו מתאימה לכם' : 'למה שיבצנו אתכם כאן היום';
+  const relevanceTitle = isCity ? 'למי העיר הזו מתאימה' : 'למה שיבצנו אתכם כאן היום';
 
   return (
     <div
