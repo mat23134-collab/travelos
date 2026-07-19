@@ -17,7 +17,7 @@
  */
 
 import { RestaurantRecommendation, RestaurantLocaleText, SITE_LANGUAGES, SiteLanguage } from '@/lib/types';
-import { searchWeb } from '@/lib/rag';
+import { searchWebDual } from '@/lib/rag';
 import { RESTAURANT_GENRES, canonicalizeGenre } from '@/lib/restaurantGenre';
 import { cityMeanRating, bayesRating, computeCompositeScore, computeValueScore, touristTrapPenalty } from '@/lib/restaurantScoring';
 import { normalizeNeighborhoodSlug } from '@/lib/restaurantBank';
@@ -73,7 +73,11 @@ async function gatherRestaurantSnippets(city: string, maxPriceLevel?: number): P
         `${city} best mid-range restaurants locals recommend book ahead`,
       ];
 
-  const settled = await Promise.allSettled(queries.map((q) => searchWeb(q)));
+  // Dual-provider (Tavily + Exa run in parallel, merged) rather than the
+  // fallback-only searchWeb — the two engines surface different real venues
+  // (Tavily: news/editorial; Exa: semantic/blog/social), so restaurant
+  // discovery benefits from combining both instead of picking one.
+  const settled = await Promise.allSettled(queries.map((q) => searchWebDual(q)));
   const hits = settled.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
 
   // De-dupe by URL and cap the context size.

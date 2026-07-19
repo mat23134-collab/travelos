@@ -300,6 +300,39 @@ export async function searchWeb(query: string): Promise<SearchResult[]> {
   return [];
 }
 
+function keyUsable(v: string | undefined): boolean {
+  return !!v && !v.includes('your_');
+}
+
+/**
+ * Dual-provider search: queries Tavily AND Exa IN PARALLEL for the same query
+ * and merges the results (deduped by URL), instead of `searchWeb`'s
+ * try-Tavily-then-fall-back-to-Exa. The two engines index differently — Tavily
+ * skews news/editorial, Exa skews semantic/blog/social — so for discovery tasks
+ * (e.g. finding restaurants) running both surfaces more distinct real venues
+ * than either alone, at the cost of using both providers' quota every call.
+ * Either provider's absence/failure degrades gracefully to just the other.
+ */
+export async function searchWebDual(query: string, exaNumResults = 5): Promise<SearchResult[]> {
+  const tavilyKey = process.env.TAVILY_API_KEY;
+  const exaKey = process.env.EXA_API_KEY;
+  const [tavilyR, exaR] = await Promise.allSettled([
+    keyUsable(tavilyKey) ? withSearchTimeout(searchTavily(query)) : Promise.resolve([]),
+    keyUsable(exaKey) ? withSearchTimeout(searchExa(query, exaNumResults)) : Promise.resolve([]),
+  ]);
+  const tavily = tavilyR.status === 'fulfilled' ? tavilyR.value : [];
+  const exa = exaR.status === 'fulfilled' ? exaR.value : [];
+
+  const seen = new Set<string>();
+  const merged: SearchResult[] = [];
+  for (const r of [...tavily, ...exa]) {
+    if (!r.url || seen.has(r.url)) continue;
+    seen.add(r.url);
+    merged.push(r);
+  }
+  return merged;
+}
+
 // ─── Three-phase chain-of-thought search ─────────────────────────────────────
 
 export async function runChainOfThoughtSearch(profile: TravelerProfile): Promise<ClassifiedResult[]> {
