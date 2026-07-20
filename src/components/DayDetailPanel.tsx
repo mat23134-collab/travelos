@@ -150,6 +150,8 @@ export function DayDetailPanel({
                 dayIndex={dayIndex}
                 destination={destination}
                 ui={ui}
+                itineraryId={itineraryId}
+                accessToken={session?.access_token ?? null}
                 onSwapSlot={onSwapSlot}
                 onNeighborhoodClick={onNeighborhoodClick}
                 onExplore={(row) => setActivePlace(row)}

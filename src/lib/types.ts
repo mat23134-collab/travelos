@@ -209,6 +209,32 @@ export interface DiningSpot {
   inventory_source_table?: 'places' | 'restaurants';
 }
 
+// ── Trip Binder (per-stop attachments, notes, booking status) ────────────────
+
+/** Booking status for a stop — trip_item_notes.status. */
+export type TripItemStatus = 'planned' | 'booked' | 'paid' | 'confirmed';
+
+export const TRIP_DOC_TYPES = ['flight', 'hotel', 'ticket', 'passport', 'insurance', 'reservation', 'other'] as const;
+export type TripDocType = (typeof TRIP_DOC_TYPES)[number];
+
+/** One attachment as returned by GET /api/trip-documents (signed URL + meta). */
+export interface TripDocumentFile {
+  name: string;            // storage object name ("{uuid}-{safeName}") — the delete key
+  label: string;           // clean display name
+  url: string | null;      // short-lived signed URL
+  size: number | null;
+  itemId: string | null;   // anchored stop (itinerary_items UUID) or null = trip-level
+  docType: TripDocType | null;
+}
+
+/** One stop's note + status as returned by GET /api/trip-notes. */
+export interface TripItemNote {
+  itemId: string | null;
+  noteText: string;
+  status: TripItemStatus | null;
+  updatedAt: string;
+}
+
 /**
  * A reservable restaurant surfaced by the restaurant scout pipeline
  * (Exa → Gemini → Google Places → scoring) and stored in
