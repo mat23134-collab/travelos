@@ -11,7 +11,7 @@
  * picks; interests bias activity selection toward the right genre clusters.
  *
  * Bilingual (en/he). Prices are wrapped in Unicode isolates (LRI…PDI) so the
- * "$100–$300" runs render left-to-right inside the RTL Hebrew line.
+ * "$100–$200" runs render left-to-right inside the RTL Hebrew line.
  */
 
 import { motion } from 'framer-motion';
@@ -30,7 +30,7 @@ const iso = (s: string) => `⁦${s}⁩`;
 // also demand a mental FX conversion. Approximate, display-only (usdToIlsApprox).
 const ils = (n: number) => `₪${n.toLocaleString('en-US')}`;
 const ILS_100 = ils(usdToIlsApprox(100));
-const ILS_300 = ils(usdToIlsApprox(300));
+const ILS_200 = ils(usdToIlsApprox(200));
 
 const BUDGET_OPTIONS = [
   {
@@ -44,15 +44,15 @@ const BUDGET_OPTIONS = [
     value: 'mid-range',
     icon:  CreditCard as LucideIcon,
     label: 'Comfortable',  labelHe: 'נוח',
-    sub:   `${iso('$100–$300')}/day · boutique stays, local favourites`,
-    subHe: `${iso(`${ILS_100}–${ILS_300}`)} (${iso('$100–$300')}) ליום · מקומות בוטיק, מועדפים מקומיים`,
+    sub:   `${iso('$100–$200')}/day · boutique stays, local favourites`,
+    subHe: `${iso(`${ILS_100}–${ILS_200}`)} (${iso('$100–$200')}) ליום · מקומות בוטיק, מועדפים מקומיים`,
   },
   {
     value: 'luxury',
     icon:  Gem as LucideIcon,
     label: 'Luxury',  labelHe: 'יוקרה',
-    sub:   `${iso('$300+')}/day · five-star, fine dining, private tours`,
-    subHe: `${iso(`${ILS_300}+`)} (${iso('$300+')}) ליום · חמישה כוכבים, מסעדות שף, סיורים פרטיים`,
+    sub:   `${iso('$200+')}/day · five-star, fine dining, private tours`,
+    subHe: `${iso(`${ILS_200}+`)} (${iso('$200+')}) ליום · חמישה כוכבים, מסעדות שף, סיורים פרטיים`,
   },
 ] as const;
 
