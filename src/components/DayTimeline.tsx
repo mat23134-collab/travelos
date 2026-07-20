@@ -5,6 +5,8 @@ import { DayPhoto } from '@/components/DayPhoto';
 import { tiktokSearchUrl, instagramSearchUrl } from '@/lib/socialSearch';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { budgetToUsd } from '@/lib/currency';
+import { useTripBinder, type TripBinder } from '@/hooks/useTripBinder';
+import { StopBinder } from '@/components/StopBinder';
 import type { DayPlan, Activity, DiningSpot } from '@/lib/types';
 import type { ItineraryUiStrings } from '@/lib/tripUiCopy';
 
@@ -122,6 +124,10 @@ interface DayTimelineProps {
   dayIndex: number;
   destination: string;
   ui: ItineraryUiStrings;
+  /** Trip Binder: attachments/notes/status anchor to each stop's item_id.
+   *  Omit (or pass null) to hide the Binder — e.g. a guest with no session. */
+  itineraryId?: string | null;
+  accessToken?: string | null;
   /** @deprecated — kept for backward compat while DayDetailPanel migrates to onFindAlternative */
   onSwapSlot: (slot: 'morning' | 'afternoon' | 'evening', request?: string) => void;
   onNeighborhoodClick: (neighborhood: string) => void;
@@ -131,6 +137,8 @@ interface DayTimelineProps {
 
 export function DayTimeline({
   day, dayIndex, destination,
+  itineraryId,
+  accessToken,
   onSwapSlot: _onSwapSlot,
   onNeighborhoodClick,
   onExplore = () => {},
@@ -139,6 +147,7 @@ export function DayTimeline({
 }: DayTimelineProps) {
   const he = ui?.dir === 'rtl';
   const rows = buildTimelineRows(day);
+  const binder = useTripBinder(itineraryId, accessToken);
 
   if (rows.length === 0) {
     return (
@@ -165,6 +174,7 @@ export function DayTimeline({
             index={i}
             destination={destination}
             he={he}
+            binder={binder}
             onExplore={() => onExplore(row)}
             onFindAlternative={() => onFindAlternative(swapTarget)}
             onNeighborhoodClick={onNeighborhoodClick}
@@ -176,18 +186,20 @@ export function DayTimeline({
 }
 
 function TimelineItem({
-  row, index, destination, he, onExplore, onFindAlternative, onNeighborhoodClick,
+  row, index, destination, he, binder, onExplore, onFindAlternative, onNeighborhoodClick,
 }: {
   row: TimelineRow;
   index: number;
   destination: string;
   he: boolean;
+  binder: TripBinder;
   onExplore: () => void;
   onFindAlternative: () => void;
   onNeighborhoodClick: (n: string) => void;
 }) {
   const isMobile = useIsMobile();
   const isCheckIn = row.type === 'activity' && row.activity && isHotelCheckIn(row.activity);
+  const itemId = row.activity?.item_id ?? row.dining?.item_id ?? null;
   const neighborhood = row.activity?.neighborhood ?? row.dining?.neighborhood;
   const mapsUrl = buildMapsDirectionsUrl(row.name, neighborhood, destination);
   // Dining: a cinematic cuisine/atmosphere shot of the destination — NOT the specific
@@ -318,6 +330,11 @@ function TimelineItem({
         >
           📷 Instagram
         </a>
+
+        {/* Trip Binder — per-stop status, note, attachments (own full-width row) */}
+        <div className="w-full">
+          <StopBinder binder={binder} itemId={itemId} he={he} />
+        </div>
       </div>
     </motion.div>
   );
