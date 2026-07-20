@@ -25,10 +25,13 @@ const EMPTY: StopBinderData = { attachments: [], noteText: '', status: null };
 export interface TripBinder {
   ready: boolean;
   enabled: boolean; // false when we lack an itineraryId or token → binder hidden
+  itineraryId: string | null;
+  accessToken: string | null;
   forItem: (itemId: string | null | undefined) => StopBinderData;
   uploadDocs: (itemId: string, files: File[], docType: TripDocType) => Promise<boolean>;
   deleteDoc: (name: string) => Promise<boolean>;
   saveNote: (itemId: string, patch: { noteText?: string; status?: TripItemStatus | null }) => Promise<boolean>;
+  refresh: () => Promise<void>;
 }
 
 export function useTripBinder(
@@ -151,5 +154,10 @@ export function useTripBinder(
     [enabled, itineraryId, authHeaders],
   );
 
-  return { ready, enabled, forItem, uploadDocs, deleteDoc, saveNote };
+  return {
+    ready, enabled,
+    itineraryId: itineraryId ?? null,
+    accessToken: accessToken ?? null,
+    forItem, uploadDocs, deleteDoc, saveNote, refresh,
+  };
 }

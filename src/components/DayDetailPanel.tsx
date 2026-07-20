@@ -10,6 +10,8 @@ import { DayNeighborhoodGuide } from '@/components/DayNeighborhoodGuide';
 import { PlaceDetailCube } from '@/components/PlaceDetailCube';
 import { AlternativePickerPanel } from '@/components/AlternativePickerPanel';
 import { AuthGateModal } from '@/components/AuthGateModal';
+import { ScanBookingModal } from '@/components/ScanBookingModal';
+import { useTripBinder } from '@/hooks/useTripBinder';
 import { useSidePanel } from '@/state/sidePanelStore';
 import type { DayPlan, Itinerary, TravelerProfile, Activity } from '@/lib/types';
 import type { ItineraryUiStrings } from '@/lib/tripUiCopy';
@@ -69,7 +71,13 @@ export function DayDetailPanel({
   const [activePlace, setActivePlace] = useState<TimelineRow | null>(null);
   const [activeSwap, setActiveSwap] = useState<SwapTarget | null>(null);
   const [showAuthGate, setShowAuthGate] = useState(false);
+  const [showScan, setShowScan] = useState(false);
   const openSidePanel = useSidePanel((s) => s.openPanel);
+
+  // Trip Binder — one instance shared by every stop's <StopBinder> (via
+  // DayTimeline) and the scan-a-booking modal, so filing a scanned confirmation
+  // instantly refreshes the stop it was filed to.
+  const binder = useTripBinder(itineraryId, session?.access_token ?? null);
 
   // Opening a day (or switching days) should land on the hourly schedule +
   // summary at the top of this panel — not wherever the overview was scrolled
@@ -150,8 +158,7 @@ export function DayDetailPanel({
                 dayIndex={dayIndex}
                 destination={destination}
                 ui={ui}
-                itineraryId={itineraryId}
-                accessToken={session?.access_token ?? null}
+                binder={binder}
                 onSwapSlot={onSwapSlot}
                 onNeighborhoodClick={onNeighborhoodClick}
                 onExplore={(row) => setActivePlace(row)}
@@ -226,6 +233,29 @@ export function DayDetailPanel({
                 </span>
                 <span className="shrink-0" style={{ color: 'var(--color-terracotta)' }}>←</span>
               </button>
+
+              {/* Scan a booking confirmation → propose filing it to a stop */}
+              {binder.enabled && (
+                <button
+                  type="button"
+                  onClick={() => setShowScan(true)}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-right transition-colors"
+                  style={{ background: 'var(--color-paper)', boxShadow: 'var(--shadow-card)', border: '1px solid rgba(184,85,46,0.18)' }}
+                >
+                  <span className="text-2xl shrink-0">📸</span>
+                  <span className="flex-1">
+                    <span className="block text-[13.5px] font-bold" style={{ color: 'var(--color-ink-warm)' }}>
+                      {ui.dir === 'rtl' ? 'סריקת אישור הזמנה' : 'Scan a booking'}
+                    </span>
+                    <span className="block text-[11.5px] mt-0.5" style={{ color: 'var(--color-ink-warm-mut)' }}>
+                      {ui.dir === 'rtl'
+                        ? 'צלמו טיסה/מלון/כרטיס — נשייך אותו ליום ולעצירה'
+                        : 'Photo a flight/hotel/ticket — we file it to the right stop'}
+                    </span>
+                  </span>
+                  <span className="shrink-0" style={{ color: 'var(--color-terracotta)' }}>←</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -260,6 +290,17 @@ export function DayDetailPanel({
         title="Sign in to edit this trip"
         message="Anyone with the link can view this trip, but you'll need to log in or create a free account to make changes."
       />
+
+      {showScan && (
+        <ScanBookingModal
+          itinerary={itinerary}
+          startDate={profile?.startDate ?? null}
+          binder={binder}
+          he={ui.dir === 'rtl'}
+          initialDayIndex={dayIndex}
+          onClose={() => setShowScan(false)}
+        />
+      )}
     </>
   );
 }
