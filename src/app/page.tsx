@@ -283,6 +283,19 @@ export default function HomePage() {
       <section className="relative min-h-screen flex items-center justify-center px-8 py-32 overflow-hidden">
         <CinematicHeroBackground />
 
+        {/* Headline-scoped scrim — darkens only the text column behind the
+            eyebrow/headline/sub-copy so contrast holds regardless of which
+            destination photo (bright sky, dark stone, etc.) is behind it at
+            any given moment, without flattening the rest of the hero image. */}
+        <div
+          aria-hidden
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              'radial-gradient(ellipse 62% 48% at 50% 38%, rgba(9,15,26,0.82) 0%, rgba(9,15,26,0.55) 45%, transparent 75%)',
+          }}
+        />
+
         <div className="relative z-10 max-w-3xl mx-auto text-center">
 
           {/* Eyebrow */}
@@ -308,11 +321,15 @@ export default function HomePage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.22, type: 'spring', stiffness: 240, damping: 22 }}
             className="font-black text-white leading-[0.91] mb-7"
-            style={{ fontSize: 'clamp(3rem, 7.5vw, 5.75rem)', letterSpacing: '-0.04em' }}
+            style={{
+              fontSize: 'clamp(3rem, 7.5vw, 5.75rem)',
+              letterSpacing: '-0.04em',
+              textShadow: '0 4px 28px rgba(0,0,0,0.55)',
+            }}
           >
             Where will you
             <br />
-            <span style={{ color: 'rgba(255,255,255,0.42)' }}>wake up next?</span>
+            <span style={{ color: REDLINE }}>wake up next?</span>
           </motion.h1>
 
           {/* Sub-copy */}
