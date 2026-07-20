@@ -75,8 +75,8 @@ export const questions: Question[] = [
     subtitle: 'Per person, per day — excluding flights',
     options: [
       { value: 'budget', label: 'Budget Explorer', icon: '💚', description: 'Under $100/day — street food, hostels, free sights' },
-      { value: 'mid-range', label: 'Smart Traveler', icon: '💛', description: '$100–$300/day — boutique hotels, local restaurants' },
-      { value: 'luxury', label: 'Luxury Seeker', icon: '💎', description: '$300+/day — 5-star, fine dining, private tours' },
+      { value: 'mid-range', label: 'Smart Traveler', icon: '💛', description: '$100–$200/day — boutique hotels, local restaurants' },
+      { value: 'luxury', label: 'Luxury Seeker', icon: '💎', description: '$200+/day — 5-star, fine dining, private tours' },
     ],
     required: true,
   },

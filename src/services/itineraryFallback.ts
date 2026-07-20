@@ -307,7 +307,7 @@ function buildDayLabel(startDate: string | undefined, offset: number): string {
 }
 
 function estimateDailyCost(budget: string): string {
-  if (budget === 'budget') return '$60-120/person';
-  if (budget === 'luxury') return '$300+/person';
-  return '$150-250/person';
+  if (budget === 'budget') return '$60-100/person';
+  if (budget === 'luxury') return '$200+/person';
+  return '$100-200/person';
 }
