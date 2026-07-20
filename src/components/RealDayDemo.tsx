@@ -5,15 +5,19 @@
  * not a mockup screenshot. Fetches real, verified places from /api/landmarks
  * (public.places, top_pick_category — the same data Step 7 of onboarding
  * reads) for a marquee city, picks one sightseeing + one history + one food
- * stop, and renders them as a real day: photo cards + a lightweight route map
- * connecting their real coordinates.
+ * stop, and renders them as a real day: three photo cards in sequence.
+ *
+ * No abstract "route map" — an unlabeled grid with three dots and a dashed
+ * line conveyed nothing real (no streets, no scale, no city). The numbered
+ * badges + arrow connectors on the cards themselves already say "this is a
+ * sequence," without pretending to be a map.
  *
  * Radius + scrim treatment intentionally matches PostcardCard (rounded-3xl,
  * bottom-anchored dark gradient) so every photo card on the landing page
  * reads as one consistent visual system.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import type { Landmark } from '@/app/api/landmarks/route';
 
@@ -72,28 +76,6 @@ export function RealDayDemo({ onPlanClick }: { onPlanClick: () => void }) {
     return () => ctrl.abort();
   }, []);
 
-  // Route map: project real lat/lng onto a shared 0..100 box (y-flipped for screen space).
-  const route = useMemo(() => {
-    const geo = stops.filter((s) => s.latitude != null && s.longitude != null);
-    if (geo.length < 2) return null;
-    const lngs = geo.map((s) => s.longitude!);
-    const lats = geo.map((s) => s.latitude!);
-    const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
-    const minLat = Math.min(...lats), maxLat = Math.max(...lats);
-    const spanLng = maxLng - minLng || 1e-6;
-    const spanLat = maxLat - minLat || 1e-6;
-    const pad = 14;
-    const scale = 100 - pad * 2;
-    const project = (lng: number, lat: number): [number, number] => [
-      pad + ((lng - minLng) / spanLng) * scale,
-      pad + (1 - (lat - minLat) / spanLat) * scale,
-    ];
-    return geo.map((s) => {
-      const [x, y] = project(s.longitude!, s.latitude!);
-      return { x, y, stop: s };
-    });
-  }, [stops]);
-
   if (status === 'error') return null; // fails silently — landing page still works
 
   return (
@@ -139,57 +121,13 @@ export function RealDayDemo({ onPlanClick }: { onPlanClick: () => void }) {
 
         {status === 'ready' && (
           <>
-            {/* Stop cards */}
+            {/* Stop cards — numbered badges + arrow connectors already read as
+                a sequence; no separate map needed. */}
             <div className="grid sm:grid-cols-3 gap-5 mb-10">
               {stops.map((stop, i) => (
                 <StopCard key={stop.id} stop={stop} index={i} isLast={i === stops.length - 1} />
               ))}
             </div>
-
-            {/* Route map */}
-            {route && route.length >= 2 && (
-              <div
-                className="relative rounded-3xl overflow-hidden mb-10"
-                style={{
-                  height: 220,
-                  background: 'radial-gradient(120% 120% at 30% 20%, #f2e7d2 0%, #e9dcc2 55%, #ddcfb4 100%)',
-                  border: '1px solid rgba(43,38,34,0.10)',
-                }}
-              >
-                <div
-                  className="absolute inset-0 opacity-40"
-                  style={{
-                    backgroundImage:
-                      'linear-gradient(rgba(43,38,34,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(43,38,34,0.06) 1px, transparent 1px)',
-                    backgroundSize: '28px 28px',
-                  }}
-                />
-                <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" className="relative w-full h-full p-6">
-                  <polyline
-                    points={route.map((p) => `${p.x},${p.y}`).join(' ')}
-                    fill="none"
-                    stroke={REDLINE}
-                    strokeWidth={0.8}
-                    strokeDasharray="2.2 2.2"
-                    strokeLinecap="round"
-                  />
-                  {route.map((p, i) => (
-                    <g key={p.stop.id}>
-                      <circle cx={p.x} cy={p.y} r={3.4} fill={REDLINE} stroke="#fffdf7" strokeWidth={0.9} />
-                      <text x={p.x} y={p.y + 1.1} textAnchor="middle" fontSize={3.4} fontWeight={800} fill="#fffdf7">
-                        {i + 1}
-                      </text>
-                    </g>
-                  ))}
-                </svg>
-                <div
-                  className="absolute bottom-3 left-3 px-3 py-1.5 rounded-full text-[11px] font-bold shadow-sm"
-                  style={{ background: '#fffdf7', color: '#2b2622', border: '1px solid rgba(43,38,34,0.10)' }}
-                >
-                  📍 Real walking route in {DEMO_CITY}
-                </div>
-              </div>
-            )}
 
             {/* CTA */}
             <div className="flex justify-center">
