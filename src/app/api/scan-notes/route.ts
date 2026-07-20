@@ -1,13 +1,16 @@
 /**
- * /api/scan-notes — Vision-powered extraction of trip ideas from an uploaded photo.
+ * /api/scan-notes — Vision-powered extraction from an uploaded photo. Two modes:
  *
- *   POST { image: "data:image/<type>;base64,<...>", destination?: string }
+ *   POST { image, destination?, mode?: 'ideas' }  (default)
+ *     → { items: string[] } — trip ideas from a handwritten list / screenshot,
+ *       fed into "Our Picks" must-haves. (Original behavior, unchanged.)
  *
- * Lets a traveler photograph a handwritten list, screenshot, or note of things
- * they want to do, and returns a short list of concrete travel items (place
- * names, neighborhoods, dishes, activities) extracted from it. The client adds
- * the ones the traveler keeps to their "Our Picks" must-haves, so the itinerary
- * generator weaves them in alongside its own recommendations where they fit.
+ *   POST { image, mode: 'confirmation' }
+ *     → { confirmation: {...} } — structured fields parsed from a flight/hotel/
+ *       ticket confirmation (type, date, time, confirmation number, place name)
+ *       so the Trip Binder can PROPOSE filing it to the matching day/stop. The
+ *       client always shows the parse for confirmation before filing — this
+ *       route never files anything itself.
  */
 
 import Anthropic from '@anthropic-ai/sdk';
@@ -39,6 +42,72 @@ function buildExtractionPrompt(destination: string): string {
     'Reply with ONLY a JSON array of short strings, each one item, in the same language as the note. No commentary, no markdown fences. Example: ["Mala Strana", "Kosher trdelník", "Havel\'s Market"]',
     'If nothing usable is found, reply with [].',
   ].join('\n');
+}
+
+const CONFIRMATION_DOC_TYPES = new Set(['flight', 'hotel', 'ticket', 'reservation', 'other']);
+
+export interface ParsedConfirmation {
+  docType: 'flight' | 'hotel' | 'ticket' | 'reservation' | 'other';
+  title: string;
+  placeName: string | null;   // hotel / restaurant / attraction / airline — used for day+name matching
+  date: string | null;        // ISO YYYY-MM-DD (the single most relevant date)
+  time: string | null;        // HH:MM 24h
+  confirmationNumber: string | null;
+  vendor: string | null;      // airline / hotel chain / booking platform
+}
+
+function buildConfirmationPrompt(): string {
+  return [
+    'This image is a travel booking confirmation — a flight, hotel, attraction ticket, restaurant/tour reservation, or similar (screenshot, email, or PDF page).',
+    'Extract its key details as ONE JSON object with EXACTLY these keys:',
+    '{',
+    '  "docType": one of "flight" | "hotel" | "ticket" | "reservation" | "other",',
+    '  "title": a short human label, e.g. "El Al LY383 TLV→FCO" or "Hotel Artemide, Rome",',
+    '  "placeName": the name to match against an itinerary — hotel name, restaurant, attraction, or destination CITY for a flight (arrival city); null if unknown,',
+    '  "date": the single most relevant date as "YYYY-MM-DD" (flight: departure date; hotel: check-in date; ticket/reservation: the visit date); null if not shown,',
+    '  "time": start/departure/check-in time as 24h "HH:MM"; null if not shown,',
+    '  "confirmationNumber": the booking/PNR/reservation code exactly as printed; null if none,',
+    '  "vendor": airline, hotel chain, or platform name; null if unknown',
+    '}',
+    'Rules: infer the year from context; if only day+month appear, use the nearest sensible future year. Do NOT invent a confirmation number. Reply with ONLY the JSON object — no markdown, no commentary.',
+  ].join('\n');
+}
+
+function parseConfirmation(raw: string): ParsedConfirmation | null {
+  const trimmed = raw.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+  let obj: unknown;
+  try {
+    obj = JSON.parse(trimmed);
+  } catch {
+    const m = trimmed.match(/\{[\s\S]*\}/);
+    if (!m) return null;
+    try { obj = JSON.parse(m[0]); } catch { return null; }
+  }
+  if (!obj || typeof obj !== 'object') return null;
+  const o = obj as Record<string, unknown>;
+  const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
+  const dt = str(o.docType)?.toLowerCase() ?? 'other';
+  const docType = (CONFIRMATION_DOC_TYPES.has(dt) ? dt : 'other') as ParsedConfirmation['docType'];
+  // Normalize the date to strict YYYY-MM-DD if it parses; else keep null.
+  let date = str(o.date);
+  if (date) {
+    const m = date.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    date = m ? `${m[1]}-${m[2]}-${m[3]}` : null;
+  }
+  let time = str(o.time);
+  if (time) {
+    const m = time.match(/^(\d{1,2}):(\d{2})/);
+    time = m ? `${m[1].padStart(2, '0')}:${m[2]}` : null;
+  }
+  return {
+    docType,
+    title: str(o.title) ?? 'Booking confirmation',
+    placeName: str(o.placeName),
+    date,
+    time,
+    confirmationNumber: str(o.confirmationNumber),
+    vendor: str(o.vendor),
+  };
 }
 
 function parseItems(raw: string): string[] {
@@ -81,10 +150,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
     }
 
-    const { image, destination } = (body ?? {}) as { image?: unknown; destination?: unknown };
+    const { image, destination, mode } = (body ?? {}) as { image?: unknown; destination?: unknown; mode?: unknown };
     if (typeof image !== 'string' || !image) {
       return NextResponse.json({ error: 'Missing "image".' }, { status: 400 });
     }
+    const isConfirmation = mode === 'confirmation';
 
     const match = image.match(DATA_URL_RE);
     if (!match) {
@@ -115,7 +185,9 @@ export async function POST(req: NextRequest) {
             },
             {
               type: 'text',
-              text: buildExtractionPrompt(typeof destination === 'string' ? destination : ''),
+              text: isConfirmation
+                ? buildConfirmationPrompt()
+                : buildExtractionPrompt(typeof destination === 'string' ? destination : ''),
             },
           ],
         },
@@ -124,8 +196,16 @@ export async function POST(req: NextRequest) {
 
     const block = message.content[0];
     const raw = block?.type === 'text' ? block.text : '';
-    const items = parseItems(raw);
 
+    if (isConfirmation) {
+      const confirmation = parseConfirmation(raw);
+      if (!confirmation) {
+        return NextResponse.json({ error: "Couldn't read a booking from that image — try a clearer shot." }, { status: 422 });
+      }
+      return NextResponse.json({ confirmation });
+    }
+
+    const items = parseItems(raw);
     return NextResponse.json({ items });
   } catch (err) {
     console.error('[scan-notes] failed:', err);

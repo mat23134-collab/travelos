@@ -5,7 +5,7 @@ import { DayPhoto } from '@/components/DayPhoto';
 import { tiktokSearchUrl, instagramSearchUrl } from '@/lib/socialSearch';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { budgetToUsd } from '@/lib/currency';
-import { useTripBinder, type TripBinder } from '@/hooks/useTripBinder';
+import { type TripBinder } from '@/hooks/useTripBinder';
 import { StopBinder } from '@/components/StopBinder';
 import type { DayPlan, Activity, DiningSpot } from '@/lib/types';
 import type { ItineraryUiStrings } from '@/lib/tripUiCopy';
@@ -125,9 +125,11 @@ interface DayTimelineProps {
   destination: string;
   ui: ItineraryUiStrings;
   /** Trip Binder: attachments/notes/status anchor to each stop's item_id.
-   *  Omit (or pass null) to hide the Binder — e.g. a guest with no session. */
-  itineraryId?: string | null;
-  accessToken?: string | null;
+   *  Owned by DayDetailPanel and shared with the scan-a-booking modal so
+   *  filing there refreshes the stops shown here. Optional: render paths
+   *  without a session (e.g. the read-only DayCard preview) omit it and the
+   *  per-stop binder UI simply doesn't mount. */
+  binder?: TripBinder;
   /** @deprecated — kept for backward compat while DayDetailPanel migrates to onFindAlternative */
   onSwapSlot: (slot: 'morning' | 'afternoon' | 'evening', request?: string) => void;
   onNeighborhoodClick: (neighborhood: string) => void;
@@ -137,8 +139,7 @@ interface DayTimelineProps {
 
 export function DayTimeline({
   day, dayIndex, destination,
-  itineraryId,
-  accessToken,
+  binder,
   onSwapSlot: _onSwapSlot,
   onNeighborhoodClick,
   onExplore = () => {},
@@ -147,7 +148,6 @@ export function DayTimeline({
 }: DayTimelineProps) {
   const he = ui?.dir === 'rtl';
   const rows = buildTimelineRows(day);
-  const binder = useTripBinder(itineraryId, accessToken);
 
   if (rows.length === 0) {
     return (
@@ -192,7 +192,7 @@ function TimelineItem({
   index: number;
   destination: string;
   he: boolean;
-  binder: TripBinder;
+  binder?: TripBinder;
   onExplore: () => void;
   onFindAlternative: () => void;
   onNeighborhoodClick: (n: string) => void;
@@ -331,10 +331,13 @@ function TimelineItem({
           📷 Instagram
         </a>
 
-        {/* Trip Binder — per-stop status, note, attachments (own full-width row) */}
-        <div className="w-full">
-          <StopBinder binder={binder} itemId={itemId} he={he} />
-        </div>
+        {/* Trip Binder — per-stop status, note, attachments (own full-width row).
+            Only mounts on render paths that supply a binder (DayDetailPanel). */}
+        {binder && (
+          <div className="w-full">
+            <StopBinder binder={binder} itemId={itemId} he={he} />
+          </div>
+        )}
       </div>
     </motion.div>
   );
