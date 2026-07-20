@@ -64,15 +64,15 @@ export function CinematicHeroBackground() {
         </video>
       )}
 
-      {/* TravelOS dark wash — keeps text readable, palette stays on-brand.
-          Strengthened through the 30-55% band (where the hero headline sits,
-          vertically centered) so "wake up next?" stays legible regardless of
-          which video frame or still is showing behind it. */}
+      {/* TravelOS dark wash — a gentle full-bleed base tone only; the real
+          contrast guarantee for the headline is the scoped radial scrim
+          rendered in page.tsx behind just the text column, so this stays
+          light enough not to flatten the destination photo itself. */}
       <div
         className="absolute inset-0"
         style={{
           background:
-            'linear-gradient(to bottom, rgba(11,18,32,0.48) 0%, rgba(11,18,32,0.62) 30%, rgba(11,18,32,0.78) 55%, rgba(11,18,32,0.97) 100%)',
+            'linear-gradient(to bottom, rgba(11,18,32,0.38) 0%, rgba(11,18,32,0.55) 45%, rgba(11,18,32,0.95) 100%)',
         }}
       />
 
