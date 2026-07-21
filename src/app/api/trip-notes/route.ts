@@ -10,10 +10,11 @@ import { authorizeTripOwnership, isUuid } from '@/lib/tripOwnership';
  * policies, so it's only ever reachable through this service-role route.
  */
 
-const STATUSES = new Set(['planned', 'booked', 'paid', 'confirmed']);
+const STATUSES = new Set(['planned', 'booked', 'paid', 'confirmed', 'cancelled']);
 const MAX_NOTE = 4000;
+const MAX_AMOUNT = 100_000_000;
 
-/** GET ?itineraryId=… → { notes: [{ itemId, noteText, status, updatedAt }] } */
+/** GET ?itineraryId=… → { notes: [{ itemId, noteText, status, paidAmount, paidCurrency, updatedAt }] } */
 export async function GET(req: NextRequest) {
   const itineraryId = req.nextUrl.searchParams.get('itineraryId')?.trim() ?? '';
   const { db, error } = await authorizeTripOwnership(req, itineraryId);
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error: selErr } = await db
     .from('trip_item_notes')
-    .select('item_id, note_text, status, updated_at')
+    .select('item_id, note_text, status, paid_amount, paid_currency, updated_at')
     .eq('itinerary_id', itineraryId);
   if (selErr) return NextResponse.json({ notes: [] });
 
@@ -29,6 +30,8 @@ export async function GET(req: NextRequest) {
     itemId: r.item_id as string | null,
     noteText: (r.note_text as string | null) ?? '',
     status: (r.status as string | null) ?? null,
+    paidAmount: r.paid_amount === null || r.paid_amount === undefined ? null : Number(r.paid_amount),
+    paidCurrency: (r.paid_currency as string | null) ?? 'ILS',
     updatedAt: r.updated_at as string,
   }));
   return NextResponse.json({ notes });
@@ -43,6 +46,7 @@ export async function GET(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const body = (await req.json().catch(() => null)) as {
     itineraryId?: string; itemId?: string; noteText?: string; status?: string | null;
+    paidAmount?: number | string | null; paidCurrency?: string;
   } | null;
   const itineraryId = body?.itineraryId?.trim() ?? '';
   const { db, userId, error } = await authorizeTripOwnership(req, itineraryId);
@@ -55,7 +59,9 @@ export async function PUT(req: NextRequest) {
 
   const hasNote = typeof body?.noteText === 'string';
   const hasStatus = body ? 'status' in body : false;
-  if (!hasNote && !hasStatus) {
+  const hasPaidAmount = body ? 'paidAmount' in body : false;
+  const hasPaidCurrency = typeof body?.paidCurrency === 'string';
+  if (!hasNote && !hasStatus && !hasPaidAmount && !hasPaidCurrency) {
     return NextResponse.json({ error: 'Nothing to update.' }, { status: 400 });
   }
   const noteText = hasNote ? body!.noteText!.slice(0, MAX_NOTE) : undefined;
@@ -66,6 +72,19 @@ export async function PUT(req: NextRequest) {
     else if (typeof s === 'string' && STATUSES.has(s)) status = s;
     else return NextResponse.json({ error: 'Invalid status.' }, { status: 400 });
   }
+  let paidAmount: number | null | undefined;
+  if (hasPaidAmount) {
+    const v = body!.paidAmount;
+    if (v === null || v === '') paidAmount = null;
+    else {
+      const n = typeof v === 'number' ? v : Number(v);
+      if (!Number.isFinite(n) || n < 0 || n > MAX_AMOUNT) {
+        return NextResponse.json({ error: 'Invalid paidAmount.' }, { status: 400 });
+      }
+      paidAmount = Math.round(n * 100) / 100;
+    }
+  }
+  const paidCurrency = hasPaidCurrency ? body!.paidCurrency!.trim().slice(0, 8).toUpperCase() || 'ILS' : undefined;
 
   const { data: existing } = await db
     .from('trip_item_notes')
@@ -78,6 +97,8 @@ export async function PUT(req: NextRequest) {
     const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (noteText !== undefined) patch.note_text = noteText;
     if (status !== undefined) patch.status = status;
+    if (paidAmount !== undefined) patch.paid_amount = paidAmount;
+    if (paidCurrency !== undefined) patch.paid_currency = paidCurrency;
     const { error: upErr } = await db.from('trip_item_notes').update(patch).eq('id', existing.id);
     if (upErr) return NextResponse.json({ error: 'Update failed.' }, { status: 500 });
   } else {
@@ -87,6 +108,8 @@ export async function PUT(req: NextRequest) {
       user_id: userId,
       note_text: noteText ?? null,
       status: status ?? null,
+      paid_amount: paidAmount ?? null,
+      paid_currency: paidCurrency ?? 'ILS',
     });
     if (insErr) return NextResponse.json({ error: 'Save failed.' }, { status: 500 });
   }

@@ -34,16 +34,18 @@ const CAT_META: Record<TripBudgetCategory, { he: string; en: string; emoji: stri
 };
 
 const BUDGET_STATUS_META: Record<TripBudgetStatus, { he: string; en: string; bg: string; fg: string }> = {
-  planned: { he: 'מתוכנן', en: 'Planned', bg: 'rgba(107,99,88,0.12)',  fg: '#6b6358' },
-  booked:  { he: 'הוזמן',  en: 'Booked',  bg: 'rgba(74,123,222,0.14)', fg: '#3b5da8' },
-  paid:    { he: 'שולם',   en: 'Paid',    bg: 'rgba(184,119,46,0.16)', fg: '#8f5a18' },
+  planned:   { he: 'מתוכנן',      en: 'Planned',   bg: 'rgba(107,99,88,0.12)',  fg: '#6b6358' },
+  booked:    { he: 'הוזמן',       en: 'Booked',    bg: 'rgba(74,123,222,0.14)', fg: '#3b5da8' },
+  paid:      { he: 'שולם',        en: 'Paid',      bg: 'rgba(184,119,46,0.16)', fg: '#8f5a18' },
+  cancelled: { he: 'לא יצא לפועל', en: 'Cancelled', bg: 'rgba(120,113,108,0.14)', fg: '#78716c' },
 };
 
 const STOP_STATUS_META: Record<TripItemStatus, { he: string; en: string; bg: string; fg: string; dot: string }> = {
-  planned:   { he: 'מתוכנן', en: 'Planned',   bg: 'rgba(107,99,88,0.12)',  fg: '#6b6358', dot: '#9a8f7e' },
-  booked:    { he: 'הוזמן',  en: 'Booked',    bg: 'rgba(74,123,222,0.14)', fg: '#3b5da8', dot: '#4a7bde' },
-  paid:      { he: 'שולם',   en: 'Paid',      bg: 'rgba(184,119,46,0.16)', fg: '#8f5a18', dot: '#b8772e' },
-  confirmed: { he: 'מאושר',  en: 'Confirmed', bg: 'rgba(34,150,94,0.15)',  fg: '#1f7a4d', dot: '#22965e' },
+  planned:   { he: 'מתוכנן',      en: 'Planned',   bg: 'rgba(107,99,88,0.12)',  fg: '#6b6358', dot: '#9a8f7e' },
+  booked:    { he: 'הוזמן',       en: 'Booked',    bg: 'rgba(74,123,222,0.14)', fg: '#3b5da8', dot: '#4a7bde' },
+  paid:      { he: 'שולם',        en: 'Paid',      bg: 'rgba(184,119,46,0.16)', fg: '#8f5a18', dot: '#b8772e' },
+  confirmed: { he: 'מאושר',       en: 'Confirmed', bg: 'rgba(34,150,94,0.15)',  fg: '#1f7a4d', dot: '#22965e' },
+  cancelled: { he: 'לא יצא לפועל', en: 'Cancelled', bg: 'rgba(120,113,108,0.14)', fg: '#78716c', dot: '#a8a29e' },
 };
 
 const SLOT_LABEL: Record<string, { he: string; en: string }> = {
@@ -335,7 +337,7 @@ function BudgetLineForm({
           {TRIP_BUDGET_CATEGORIES.map((c) => <option key={c} value={c}>{CAT_META[c].emoji} {he ? CAT_META[c].he : CAT_META[c].en}</option>)}
         </select>
         <select value={status} onChange={(e) => setStatus(e.target.value as TripBudgetStatus)} className="text-[12.5px] rounded-lg px-2 py-2 outline-none cursor-pointer" style={inputStyle}>
-          {(['planned', 'booked', 'paid'] as TripBudgetStatus[]).map((s) => <option key={s} value={s}>{he ? BUDGET_STATUS_META[s].he : BUDGET_STATUS_META[s].en}</option>)}
+          {(['planned', 'booked', 'paid', 'cancelled'] as TripBudgetStatus[]).map((s) => <option key={s} value={s}>{he ? BUDGET_STATUS_META[s].he : BUDGET_STATUS_META[s].en}</option>)}
         </select>
       </div>
       <div className="grid grid-cols-3 gap-2">
@@ -417,13 +419,17 @@ function OrganizerSection({
                   const st = data.status ? STOP_STATUS_META[data.status] : null;
                   const attach = data.attachments.length;
                   const hasNote = data.noteText.trim().length > 0;
+                  const cancelled = data.status === 'cancelled';
                   const bare = !st && attach === 0 && !hasNote;
                   return (
-                    <li key={s.itemId} className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: bare ? 'transparent' : 'var(--color-paper-sunk)' }}>
+                    <li key={s.itemId} className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: bare ? 'transparent' : 'var(--color-paper-sunk)', opacity: cancelled ? 0.6 : 1 }}>
                       <span className="text-[10px] font-bold uppercase w-16 shrink-0" style={{ color: 'var(--color-ink-warm-mut)' }}>
                         {he ? SLOT_LABEL[s.slot]?.he : SLOT_LABEL[s.slot]?.en}
                       </span>
-                      <span className="flex-1 min-w-0 truncate text-[12.5px] font-semibold" style={{ color: 'var(--color-ink-warm)' }}>{s.name}</span>
+                      <span className="flex-1 min-w-0 truncate text-[12.5px] font-semibold" style={{ color: 'var(--color-ink-warm)', textDecoration: cancelled ? 'line-through' : 'none' }}>{s.name}</span>
+                      {data.status === 'paid' && data.paidAmount != null && (
+                        <span className="text-[11px] font-bold shrink-0" style={{ color: '#8f5a18' }}>{fmtMoney(data.paidAmount, data.paidCurrency)}</span>
+                      )}
                       {st && (
                         <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0" style={{ background: st.bg, color: st.fg }}>
                           <span className="w-1 h-1 rounded-full" style={{ background: st.dot }} />

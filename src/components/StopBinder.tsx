@@ -18,12 +18,13 @@ import type { TripBinder } from '@/hooks/useTripBinder';
 import { TRIP_DOC_TYPES, type TripDocType, type TripItemStatus } from '@/lib/types';
 
 const STATUS_META: Record<TripItemStatus, { he: string; en: string; bg: string; fg: string; dot: string }> = {
-  planned:   { he: 'מתוכנן', en: 'Planned',   bg: 'rgba(107,99,88,0.12)',  fg: '#6b6358', dot: '#9a8f7e' },
-  booked:    { he: 'הוזמן',  en: 'Booked',    bg: 'rgba(74,123,222,0.14)', fg: '#3b5da8', dot: '#4a7bde' },
-  paid:      { he: 'שולם',   en: 'Paid',      bg: 'rgba(184,119,46,0.16)', fg: '#8f5a18', dot: '#b8772e' },
-  confirmed: { he: 'מאושר',  en: 'Confirmed', bg: 'rgba(34,150,94,0.15)',  fg: '#1f7a4d', dot: '#22965e' },
+  planned:   { he: 'מתוכנן',      en: 'Planned',   bg: 'rgba(107,99,88,0.12)',  fg: '#6b6358', dot: '#9a8f7e' },
+  booked:    { he: 'הוזמן',       en: 'Booked',    bg: 'rgba(74,123,222,0.14)', fg: '#3b5da8', dot: '#4a7bde' },
+  paid:      { he: 'שולם',        en: 'Paid',      bg: 'rgba(184,119,46,0.16)', fg: '#8f5a18', dot: '#b8772e' },
+  confirmed: { he: 'מאושר',       en: 'Confirmed', bg: 'rgba(34,150,94,0.15)',  fg: '#1f7a4d', dot: '#22965e' },
+  cancelled: { he: 'לא יצא לפועל', en: 'Cancelled', bg: 'rgba(120,113,108,0.14)', fg: '#78716c', dot: '#a8a29e' },
 };
-const STATUS_ORDER: TripItemStatus[] = ['planned', 'booked', 'paid', 'confirmed'];
+const STATUS_ORDER: TripItemStatus[] = ['planned', 'booked', 'paid', 'confirmed', 'cancelled'];
 
 const DOC_LABEL: Record<TripDocType, { he: string; en: string }> = {
   flight:      { he: 'טיסה',  en: 'Flight' },
@@ -43,6 +44,8 @@ export function StopBinder({
   he: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
+  const [amountDraft, setAmountDraft] = useState<string | null>(null); // null = not editing
   const [noteDraft, setNoteDraft] = useState<string | null>(null); // null = not editing
   const [uploadType, setUploadType] = useState<TripDocType>('reservation');
   const [busy, setBusy] = useState(false);
@@ -55,12 +58,22 @@ export function StopBinder({
   const attachCount = data.attachments.length;
   const hasNote = data.noteText.trim().length > 0;
 
-  const cycleStatus = () => {
-    const cur = data.status;
-    const next = cur === null
-      ? STATUS_ORDER[0]
-      : STATUS_ORDER[(STATUS_ORDER.indexOf(cur) + 1) % (STATUS_ORDER.length + 1)] ?? null;
-    void binder.saveNote(itemId, { status: next });
+  const pickStatus = (next: TripItemStatus | null) => {
+    setStatusOpen(false);
+    if (next === data.status) return;
+    // Clear a recorded amount when a stop leaves 'paid'.
+    const patch: { status: TripItemStatus | null; paidAmount?: number | null } = { status: next };
+    if (next !== 'paid' && data.paidAmount != null) patch.paidAmount = null;
+    void binder.saveNote(itemId, patch);
+  };
+
+  const commitAmount = () => {
+    if (amountDraft === null) return;
+    const raw = amountDraft.trim();
+    setAmountDraft(null);
+    const val = raw === '' ? null : Math.round(Number(raw) * 100) / 100;
+    if (val !== null && !Number.isFinite(val)) return;
+    if (val !== data.paidAmount) void binder.saveNote(itemId, { paidAmount: val, paidCurrency: data.paidCurrency });
   };
 
   const commitNote = () => {
@@ -83,18 +96,90 @@ export function StopBinder({
     <div className="mt-1.5" dir={he ? 'rtl' : 'ltr'}>
       {/* Collapsed summary row — status chip + attachment/note indicators */}
       <div className="flex items-center gap-2 flex-wrap">
-        <button
-          type="button"
-          onClick={cycleStatus}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold transition-colors"
-          style={statusMeta
-            ? { background: statusMeta.bg, color: statusMeta.fg }
-            : { background: 'var(--color-paper-sunk)', color: 'var(--color-ink-warm-mut)' }}
-          title={he ? 'הקישו לשינוי סטטוס' : 'Tap to change status'}
-        >
-          <span className="w-1.5 h-1.5 rounded-full" style={{ background: statusMeta?.dot ?? '#c3b8a5' }} />
-          {statusMeta ? (he ? statusMeta.he : statusMeta.en) : (he ? '+ סטטוס' : '+ Status')}
-        </button>
+        {/* Status chip → opens a menu of every option (no more tap-to-cycle) */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setStatusOpen((v) => !v)}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold transition-colors"
+            style={statusMeta
+              ? { background: statusMeta.bg, color: statusMeta.fg }
+              : { background: 'var(--color-paper-sunk)', color: 'var(--color-ink-warm-mut)' }}
+            aria-haspopup="menu"
+            aria-expanded={statusOpen}
+          >
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: statusMeta?.dot ?? '#c3b8a5' }} />
+            {statusMeta ? (he ? statusMeta.he : statusMeta.en) : (he ? '+ סטטוס' : '+ Status')}
+            <span style={{ fontSize: 8 }}>{statusOpen ? '▲' : '▼'}</span>
+          </button>
+          <AnimatePresence>
+            {statusOpen && (
+              <>
+                {/* click-away */}
+                <div className="fixed inset-0 z-10" onClick={() => setStatusOpen(false)} />
+                <motion.div
+                  initial={{ opacity: 0, y: -4, scale: 0.97 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -4, scale: 0.97 }}
+                  transition={{ duration: 0.14 }}
+                  role="menu"
+                  className="absolute z-20 mt-1 p-1 rounded-xl min-w-[140px]"
+                  style={{ background: 'var(--color-paper)', boxShadow: 'var(--shadow-card)', border: '1px solid rgba(43,38,34,0.10)', insetInlineStart: 0 }}
+                >
+                  {STATUS_ORDER.map((s) => {
+                    const m = STATUS_META[s];
+                    const active = data.status === s;
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => pickStatus(s)}
+                        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-start transition-colors"
+                        style={{ background: active ? m.bg : 'transparent', color: active ? m.fg : 'var(--color-ink-warm)' }}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: m.dot }} />
+                        {he ? m.he : m.en}
+                        {active && <span className="ms-auto text-[11px]">✓</span>}
+                      </button>
+                    );
+                  })}
+                  {data.status && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => pickStatus(null)}
+                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[12px] text-start transition-colors"
+                      style={{ color: 'var(--color-ink-warm-mut)' }}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#c3b8a5' }} />
+                      {he ? 'ניקוי סטטוס' : 'Clear status'}
+                    </button>
+                  )}
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Paid → inline amount editor; folds into the Binder budget's actual total */}
+        {data.status === 'paid' && (
+          <div className="inline-flex items-center gap-1 px-2 py-1 rounded-full" style={{ background: 'rgba(184,119,46,0.12)' }}>
+            <span className="text-[11px] font-bold" style={{ color: '#8f5a18' }}>💳</span>
+            <input
+              value={amountDraft ?? (data.paidAmount != null ? String(data.paidAmount) : '')}
+              onChange={(e) => setAmountDraft(e.target.value.replace(/[^\d.]/g, ''))}
+              onFocus={() => setAmountDraft(data.paidAmount != null ? String(data.paidAmount) : '')}
+              onBlur={commitAmount}
+              onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+              inputMode="decimal"
+              placeholder={he ? 'סכום' : 'Amount'}
+              className="w-16 bg-transparent text-[11px] font-bold outline-none text-center"
+              style={{ color: '#8f5a18' }}
+            />
+            <span className="text-[10px] font-bold" style={{ color: '#8f5a18' }}>{data.paidCurrency}</span>
+          </div>
+        )}
 
         <button
           type="button"

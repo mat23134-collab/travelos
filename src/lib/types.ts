@@ -211,8 +211,9 @@ export interface DiningSpot {
 
 // ── Trip Binder (per-stop attachments, notes, booking status) ────────────────
 
-/** Booking status for a stop — trip_item_notes.status. */
-export type TripItemStatus = 'planned' | 'booked' | 'paid' | 'confirmed';
+/** Booking status for a stop — trip_item_notes.status.
+ *  'cancelled' = the traveler dropped it ("לא יצא לפועל"). */
+export type TripItemStatus = 'planned' | 'booked' | 'paid' | 'confirmed' | 'cancelled';
 
 export const TRIP_DOC_TYPES = ['flight', 'hotel', 'ticket', 'passport', 'insurance', 'reservation', 'other'] as const;
 export type TripDocType = (typeof TRIP_DOC_TYPES)[number];
@@ -232,6 +233,10 @@ export interface TripItemNote {
   itemId: string | null;
   noteText: string;
   status: TripItemStatus | null;
+  /** How much was paid for this stop — recorded when status is 'paid'; folded
+   *  into the Binder budget's actual total. null when unpaid/unknown. */
+  paidAmount: number | null;
+  paidCurrency: string;
   updatedAt: string;
 }
 
@@ -240,8 +245,8 @@ export interface TripItemNote {
 export const TRIP_BUDGET_CATEGORIES = ['flights', 'accommodation', 'food', 'transport', 'activities', 'shopping', 'other'] as const;
 export type TripBudgetCategory = (typeof TRIP_BUDGET_CATEGORIES)[number];
 
-/** Budget line status — trip_budget_items.status (a subset of TripItemStatus). */
-export type TripBudgetStatus = 'planned' | 'booked' | 'paid';
+/** Budget line status — trip_budget_items.status. */
+export type TripBudgetStatus = 'planned' | 'booked' | 'paid' | 'cancelled';
 
 /** One budget line as returned by GET /api/trip-budget. */
 export interface TripBudgetItem {
