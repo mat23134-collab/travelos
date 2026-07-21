@@ -12,7 +12,8 @@
  * disabled (guest / no trip id).
  */
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { TripBinder } from '@/hooks/useTripBinder';
 import { TRIP_DOC_TYPES, type TripDocType, type TripItemStatus } from '@/lib/types';
@@ -96,71 +97,30 @@ export function StopBinder({
     <div className="mt-1.5" dir={he ? 'rtl' : 'ltr'}>
       {/* Collapsed summary row — status chip + attachment/note indicators */}
       <div className="flex items-center gap-2 flex-wrap">
-        {/* Status chip → opens a menu of every option (no more tap-to-cycle) */}
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setStatusOpen((v) => !v)}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold transition-colors"
-            style={statusMeta
-              ? { background: statusMeta.bg, color: statusMeta.fg }
-              : { background: 'var(--color-paper-sunk)', color: 'var(--color-ink-warm-mut)' }}
-            aria-haspopup="menu"
-            aria-expanded={statusOpen}
-          >
-            <span className="w-1.5 h-1.5 rounded-full" style={{ background: statusMeta?.dot ?? '#c3b8a5' }} />
-            {statusMeta ? (he ? statusMeta.he : statusMeta.en) : (he ? '+ סטטוס' : '+ Status')}
-            <span style={{ fontSize: 8 }}>{statusOpen ? '▲' : '▼'}</span>
-          </button>
-          <AnimatePresence>
-            {statusOpen && (
-              <>
-                {/* click-away */}
-                <div className="fixed inset-0 z-10" onClick={() => setStatusOpen(false)} />
-                <motion.div
-                  initial={{ opacity: 0, y: -4, scale: 0.97 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -4, scale: 0.97 }}
-                  transition={{ duration: 0.14 }}
-                  role="menu"
-                  className="absolute z-20 mt-1 p-1 rounded-xl min-w-[140px]"
-                  style={{ background: 'var(--color-paper)', boxShadow: 'var(--shadow-card)', border: '1px solid rgba(43,38,34,0.10)', insetInlineStart: 0 }}
-                >
-                  {STATUS_ORDER.map((s) => {
-                    const m = STATUS_META[s];
-                    const active = data.status === s;
-                    return (
-                      <button
-                        key={s}
-                        type="button"
-                        role="menuitem"
-                        onClick={() => pickStatus(s)}
-                        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-start transition-colors"
-                        style={{ background: active ? m.bg : 'transparent', color: active ? m.fg : 'var(--color-ink-warm)' }}
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: m.dot }} />
-                        {he ? m.he : m.en}
-                        {active && <span className="ms-auto text-[11px]">✓</span>}
-                      </button>
-                    );
-                  })}
-                  {data.status && (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => pickStatus(null)}
-                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[12px] text-start transition-colors"
-                      style={{ color: 'var(--color-ink-warm-mut)' }}
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#c3b8a5' }} />
-                      {he ? 'ניקוי סטטוס' : 'Clear status'}
-                    </button>
-                  )}
-                </motion.div>
-              </>
-            )}
-          </AnimatePresence>
-        </div>
+        {/* Status chip → opens a centered floating menu (portaled to <body>, so
+            it's never clipped or covered by the next stop's card — the chip
+            sits inside a transformed/animated ancestor, which would otherwise
+            trap an absolutely- or fixed-positioned popover within its bounds). */}
+        <button
+          type="button"
+          onClick={() => setStatusOpen(true)}
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold transition-colors"
+          style={statusMeta
+            ? { background: statusMeta.bg, color: statusMeta.fg }
+            : { background: 'var(--color-paper-sunk)', color: 'var(--color-ink-warm-mut)' }}
+          aria-haspopup="dialog"
+          aria-expanded={statusOpen}
+        >
+          <span className="w-1.5 h-1.5 rounded-full" style={{ background: statusMeta?.dot ?? '#c3b8a5' }} />
+          {statusMeta ? (he ? statusMeta.he : statusMeta.en) : (he ? '+ סטטוס' : '+ Status')}
+        </button>
+        <StatusMenu
+          open={statusOpen}
+          onClose={() => setStatusOpen(false)}
+          current={data.status}
+          onPick={pickStatus}
+          he={he}
+        />
 
         {/* Paid → inline amount editor; folds into the Binder budget's actual total */}
         {data.status === 'paid' && (
@@ -324,4 +284,88 @@ function docEmoji(t: string | null): string {
     case 'reservation': return '📋';
     default: return '📄';
   }
+}
+
+/** Centered, floating status picker (portaled to <body>). A plain absolute
+ *  dropdown would be clipped/hidden by neighboring stop cards further down the
+ *  timeline — this instead escapes to the viewport root, always on top. */
+function StatusMenu({
+  open, onClose, current, onPick, he,
+}: {
+  open: boolean;
+  onClose: () => void;
+  current: TripItemStatus | null;
+  onPick: (next: TripItemStatus | null) => void;
+  he: boolean;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => { document.body.style.overflow = prev; window.removeEventListener('keydown', onKey); };
+  }, [open, onClose]);
+
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          className="fixed inset-0 z-[150] flex items-center justify-center p-6"
+          dir={he ? 'rtl' : 'ltr'}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <div className="fixed inset-0 bg-[#1a130c]/55 backdrop-blur-md" onClick={onClose} />
+          <motion.div
+            role="menu"
+            initial={{ opacity: 0, y: 12, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.96 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+            className="relative z-10 w-full max-w-[280px] p-2 rounded-2xl"
+            style={{ background: 'var(--color-paper)', boxShadow: '0 24px 60px -12px rgba(26,19,12,0.55)', border: '1px solid rgba(43,38,34,0.10)' }}
+          >
+            <div className="px-2 pt-1.5 pb-2 text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--color-ink-warm-mut)' }}>
+              {he ? 'סטטוס' : 'Status'}
+            </div>
+            {STATUS_ORDER.map((s) => {
+              const m = STATUS_META[s];
+              const active = current === s;
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => onPick(s)}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13px] font-semibold text-start transition-colors"
+                  style={{ background: active ? m.bg : 'transparent', color: active ? m.fg : 'var(--color-ink-warm)' }}
+                >
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: m.dot }} />
+                  {he ? m.he : m.en}
+                  {active && <span className="ms-auto text-[12px]">✓</span>}
+                </button>
+              );
+            })}
+            {current && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => onPick(null)}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13px] text-start transition-colors"
+                style={{ color: 'var(--color-ink-warm-mut)' }}
+              >
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: '#c3b8a5' }} />
+                {he ? 'ניקוי סטטוס' : 'Clear status'}
+              </button>
+            )}
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>,
+    document.body,
+  );
 }
