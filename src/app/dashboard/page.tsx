@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/auth-context';
 import { BrandWordmark } from '@/components/BrandWordmark';
+import { MarketingConsentPrompt } from '@/components/MarketingConsentPrompt';
 import { supabaseAuth } from '@/lib/supabase';
 import { resolveBackgroundImage } from '@/lib/stepBackgrounds';
 
@@ -156,7 +157,7 @@ function TripCard({ trip, index }: { trip: TripRow; index: number }) {
 
 export default function DashboardPage() {
   const router              = useRouter();
-  const { user, loading: authLoading, signOut } = useAuth();
+  const { user, session, loading: authLoading, signOut } = useAuth();
   const [trips,    setTrips]    = useState<TripRow[]>([]);
   const [fetching, setFetching] = useState(true);
   const [fetchError, setFetchError] = useState('');
@@ -284,6 +285,8 @@ export default function DashboardPage() {
 
       {/* ── Content ───────────────────────────────────────────────────────────── */}
       <div className="relative z-10 max-w-5xl mx-auto px-4 py-10">
+
+        <MarketingConsentPrompt accessToken={session?.access_token} />
 
         {/* Page title */}
         <div className="mb-10">
