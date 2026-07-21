@@ -21,9 +21,11 @@ export interface StopBinderData {
   attachments: TripDocumentFile[];
   noteText: string;
   status: TripItemStatus | null;
+  paidAmount: number | null;
+  paidCurrency: string;
 }
 
-const EMPTY: StopBinderData = { attachments: [], noteText: '', status: null };
+const EMPTY: StopBinderData = { attachments: [], noteText: '', status: null, paidAmount: null, paidCurrency: 'ILS' };
 
 /** Planned/actual totals for one currency, plus the count of lines behind them. */
 export interface BudgetCurrencyTotal {
@@ -41,7 +43,10 @@ export interface TripBinder {
   forItem: (itemId: string | null | undefined) => StopBinderData;
   uploadDocs: (itemId: string, files: File[], docType: TripDocType) => Promise<boolean>;
   deleteDoc: (name: string) => Promise<boolean>;
-  saveNote: (itemId: string, patch: { noteText?: string; status?: TripItemStatus | null }) => Promise<boolean>;
+  saveNote: (
+    itemId: string,
+    patch: { noteText?: string; status?: TripItemStatus | null; paidAmount?: number | null; paidCurrency?: string },
+  ) => Promise<boolean>;
   /** All trip-level attachments (itemId === null) — flights, insurance, etc. */
   tripDocs: TripDocumentFile[];
   /** Budget lines + planned/actual totals per currency (Stage 3). */
@@ -101,6 +106,8 @@ export function useTripBinder(
         attachments: files.filter((f) => f.itemId === itemId),
         noteText: note?.noteText ?? '',
         status: note?.status ?? null,
+        paidAmount: note?.paidAmount ?? null,
+        paidCurrency: note?.paidCurrency ?? 'ILS',
       };
     },
     [files, notes],
@@ -146,16 +153,22 @@ export function useTripBinder(
   );
 
   const saveNote = useCallback(
-    async (itemId: string, patch: { noteText?: string; status?: TripItemStatus | null }): Promise<boolean> => {
+    async (
+      itemId: string,
+      patch: { noteText?: string; status?: TripItemStatus | null; paidAmount?: number | null; paidCurrency?: string },
+    ): Promise<boolean> => {
       if (!enabled) return false;
       // Optimistic local update so typing/status feels instant.
       setNotes((prev) => {
         const idx = prev.findIndex((n) => n.itemId === itemId);
-        const base: TripItemNote = idx >= 0 ? prev[idx] : { itemId, noteText: '', status: null, updatedAt: '' };
+        const base: TripItemNote = idx >= 0 ? prev[idx]
+          : { itemId, noteText: '', status: null, paidAmount: null, paidCurrency: 'ILS', updatedAt: '' };
         const next: TripItemNote = {
           ...base,
           noteText: patch.noteText !== undefined ? patch.noteText : base.noteText,
           status: patch.status !== undefined ? patch.status : base.status,
+          paidAmount: patch.paidAmount !== undefined ? patch.paidAmount : base.paidAmount,
+          paidCurrency: patch.paidCurrency !== undefined ? patch.paidCurrency : base.paidCurrency,
           updatedAt: new Date().toISOString(),
         };
         if (idx >= 0) { const copy = prev.slice(); copy[idx] = next; return copy; }
@@ -217,18 +230,29 @@ export function useTripBinder(
 
   // Planned/actual sums grouped by currency (a mixed-currency trip stays honest
   // instead of adding ₪ to $). Currencies ordered by total planned, desc.
+  // Per-stop paid amounts (from notes marked 'paid') fold into ACTUAL so the
+  // ledger reflects money spent at stops without a separate budget line.
   const budgetTotals = useMemo<BudgetCurrencyTotal[]>(() => {
     const byCur = new Map<string, BudgetCurrencyTotal>();
+    const bump = (cur: string) => {
+      const c = cur || 'ILS';
+      const t = byCur.get(c) ?? { currency: c, planned: 0, actual: 0, lines: 0 };
+      byCur.set(c, t);
+      return t;
+    };
     for (const b of budgetItems) {
-      const cur = b.currency || 'ILS';
-      const t = byCur.get(cur) ?? { currency: cur, planned: 0, actual: 0, lines: 0 };
+      if (b.status === 'cancelled') continue; // dropped lines don't count
+      const t = bump(b.currency);
       t.planned += b.plannedCost ?? 0;
       t.actual += b.actualCost ?? 0;
       t.lines += 1;
-      byCur.set(cur, t);
+    }
+    for (const n of notes) {
+      if (n.status !== 'paid' || n.paidAmount == null) continue;
+      bump(n.paidCurrency).actual += n.paidAmount;
     }
     return [...byCur.values()].sort((a, b) => b.planned - a.planned);
-  }, [budgetItems]);
+  }, [budgetItems, notes]);
 
   return {
     ready, enabled,

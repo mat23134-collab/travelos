@@ -118,6 +118,8 @@ export function SidePanel(props: SidePanelProps) {
                   destination={props.destination}
                   base={props.base}
                   onSetBase={props.onSetBase}
+                  itineraryId={props.itineraryId}
+                  accessToken={props.accessToken}
                 />
               )}
               {module === 'documents' && (

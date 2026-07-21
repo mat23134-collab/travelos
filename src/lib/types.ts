@@ -211,8 +211,9 @@ export interface DiningSpot {
 
 // ── Trip Binder (per-stop attachments, notes, booking status) ────────────────
 
-/** Booking status for a stop — trip_item_notes.status. */
-export type TripItemStatus = 'planned' | 'booked' | 'paid' | 'confirmed';
+/** Booking status for a stop — trip_item_notes.status.
+ *  'cancelled' = the traveler dropped it ("לא יצא לפועל"). */
+export type TripItemStatus = 'planned' | 'booked' | 'paid' | 'confirmed' | 'cancelled';
 
 export const TRIP_DOC_TYPES = ['flight', 'hotel', 'ticket', 'passport', 'insurance', 'reservation', 'other'] as const;
 export type TripDocType = (typeof TRIP_DOC_TYPES)[number];
@@ -232,6 +233,10 @@ export interface TripItemNote {
   itemId: string | null;
   noteText: string;
   status: TripItemStatus | null;
+  /** How much was paid for this stop — recorded when status is 'paid'; folded
+   *  into the Binder budget's actual total. null when unpaid/unknown. */
+  paidAmount: number | null;
+  paidCurrency: string;
   updatedAt: string;
 }
 
@@ -240,8 +245,8 @@ export interface TripItemNote {
 export const TRIP_BUDGET_CATEGORIES = ['flights', 'accommodation', 'food', 'transport', 'activities', 'shopping', 'other'] as const;
 export type TripBudgetCategory = (typeof TRIP_BUDGET_CATEGORIES)[number];
 
-/** Budget line status — trip_budget_items.status (a subset of TripItemStatus). */
-export type TripBudgetStatus = 'planned' | 'booked' | 'paid';
+/** Budget line status — trip_budget_items.status. */
+export type TripBudgetStatus = 'planned' | 'booked' | 'paid' | 'cancelled';
 
 /** One budget line as returned by GET /api/trip-budget. */
 export interface TripBudgetItem {
@@ -564,6 +569,13 @@ export interface TripBaseLocation {
   stars?: number | null;
   /** Optional static-map or photo thumbnail URL. */
   thumbnailUrl?: string | null;
+  /** Total cost of the whole stay (whole-trip hotel price). null = not set. */
+  totalPrice?: number | null;
+  /** Currency for totalPrice — ISO code; defaults to ILS. */
+  currency?: string | null;
+  /** id of the trip_budget_items accommodation line this hotel maintains, so
+   *  price edits update (and base removal deletes) the same budget row. */
+  budgetItemId?: string | null;
 }
 
 export interface Itinerary {
@@ -575,6 +587,10 @@ export interface Itinerary {
   basecamp?: Basecamp;
   /** Traveler-set home base for the trip (hotel) — anchors every day's routing. */
   baseLocation?: TripBaseLocation | null;
+  /** True when the traveler explicitly removed the base — suppresses the
+   *  onboarding-hotel fallback so "Remove base" actually sticks (otherwise the
+   *  profile hotel silently reappears as the base). */
+  baseLocationCleared?: boolean;
   budgetSummary?: {
     dailyAverage?: string;
     totalEstimate?: string;
