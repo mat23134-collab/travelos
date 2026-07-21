@@ -1561,9 +1561,32 @@ export function ItineraryClient({
               ]}
             />
 
+            {/* Trip Binder — budget + organizer (owner only) */}
+            {tripBinder.enabled && (
+              <div className="mx-3 sm:mx-12 mt-6 mb-2">
+                <button
+                  type="button"
+                  onClick={() => setBinderOpen(true)}
+                  className="w-full flex items-center gap-3 rounded-2xl px-4 py-3.5 text-start transition-transform hover:-translate-y-0.5"
+                  style={{ background: 'var(--color-paper)', boxShadow: 'var(--shadow-card)' }}
+                >
+                  <span className="text-2xl">📔</span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-[15px] font-black" style={{ color: 'var(--color-ink-warm)' }}>
+                      {itin.ui.lang === 'he' ? 'קלסר הטיול' : 'Trip Binder'}
+                    </span>
+                    <span className="block text-[12px]" style={{ color: 'var(--color-ink-warm-mut)' }}>
+                      {itin.ui.lang === 'he' ? 'תקציב, מסמכים וסטטוס הזמנות — הכול במקום אחד' : 'Budget, documents & booking status — all in one place'}
+                    </span>
+                  </span>
+                  <span className="text-[18px]" style={{ color: 'var(--color-ink-warm-mut)' }}>{itin.ui.dir === 'rtl' ? '‹' : '›'}</span>
+                </button>
+              </div>
+            )}
+
             {/* Whole-trip city guide — why this city fits you, local secrets,
                 honest downsides, getting around. Works for every city. */}
-            <div className="mt-6">
+            <div className={tripBinder.enabled ? 'mt-2' : 'mt-6'}>
               <CityGuideSection
                 destination={itin.itinerary.destination ?? ''}
                 session={session}
@@ -1666,29 +1689,6 @@ export function ItineraryClient({
                     </li>
                   ))}
                 </ul>
-              </div>
-            )}
-
-            {/* Trip Binder — budget + organizer (owner only) */}
-            {tripBinder.enabled && (
-              <div className="mx-3 sm:mx-12 mb-6">
-                <button
-                  type="button"
-                  onClick={() => setBinderOpen(true)}
-                  className="w-full flex items-center gap-3 rounded-2xl px-4 py-3.5 text-start transition-transform hover:-translate-y-0.5"
-                  style={{ background: 'var(--color-paper)', boxShadow: 'var(--shadow-card)' }}
-                >
-                  <span className="text-2xl">📔</span>
-                  <span className="flex-1 min-w-0">
-                    <span className="block text-[15px] font-black" style={{ color: 'var(--color-ink-warm)' }}>
-                      {itin.ui.lang === 'he' ? 'קלסר הטיול' : 'Trip Binder'}
-                    </span>
-                    <span className="block text-[12px]" style={{ color: 'var(--color-ink-warm-mut)' }}>
-                      {itin.ui.lang === 'he' ? 'תקציב, מסמכים וסטטוס הזמנות — הכול במקום אחד' : 'Budget, documents & booking status — all in one place'}
-                    </span>
-                  </span>
-                  <span className="text-[18px]" style={{ color: 'var(--color-ink-warm-mut)' }}>{itin.ui.dir === 'rtl' ? '‹' : '›'}</span>
-                </button>
               </div>
             )}
 
