@@ -331,6 +331,8 @@ export function useItinerary({
     if (base && Number.isFinite(base.lat) && Number.isFinite(base.lng)) {
       return { lat: base.lat, lng: base.lng, label: base.address || base.name || 'Base Camp' };
     }
+    // Explicitly removed → no anchor (don't silently fall back to the profile hotel).
+    if (itinerary.baseLocationCleared) return null;
     if (profile?.hotelLat != null && profile?.hotelLng != null &&
         Number.isFinite(profile.hotelLat) && Number.isFinite(profile.hotelLng)) {
       return {
@@ -340,7 +342,7 @@ export function useItinerary({
       };
     }
     return null;
-  }, [itinerary.baseLocation, profile]);
+  }, [itinerary.baseLocation, itinerary.baseLocationCleared, profile]);
 
   const tripDatesLabel = useMemo(
     () => formatTripDateRange(profile?.startDate, profile?.endDate, ui.lang === 'he' ? 'he-IL' : 'en-US'),
@@ -558,7 +560,9 @@ export function useItinerary({
   // Set (or clear) the trip's home base. Persists on the itinerary body via the
   // normal save path; basecampMarker re-derives, re-anchoring every day's map.
   const setTripBase = useCallback((base: TripBaseLocation | null) => {
-    persistAndSet({ ...itinerary, baseLocation: base });
+    // Removing the base sets an explicit "cleared" flag so the onboarding-hotel
+    // fallback doesn't silently re-populate it; setting a base clears the flag.
+    persistAndSet({ ...itinerary, baseLocation: base, baseLocationCleared: base === null });
     showBanner(base ? `📍 “${base.name}” is now your trip base.` : 'Base removed.');
   }, [itinerary, persistAndSet, showBanner]);
 

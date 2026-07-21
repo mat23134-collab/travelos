@@ -569,6 +569,13 @@ export interface TripBaseLocation {
   stars?: number | null;
   /** Optional static-map or photo thumbnail URL. */
   thumbnailUrl?: string | null;
+  /** Total cost of the whole stay (whole-trip hotel price). null = not set. */
+  totalPrice?: number | null;
+  /** Currency for totalPrice — ISO code; defaults to ILS. */
+  currency?: string | null;
+  /** id of the trip_budget_items accommodation line this hotel maintains, so
+   *  price edits update (and base removal deletes) the same budget row. */
+  budgetItemId?: string | null;
 }
 
 export interface Itinerary {
@@ -580,6 +587,10 @@ export interface Itinerary {
   basecamp?: Basecamp;
   /** Traveler-set home base for the trip (hotel) — anchors every day's routing. */
   baseLocation?: TripBaseLocation | null;
+  /** True when the traveler explicitly removed the base — suppresses the
+   *  onboarding-hotel fallback so "Remove base" actually sticks (otherwise the
+   *  profile hotel silently reappears as the base). */
+  baseLocationCleared?: boolean;
   budgetSummary?: {
     dailyAverage?: string;
     totalEstimate?: string;

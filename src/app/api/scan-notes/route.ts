@@ -54,6 +54,8 @@ export interface ParsedConfirmation {
   time: string | null;        // HH:MM 24h
   confirmationNumber: string | null;
   vendor: string | null;      // airline / hotel chain / booking platform
+  totalPrice: number | null;  // total amount charged (whole stay / booking), if shown
+  currency: string | null;    // ISO code for totalPrice, e.g. "ILS", "JPY", "EUR"
 }
 
 function buildConfirmationPrompt(): string {
@@ -67,9 +69,11 @@ function buildConfirmationPrompt(): string {
     '  "date": the single most relevant date as "YYYY-MM-DD" (flight: departure date; hotel: check-in date; ticket/reservation: the visit date); null if not shown,',
     '  "time": start/departure/check-in time as 24h "HH:MM"; null if not shown,',
     '  "confirmationNumber": the booking/PNR/reservation code exactly as printed; null if none,',
-    '  "vendor": airline, hotel chain, or platform name; null if unknown',
+    '  "vendor": airline, hotel chain, or platform name; null if unknown,',
+    '  "totalPrice": the TOTAL amount charged for the whole booking as a plain number (no currency symbol, no thousands separators); null if not shown,',
+    '  "currency": the ISO 4217 code for totalPrice, e.g. "ILS" | "JPY" | "EUR" | "USD"; null if unknown',
     '}',
-    'Rules: infer the year from context; if only day+month appear, use the nearest sensible future year. Do NOT invent a confirmation number. Reply with ONLY the JSON object — no markdown, no commentary.',
+    'Rules: infer the year from context; if only day+month appear, use the nearest sensible future year. For totalPrice use the grand total (whole stay / entire booking), not a per-night rate. Do NOT invent a confirmation number or a price. Reply with ONLY the JSON object — no markdown, no commentary.',
   ].join('\n');
 }
 
@@ -99,6 +103,14 @@ function parseConfirmation(raw: string): ParsedConfirmation | null {
     const m = time.match(/^(\d{1,2}):(\d{2})/);
     time = m ? `${m[1].padStart(2, '0')}:${m[2]}` : null;
   }
+  const rawPrice = typeof o.totalPrice === 'number' ? o.totalPrice
+    : typeof o.totalPrice === 'string' ? Number(o.totalPrice.replace(/[^\d.]/g, ''))
+    : NaN;
+  const totalPrice = Number.isFinite(rawPrice) && rawPrice > 0 ? Math.round(rawPrice * 100) / 100 : null;
+  const currency = (() => {
+    const c = str(o.currency);
+    return c && /^[A-Za-z]{3}$/.test(c) ? c.toUpperCase() : null;
+  })();
   return {
     docType,
     title: str(o.title) ?? 'Booking confirmation',
@@ -107,6 +119,8 @@ function parseConfirmation(raw: string): ParsedConfirmation | null {
     time,
     confirmationNumber: str(o.confirmationNumber),
     vendor: str(o.vendor),
+    totalPrice,
+    currency,
   };
 }
 
