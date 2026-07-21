@@ -6,7 +6,6 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Itinerary, TravelerProfile, Basecamp, HotelRecommendation, type BookedHotelAround, type Activity, type CityTransportGuide } from '@/lib/types';
-import { DayCard } from '@/components/DayCard';
 import { DayPhoto } from '@/components/DayPhoto';
 import { SharePanel, type SharePanelCopy } from '@/components/SharePanel';
 import { LogisticsDashboard } from '@/components/LogisticsDashboard';

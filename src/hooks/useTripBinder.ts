@@ -249,7 +249,9 @@ export function useTripBinder(
     }
     for (const n of notes) {
       if (n.status !== 'paid' || n.paidAmount == null) continue;
-      bump(n.paidCurrency).actual += n.paidAmount;
+      const t = bump(n.paidCurrency);
+      t.actual += n.paidAmount;
+      t.lines += 1;
     }
     return [...byCur.values()].sort((a, b) => b.planned - a.planned);
   }, [budgetItems, notes]);
