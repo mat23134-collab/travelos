@@ -11,8 +11,11 @@
  * directly.
  */
 
-import { useCallback, useEffect, useState } from 'react';
-import type { TripDocumentFile, TripItemNote, TripItemStatus, TripDocType } from '@/lib/types';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type {
+  TripDocumentFile, TripItemNote, TripItemStatus, TripDocType,
+  TripBudgetItem, TripBudgetItemInput,
+} from '@/lib/types';
 
 export interface StopBinderData {
   attachments: TripDocumentFile[];
@@ -21,6 +24,14 @@ export interface StopBinderData {
 }
 
 const EMPTY: StopBinderData = { attachments: [], noteText: '', status: null };
+
+/** Planned/actual totals for one currency, plus the count of lines behind them. */
+export interface BudgetCurrencyTotal {
+  currency: string;
+  planned: number;
+  actual: number;
+  lines: number;
+}
 
 export interface TripBinder {
   ready: boolean;
@@ -31,6 +42,13 @@ export interface TripBinder {
   uploadDocs: (itemId: string, files: File[], docType: TripDocType) => Promise<boolean>;
   deleteDoc: (name: string) => Promise<boolean>;
   saveNote: (itemId: string, patch: { noteText?: string; status?: TripItemStatus | null }) => Promise<boolean>;
+  /** All trip-level attachments (itemId === null) — flights, insurance, etc. */
+  tripDocs: TripDocumentFile[];
+  /** Budget lines + planned/actual totals per currency (Stage 3). */
+  budgetItems: TripBudgetItem[];
+  budgetTotals: BudgetCurrencyTotal[];
+  saveBudgetItem: (input: TripBudgetItemInput) => Promise<boolean>;
+  deleteBudgetItem: (id: string) => Promise<boolean>;
   refresh: () => Promise<void>;
 }
 
@@ -42,6 +60,7 @@ export function useTripBinder(
   const [ready, setReady] = useState(false);
   const [files, setFiles] = useState<TripDocumentFile[]>([]);
   const [notes, setNotes] = useState<TripItemNote[]>([]);
+  const [budgetItems, setBudgetItems] = useState<TripBudgetItem[]>([]);
 
   const authHeaders = useCallback(
     (extra?: Record<string, string>): HeadersInit => ({
@@ -54,12 +73,14 @@ export function useTripBinder(
   const refresh = useCallback(async () => {
     if (!enabled) return;
     try {
-      const [docRes, noteRes] = await Promise.all([
+      const [docRes, noteRes, budgetRes] = await Promise.all([
         fetch(`/api/trip-documents?itineraryId=${itineraryId}`, { headers: authHeaders() }),
         fetch(`/api/trip-notes?itineraryId=${itineraryId}`, { headers: authHeaders() }),
+        fetch(`/api/trip-budget?itineraryId=${itineraryId}`, { headers: authHeaders() }),
       ]);
       if (docRes.ok) setFiles(((await docRes.json())?.files ?? []) as TripDocumentFile[]);
       if (noteRes.ok) setNotes(((await noteRes.json())?.notes ?? []) as TripItemNote[]);
+      if (budgetRes.ok) setBudgetItems(((await budgetRes.json())?.items ?? []) as TripBudgetItem[]);
     } catch {
       /* leave whatever we have; binder degrades to empty */
     } finally {
@@ -154,10 +175,66 @@ export function useTripBinder(
     [enabled, itineraryId, authHeaders],
   );
 
+  const saveBudgetItem = useCallback(
+    async (input: TripBudgetItemInput): Promise<boolean> => {
+      if (!enabled) return false;
+      try {
+        const res = await fetch('/api/trip-budget', {
+          method: 'PUT',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ itineraryId, ...input }),
+        });
+        if (!res.ok) return false;
+        await refresh();
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [enabled, itineraryId, authHeaders, refresh],
+  );
+
+  const deleteBudgetItem = useCallback(
+    async (id: string): Promise<boolean> => {
+      if (!enabled) return false;
+      // Optimistic drop so the row disappears immediately.
+      setBudgetItems((prev) => prev.filter((b) => b.id !== id));
+      try {
+        const res = await fetch('/api/trip-budget', {
+          method: 'DELETE',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ itineraryId, id }),
+        });
+        return res.ok;
+      } catch {
+        return false;
+      }
+    },
+    [enabled, itineraryId, authHeaders],
+  );
+
+  const tripDocs = useMemo(() => files.filter((f) => f.itemId === null), [files]);
+
+  // Planned/actual sums grouped by currency (a mixed-currency trip stays honest
+  // instead of adding ₪ to $). Currencies ordered by total planned, desc.
+  const budgetTotals = useMemo<BudgetCurrencyTotal[]>(() => {
+    const byCur = new Map<string, BudgetCurrencyTotal>();
+    for (const b of budgetItems) {
+      const cur = b.currency || 'ILS';
+      const t = byCur.get(cur) ?? { currency: cur, planned: 0, actual: 0, lines: 0 };
+      t.planned += b.plannedCost ?? 0;
+      t.actual += b.actualCost ?? 0;
+      t.lines += 1;
+      byCur.set(cur, t);
+    }
+    return [...byCur.values()].sort((a, b) => b.planned - a.planned);
+  }, [budgetItems]);
+
   return {
     ready, enabled,
     itineraryId: itineraryId ?? null,
     accessToken: accessToken ?? null,
     forItem, uploadDocs, deleteDoc, saveNote, refresh,
+    tripDocs, budgetItems, budgetTotals, saveBudgetItem, deleteBudgetItem,
   };
 }

@@ -235,6 +235,41 @@ export interface TripItemNote {
   updatedAt: string;
 }
 
+// ── Trip Binder — Stage 3: budget line items (planned vs. actual) ─────────────
+
+export const TRIP_BUDGET_CATEGORIES = ['flights', 'accommodation', 'food', 'transport', 'activities', 'shopping', 'other'] as const;
+export type TripBudgetCategory = (typeof TRIP_BUDGET_CATEGORIES)[number];
+
+/** Budget line status — trip_budget_items.status (a subset of TripItemStatus). */
+export type TripBudgetStatus = 'planned' | 'booked' | 'paid';
+
+/** One budget line as returned by GET /api/trip-budget. */
+export interface TripBudgetItem {
+  id: string;
+  itemId: string | null;              // optional anchor to a stop; usually null (trip-level)
+  label: string;
+  category: TripBudgetCategory;
+  plannedCost: number | null;
+  actualCost: number | null;
+  currency: string;                   // ISO code; defaults to 'ILS'
+  paidBy: string | null;
+  status: TripBudgetStatus;
+  updatedAt: string;
+}
+
+/** Editable fields when creating/updating a budget line (PUT /api/trip-budget). */
+export interface TripBudgetItemInput {
+  id?: string;                        // present = update; absent = create
+  itemId?: string | null;
+  label: string;
+  category?: TripBudgetCategory;
+  plannedCost?: number | null;
+  actualCost?: number | null;
+  currency?: string;
+  paidBy?: string | null;
+  status?: TripBudgetStatus;
+}
+
 /**
  * A reservable restaurant surfaced by the restaurant scout pipeline
  * (Exa → Gemini → Google Places → scoring) and stored in

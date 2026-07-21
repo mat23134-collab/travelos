@@ -39,6 +39,8 @@ import { TripStats } from '@/components/TripStats';
 import { deriveTripStats, deriveTripStatLists } from '@/lib/tripStats';
 import { budgetToUsd } from '@/lib/currency';
 import { DayDetailPanel } from '@/components/DayDetailPanel';
+import { TripBinderOverview } from '@/components/TripBinderOverview';
+import { useTripBinder } from '@/hooks/useTripBinder';
 import { CityGuideSection } from '@/components/CityGuideSection';
 import { SmartToolbar } from '@/components/SmartToolbar';
 import { SidePanel } from '@/components/side-panel/SidePanel';
@@ -1371,6 +1373,12 @@ export function ItineraryClient({
   // justClaimed flips true and this component re-renders in place).
   const openSidePanel = useSidePanel((s) => s.openPanel);
 
+  // Trip Binder overview (Stage 3): one shared binder for the overview screen's
+  // budget + organizer modal. DayDetailPanel mounts its own instance for the
+  // day view; they never render at the same time (selectedDay gates them).
+  const tripBinder = useTripBinder(itin.itinerary._id ?? null, session?.access_token ?? null);
+  const [binderOpen, setBinderOpen] = useState(false);
+
   // Draft mode — unchanged
   if (itin.viewMode === 'draft') {
     return (
@@ -1661,6 +1669,29 @@ export function ItineraryClient({
               </div>
             )}
 
+            {/* Trip Binder — budget + organizer (owner only) */}
+            {tripBinder.enabled && (
+              <div className="mx-3 sm:mx-12 mb-6">
+                <button
+                  type="button"
+                  onClick={() => setBinderOpen(true)}
+                  className="w-full flex items-center gap-3 rounded-2xl px-4 py-3.5 text-start transition-transform hover:-translate-y-0.5"
+                  style={{ background: 'var(--color-paper)', boxShadow: 'var(--shadow-card)' }}
+                >
+                  <span className="text-2xl">📔</span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-[15px] font-black" style={{ color: 'var(--color-ink-warm)' }}>
+                      {itin.ui.lang === 'he' ? 'קלסר הטיול' : 'Trip Binder'}
+                    </span>
+                    <span className="block text-[12px]" style={{ color: 'var(--color-ink-warm-mut)' }}>
+                      {itin.ui.lang === 'he' ? 'תקציב, מסמכים וסטטוס הזמנות — הכול במקום אחד' : 'Budget, documents & booking status — all in one place'}
+                    </span>
+                  </span>
+                  <span className="text-[18px]" style={{ color: 'var(--color-ink-warm-mut)' }}>{itin.ui.dir === 'rtl' ? '‹' : '›'}</span>
+                </button>
+              </div>
+            )}
+
             {/* Logistics */}
             <div className="mx-3 sm:mx-12 mb-6">
               {itin.profile && <LogisticsDashboard profile={itin.profile} />}
@@ -1694,6 +1725,19 @@ export function ItineraryClient({
         >
           <span>🗺</span> {itin.ui.mapFab}
         </motion.button>
+
+        {/* Trip Binder — budget + organizer overview (Stage 3) */}
+        <AnimatePresence>
+          {binderOpen && (
+            <TripBinderOverview
+              itinerary={itin.itinerary}
+              startDate={itin.profile?.startDate ?? null}
+              binder={tripBinder}
+              he={itin.ui.dir === 'rtl'}
+              onClose={() => setBinderOpen(false)}
+            />
+          )}
+        </AnimatePresence>
 
         {/* ── Existing modals — unchanged ─────────────────────────────────── */}
         {itin.mobileMapOpen && (
