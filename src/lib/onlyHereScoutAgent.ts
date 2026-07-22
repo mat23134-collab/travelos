@@ -5,9 +5,14 @@
  * only do here and didn't know you wanted." Not a logistics layer like Engines
  * A/B — this is the "how did it know?" wow layer.
  *
- * Same pipeline shape as attractionScoutAgent/walkInScoutAgent:
- *   1. Exa/Tavily web search  → snippets leaning on hidden-gem/local-secret
- *                               query vocabulary (src/lib/rag.ts's signal bank).
+ * Same pipeline shape as attractionScoutAgent/walkInScoutAgent, but web
+ * research uses searchWebDual (Tavily + Exa in PARALLEL, merged) rather than
+ * searchWeb's try-Tavily-then-fall-back-to-Exa — the same upgrade already made
+ * for restaurant discovery. Exa's semantic/blog/forum index is exactly where
+ * "local secret" tips live, and this engine's whole premise (non-obvious,
+ * locally-distinctive) leans on that more than any other engine here:
+ *   1. Exa + Tavily web search → snippets leaning on hidden-gem/local-secret
+ *                                query vocabulary (src/lib/rag.ts's signal bank).
  *   2. Gemini                 → structured candidates under TWO HARD FILTERS
  *                               (locally distinctive + non-obvious).
  *   3. Google Places          → verify each exists.
@@ -28,7 +33,7 @@
  */
 
 import { AttractionRecommendation, AttractionLocaleText, SITE_LANGUAGES, SiteLanguage } from '@/lib/types';
-import { searchWeb } from '@/lib/rag';
+import { searchWebDual } from '@/lib/rag';
 import { callGeminiJson, lookupPlaceOnGoogle, mapWithConcurrency, parseJsonArray, str } from '@/lib/scoutShared';
 
 const MAX_CANDIDATES = 10;
@@ -49,7 +54,7 @@ async function gatherOnlyHereSnippets(city: string): Promise<string> {
     `${city} underrated authentic experience not in guidebooks off the beaten path`,
   ];
 
-  const settled = await Promise.allSettled(queries.map((q) => searchWeb(q)));
+  const settled = await Promise.allSettled(queries.map((q) => searchWebDual(q)));
   const hits = settled.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
 
   const seen = new Set<string>();
