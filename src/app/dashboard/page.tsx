@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -60,7 +61,7 @@ function useTripPhoto(destination: string) {
 
 // ── Trip Card ─────────────────────────────────────────────────────────────────
 
-function TripCard({ trip, index }: { trip: TripRow; index: number }) {
+function TripCard({ trip, index, onDelete }: { trip: TripRow; index: number; onDelete: (trip: TripRow) => void }) {
   const shared = trip.shared === true;
   const { photoUrl } = useTripPhoto(trip.destination);
   const [imgLoaded, setImgLoaded] = useState(false);
@@ -138,18 +139,143 @@ function TripCard({ trip, index }: { trip: TripRow; index: number }) {
         <p className="text-[10px] text-[#9a8f7e] mt-auto">
           Saved {new Date(trip.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
         </p>
-        <Link
-          href={`/itinerary/${trip.id}`}
-          className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-xs font-bold text-[#8f4220] transition-all hover:brightness-105"
-          style={{
-            background: 'linear-gradient(135deg, rgba(184,85,46,0.18), rgba(240,201,138,0.28))',
-            border: '1px solid rgba(184,85,46,0.28)',
-          }}
-        >
-          View Trip →
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/itinerary/${trip.id}`}
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold text-[#8f4220] transition-all hover:brightness-105"
+            style={{
+              background: 'linear-gradient(135deg, rgba(184,85,46,0.18), rgba(240,201,138,0.28))',
+              border: '1px solid rgba(184,85,46,0.28)',
+            }}
+          >
+            View Trip →
+          </Link>
+          {/* Only the owner can remove a trip from their history — a shared/
+              collaborator card has no delete action. */}
+          {!shared && (
+            <button
+              type="button"
+              onClick={() => onDelete(trip)}
+              aria-label="Delete trip"
+              title="Delete trip"
+              className="shrink-0 w-9 h-9 rounded-xl flex items-center justify-center text-[13px] transition-colors hover:bg-[rgba(184,45,45,0.10)]"
+              style={{ border: '1px solid rgba(43,38,34,0.12)', color: '#9a8f7e' }}
+            >
+              🗑️
+            </button>
+          )}
+        </div>
       </div>
     </motion.div>
+  );
+}
+
+/** Centered confirm dialog for deleting a trip — portaled to <body> so it's
+ *  never clipped by a card's own bounds (same reasoning/pattern as
+ *  StopBinder's StatusMenu). Soft-delete only: the trip disappears from view,
+ *  the row and all its data stay intact in the database. */
+function ConfirmDeleteModal({
+  trip, busy, onCancel, onConfirm,
+}: {
+  trip: TripRow | null;
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  useEffect(() => {
+    if (!trip) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onCancel(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [trip, onCancel]);
+
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <AnimatePresence>
+      {trip && (
+        <motion.div
+          className="fixed inset-0 z-[200] flex items-center justify-center p-6"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <div className="fixed inset-0 bg-[#1a130c]/55 backdrop-blur-md" onClick={busy ? undefined : onCancel} />
+          <motion.div
+            role="alertdialog"
+            aria-modal="true"
+            initial={{ opacity: 0, y: 12, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.96 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+            className="relative z-10 w-full max-w-[340px] p-5 rounded-2xl"
+            style={{ background: '#fffdf7', boxShadow: '0 24px 60px -12px rgba(26,19,12,0.55)' }}
+          >
+            <div className="text-3xl mb-2">🗑️</div>
+            <h3 className="text-[15px] font-black text-[#2b2622] mb-1.5">Delete this trip?</h3>
+            <p className="text-[12.5px] text-[#6b6358] leading-relaxed mb-4">
+              “{trip.destination}” will disappear from your trip history. You can undo this for a few seconds right after.
+            </p>
+            <div className="flex items-center gap-2 justify-end">
+              <button
+                type="button"
+                onClick={onCancel}
+                disabled={busy}
+                className="text-[12.5px] font-semibold px-4 py-2 rounded-xl disabled:opacity-50"
+                style={{ color: '#6b6358' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={onConfirm}
+                disabled={busy}
+                className="text-[12.5px] font-bold px-4 py-2 rounded-xl text-white disabled:opacity-50"
+                style={{ background: '#b8552e' }}
+              >
+                {busy ? 'Deleting…' : 'Delete'}
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>,
+    document.body,
+  );
+}
+
+/** Brief "trip removed" toast with an Undo action — auto-dismisses. */
+function UndoToast({ trip, onUndo }: { trip: TripRow | null; onUndo: () => void }) {
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <AnimatePresence>
+      {trip && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 20 }}
+          transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+          className="fixed bottom-5 inset-x-0 z-[210] flex justify-center px-4"
+        >
+          <div
+            className="flex items-center gap-3 px-4 py-3 rounded-2xl"
+            style={{ background: '#1a130c', boxShadow: '0 12px 40px -8px rgba(0,0,0,0.5)' }}
+          >
+            <span className="text-[12.5px] text-white/90">“{trip.destination}” removed from your trips</span>
+            <button
+              type="button"
+              onClick={onUndo}
+              className="text-[12.5px] font-bold px-3 py-1.5 rounded-lg text-white shrink-0"
+              style={{ background: 'rgba(255,255,255,0.14)' }}
+            >
+              Undo
+            </button>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>,
+    document.body,
   );
 }
 
@@ -162,6 +288,12 @@ export default function DashboardPage() {
   const [fetching, setFetching] = useState(true);
   const [fetchError, setFetchError] = useState('');
   const [signingOut, setSigningOut] = useState(false);
+  const [confirmDeleteTrip, setConfirmDeleteTrip] = useState<TripRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [undoTrip, setUndoTrip] = useState<TripRow | null>(null);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => { if (undoTimerRef.current) clearTimeout(undoTimerRef.current); }, []);
 
   // Redirect if not logged in
   useEffect(() => {
@@ -177,6 +309,7 @@ export default function DashboardPage() {
         .from('itineraries')
         .select('id, destination, start_date, hotel_info, created_at')
         .eq('user_id', uid)
+        .is('archived_at', null)
         .order('created_at', { ascending: false });
 
       if (e1) {
@@ -201,7 +334,8 @@ export default function DashboardPage() {
         const { data: b, error: e3 } = await supabaseAuth
           .from('itineraries')
           .select('id, destination, start_date, hotel_info, created_at')
-          .in('id', sharedIds);
+          .in('id', sharedIds)
+          .is('archived_at', null);
         if (!e3 && b) {
           borrowed = (b as TripRow[]).map((t) => ({ ...t, shared: true }));
         }
@@ -228,6 +362,45 @@ export default function DashboardPage() {
     fetchTrips(user.id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  // Soft delete: sets archived_at, which the fetch query above filters out —
+  // the row and every Binder/note/budget table hanging off it stays intact in
+  // the database. RLS's owner-only policy on itineraries backs this up
+  // server-side regardless of what the client sends.
+  async function confirmDelete() {
+    if (!confirmDeleteTrip || !user) return;
+    const trip = confirmDeleteTrip;
+    setDeleting(true);
+    const { error } = await supabaseAuth
+      .from('itineraries')
+      .update({ archived_at: new Date().toISOString() })
+      .eq('id', trip.id)
+      .eq('user_id', user.id);
+    setDeleting(false);
+    setConfirmDeleteTrip(null);
+    if (error) {
+      console.error('[dashboard] archive trip failed:', error.message);
+      setFetchError('Could not delete this trip. Please try again.');
+      return;
+    }
+    setTrips((prev) => prev.filter((t) => t.id !== trip.id));
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    setUndoTrip(trip);
+    undoTimerRef.current = setTimeout(() => setUndoTrip(null), 7000);
+  }
+
+  async function undoDelete() {
+    if (!undoTrip) return;
+    const trip = undoTrip;
+    setUndoTrip(null);
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    const { error } = await supabaseAuth.from('itineraries').update({ archived_at: null }).eq('id', trip.id);
+    if (error) {
+      console.error('[dashboard] restore trip failed:', error.message);
+      return;
+    }
+    setTrips((prev) => [trip, ...prev].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+  }
 
   const handleSignOut = async () => {
     setSigningOut(true);
@@ -370,11 +543,19 @@ export default function DashboardPage() {
         {!fetching && !fetchError && trips.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {trips.map((trip, i) => (
-              <TripCard key={trip.id} trip={trip} index={i} />
+              <TripCard key={trip.id} trip={trip} index={i} onDelete={setConfirmDeleteTrip} />
             ))}
           </div>
         )}
       </div>
+
+      <ConfirmDeleteModal
+        trip={confirmDeleteTrip}
+        busy={deleting}
+        onCancel={() => setConfirmDeleteTrip(null)}
+        onConfirm={confirmDelete}
+      />
+      <UndoToast trip={undoTrip} onUndo={undoDelete} />
     </main>
   );
 }
