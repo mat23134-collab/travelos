@@ -28,6 +28,7 @@ import type { Landmark } from '@/app/api/landmarks/route';
 import { AttractionDetailModal } from '@/components/AttractionDetailModal';
 import { rankBookAhead, type TripDayGeo } from '@/lib/bookAheadRanker';
 import { normalizeNeighborhoodSlug, MAX_PRICE_LEVEL_BY_BUDGET } from '@/lib/restaurantBank';
+import { personalizeOnlyHere } from '@/lib/attractionBank';
 import { genreLabel } from '@/lib/restaurantGenre';
 import { availableConcepts, matchesConcept, resolveCountry } from '@/lib/restaurantConcepts';
 import { trackReservationCtaClick, trackBookAheadPanelShown } from '@/lib/bookAheadMetrics';
@@ -117,6 +118,15 @@ const COPY = {
     timeNeeded: 'זמן מוערך',
     freeEntry: 'כניסה חופשית',
     payAtDoor: 'תשלום בכניסה',
+    // Only-Here hidden gems (Engine C)
+    onlyHere: 'רק כאן',
+    onlyHereTitle: (city: string) => `רק ב${city}`,
+    onlyHereIntro: (city: string) =>
+      `חוויות שקשורות ספציפית ל${city} — דברים שלא הייתם חושבים לחפש, ושלא תוכלו לחוות בשום עיר אחרת.`,
+    scoutingOnlyHere: (city: string) => `מחפשים חוויות ייחודיות ב${city}…`,
+    onlyHereError: (city: string) => `לא הצלחנו לטעון חוויות ייחודיות ל${city} כרגע.`,
+    whyOnlyHere: 'למה דווקא כאן',
+    howToDoIt: 'איך עושים את זה',
     // Events
     events: 'פסטיבלים ואירועים',
     eventsIntro: (city: string) =>
@@ -204,6 +214,15 @@ const COPY = {
     timeNeeded: 'Time needed',
     freeEntry: 'Free entry',
     payAtDoor: 'Pay at door',
+    // Only-Here hidden gems (Engine C)
+    onlyHere: 'Only Here',
+    onlyHereTitle: (city: string) => `Only in ${city}`,
+    onlyHereIntro: (city: string) =>
+      `Experiences specific to ${city} — things you'd never have thought to search for, and can't have anywhere else.`,
+    scoutingOnlyHere: (city: string) => `Finding one-of-a-kind experiences in ${city}…`,
+    onlyHereError: (city: string) => `We couldn't load unique experiences for ${city} right now.`,
+    whyOnlyHere: 'Why only here',
+    howToDoIt: 'How to do it',
     // Events
     events: 'Festivals & events',
     eventsIntro: (city: string) =>
@@ -249,7 +268,7 @@ interface SmartToolbarProps {
   recalculateDayLoading: boolean;
 }
 
-type FeatureKey = 'explore' | 'restaurants' | 'attractions' | 'walkin' | 'events';
+type FeatureKey = 'explore' | 'restaurants' | 'attractions' | 'walkin' | 'onlyHere' | 'events';
 
 // Extensible: append new tools here as they ship.
 const FEATURES: Array<{ key: FeatureKey; emoji: string; labelKey: FeatureKey }> = [
@@ -257,6 +276,7 @@ const FEATURES: Array<{ key: FeatureKey; emoji: string; labelKey: FeatureKey }> 
   { key: 'restaurants', emoji: '🍽️', labelKey: 'restaurants' },
   { key: 'attractions', emoji: '🎟️', labelKey: 'attractions' },
   { key: 'walkin', emoji: '🚶', labelKey: 'walkin' },
+  { key: 'onlyHere', emoji: '💎', labelKey: 'onlyHere' },
   { key: 'events', emoji: '🎪', labelKey: 'events' },
 ];
 
@@ -311,6 +331,7 @@ export function SmartToolbar(props: SmartToolbarProps) {
             {active === 'restaurants' && <RestaurantsPanel {...props} />}
             {active === 'attractions' && <AttractionsPanel {...props} />}
             {active === 'walkin' && <WalkInPanel {...props} />}
+            {active === 'onlyHere' && <OnlyHerePanel {...props} />}
             {active === 'events' && <EventsPanel {...props} />}
           </FeatureModal>
         )}
@@ -1806,6 +1827,215 @@ function walkInToActivity(p: AttractionRecommendation, lockedTime: string): Acti
     category_emoji: '🚶',
     tags: ['attraction', 'walk-in'],
     duration: p.timeNeeded ?? undefined,
+  };
+}
+
+// ─── Only-Here hidden gems feature (Engine C) ─────────────────────────────────
+
+function OnlyHerePanel({ destination, days, lang, groupType, accessToken, onLockReservation, recalculateDayLoading }: SmartToolbarProps) {
+  const t = COPY[lang];
+  const [status, setStatus] = useState<'idle' | 'loading' | 'scouting' | 'ready' | 'error'>('idle');
+  const [gems, setGems] = useState<AttractionRecommendation[]>([]);
+  const [picked, setPicked] = useState<AttractionRecommendation | null>(null);
+
+  const load = useCallback(async () => {
+    const city = destination.trim();
+    if (!city) return;
+
+    setStatus('loading');
+    try {
+      const res = await fetch(`/api/attractions?city=${encodeURIComponent(city)}&lang=${lang}&engine=only_here`);
+      const data = (await res.json()) as { attractions?: AttractionRecommendation[]; stale?: boolean };
+      if (data.attractions && data.attractions.length > 0) {
+        setGems(data.attractions);
+        setStatus('ready');
+        if (data.stale) backgroundRevalidate('/api/attractions/scout', { city, lang, engine: 'only_here' }, accessToken);
+        return;
+      }
+      if (!accessToken) { setStatus('error'); return; }
+
+      setStatus('scouting');
+      const scoutRes = await fetch('/api/attractions/scout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ city, lang, engine: 'only_here' }),
+      });
+      const scoutData = (await scoutRes.json()) as { attractions?: AttractionRecommendation[] };
+      if (scoutData.attractions && scoutData.attractions.length > 0) {
+        setGems(scoutData.attractions);
+        setStatus('ready');
+      } else {
+        setStatus('error');
+      }
+    } catch {
+      setStatus('error');
+    }
+  }, [destination, accessToken, lang]);
+
+  useEffect(() => { if (status === 'idle') void load(); }, [status, load]);
+
+  // Deprioritize (not remove) picks that clash with the trip's group — a
+  // hidden gem that clashes with a family trip shouldn't top the list (§C.2).
+  const personalized = useMemo(() => personalizeOnlyHere(gems, groupType), [gems, groupType]);
+
+  if (status === 'loading' || status === 'scouting') {
+    return (
+      <div className="flex items-center gap-3 py-10 justify-center">
+        <Spinner />
+        <span className="text-[13px]" style={{ color: INK_MUT }}>
+          {status === 'scouting' ? t.scoutingOnlyHere(destination) : t.loading}
+        </span>
+      </div>
+    );
+  }
+
+  if (status === 'error' || gems.length === 0) {
+    return (
+      <div className="py-8 text-center">
+        <p className="text-[13px] mb-3" style={{ color: INK_MUT }}>
+          {accessToken ? t.onlyHereError(destination) : t.signIn}
+        </p>
+        <button
+          onClick={() => setStatus('idle')}
+          className="px-4 py-2 rounded-xl text-[13px] font-semibold"
+          style={{ background: CARD_BG, border: BORDER, color: INK }}
+        >
+          {t.retry}
+        </button>
+      </div>
+    );
+  }
+
+  if (picked) {
+    return (
+      <ConfirmReservation
+        item={picked}
+        days={days}
+        lang={lang}
+        loading={recalculateDayLoading}
+        defaultTime="11:00"
+        onCancel={() => setPicked(null)}
+        onConfirm={async (dayIndex, lockedTime) => {
+          await onLockReservation(dayIndex, onlyHereToActivity(picked, lockedTime));
+          setPicked(null);
+        }}
+      />
+    );
+  }
+
+  return (
+    <div>
+      <p className="text-[15px] font-bold mb-1 mx-1" style={{ color: INK }}>
+        💎 {t.onlyHereTitle(destination)}
+      </p>
+      <p className="text-[13.5px] leading-[1.65] font-medium mb-4 mx-1 max-w-[62ch]" style={{ color: INK_MUT }}>
+        {t.onlyHereIntro(destination)}
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+        {personalized.map((g, i) => (
+          <OnlyHereCard key={g.id ?? `${g.name}-${i}`} g={g} lang={lang} onAdd={() => setPicked(g)} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function OnlyHereCard({ g, lang, onAdd }: { g: AttractionRecommendation; lang: Lang; onAdd: () => void }) {
+  const t = COPY[lang];
+  return (
+    <div
+      className="rounded-2xl overflow-hidden flex flex-col"
+      style={{ background: CARD_BG, border: '1px solid rgba(184,85,46,0.22)', boxShadow: '0 8px 26px -12px rgba(184,85,46,0.35)' }}
+    >
+      {/* Photo */}
+      <div className="relative h-36 w-full" style={{ background: PAPER_SUNK }}>
+        {g.photoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={g.photoUrl} alt={g.name} className="h-full w-full object-cover" loading="lazy" />
+        ) : (
+          <div className="h-full w-full flex items-center justify-center text-3xl" style={{ opacity: 0.5 }}>💎</div>
+        )}
+        {typeof g.rating === 'number' && (
+          <div
+            className="absolute top-2.5 left-2.5 flex items-center gap-1 px-2 py-1 rounded-lg text-[11.5px] font-semibold"
+            style={{ background: 'rgba(255,255,255,0.92)', color: INK }}
+          >
+            <span style={{ color: STAR_ON }}>★</span>
+            {g.rating.toFixed(1)}
+          </div>
+        )}
+        {/* hookLine — the "wait, I can do THAT here?" line, always visible */}
+        {g.hookLine && (
+          <div
+            className="absolute bottom-2.5 left-2.5 right-2.5 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-bold"
+            style={{ background: 'linear-gradient(90deg, rgba(184,85,46,0.96), rgba(143,66,32,0.96))', color: '#fff' }}
+          >
+            <span>💎</span>
+            <span className="truncate">{g.hookLine}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Body */}
+      <div className="p-3.5 flex flex-col gap-2 flex-1">
+        <div>
+          <p className="text-[15px] font-bold leading-tight" style={{ color: INK }}>{g.name}</p>
+          {g.neighborhood && (
+            <span className="text-[11.5px] mt-1.5 block" style={{ color: INK_FAINT }}>📍 {g.neighborhood}</span>
+          )}
+        </div>
+
+        {g.description && (
+          <p className="text-[12.5px] leading-relaxed" style={{ color: INK_MUT }}>{g.description}</p>
+        )}
+
+        {g.whyOnlyHere && (
+          <p className="text-[12px]" style={{ color: INK }}>
+            <span style={{ color: ACCENT_DEEP, fontWeight: 700 }}>✨ {t.whyOnlyHere}: </span>
+            {g.whyOnlyHere}
+          </p>
+        )}
+
+        {g.howToDoIt && (
+          <div
+            className="flex items-start gap-1.5 px-2.5 py-1.5 rounded-lg text-[11.5px] leading-snug"
+            style={{ background: TERRA_SOFT, color: ACCENT_DEEP }}
+          >
+            <span>📌</span>
+            <span>{g.howToDoIt}</span>
+          </div>
+        )}
+
+        <div className="flex items-center gap-2 mt-auto pt-1">
+          <button
+            onClick={onAdd}
+            className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold"
+            style={{ background: ACCENT, color: '#fff' }}
+          >
+            {t.add}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function onlyHereToActivity(g: AttractionRecommendation, lockedTime: string): Activity {
+  return {
+    name: g.name,
+    description: g.description ?? `A local experience unique to this city: ${g.name}`,
+    neighborhood: g.neighborhood ?? undefined,
+    isFixed: true,
+    lockedTime,
+    startTime: lockedTime,
+    website_url: g.websiteUrl ?? undefined,
+    google_place_id: g.googlePlaceId ?? undefined,
+    inventory_source_table: 'places',
+    estimatedCost: g.priceRange ?? undefined,
+    latitude: g.latitude ?? undefined,
+    longitude: g.longitude ?? undefined,
+    category_emoji: '💎',
+    tags: ['attraction', 'only-here'],
   };
 }
 

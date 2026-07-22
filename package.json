@@ -11,6 +11,7 @@
     "prewarm": "npx tsx scripts/prewarm-banks.ts",
     "backfill-pricing": "npx tsx scripts/backfill-restaurant-pricing.ts",
     "restaurant-budget-scout": "npx tsx scripts/restaurant-budget-scout.ts",
+    "only-here-eval": "npx tsx scripts/only-here-eval.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

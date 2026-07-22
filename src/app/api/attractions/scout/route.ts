@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabaseService';
 import { runAttractionScoutAgent } from '@/lib/attractionScoutAgent';
 import { runWalkInScoutAgent } from '@/lib/walkInScoutAgent';
+import { runOnlyHereScoutAgent } from '@/lib/onlyHereScoutAgent';
 import { upsertAttractions, fetchAttractionsForCity, findEngineOverlap } from '@/lib/attractionBank';
 import { verifySession, unauthorizedResponse } from '@/lib/apiGuard';
 import { AttractionEngine, SITE_LANGUAGES, SiteLanguage } from '@/lib/types';
@@ -9,7 +10,7 @@ import { AttractionEngine, SITE_LANGUAGES, SiteLanguage } from '@/lib/types';
 /** Per-city-per-engine cooldown to limit abuse of Gemini + Exa + Places (in-memory). */
 const lastScoutAt = new Map<string, number>();
 const COOLDOWN_MS = 60_000;
-const ENGINES = new Set<AttractionEngine>(['book_ahead', 'walk_in']);
+const ENGINES = new Set<AttractionEngine>(['book_ahead', 'walk_in', 'only_here']);
 
 /**
  * POST /api/attractions/scout — body: { city, lang?, engine? }
@@ -47,15 +48,23 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    let recs = engine === 'walk_in' ? await runWalkInScoutAgent(city) : await runAttractionScoutAgent(city);
+    let recs = engine === 'walk_in' ? await runWalkInScoutAgent(city)
+      : engine === 'only_here' ? await runOnlyHereScoutAgent(city)
+      : await runAttractionScoutAgent(city);
 
-    // Zero-overlap guarantee (Engine B only): drop any walk-in candidate that
-    // matches something already in this city's book-ahead bank — a place that
-    // needs booking has no business appearing in the "just show up" list.
-    if (engine === 'walk_in' && recs.length > 0) {
-      const bookAhead = await fetchAttractionsForCity(db, city, { engine: 'book_ahead', limit: 50 });
-      if (bookAhead.length > 0) {
-        const overlap = findEngineOverlap(bookAhead, recs);
+    // Zero-overlap guarantee (Engine B/C): drop any candidate that matches
+    // something already in the OTHER engines' banks for this city — a place
+    // that needs booking, or a top-10 obvious landmark, has no business
+    // leaking into the walk-in or only-here lists.
+    if (engine !== 'book_ahead' && recs.length > 0) {
+      const others = await Promise.all(
+        (['book_ahead', 'walk_in', 'only_here'] as AttractionEngine[])
+          .filter((e) => e !== engine)
+          .map((e) => fetchAttractionsForCity(db, city, { engine: e, limit: 50 })),
+      );
+      for (const other of others) {
+        if (other.length === 0) continue;
+        const overlap = findEngineOverlap(other, recs);
         if (overlap.length > 0) {
           const overlapNames = new Set(overlap.map((r) => r.name));
           recs = recs.filter((r) => !overlapNames.has(r.name));

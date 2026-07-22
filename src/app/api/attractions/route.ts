@@ -4,7 +4,7 @@ import { fetchAttractionsForCity, cityLastUpdated } from '@/lib/attractionBank';
 import { isStale, REC_TTL_DAYS } from '@/lib/recStaleness';
 import { AttractionEngine, SITE_LANGUAGES, SiteLanguage } from '@/lib/types';
 
-const ENGINES = new Set<AttractionEngine>(['book_ahead', 'walk_in']);
+const ENGINES = new Set<AttractionEngine>(['book_ahead', 'walk_in', 'only_here']);
 
 /**
  * GET /api/attractions?city=Rome&lang=he&engine=walk_in

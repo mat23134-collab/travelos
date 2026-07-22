@@ -408,10 +408,18 @@ export interface AttractionLocaleText {
   bookingLeadTime?: string | null;
   /** Engine B (walk-in) only: when to go, e.g. "Before 10am to beat the crowds". */
   bestTimeOfDay?: string | null;
+  /** Engine C (only-here) only: the specific local tie — why this couldn't be
+   *  replicated in a generic big city. The core of the anti-generic guardrail. */
+  whyOnlyHere?: string | null;
+  /** Engine C only: the "why you didn't know you wanted this" UI hook — one
+   *  punchy line that sells the surprise. */
+  hookLine?: string | null;
+  /** Engine C only: practical instructions — where/when/how to actually do it. */
+  howToDoIt?: string | null;
 }
 
 /** Which curation engine produced a row in attraction_recommendations. */
-export type AttractionEngine = 'book_ahead' | 'walk_in';
+export type AttractionEngine = 'book_ahead' | 'walk_in' | 'only_here';
 
 /**
  * An attraction surfaced by one of the three curation engines and stored in
@@ -422,6 +430,8 @@ export type AttractionEngine = 'book_ahead' | 'walk_in';
  *     capped-capacity museum, special-access tour.
  *   - walk_in (Engine B): genuinely worthwhile, no reservation needed —
  *     viewpoints, markets, parks, plazas, walkable landmarks.
+ *   - only_here (Engine C): locally-distinctive + non-obvious delight —
+ *     "things you can only do here and didn't know you wanted."
  */
 export interface AttractionRecommendation {
   id?: string;
@@ -435,12 +445,18 @@ export interface AttractionRecommendation {
   insiderTip?: string | null;    // resolved
   bookingLeadTime?: string | null; // resolved — see AttractionLocaleText
   bestTimeOfDay?: string | null;   // resolved — Engine B only
+  whyOnlyHere?: string | null;     // resolved — Engine C only
+  hookLine?: string | null;        // resolved — Engine C only
+  howToDoIt?: string | null;       // resolved — Engine C only
   /** 0–3, same scale as RestaurantRecommendation.bookAheadLevel. Engine A only. */
   bookAheadLevel?: number | null;
   /** Engine B only: rough time needed, e.g. "30–45 min". Not localized. */
   timeNeeded?: string | null;
   /** Engine B only: true = free entry, false = pay-at-door, null = unknown. */
   isFree?: boolean | null;
+  /** Engine C only: who this fits best (solo/couple/family/group) — feeds the
+   *  personalization filter. Empty/absent = suits everyone equally. */
+  groupSuitability?: string[] | null;
   translations?: Partial<Record<SiteLanguage, AttractionLocaleText>> | null;
   priceRange?: string | null;
   neighborhood?: string | null;
