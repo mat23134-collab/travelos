@@ -30,7 +30,7 @@ import { rankBookAhead, type TripDayGeo } from '@/lib/bookAheadRanker';
 import { normalizeNeighborhoodSlug, MAX_PRICE_LEVEL_BY_BUDGET } from '@/lib/restaurantBank';
 import { personalizeOnlyHere } from '@/lib/attractionBank';
 import { genreLabel } from '@/lib/restaurantGenre';
-import { availableConcepts, matchesConcept, resolveCountry } from '@/lib/restaurantConcepts';
+import { availableConcepts, primaryConcept, resolveCountry, RestaurantConcept } from '@/lib/restaurantConcepts';
 import { trackReservationCtaClick, trackBookAheadPanelShown } from '@/lib/bookAheadMetrics';
 
 // ─── Design tokens (light "paper" overview theme) ─────────────────────────────
@@ -63,6 +63,7 @@ const COPY = {
     tierOneUp: 'רמה מעל',
     tierLuxury: 'כולל יוקרה',
     conceptAll: 'הכול',
+    moreConcepts: (n: number) => `עוד ${n}`,
     seeAll: 'כל המסעדות',
     allTitle: (city: string) => `כל המסעדות ב${city}`,
     allSubtitle: 'מסודר לפי רמת מחיר — מהמשתלם ועד הפרימיום',
@@ -89,6 +90,8 @@ const COPY = {
     mustOrder: 'מנת הדגל',
     bookAhead: 'להזמין',
     social: 'צפו בטיקטוק',
+    viewOnMaps: 'צפו במפה',
+    viewMenu: 'תפריט / אתר',
     add: 'הוספה למסלול',
     book: 'הזמנת מקום',
     lockTitle: (n: string) => `שיבוץ ״${n}״ במסלול`,
@@ -159,6 +162,7 @@ const COPY = {
     tierOneUp: 'One level up',
     tierLuxury: 'Incl. luxury',
     conceptAll: 'All',
+    moreConcepts: (n: number) => `+${n} more`,
     seeAll: 'All restaurants',
     allTitle: (city: string) => `All restaurants in ${city}`,
     allSubtitle: 'Organized by price level — from great value to premium',
@@ -185,6 +189,8 @@ const COPY = {
     mustOrder: 'Must order',
     bookAhead: 'Book',
     social: 'See on TikTok',
+    viewOnMaps: 'View on map',
+    viewMenu: 'Menu / website',
     add: 'Add to itinerary',
     book: 'Reserve',
     lockTitle: (n: string) => `Lock “${n}” into your trip`,
@@ -688,8 +694,8 @@ function RestaurantsPanel({ destination, days, lang, budget, groupType, interest
   // selector's ceiling — client-side, so switching tiers is instant. Rows with
   // an unknown price level are kept (never hidden by a filter we can't confirm).
   const conceptPool = useMemo(
-    () => (activeConcept ? restaurants.filter((r) => matchesConcept(r, activeConcept)) : restaurants),
-    [restaurants, activeConcept],
+    () => (activeConcept ? restaurants.filter((r) => primaryConcept(r, country)?.key === activeConcept) : restaurants),
+    [restaurants, activeConcept, country],
   );
   const visiblePool = useMemo(
     () => conceptPool.filter((r) => r.priceLevel == null || r.priceLevel <= viewLevel),
@@ -818,38 +824,7 @@ function RestaurantsPanel({ destination, days, lang, budget, groupType, interest
       {/* Filter row: cuisine-concept chips (only those present in this city's
           results) + a prominent "all restaurants" entry point. */}
       <div className="flex items-center gap-1.5 flex-wrap mb-3.5 mx-1">
-        {concepts.length > 1 && (
-          <>
-            <button
-              onClick={() => setActiveConcept(null)}
-              className="px-2.5 py-1 rounded-full text-[11.5px] font-bold transition-colors"
-              style={{
-                background: activeConcept === null ? ACCENT : CARD_BG,
-                border: activeConcept === null ? BORDER_ACC : BORDER,
-                color: activeConcept === null ? '#fff' : INK,
-              }}
-            >
-              {t.conceptAll}
-            </button>
-            {concepts.map((c) => {
-              const on = activeConcept === c.key;
-              return (
-                <button
-                  key={c.key}
-                  onClick={() => setActiveConcept(on ? null : c.key)}
-                  className="px-2.5 py-1 rounded-full text-[11.5px] font-bold transition-colors"
-                  style={{
-                    background: on ? ACCENT : CARD_BG,
-                    border: on ? BORDER_ACC : BORDER,
-                    color: on ? '#fff' : INK,
-                  }}
-                >
-                  {c.label[lang]}
-                </button>
-              );
-            })}
-          </>
-        )}
+        <ConceptChipRow concepts={concepts} active={activeConcept} onSelect={setActiveConcept} lang={lang} />
         <button
           onClick={() => setShowAll(true)}
           className="ms-auto flex items-center gap-1.5 px-3 py-1 rounded-full text-[11.5px] font-bold transition-colors"
@@ -900,8 +875,8 @@ function AllRestaurantsModal({
   const country = useMemo(() => resolveCountry(restaurants, city), [restaurants, city]);
   const concepts = useMemo(() => availableConcepts(restaurants, { country, min: 1 }), [restaurants, country]);
   const filtered = useMemo(
-    () => (concept ? restaurants.filter((r) => matchesConcept(r, concept)) : restaurants),
-    [restaurants, concept],
+    () => (concept ? restaurants.filter((r) => primaryConcept(r, country)?.key === concept) : restaurants),
+    [restaurants, concept, country],
   );
 
   // Group by price tier (4 → 1, premium first). Unknown-price rows go last.
@@ -968,26 +943,7 @@ function AllRestaurantsModal({
           </div>
           {concepts.length > 1 && (
             <div className="flex items-center gap-1.5 flex-wrap mt-3">
-              <button
-                onClick={() => setConcept(null)}
-                className="px-2.5 py-1 rounded-full text-[11.5px] font-bold transition-colors"
-                style={{ background: concept === null ? ACCENT : CARD_BG, border: concept === null ? BORDER_ACC : BORDER, color: concept === null ? '#fff' : INK }}
-              >
-                {t.conceptAll}
-              </button>
-              {concepts.map((c) => {
-                const on = concept === c.key;
-                return (
-                  <button
-                    key={c.key}
-                    onClick={() => setConcept(on ? null : c.key)}
-                    className="px-2.5 py-1 rounded-full text-[11.5px] font-bold transition-colors"
-                    style={{ background: on ? ACCENT : CARD_BG, border: on ? BORDER_ACC : BORDER, color: on ? '#fff' : INK }}
-                  >
-                    {c.label[lang]}
-                  </button>
-                );
-              })}
+              <ConceptChipRow concepts={concepts} active={concept} onSelect={setConcept} lang={lang} />
             </div>
           )}
         </div>
@@ -1039,6 +995,69 @@ function DietaryBadge({ label, tone }: { label: string; tone: 'kosher' | 'kosher
 /** Localized name for a 1–4 price tier. */
 function tierName(level: number, t: (typeof COPY)[Lang]): string {
   return [t.tierName1, t.tierName2, t.tierName3, t.tierName4][Math.min(3, Math.max(0, level - 1))];
+}
+
+/**
+ * ConceptChipRow — cuisine-concept filter chips, capped to `maxVisible` so a
+ * city with a large concept catalog (e.g. Tokyo's 6 JP-specific + several
+ * universal concepts) doesn't dump 10+ chips on screen at once; the rest sit
+ * behind a "+N more" toggle.
+ */
+function ConceptChipRow({
+  concepts, active, onSelect, lang, maxVisible = 6,
+}: {
+  concepts: RestaurantConcept[];
+  active: string | null;
+  onSelect: (key: string | null) => void;
+  lang: Lang;
+  maxVisible?: number;
+}) {
+  const t = COPY[lang];
+  const [expanded, setExpanded] = useState(false);
+  if (concepts.length <= 1) return null;
+  const visible = expanded ? concepts : concepts.slice(0, maxVisible);
+  const hiddenCount = concepts.length - visible.length;
+  return (
+    <>
+      <button
+        onClick={() => onSelect(null)}
+        className="px-2.5 py-1 rounded-full text-[11.5px] font-bold transition-colors"
+        style={{
+          background: active === null ? ACCENT : CARD_BG,
+          border: active === null ? BORDER_ACC : BORDER,
+          color: active === null ? '#fff' : INK,
+        }}
+      >
+        {t.conceptAll}
+      </button>
+      {visible.map((c) => {
+        const on = active === c.key;
+        return (
+          <button
+            key={c.key}
+            onClick={() => onSelect(on ? null : c.key)}
+            className="px-2.5 py-1 rounded-full text-[11.5px] font-bold transition-colors"
+            style={{
+              background: on ? ACCENT : CARD_BG,
+              border: on ? BORDER_ACC : BORDER,
+              color: on ? '#fff' : INK,
+            }}
+          >
+            {c.label[lang]}
+          </button>
+        );
+      })}
+      {hiddenCount > 0 && (
+        <button
+          onClick={() => setExpanded(true)}
+          className="px-2.5 py-1 rounded-full text-[11.5px] font-bold transition-colors"
+          style={{ background: 'transparent', border: BORDER, color: INK_FAINT }}
+        >
+          {t.moreConcepts(hiddenCount)}
+        </button>
+      )}
+    </>
+  );
 }
 
 /**
@@ -1117,6 +1136,18 @@ function PriceRange({ value, className, style }: { value: string; className?: st
   return <span dir="ltr" className={className} style={style}>{value}</span>;
 }
 
+/** A Google Maps deep link for a place — by place_id when we have it (most
+ *  accurate), else by raw coordinates. No API key needed for this URL form. */
+function googleMapsUrl(r: { googlePlaceId?: string | null; name: string; latitude?: number | null; longitude?: number | null }): string | null {
+  if (r.googlePlaceId) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(r.name)}&query_place_id=${encodeURIComponent(r.googlePlaceId)}`;
+  }
+  if (typeof r.latitude === 'number' && typeof r.longitude === 'number') {
+    return `https://www.google.com/maps/search/?api=1&query=${r.latitude},${r.longitude}`;
+  }
+  return null;
+}
+
 /** Short localized date for the "book by" chip, e.g. "Aug 27" / "27 באוג׳". */
 function formatBookByDate(iso: string, lang: Lang): string {
   const d = new Date(`${iso.slice(0, 10)}T12:00:00`);
@@ -1150,14 +1181,16 @@ function RestaurantCard({ r, lang, onAdd }: { r: RestaurantRecommendation; lang:
             {r.ratingCount ? <span style={{ color: INK_FAINT }}>· {r.ratingCount.toLocaleString()}</span> : null}
           </div>
         )}
-        {/* Price badge — level pips + LTR range so currency never flips in RTL */}
+        {/* Price badge — the literal price range when we have it (what a
+            traveler actually reads as "expensive"), pips only as a fallback
+            when we don't — showing both at once let a ¥1,000–2,000 ramen
+            counter carry the same dots as a splurge tasting menu. */}
         {(r.priceRange || r.priceLevel) && (
           <div
             className="absolute top-2.5 right-2.5 flex items-center gap-1.5 px-2 py-1 rounded-lg text-[12px] font-bold"
             style={{ background: 'rgba(255,255,255,0.92)', color: ACCENT_DEEP }}
           >
-            {r.priceLevel ? <PriceTierPips level={r.priceLevel} active={false} /> : null}
-            {r.priceRange && <PriceRange value={r.priceRange} />}
+            {r.priceRange ? <PriceRange value={r.priceRange} /> : <PriceTierPips level={r.priceLevel!} active={false} />}
           </div>
         )}
         {/* Highlight badge — what makes this an experience */}
@@ -1203,23 +1236,18 @@ function RestaurantCard({ r, lang, onAdd }: { r: RestaurantRecommendation; lang:
           </div>
         )}
 
-        {/* Why this pick fits the trip — reasons emitted by the ranker (§11). */}
+        {/* Why this pick fits the trip — top reason only (was up to 3). */}
         {r.fitReasons && r.fitReasons.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {r.fitReasons.slice(0, 3).map((reason) => (
-              <span
-                key={reason}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-semibold"
-                style={{ background: PAPER_SUNK, color: INK_MUT }}
-              >
-                ✓ {reason}
-              </span>
-            ))}
-          </div>
+          <span
+            className="self-start inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-semibold"
+            style={{ background: PAPER_SUNK, color: INK_MUT }}
+          >
+            ✓ {r.fitReasons[0]}
+          </span>
         )}
 
         {r.description && (
-          <p className="text-[12.5px] leading-relaxed" style={{ color: INK_MUT }}>{r.description}</p>
+          <p className="text-[12.5px] leading-relaxed line-clamp-2" style={{ color: INK_MUT }}>{r.description}</p>
         )}
 
         {r.signatureDish && (
@@ -1229,9 +1257,9 @@ function RestaurantCard({ r, lang, onAdd }: { r: RestaurantRecommendation; lang:
           </p>
         )}
 
-        {/* Concrete "book by" deadline — start date minus the typical lead time
-            (§7/§8). Falls back to the qualitative lead-time phrase when we have
-            no trip start date to anchor a real date. */}
+        {/* One booking-urgency signal, not three: a concrete "book by" date
+            beats the qualitative lead-time phrase, which beats the free-text
+            urgency blurb — showing more than one said the same thing twice. */}
         {r.bookByDate ? (
           <span
             className="self-start inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold"
@@ -1246,10 +1274,7 @@ function RestaurantCard({ r, lang, onAdd }: { r: RestaurantRecommendation; lang:
           >
             ⏳ {t.bookAhead}: {r.bookingLeadTime}
           </span>
-        ) : null}
-
-        {/* Booking urgency — why reserving is critical */}
-        {r.bookingUrgency && (
+        ) : r.bookingUrgency ? (
           <div
             className="flex items-start gap-1.5 px-2.5 py-1.5 rounded-lg text-[11.5px] leading-snug"
             style={{ background: TERRA_SOFT, color: ACCENT_DEEP }}
@@ -1257,12 +1282,12 @@ function RestaurantCard({ r, lang, onAdd }: { r: RestaurantRecommendation; lang:
             <span>⚡</span>
             <span>{r.bookingUrgency}</span>
           </div>
-        )}
+        ) : null}
 
-        <div className="flex items-center gap-2 mt-auto pt-1">
+        <div className="flex items-center gap-2 flex-wrap mt-auto pt-1">
           <button
             onClick={onAdd}
-            className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold"
+            className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold min-w-[45%]"
             style={{ background: ACCENT, color: '#fff' }}
           >
             {t.add}
@@ -1278,6 +1303,32 @@ function RestaurantCard({ r, lang, onAdd }: { r: RestaurantRecommendation; lang:
               style={{ background: 'rgba(255,255,255,0.7)', border: BORDER, color: INK }}
             >
               {r.platform?.ctaLabel ?? t.book} ↗
+            </a>
+          )}
+          {googleMapsUrl(r) && (
+            <a
+              href={googleMapsUrl(r)!}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={t.viewOnMaps}
+              aria-label={t.viewOnMaps}
+              className="py-2.5 px-3 rounded-xl text-[13px] font-semibold"
+              style={{ background: 'rgba(255,255,255,0.7)', border: BORDER, color: INK }}
+            >
+              🗺️
+            </a>
+          )}
+          {r.websiteUrl && (
+            <a
+              href={r.websiteUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={t.viewMenu}
+              aria-label={t.viewMenu}
+              className="py-2.5 px-3 rounded-xl text-[13px] font-semibold"
+              style={{ background: 'rgba(255,255,255,0.7)', border: BORDER, color: INK }}
+            >
+              🌐
             </a>
           )}
           {r.socialUrl && (
