@@ -10,6 +10,7 @@ import { LegalConsentBanner } from '@/components/LegalConsentBanner';
 import dynamic from 'next/dynamic';
 import { SiteBackground } from '@/components/SiteBackground';
 import { ClarityScript } from '@/components/ClarityScript';
+import { CapacitorNativeInit } from '@/components/CapacitorNativeInit';
 import * as Sentry from '@sentry/nextjs';
 
 // CanvasShell uses WebGL — must be client-only (no SSR).
@@ -147,6 +148,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         {/* Microsoft Clarity — consent-gated (heatmaps + session recordings) */}
         <ClarityScript />
+        <CapacitorNativeInit />
         <SiteBackground />
         <MotionProvider>
           <AuthProvider>
