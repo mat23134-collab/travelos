@@ -107,6 +107,16 @@ const COPY = {
     attractionsError: (city: string) => `לא הצלחנו לטעון המלצות אטרקציות ל${city} כרגע.`,
     insiderTip: 'טיפ מקומי',
     tickets: 'כרטיסים',
+    // Walk-In attractions
+    walkin: 'כניסה חופשית',
+    walkinIntro: (city: string) =>
+      `מקומות ב${city} שאפשר פשוט להגיע אליהם — בלי הזמנה, בלי כרטיס מראש. נהדרים למילוי זמן פנוי בין תחנות מתוכננות.`,
+    scoutingWalkin: (city: string) => `מאתרים מקומות לכניסה חופשית ב${city}…`,
+    walkinError: (city: string) => `לא הצלחנו לטעון המלצות לכניסה חופשית ל${city} כרגע.`,
+    bestTime: 'הזמן הכי טוב',
+    timeNeeded: 'זמן מוערך',
+    freeEntry: 'כניסה חופשית',
+    payAtDoor: 'תשלום בכניסה',
     // Events
     events: 'פסטיבלים ואירועים',
     eventsIntro: (city: string) =>
@@ -184,6 +194,16 @@ const COPY = {
     attractionsError: (city: string) => `We couldn't load attraction recommendations for ${city} right now.`,
     insiderTip: 'Insider tip',
     tickets: 'Tickets',
+    // Walk-In attractions
+    walkin: 'Walk right in',
+    walkinIntro: (city: string) =>
+      `Places in ${city} you can just show up to — no reservation, no advance ticket. Great for filling spontaneous gaps between planned stops.`,
+    scoutingWalkin: (city: string) => `Finding walk-in-worthy spots in ${city}…`,
+    walkinError: (city: string) => `We couldn't load walk-in recommendations for ${city} right now.`,
+    bestTime: 'Best time',
+    timeNeeded: 'Time needed',
+    freeEntry: 'Free entry',
+    payAtDoor: 'Pay at door',
     // Events
     events: 'Festivals & events',
     eventsIntro: (city: string) =>
@@ -229,13 +249,14 @@ interface SmartToolbarProps {
   recalculateDayLoading: boolean;
 }
 
-type FeatureKey = 'explore' | 'restaurants' | 'attractions' | 'events';
+type FeatureKey = 'explore' | 'restaurants' | 'attractions' | 'walkin' | 'events';
 
 // Extensible: append new tools here as they ship.
 const FEATURES: Array<{ key: FeatureKey; emoji: string; labelKey: FeatureKey }> = [
   { key: 'explore', emoji: '🧭', labelKey: 'explore' },
   { key: 'restaurants', emoji: '🍽️', labelKey: 'restaurants' },
   { key: 'attractions', emoji: '🎟️', labelKey: 'attractions' },
+  { key: 'walkin', emoji: '🚶', labelKey: 'walkin' },
   { key: 'events', emoji: '🎪', labelKey: 'events' },
 ];
 
@@ -289,6 +310,7 @@ export function SmartToolbar(props: SmartToolbarProps) {
             {active === 'explore' && <ExplorePanel {...props} />}
             {active === 'restaurants' && <RestaurantsPanel {...props} />}
             {active === 'attractions' && <AttractionsPanel {...props} />}
+            {active === 'walkin' && <WalkInPanel {...props} />}
             {active === 'events' && <EventsPanel {...props} />}
           </FeatureModal>
         )}
@@ -1567,6 +1589,224 @@ function AttractionCard({ a, lang, onAdd }: { a: AttractionRecommendation; lang:
       </div>
     </div>
   );
+}
+
+// ─── Walk-In attractions feature (Engine B) ───────────────────────────────────
+
+function WalkInPanel({ destination, days, lang, accessToken, onLockReservation, recalculateDayLoading }: SmartToolbarProps) {
+  const t = COPY[lang];
+  const [status, setStatus] = useState<'idle' | 'loading' | 'scouting' | 'ready' | 'error'>('idle');
+  const [places, setPlaces] = useState<AttractionRecommendation[]>([]);
+  const [picked, setPicked] = useState<AttractionRecommendation | null>(null);
+
+  const load = useCallback(async () => {
+    const city = destination.trim();
+    if (!city) return;
+
+    setStatus('loading');
+    try {
+      const res = await fetch(`/api/attractions?city=${encodeURIComponent(city)}&lang=${lang}&engine=walk_in`);
+      const data = (await res.json()) as { attractions?: AttractionRecommendation[]; stale?: boolean };
+      if (data.attractions && data.attractions.length > 0) {
+        setPlaces(data.attractions);
+        setStatus('ready');
+        if (data.stale) backgroundRevalidate('/api/attractions/scout', { city, lang, engine: 'walk_in' }, accessToken);
+        return;
+      }
+      if (!accessToken) { setStatus('error'); return; }
+
+      setStatus('scouting');
+      const scoutRes = await fetch('/api/attractions/scout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ city, lang, engine: 'walk_in' }),
+      });
+      const scoutData = (await scoutRes.json()) as { attractions?: AttractionRecommendation[] };
+      if (scoutData.attractions && scoutData.attractions.length > 0) {
+        setPlaces(scoutData.attractions);
+        setStatus('ready');
+      } else {
+        setStatus('error');
+      }
+    } catch {
+      setStatus('error');
+    }
+  }, [destination, accessToken, lang]);
+
+  useEffect(() => { if (status === 'idle') void load(); }, [status, load]);
+
+  if (status === 'loading' || status === 'scouting') {
+    return (
+      <div className="flex items-center gap-3 py-10 justify-center">
+        <Spinner />
+        <span className="text-[13px]" style={{ color: INK_MUT }}>
+          {status === 'scouting' ? t.scoutingWalkin(destination) : t.loading}
+        </span>
+      </div>
+    );
+  }
+
+  if (status === 'error' || places.length === 0) {
+    return (
+      <div className="py-8 text-center">
+        <p className="text-[13px] mb-3" style={{ color: INK_MUT }}>
+          {accessToken ? t.walkinError(destination) : t.signIn}
+        </p>
+        <button
+          onClick={() => setStatus('idle')}
+          className="px-4 py-2 rounded-xl text-[13px] font-semibold"
+          style={{ background: CARD_BG, border: BORDER, color: INK }}
+        >
+          {t.retry}
+        </button>
+      </div>
+    );
+  }
+
+  if (picked) {
+    return (
+      <ConfirmReservation
+        item={picked}
+        days={days}
+        lang={lang}
+        loading={recalculateDayLoading}
+        defaultTime="10:00"
+        onCancel={() => setPicked(null)}
+        onConfirm={async (dayIndex, lockedTime) => {
+          await onLockReservation(dayIndex, walkInToActivity(picked, lockedTime));
+          setPicked(null);
+        }}
+      />
+    );
+  }
+
+  return (
+    <div>
+      <p className="text-[13.5px] leading-[1.65] font-medium mb-4 mx-1 max-w-[62ch]" style={{ color: INK_MUT }}>
+        {t.walkinIntro(destination)}
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+        {places.map((p, i) => (
+          <WalkInCard key={p.id ?? `${p.name}-${i}`} p={p} lang={lang} onAdd={() => setPicked(p)} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function WalkInCard({ p, lang, onAdd }: { p: AttractionRecommendation; lang: Lang; onAdd: () => void }) {
+  const t = COPY[lang];
+  return (
+    <div
+      className="rounded-2xl overflow-hidden flex flex-col"
+      style={{ background: CARD_BG, border: BORDER, boxShadow: '0 6px 20px -12px rgba(43,38,34,0.25)' }}
+    >
+      {/* Photo */}
+      <div className="relative h-36 w-full" style={{ background: PAPER_SUNK }}>
+        {p.photoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={p.photoUrl} alt={p.name} className="h-full w-full object-cover" loading="lazy" />
+        ) : (
+          <div className="h-full w-full flex items-center justify-center text-3xl" style={{ opacity: 0.5 }}>🚶</div>
+        )}
+        {typeof p.rating === 'number' && (
+          <div
+            className="absolute top-2.5 left-2.5 flex items-center gap-1 px-2 py-1 rounded-lg text-[11.5px] font-semibold"
+            style={{ background: 'rgba(255,255,255,0.92)', color: INK }}
+          >
+            <span style={{ color: STAR_ON }}>★</span>
+            {p.rating.toFixed(1)}
+            {p.ratingCount ? <span style={{ color: INK_FAINT }}>· {p.ratingCount.toLocaleString()}</span> : null}
+          </div>
+        )}
+        {p.isFree != null && (
+          <div
+            className="absolute top-2.5 right-2.5 px-2 py-1 rounded-lg text-[11px] font-bold"
+            style={{ background: 'rgba(255,255,255,0.92)', color: p.isFree ? '#1f7a4d' : ACCENT_DEEP }}
+          >
+            {p.isFree ? `🆓 ${t.freeEntry}` : `💳 ${t.payAtDoor}`}
+          </div>
+        )}
+        {p.highlight && (
+          <div
+            className="absolute bottom-2.5 left-2.5 right-2.5 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-bold"
+            style={{ background: 'linear-gradient(90deg, rgba(184,85,46,0.96), rgba(143,66,32,0.96))', color: '#fff' }}
+          >
+            <span>✨</span>
+            <span className="truncate">{p.highlight}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Body */}
+      <div className="p-3.5 flex flex-col gap-2 flex-1">
+        <div>
+          <p className="text-[15px] font-bold leading-tight" style={{ color: INK }}>{p.name}</p>
+          {(p.category || p.neighborhood) && (
+            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+              {p.category && (
+                <span
+                  className="px-2 py-0.5 rounded-md text-[11px] font-semibold"
+                  style={{ background: TERRA_SOFT, color: ACCENT_DEEP }}
+                >
+                  {p.category}
+                </span>
+              )}
+              {p.neighborhood && (
+                <span className="text-[11.5px]" style={{ color: INK_FAINT }}>📍 {p.neighborhood}</span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {p.description && (
+          <p className="text-[12.5px] leading-relaxed" style={{ color: INK_MUT }}>{p.description}</p>
+        )}
+
+        {p.bestTimeOfDay && (
+          <span
+            className="self-start inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold"
+            style={{ background: PAPER_SUNK, color: ACCENT_DEEP }}
+          >
+            🕐 {t.bestTime}: {p.bestTimeOfDay}
+          </span>
+        )}
+
+        {p.timeNeeded && (
+          <span className="text-[11.5px]" style={{ color: INK_FAINT }}>⏱️ {t.timeNeeded}: {p.timeNeeded}</span>
+        )}
+
+        <div className="flex items-center gap-2 mt-auto pt-1">
+          <button
+            onClick={onAdd}
+            className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold"
+            style={{ background: ACCENT, color: '#fff' }}
+          >
+            {t.add}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function walkInToActivity(p: AttractionRecommendation, lockedTime: string): Activity {
+  return {
+    name: p.name,
+    description: p.description ?? `Walk-in visit at ${p.name}`,
+    neighborhood: p.neighborhood ?? undefined,
+    isFixed: true,
+    lockedTime,
+    startTime: lockedTime,
+    website_url: p.websiteUrl ?? undefined,
+    google_place_id: p.googlePlaceId ?? undefined,
+    inventory_source_table: 'places',
+    latitude: p.latitude ?? undefined,
+    longitude: p.longitude ?? undefined,
+    category_emoji: '🚶',
+    tags: ['attraction', 'walk-in'],
+    duration: p.timeNeeded ?? undefined,
+  };
 }
 
 // ─── Events feature ────────────────────────────────────────────────────────────
