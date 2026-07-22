@@ -406,29 +406,45 @@ export interface AttractionLocaleText {
   /** ONLY the concrete lead-time phrase, e.g. "2–3 weeks ahead" — mirrors the
    *  restaurant engine's bookingLeadTime, for a "Book ~X ahead" UI chip. */
   bookingLeadTime?: string | null;
+  /** Engine B (walk-in) only: when to go, e.g. "Before 10am to beat the crowds". */
+  bestTimeOfDay?: string | null;
 }
 
+/** Which curation engine produced a row in attraction_recommendations. */
+export type AttractionEngine = 'book_ahead' | 'walk_in';
+
 /**
- * A must-book-ahead attraction (timed-entry landmark, capped-capacity museum,
- * special-access tour) surfaced by the attraction scout and stored in
- * `public.attraction_recommendations`. Shown in the Smart Toolbar.
+ * An attraction surfaced by one of the three curation engines and stored in
+ * `public.attraction_recommendations` (tagged by `engine`). Shown in the Smart
+ * Toolbar.
+ *
+ *   - book_ahead (Engine A): must-book-ahead — timed-entry landmark,
+ *     capped-capacity museum, special-access tour.
+ *   - walk_in (Engine B): genuinely worthwhile, no reservation needed —
+ *     viewpoints, markets, parks, plazas, walkable landmarks.
  */
 export interface AttractionRecommendation {
   id?: string;
   city: string;
   name: string;
+  engine?: AttractionEngine;
   description?: string | null;   // resolved to the requested language
   category?: string | null;      // resolved
   highlight?: string | null;     // resolved
   bookingUrgency?: string | null;// resolved
   insiderTip?: string | null;    // resolved
   bookingLeadTime?: string | null; // resolved — see AttractionLocaleText
-  /** 0–3, same scale as RestaurantRecommendation.bookAheadLevel. */
+  bestTimeOfDay?: string | null;   // resolved — Engine B only
+  /** 0–3, same scale as RestaurantRecommendation.bookAheadLevel. Engine A only. */
   bookAheadLevel?: number | null;
+  /** Engine B only: rough time needed, e.g. "30–45 min". Not localized. */
+  timeNeeded?: string | null;
+  /** Engine B only: true = free entry, false = pay-at-door, null = unknown. */
+  isFree?: boolean | null;
   translations?: Partial<Record<SiteLanguage, AttractionLocaleText>> | null;
   priceRange?: string | null;
   neighborhood?: string | null;
-  /** Deep-link to buy tickets (official site or GetYourGuide/Tiqets search). */
+  /** Deep-link to buy tickets (official site or GetYourGuide/Tiqets search). Engine A only. */
   ticketUrl?: string | null;
   bookingPlatform?: string | null;
   websiteUrl?: string | null;
