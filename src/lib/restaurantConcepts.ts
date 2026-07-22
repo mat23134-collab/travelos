@@ -124,6 +124,22 @@ export function matchesConcept(r: RestaurantRecommendation, conceptKey: string):
   return concept.keywords.some((k) => text.includes(k));
 }
 
+/**
+ * The single category a restaurant is filed under (or null) — first catalog
+ * match, region-gated. `matchesConcept` alone let a restaurant satisfy several
+ * concepts at once (an izakaya whose cuisineStyle mentions "yakitori" also
+ * matches meat-grill), so it could appear under two chips simultaneously. This
+ * is what chip filtering/counting should use instead: one restaurant, one home.
+ */
+export function primaryConcept(r: RestaurantRecommendation, country: string | null): RestaurantConcept | null {
+  const text = searchableText(r);
+  for (const concept of RESTAURANT_CONCEPTS) {
+    if (!inRegion(concept, country)) continue;
+    if (concept.keywords.some((k) => text.includes(k))) return concept;
+  }
+  return null;
+}
+
 export function conceptLabel(conceptKey: string, lang: SiteLanguage): string | null {
   const c = CONCEPT_BY_KEY.get(conceptKey);
   return c ? c.label[lang] ?? c.label.en : null;
@@ -131,18 +147,21 @@ export function conceptLabel(conceptKey: string, lang: SiteLanguage): string | n
 
 /**
  * The concepts worth offering as chips for a set of results: those (a) allowed
- * for the destination country and (b) with at least `min` matching restaurants,
- * in catalog order. So an Italian city offers pizza/pasta/meat/… but never
- * sushi/ramen, and the filter always reflects what's actually on screen.
+ * for the destination country and (b) with at least `min` restaurants FILED
+ * UNDER THEM as their primary concept, in catalog order. So an Italian city
+ * offers pizza/pasta/meat/… but never sushi/ramen, counts reflect the same
+ * one-restaurant-one-chip assignment the filter itself uses, and a restaurant
+ * that would've inflated two categories's counts only inflates one.
  */
 export function availableConcepts(
   recs: RestaurantRecommendation[],
   opts: { country?: string | null; min?: number } = {},
 ): RestaurantConcept[] {
   const { country = null, min = 1 } = opts;
-  return RESTAURANT_CONCEPTS.filter(
-    (concept) =>
-      inRegion(concept, country) &&
-      recs.filter((r) => concept.keywords.some((k) => searchableText(r).includes(k))).length >= min,
-  );
+  const counts = new Map<string, number>();
+  for (const r of recs) {
+    const concept = primaryConcept(r, country);
+    if (concept) counts.set(concept.key, (counts.get(concept.key) ?? 0) + 1);
+  }
+  return RESTAURANT_CONCEPTS.filter((concept) => inRegion(concept, country) && (counts.get(concept.key) ?? 0) >= min);
 }
