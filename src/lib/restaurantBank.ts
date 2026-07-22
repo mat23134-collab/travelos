@@ -22,6 +22,16 @@ export const MAX_PRICE_LEVEL_BY_BUDGET: Record<BudgetLevel, number> = {
   'luxury':    4,
 };
 
+/**
+ * Hard ceiling on how many restaurants a single city's bank can ever hold.
+ * The book-ahead panel is a curated shortlist ("a few dozen tops"), not a
+ * directory — and additive top-up runs (§ never delete existing rows) had no
+ * upper bound before this, so repeated refreshes over time could grow a
+ * city's bank without limit. When a write would exceed it, the
+ * highest-scoring candidates win the remaining room.
+ */
+export const MAX_RESTAURANTS_PER_CITY = 30;
+
 /** Rows with no price_level yet (older/unverified scouts) are never filtered out
  *  by budget — we only exclude what we KNOW is above the traveler's tier. */
 function withinBudget(r: RestaurantRecommendation, maxPriceLevel: number): boolean {
@@ -316,10 +326,15 @@ export async function upsertRestaurants(
       return true;
     });
 
+  // Best candidates first, so the cap below (and any later truncation) keeps
+  // the highest-scoring rows rather than an arbitrary prefix.
+  rows.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+
   if (mode === 'replace') {
     // Replace the city's bank atomically enough for our purposes (60s scout
     // cooldown makes concurrent writes for the same city very unlikely).
     await sb.from(TABLE).delete().eq('city_normalized', cityNorm);
+    rows = rows.slice(0, MAX_RESTAURANTS_PER_CITY);
   } else {
     // Additive: never delete. Drop any incoming row that already exists in
     // this city's bank so a re-run of the same top-up can't duplicate rows or
@@ -340,6 +355,10 @@ export async function upsertRestaurants(
       if (r.google_place_id) return !existingPlaceIds.has(r.google_place_id);
       return !existingNames.has(r.name_normalized);
     });
+    // The bank is a curated shortlist, not a directory — a top-up can only
+    // fill remaining room under the city-wide cap, best scores first.
+    const room = MAX_RESTAURANTS_PER_CITY - existingRows.length;
+    rows = room > 0 ? rows.slice(0, room) : [];
   }
 
   if (rows.length === 0) return 0;

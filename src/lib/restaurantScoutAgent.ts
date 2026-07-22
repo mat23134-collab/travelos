@@ -176,8 +176,9 @@ SELECT places that are genuinely worth reserving ahead within that budget:
 - A clear point of pride: a signature dish, a beloved chef/owner, a real following (TikTok/Instagram virality counts just as much here as at fine dining).
 - Real reservation culture — people plan around it, not a walk-in-only counter with no wait.
 - Favor neighborhood institutions, cult noodle/pasta/street-food counters with a sit-down room, and beloved casual bistros — not chains.
+- REAL ONLINE PRESENCE, REQUIRED: only propose places with their own website or a well-documented listing/profile (press coverage, a real booking-platform page, a known Instagram presence) AND that would photograph well — visually appealing food/room, not just "good food, plain room". A place with zero online footprint doesn't belong on this list even if it's genuinely excellent, because travelers need to be able to look it up before booking.
 
-STRICTLY EXCLUDE: chains, ANY fine dining or tasting-menu concept, anything priceLevel 3 or 4, and generic tourist-trap spots with no real local following. Quality over quantity — aim for 8–10 genuinely great affordable/mid-range picks.
+STRICTLY EXCLUDE: chains, ANY fine dining or tasting-menu concept, anything priceLevel 3 or 4, generic tourist-trap spots with no real local following, and anything with no real website/online listing. Quality over quantity — aim for 8–10 genuinely great affordable/mid-range picks.
 
 ${outputContract}`;
   }
@@ -193,8 +194,9 @@ Within EACH tier, prioritize places that are genuinely special for their price p
 - High demand relative to size — regulars/locals book ahead, not just tourists.
 - A clear point of pride: a signature dish, a beloved chef, a real following (TikTok/Instagram virality counts at any price point, not just fine dining).
 - Real reservation culture — a place people plan around, not a walk-in-only counter.
+- REAL ONLINE PRESENCE, REQUIRED: only propose places with their own website or a well-documented listing/profile (press coverage, a real booking-platform page, a known Instagram presence) AND that would photograph well — visually appealing food/room, not just "good food, plain room". A place with zero online footprint doesn't belong on this list even if it's genuinely excellent, because travelers need to be able to look it up before booking.
 
-STRICTLY EXCLUDE: chains, and generic tourist-trap spots near landmarks with no real following. Quality over quantity — 7–10 places spread across the tiers above beats a long generic list, and beats an all-luxury list.
+STRICTLY EXCLUDE: chains, generic tourist-trap spots near landmarks with no real following, and anything with no real website/online listing. Quality over quantity — 7–10 places spread across the tiers above beats a long generic list, and beats an all-luxury list.
 
 ${outputContract}`;
 }
@@ -556,7 +558,16 @@ export async function runRestaurantScoutAgent(
     ? verified
     : verified.filter(({ googlePriceLevel }) => googlePriceLevel == null || googlePriceLevel <= maxPriceLevel);
 
-  const recs = filtered.map(({ rec }) => rec);
+  // Real digital-presence bar: this panel is a curated shortlist ("a few
+  // dozen tops"), not a directory — every pick should be a place travelers
+  // can actually look up (real photos, an online menu/booking site) before
+  // reserving. photoUrl and websiteUrl are only ever set when Google Places
+  // itself resolved them (not Gemini's guess), so this checks REAL presence.
+  // reservationUrl doesn't count — guessReservationUrl always returns a
+  // fallback search link even for places with no real listing anywhere.
+  const withPresence = filtered.filter(({ rec }) => !!rec.photoUrl && !!rec.websiteUrl);
+
+  const recs = withPresence.map(({ rec }) => rec);
 
   // 4. Composite scoring (§6). The Bayesian city-mean prior is computed across
   //    this batch, then each rec gets a stored bayes_rating + composite_score.
@@ -572,7 +583,8 @@ export async function runRestaurantScoutAgent(
     rec.score = rec.compositeScore;
   }
 
-  // Even when few places verify, we still return the AI shortlist (unverified
-  // rows score lower but keep the UI from being empty).
+  // A short or even empty list here is expected and fine — the photo+website
+  // bar above intentionally trades recall for "every pick is genuinely
+  // presentable", and the caller (API route) already handles zero results.
   return recs.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 }
