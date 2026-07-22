@@ -54,13 +54,15 @@ interface GeminiCandidate {
   neighborhood?: string;
   priceRange?: string;
   bookingPlatform?: string;
+  /** 0–3 book-ahead necessity, same scale as the restaurant engine. */
+  bookAheadLevel?: number;
   translations?: Partial<Record<SiteLanguage, AttractionLocaleText>>;
 }
 
 function candidateSystemPrompt(): string {
   const langList = SITE_LANGUAGES.map((l) => `"${l}" (${LANGUAGE_NAMES[l]})`).join(', ');
   const translationsShape = SITE_LANGUAGES
-    .map((l) => `"${l}": { "highlight": "…", "category": "…", "description": "…", "bookingUrgency": "…", "insiderTip": "…" }`)
+    .map((l) => `"${l}": { "highlight": "…", "category": "…", "description": "…", "bookingUrgency": "…", "insiderTip": "…", "bookingLeadTime": "…" }`)
     .join(', ');
 
   return `You are the head concierge of a luxury travel house, curating the attractions in a city where BOOKING AHEAD IS GENUINELY CRITICAL — places that sell out days or weeks in advance, or can only be seen with a pre-reserved slot.
@@ -78,6 +80,7 @@ Rules:
 - "priceRange" is a display band like "€18–25 pp".
 - "bookingPlatform" is your best guess: "official", "GetYourGuide", "Tiqets", or "tour".
 - "name" and "neighborhood" stay in their original/local form (do NOT translate proper names).
+- "bookAheadLevel" is 0–3: 1 = book same week is usually enough; 2 = book 1–4 weeks out (popular, weekends fill up); 3 = book 1–3 months out or a lottery/rare-slot release. Every entry here should be at least 1 — if it's truly 0 (walk-in), it doesn't belong in this list at all.
 
 LOCALIZATION — write the following NATIVELY in EACH of these languages: ${langList} (natural, not a literal translation):
   - "highlight": punchy 2–4 word badge, e.g. "Sells out weeks ahead", "Timed entry only".
@@ -85,9 +88,10 @@ LOCALIZATION — write the following NATIVELY in EACH of these languages: ${lang
   - "description": 2–3 evocative sentences on what makes it unmissable and what the experience is like.
   - "bookingUrgency": one short sentence — why booking is critical and how far ahead.
   - "insiderTip": one practical tip (best slot, which entrance, what to combine).
+  - "bookingLeadTime": ONLY the concrete typical advance-booking window as a short phrase — e.g. "2–3 weeks ahead", "1–2 months ahead". No full sentence.
 
 Return ONLY a JSON array. Each object:
-{ "name", "neighborhood", "priceRange", "bookingPlatform", "translations": { ${translationsShape} } }.`;
+{ "name", "neighborhood", "priceRange", "bookingPlatform", "bookAheadLevel", "translations": { ${translationsShape} } }.`;
 }
 
 async function synthesizeCandidates(city: string, snippets: string): Promise<GeminiCandidate[]> {
@@ -114,6 +118,7 @@ async function synthesizeCandidates(city: string, snippets: string): Promise<Gem
             description: str(loc.description) ?? null,
             bookingUrgency: str(loc.bookingUrgency) ?? null,
             insiderTip: str(loc.insiderTip) ?? null,
+            bookingLeadTime: str(loc.bookingLeadTime) ?? null,
           };
         }
       }
@@ -122,6 +127,9 @@ async function synthesizeCandidates(city: string, snippets: string): Promise<Gem
         neighborhood: str(c.neighborhood),
         priceRange: str(c.priceRange),
         bookingPlatform: str(c.bookingPlatform),
+        bookAheadLevel: Number.isFinite(c.bookAheadLevel)
+          ? Math.min(3, Math.max(0, Math.round(c.bookAheadLevel)))
+          : undefined,
         translations,
       };
     })
@@ -176,6 +184,8 @@ export async function runAttractionScoutAgent(city: string): Promise<AttractionR
       highlight: enText.highlight ?? null,
       bookingUrgency: enText.bookingUrgency ?? null,
       insiderTip: enText.insiderTip ?? null,
+      bookingLeadTime: enText.bookingLeadTime ?? null,
+      bookAheadLevel: cand.bookAheadLevel ?? null,
       translations: cand.translations ?? null,
       priceRange: cand.priceRange ?? null,
       neighborhood: cand.neighborhood ?? null,

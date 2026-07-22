@@ -403,6 +403,9 @@ export interface AttractionLocaleText {
   bookingUrgency?: string | null;
   /** One practical insider tip (best time slot, entrance, etc.). */
   insiderTip?: string | null;
+  /** ONLY the concrete lead-time phrase, e.g. "2–3 weeks ahead" — mirrors the
+   *  restaurant engine's bookingLeadTime, for a "Book ~X ahead" UI chip. */
+  bookingLeadTime?: string | null;
 }
 
 /**
@@ -419,6 +422,9 @@ export interface AttractionRecommendation {
   highlight?: string | null;     // resolved
   bookingUrgency?: string | null;// resolved
   insiderTip?: string | null;    // resolved
+  bookingLeadTime?: string | null; // resolved — see AttractionLocaleText
+  /** 0–3, same scale as RestaurantRecommendation.bookAheadLevel. */
+  bookAheadLevel?: number | null;
   translations?: Partial<Record<SiteLanguage, AttractionLocaleText>> | null;
   priceRange?: string | null;
   neighborhood?: string | null;
