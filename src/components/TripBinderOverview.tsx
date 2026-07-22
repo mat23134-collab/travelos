@@ -57,6 +57,18 @@ const SLOT_LABEL: Record<string, { he: string; en: string }> = {
   evening:   { he: 'לילה',       en: 'Evening' },
 };
 
+/** A stop marked "paid" (with an amount) via the timeline's status chip —
+ *  shown as a read-only row in the budget ledger so the connection to that
+ *  status is visible, not just folded silently into the totals. */
+interface PaidStopEntry {
+  itemId: string;
+  name: string;
+  dayNumber: number;
+  slot: string;
+  amount: number;
+  currency: string;
+}
+
 function fmtMoney(amount: number, currency: string): string {
   try {
     return new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount);
@@ -91,6 +103,18 @@ export function TripBinderOverview({
     }
     return [...byDay.entries()].sort((a, b) => a[0] - b[0]);
   }, [stops]);
+
+  // Stops marked "paid" with an amount (via the timeline's status chip) — these
+  // already fold into budgetTotals' actual sums (useTripBinder), but without a
+  // visible line here that connection isn't obvious. Surfacing them as their
+  // own read-only rows in the ledger makes the wiring plain to see.
+  const paidStopEntries: PaidStopEntry[] = stops.reduce<PaidStopEntry[]>((acc, s) => {
+    const data = binder.forItem(s.itemId);
+    if (data.status === 'paid' && data.paidAmount != null) {
+      acc.push({ itemId: s.itemId, name: s.name, dayNumber: s.dayNumber, slot: s.slot, amount: data.paidAmount, currency: data.paidCurrency });
+    }
+    return acc;
+  }, []);
 
   return (
     <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto py-6 px-3" dir={he ? 'rtl' : 'ltr'}>
@@ -127,7 +151,7 @@ export function TripBinderOverview({
         </div>
 
         <div className="max-h-[78vh] overflow-y-auto px-5 py-5 flex flex-col gap-6">
-          <BudgetSection binder={binder} he={he} stopName={stopName} />
+          <BudgetSection binder={binder} he={he} stopName={stopName} paidStopEntries={paidStopEntries} />
           <OrganizerSection binder={binder} days={days} he={he} startDate={startDate} />
         </div>
       </motion.div>
@@ -137,7 +161,14 @@ export function TripBinderOverview({
 
 /* ── Budget tracker ────────────────────────────────────────────────────────── */
 
-function BudgetSection({ binder, he, stopName }: { binder: TripBinder; he: boolean; stopName: Map<string, string> }) {
+function BudgetSection({
+  binder, he, stopName, paidStopEntries,
+}: {
+  binder: TripBinder;
+  he: boolean;
+  stopName: Map<string, string>;
+  paidStopEntries: PaidStopEntry[];
+}) {
   const [adding, setAdding] = useState(false);
   const totals = binder.budgetTotals;
 
@@ -200,6 +231,14 @@ function BudgetSection({ binder, he, stopName }: { binder: TripBinder; he: boole
         )
       )}
 
+      {/* Explains where per-stop "paid" amounts go, since that connection
+          otherwise isn't obvious from the timeline alone. */}
+      <p className="text-[11px] mb-3 leading-relaxed" style={{ color: 'var(--color-ink-warm-mut)' }}>
+        {he
+          ? '💡 סימון עצירה כ"שולם" עם סכום בסדר היום נספר כאן אוטומטית תחת "בפועל", ומופיע כשורה למטה.'
+          : '💡 Marking a stop "Paid" with an amount in the day timeline counts here automatically under "Actual," and appears as a line below.'}
+      </p>
+
       {/* New-line form */}
       <AnimatePresence>
         {adding && (
@@ -213,13 +252,41 @@ function BudgetSection({ binder, he, stopName }: { binder: TripBinder; he: boole
         )}
       </AnimatePresence>
 
-      {/* Lines */}
+      {/* Manually-added lines (flights, hotel, food budget…) */}
       {binder.budgetItems.length > 0 && (
         <ul className="flex flex-col gap-1.5">
           {binder.budgetItems.map((b) => (
             <BudgetLineRow key={b.id} binder={binder} item={b} he={he} stopName={stopName} />
           ))}
         </ul>
+      )}
+
+      {/* Read-only rows for stops paid via the timeline's status chip — edit the
+          amount there (StopBinder), not here, so there's one source of truth. */}
+      {paidStopEntries.length > 0 && (
+        <div className={binder.budgetItems.length > 0 ? 'mt-3' : undefined}>
+          <div className="text-[10px] font-bold uppercase tracking-wide mb-1.5 flex items-center gap-1" style={{ color: 'var(--color-ink-warm-mut)' }}>
+            📍 {he ? 'תשלומים מסדר היום' : 'Payments from the itinerary'}
+          </div>
+          <ul className="flex flex-col gap-1.5">
+            {paidStopEntries.map((e) => (
+              <li
+                key={e.itemId}
+                className="flex items-center gap-2.5 px-3 py-2 rounded-xl"
+                style={{ background: 'rgba(184,119,46,0.06)', border: '1px dashed rgba(184,119,46,0.28)' }}
+              >
+                <span className="text-[15px]">📍</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] font-bold truncate" style={{ color: 'var(--color-ink-warm)' }}>{e.name}</div>
+                  <div className="text-[11px] mt-0.5" style={{ color: 'var(--color-ink-warm-mut)' }}>
+                    {he ? `יום ${e.dayNumber} · ${SLOT_LABEL[e.slot]?.he ?? ''}` : `Day ${e.dayNumber} · ${SLOT_LABEL[e.slot]?.en ?? ''}`}
+                  </div>
+                </div>
+                <div className="text-[13px] font-black shrink-0" style={{ color: '#8f5a18' }}>{fmtMoney(e.amount, e.currency)}</div>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </section>
   );
