@@ -61,6 +61,10 @@ function rowToRec(row: any): AttractionRecommendation {
     bestTimeOfDay: row.best_time_of_day,
     timeNeeded: row.time_needed,
     isFree: row.is_free,
+    whyOnlyHere: row.why_only_here,
+    hookLine: row.hook_line,
+    howToDoIt: row.how_to_do_it,
+    groupSuitability: row.group_suitability,
   };
 }
 
@@ -92,6 +96,10 @@ function recToRow(rec: AttractionRecommendation) {
     best_time_of_day: rec.bestTimeOfDay ?? null,
     time_needed: rec.timeNeeded ?? null,
     is_free: rec.isFree ?? null,
+    why_only_here: rec.whyOnlyHere ?? null,
+    hook_line: rec.hookLine ?? null,
+    how_to_do_it: rec.howToDoIt ?? null,
+    group_suitability: rec.groupSuitability ?? null,
     updated_at: new Date().toISOString(),
   };
 }
@@ -113,7 +121,37 @@ export function localizeAttraction(
     insiderTip: loc.insiderTip ?? rec.insiderTip ?? null,
     bookingLeadTime: loc.bookingLeadTime ?? rec.bookingLeadTime ?? null,
     bestTimeOfDay: loc.bestTimeOfDay ?? rec.bestTimeOfDay ?? null,
+    whyOnlyHere: loc.whyOnlyHere ?? rec.whyOnlyHere ?? null,
+    hookLine: loc.hookLine ?? rec.hookLine ?? null,
+    howToDoIt: loc.howToDoIt ?? rec.howToDoIt ?? null,
   };
+}
+
+/**
+ * Engine C personalization (§C.2): a hidden gem that clashes with the trip's
+ * group shouldn't top the list. Deliberately lightweight — not the full
+ * MMR/GeoFit ranker built for restaurants — since this is a discovery/delight
+ * list, not a logistics one: a candidate whose groupSuitability is non-empty
+ * and excludes the trip's group gets a score penalty (deprioritized, not
+ * removed — it may still be worth surfacing lower down); an explicit match
+ * gets a small boost. A candidate with no groupSuitability (suits everyone)
+ * is left untouched. Pure — re-sorts a copy, doesn't mutate scores in place.
+ */
+export function personalizeOnlyHere(
+  recs: AttractionRecommendation[],
+  groupType: string | null | undefined,
+): AttractionRecommendation[] {
+  const g = (groupType ?? '').toLowerCase().trim();
+  if (!g) return recs;
+  const adjusted = recs.map((r) => {
+    const suitability = r.groupSuitability;
+    if (!suitability || suitability.length === 0) return { rec: r, adj: 0 };
+    const adj = suitability.includes(g) ? 0.5 : -1.5;
+    return { rec: r, adj };
+  });
+  return adjusted
+    .sort((a, b) => ((b.rec.score ?? 0) + b.adj) - ((a.rec.score ?? 0) + a.adj))
+    .map(({ rec }) => rec);
 }
 
 /** Newest updated_at for a city's rows (ISO string), or null when none.
