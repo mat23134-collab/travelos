@@ -39,6 +39,8 @@ function rowToRec(row: any): AttractionRecommendation {
     photoUrl: row.photo_url,
     source: row.source,
     score: row.score,
+    bookAheadLevel: row.book_ahead_level,
+    bookingLeadTime: row.booking_lead_time,
   };
 }
 
@@ -64,6 +66,8 @@ function recToRow(rec: AttractionRecommendation) {
     photo_url: rec.photoUrl ?? null,
     source: rec.source ?? 'scout',
     score: rec.score ?? 0,
+    book_ahead_level: rec.bookAheadLevel ?? null,
+    booking_lead_time: rec.bookingLeadTime ?? null,
     updated_at: new Date().toISOString(),
   };
 }
@@ -83,6 +87,7 @@ export function localizeAttraction(
     highlight: loc.highlight ?? rec.highlight ?? null,
     bookingUrgency: loc.bookingUrgency ?? rec.bookingUrgency ?? null,
     insiderTip: loc.insiderTip ?? rec.insiderTip ?? null,
+    bookingLeadTime: loc.bookingLeadTime ?? rec.bookingLeadTime ?? null,
   };
 }
 

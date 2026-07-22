@@ -1525,6 +1525,15 @@ function AttractionCard({ a, lang, onAdd }: { a: AttractionRecommendation; lang:
           </p>
         )}
 
+        {a.bookingLeadTime && (
+          <span
+            className="self-start inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold"
+            style={{ background: PAPER_SUNK, color: ACCENT_DEEP }}
+          >
+            ⏳ {t.bookAhead}: {a.bookingLeadTime}
+          </span>
+        )}
+
         {a.bookingUrgency && (
           <div
             className="flex items-start gap-1.5 px-2.5 py-1.5 rounded-lg text-[11.5px] leading-snug"
