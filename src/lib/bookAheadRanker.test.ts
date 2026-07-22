@@ -36,14 +36,18 @@ assert.equal(genreFit([], ['pasta']), 0.5, 'no trip taste → neutral');
 
 // ── §9 platform routing ───────────────────────────────────────────────────────
 {
-  const jp = routeReservation({ name: 'Sukiyabashi', city: 'Tokyo', countryCode: 'JP', googlePlaceId: 'p' });
+  // No googlePlaceId here on purpose — when one's present, routeReservation
+  // deliberately prefers the Google Maps deep-link (with its "Reserve a
+  // table" button) over the regional OTA (see platformRouter.ts's priority
+  // order); this case exercises the regional-fallback branch itself.
+  const jp = routeReservation({ name: 'Sukiyabashi', city: 'Tokyo', countryCode: 'JP' });
   assert.equal(jp.name, 'Tabelog', 'JP → Tabelog');
   const il = routeReservation({ name: 'Miznon', city: 'Tel Aviv', countryCode: 'IL' });
   assert.equal(il.name, 'Ontopo', 'IL → Ontopo');
   const direct = routeReservation({ name: 'X', city: 'Y', reservationUrl: 'https://book.me/x', bookingPlatform: 'website' });
   assert.equal(direct.url, 'https://book.me/x', 'direct reservation_url wins');
   const fallback = routeReservation({ name: 'X', city: 'Y', googlePlaceId: 'abc' });
-  assert.match(fallback.url, /google\.com\/maps\/reserve/, 'no country + place_id → Google Reserve');
+  assert.match(fallback.url, /google\.com\/maps\/search/, 'no country + place_id → Google Maps deep-link');
 }
 
 // ── §6.4 diversity: five sushi counters must NOT all surface ───────────────────
