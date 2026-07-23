@@ -20,7 +20,7 @@ import { RestaurantRecommendation, RestaurantLocaleText, SITE_LANGUAGES, SiteLan
 import { searchWebDual } from '@/lib/rag';
 import { RESTAURANT_GENRES, canonicalizeGenre } from '@/lib/restaurantGenre';
 import { cityMeanRating, bayesRating, computeCompositeScore, computeValueScore, touristTrapPenalty } from '@/lib/restaurantScoring';
-import { normalizeNeighborhoodSlug } from '@/lib/restaurantBank';
+import { normalizeNeighborhoodSlug, ILS_PRICE_CEILING } from '@/lib/restaurantBank';
 
 /** Human-readable names so the prompt can request each site language explicitly. */
 const LANGUAGE_NAMES: Record<SiteLanguage, string> = {
@@ -98,6 +98,10 @@ interface GeminiCandidate {
   name?: string;
   priceRange?: string;
   priceLevel?: number;
+  /** Per-person cost estimate converted to ILS (Israeli shekels) — the
+   *  panel's price tiers are anchored to this, not priceLevel (§ Israeli
+   *  calibration). Gemini does the currency conversion itself. */
+  pricePerPersonILS?: number;
   neighborhood?: string;
   bookingPlatform?: string;
   /** Canonical cuisine genre key (§5). */
@@ -141,6 +145,7 @@ function candidateSystemPrompt(maxPriceLevel?: number): string {
 - Only real, currently-operating restaurants you are confident exist. No invented names.
 - "priceRange" MUST be an approximate real cost band PER PERSON for a typical meal, in the LOCAL currency, with numbers — e.g. "€45–70 pp", "¥18,000–25,000 pp", "$120–180 pp". NEVER just symbols like "€€€".
 - "priceLevel" is 1 (cheap) to 4 (very expensive).
+- "pricePerPersonILS" is your own best-estimate conversion of that per-person cost into Israeli shekels (ILS), as a single plain number (the midpoint of the range) — e.g. a €45–70pp place might be "pricePerPersonILS": 210. HARD CEILING: if your honest estimate is above ${ILS_PRICE_CEILING} ILS per person, DO NOT include this place at all — it's out of scope for this list right now, no matter how good it is.
 - "bookingPlatform" is your best guess: "TheFork", "OpenTable", "website", or "phone".
 - "name" and "neighborhood" stay in their original/local form (do NOT translate proper place names).
 - "cuisineGenre" MUST be exactly one of: ${genreList}. Pick the single best fit.
@@ -161,7 +166,7 @@ LOCALIZATION — write the following NATIVELY in EACH of these languages: ${lang
   - "bookingLeadTime": ONLY the concrete typical advance-booking window, as a short phrase — e.g. "2–3 weeks ahead", "1–2 months ahead", "same week is fine". No full sentence.
 
 Return ONLY a JSON array. Each object:
-{ "name", "neighborhood", "priceRange", "priceLevel", "bookingPlatform", "cuisineGenre", "bookAheadLevel", "bookAheadDays", "mealSlots", "dietaryTags", "kosherStatus", "vegetarianFriendly", "veganFriendly", "groupSuitability", "translations": { ${translationsShape} } }.`;
+{ "name", "neighborhood", "priceRange", "priceLevel", "pricePerPersonILS", "bookingPlatform", "cuisineGenre", "bookAheadLevel", "bookAheadDays", "mealSlots", "dietaryTags", "kosherStatus", "vegetarianFriendly", "veganFriendly", "groupSuitability", "translations": { ${translationsShape} } }.`;
 
   if (maxPriceLevel != null) {
     // Budget-scoped run: a DEDICATED prompt that only ever asks for in-range
@@ -295,6 +300,7 @@ async function synthesizeCandidates(city: string, snippets: string, maxPriceLeve
         name: str(c.name),
         priceRange: str(c.priceRange),
         priceLevel: Number.isFinite(c.priceLevel) ? Math.min(4, Math.max(1, Math.round(c.priceLevel))) : undefined,
+        pricePerPersonILS: Number.isFinite(c.pricePerPersonILS) ? Math.max(0, Math.round(c.pricePerPersonILS)) : undefined,
         neighborhood: str(c.neighborhood),
         bookingPlatform: str(c.bookingPlatform),
         cuisineGenre: canonicalizeGenre(str(c.cuisineGenre)) ?? undefined,
@@ -518,6 +524,8 @@ export async function runRestaurantScoutAgent(
       priceRange: cand.priceRange ?? null,
       // Prefer Google's real price_level; fall back to Gemini's guess.
       priceLevel: v.priceLevel ?? cand.priceLevel ?? null,
+      // No Google equivalent for this — it's Gemini's own currency conversion.
+      pricePerPersonIls: cand.pricePerPersonILS ?? null,
       neighborhood: cand.neighborhood ?? null,
       websiteUrl: website,
       reservationUrl: guessReservationUrl(cand, website, c),
@@ -567,7 +575,15 @@ export async function runRestaurantScoutAgent(
   // fallback search link even for places with no real listing anywhere.
   const withPresence = filtered.filter(({ rec }) => !!rec.photoUrl && !!rec.websiteUrl);
 
-  const recs = withPresence.map(({ rec }) => rec);
+  // Hard ILS ceiling, enforced here too (not just in the prompt) — Gemini is
+  // instructed to leave out anything over ILS_PRICE_CEILING, but this is the
+  // actual gate: an explicit product decision not to carry ultra-splurge
+  // places (₪1,000+/person) at this stage, regardless of quality.
+  const withinIlsCeiling = withPresence.filter(
+    ({ rec }) => rec.pricePerPersonIls == null || rec.pricePerPersonIls <= ILS_PRICE_CEILING,
+  );
+
+  const recs = withinIlsCeiling.map(({ rec }) => rec);
 
   // 4. Composite scoring (§6). The Bayesian city-mean prior is computed across
   //    this batch, then each rec gets a stored bayes_rating + composite_score.

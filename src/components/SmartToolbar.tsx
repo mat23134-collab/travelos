@@ -27,7 +27,7 @@ import type {
 import type { Landmark } from '@/app/api/landmarks/route';
 import { AttractionDetailModal } from '@/components/AttractionDetailModal';
 import { rankBookAhead, type TripDayGeo } from '@/lib/bookAheadRanker';
-import { normalizeNeighborhoodSlug, MAX_PRICE_LEVEL_BY_BUDGET } from '@/lib/restaurantBank';
+import { normalizeNeighborhoodSlug, MAX_PRICE_LEVEL_BY_BUDGET, ilsTier } from '@/lib/restaurantBank';
 import { personalizeOnlyHere } from '@/lib/attractionBank';
 import { genreLabel } from '@/lib/restaurantGenre';
 import { availableConcepts, primaryConcept, resolveCountry, RestaurantConcept } from '@/lib/restaurantConcepts';
@@ -697,9 +697,25 @@ function RestaurantsPanel({ destination, days, lang, budget, groupType, interest
     () => (activeConcept ? restaurants.filter((r) => primaryConcept(r, country)?.key === activeConcept) : restaurants),
     [restaurants, activeConcept, country],
   );
+  // Tiering is anchored to the real ILS per-person estimate (ilsTier), not
+  // Google's coarse price_level — a ¥1,000 ramen bowl and a genuinely
+  // mid-range dinner could share the same price_level, which is exactly what
+  // made cheap places surface under the "יוקרתי"/"פרימיום" tabs before.
+  //
+  // "≤ ceiling" for the traveler's own default budget view (everything within
+  // their means, cheapest included) — but once they deliberately step UP to a
+  // pricier tab, that tab means "show me THIS bracket", not "raise my
+  // ceiling": the budgetFit term in rankBookAhead nudges toward the target
+  // tier but doesn't hard-exclude cheaper places, so the exclusion has to
+  // happen here.
+  const browsingUp = viewLevel > budgetCeiling;
   const visiblePool = useMemo(
-    () => conceptPool.filter((r) => r.priceLevel == null || r.priceLevel <= viewLevel),
-    [conceptPool, viewLevel],
+    () => conceptPool.filter((r) => {
+      const tier = ilsTier(r.pricePerPersonIls);
+      if (tier == null) return true; // unknown price never excluded
+      return browsingUp ? tier === viewLevel : tier <= viewLevel;
+    }),
+    [conceptPool, viewLevel, browsingUp],
   );
 
   // Request-time ranking: layer per-trip fit + diversity over the fetched pool,
@@ -879,13 +895,15 @@ function AllRestaurantsModal({
     [restaurants, concept, country],
   );
 
-  // Group by price tier (4 → 1, premium first). Unknown-price rows go last.
+  // Group by ILS price tier (4 → 1, premium first) — the real per-person
+  // shekel estimate, not Google's coarse price_level. Unknown-price rows go last.
   const tiers = useMemo(() => {
     const byLevel = new Map<number, RestaurantRecommendation[]>();
     const unknown: RestaurantRecommendation[] = [];
     for (const r of filtered) {
-      if (r.priceLevel && r.priceLevel >= 1 && r.priceLevel <= 4) {
-        (byLevel.get(r.priceLevel) ?? byLevel.set(r.priceLevel, []).get(r.priceLevel)!).push(r);
+      const tier = ilsTier(r.pricePerPersonIls);
+      if (tier != null) {
+        (byLevel.get(tier) ?? byLevel.set(tier, []).get(tier)!).push(r);
       } else {
         unknown.push(r);
       }
@@ -1184,13 +1202,18 @@ function RestaurantCard({ r, lang, onAdd }: { r: RestaurantRecommendation; lang:
         {/* Price badge — the literal price range when we have it (what a
             traveler actually reads as "expensive"), pips only as a fallback
             when we don't — showing both at once let a ¥1,000–2,000 ramen
-            counter carry the same dots as a splurge tasting menu. */}
+            counter carry the same dots as a splurge tasting menu. The ILS
+            estimate is shown alongside so there's no mental currency
+            conversion needed — it's also the number the price tiers use. */}
         {(r.priceRange || r.priceLevel) && (
           <div
             className="absolute top-2.5 right-2.5 flex items-center gap-1.5 px-2 py-1 rounded-lg text-[12px] font-bold"
             style={{ background: 'rgba(255,255,255,0.92)', color: ACCENT_DEEP }}
           >
             {r.priceRange ? <PriceRange value={r.priceRange} /> : <PriceTierPips level={r.priceLevel!} active={false} />}
+            {r.pricePerPersonIls != null && (
+              <span dir="ltr" style={{ color: INK_FAINT, fontWeight: 600 }}>· ₪{Math.round(r.pricePerPersonIls)}</span>
+            )}
           </div>
         )}
         {/* Highlight badge — what makes this an experience */}

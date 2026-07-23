@@ -32,6 +32,31 @@ export const MAX_PRICE_LEVEL_BY_BUDGET: Record<BudgetLevel, number> = {
  */
 export const MAX_RESTAURANTS_PER_CITY = 30;
 
+/**
+ * ILS (Israeli shekel) per-person price tiers — the panel's 4 price-ladder
+ * tabs are anchored to these bands, not Google's coarse 1-4 price_level scale
+ * (which doesn't correlate cleanly with actual cost — a ¥1,000 ramen bowl and
+ * a genuinely mid-range dinner can share the same price_level). Upper bound is
+ * exclusive of the ceiling below it: cheap ≤50, mid (50,150], premium
+ * (150,350], luxury (350,600].
+ */
+export const ILS_TIER_BOUNDS = [50, 150, 350, 600] as const;
+
+/**
+ * Anything estimated above the top tier is excluded from the book-ahead bank
+ * entirely for now (explicit product decision) — not merely deprioritized.
+ */
+export const ILS_PRICE_CEILING = ILS_TIER_BOUNDS[ILS_TIER_BOUNDS.length - 1];
+
+/** Which of the 4 ILS tiers (1=cheap..4=luxury) a per-person price falls into,
+ *  or null when unknown or above the ceiling (shouldn't happen post-filter,
+ *  but callers reading older rows should treat it as "unknown tier" too). */
+export function ilsTier(pricePerPersonIls: number | null | undefined): number | null {
+  if (pricePerPersonIls == null) return null;
+  const idx = ILS_TIER_BOUNDS.findIndex((bound) => pricePerPersonIls <= bound);
+  return idx === -1 ? null : idx + 1;
+}
+
 /** Rows with no price_level yet (older/unverified scouts) are never filtered out
  *  by budget — we only exclude what we KNOW is above the traveler's tier. */
 function withinBudget(r: RestaurantRecommendation, maxPriceLevel: number): boolean {
@@ -76,6 +101,7 @@ export function rowToRec(row: any): RestaurantRecommendation {
     translations: row.translations ?? null,
     priceRange: row.price_range,
     priceLevel: row.price_level,
+    pricePerPersonIls: row.price_per_person_ils != null ? Number(row.price_per_person_ils) : null,
     neighborhood: row.neighborhood,
     reservationUrl: row.reservation_url,
     bookingPlatform: row.booking_platform,
@@ -123,6 +149,7 @@ function recToRow(rec: RestaurantRecommendation) {
     translations: rec.translations ?? null,
     price_range: rec.priceRange ?? null,
     price_level: rec.priceLevel ?? null,
+    price_per_person_ils: rec.pricePerPersonIls ?? null,
     neighborhood: rec.neighborhood ?? null,
     reservation_url: rec.reservationUrl ?? null,
     booking_platform: rec.bookingPlatform ?? null,
