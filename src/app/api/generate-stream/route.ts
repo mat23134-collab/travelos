@@ -14,7 +14,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { NextRequest, NextResponse } from 'next/server';
-import { checkRateLimitDurable, getClientIp, rateLimitedResponse, verifySession } from '@/lib/apiGuard';
+import { checkRateLimitDurable, checkUserQuota, getClientIp, rateLimitedResponse, quotaExceededResponse, verifySessionUser } from '@/lib/apiGuard';
 import { createClient } from '@supabase/supabase-js';
 import { type TravelerProfile, ClassifiedResult, type Activity, type DiningSpot } from '@/lib/types';
 import { TravelerProfileSchema } from '@/lib/schemas';
@@ -841,6 +841,10 @@ async function runPipeline(
 const STREAM_RATE_LIMIT  = 10;
 const STREAM_RATE_WINDOW = 10 * 60 * 1000;
 
+/** Logged-in users get a daily cap on itinerary generations (§ cost control) —
+ *  mirrors /api/generate. Guests stay on the IP-only limiter above. */
+const GENERATE_DAILY_QUOTA = 5;
+
 export async function POST(req: NextRequest) {
   // ── Rate limiting ───────────────────────────────────────────────────────────
   const ip = getClientIp(req);
@@ -865,7 +869,13 @@ export async function POST(req: NextRequest) {
   const profile = parsed.data;
 
   // ── userId: trust JWT only, never the request body ──────────────────────────
-  const bodyUserId: string | null = await verifySession(req);
+  const sessionUser = await verifySessionUser(req);
+  const bodyUserId: string | null = sessionUser?.id ?? null;
+
+  // ── Per-user daily quota (logged-in users only — guests stay IP-limited) ────
+  if (sessionUser && !(await checkUserQuota(sessionUser.id, sessionUser.email, 'generate', GENERATE_DAILY_QUOTA))) {
+    return quotaExceededResponse();
+  }
 
   const encoder = new TextEncoder();
   const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();

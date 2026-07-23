@@ -4,7 +4,7 @@ import { runTransportScoutAgent } from '@/lib/transportScoutAgent';
 import { upsertTransportationGuide } from '@/lib/tripTransport';
 import { hasTransportContent } from '@/lib/transportGuideParse';
 import { MOCK_ITINERARY } from '@/lib/mockData';
-import { verifySession, unauthorizedResponse } from '@/lib/apiGuard';
+import { verifySessionUser, unauthorizedResponse, checkUserQuota, quotaExceededResponse, SCOUT_DAILY_QUOTA } from '@/lib/apiGuard';
 
 /** Per-city cooldown to limit abuse of Gemini + Exa (in-memory; resets on cold start). */
 const lastScoutAt = new Map<string, number>();
@@ -16,8 +16,11 @@ const COOLDOWN_MS = 45_000;
  * Runs transport scout (Exa + Gemini) and upserts `public.transportation` (service role).
  */
 export async function POST(req: NextRequest) {
-  const userId = await verifySession(req);
-  if (!userId) return unauthorizedResponse();
+  const sessionUser = await verifySessionUser(req);
+  if (!sessionUser) return unauthorizedResponse();
+  if (!(await checkUserQuota(sessionUser.id, sessionUser.email, 'scout', SCOUT_DAILY_QUOTA))) {
+    return quotaExceededResponse();
+  }
 
   const body = (await req.json().catch(() => null)) as { city?: string; tripDays?: number; lang?: string } | null;
   const city = body?.city?.trim() ?? '';

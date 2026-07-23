@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabaseService';
 import { runRestaurantScoutAgent } from '@/lib/restaurantScoutAgent';
 import { upsertRestaurants, fetchRestaurantsForCity, cityLastUpdated, MAX_PRICE_LEVEL_BY_BUDGET } from '@/lib/restaurantBank';
-import { verifySession, unauthorizedResponse } from '@/lib/apiGuard';
+import { verifySessionUser, unauthorizedResponse, checkUserQuota, quotaExceededResponse, SCOUT_DAILY_QUOTA } from '@/lib/apiGuard';
 import { BudgetLevel, SITE_LANGUAGES, SiteLanguage } from '@/lib/types';
 
 /** Per-city cooldown to limit abuse of Gemini + Exa + Places (in-memory). */
@@ -30,8 +30,12 @@ const BUDGET_LEVELS: readonly BudgetLevel[] = ['budget', 'mid-range', 'luxury'];
  *     existing rows (including any splurge picks) are never touched.
  */
 export async function POST(req: NextRequest) {
-  const userId = await verifySession(req);
-  if (!userId) return unauthorizedResponse();
+  const sessionUser = await verifySessionUser(req);
+  if (!sessionUser) return unauthorizedResponse();
+  const userId = sessionUser.id;
+  if (!(await checkUserQuota(sessionUser.id, sessionUser.email, 'scout', SCOUT_DAILY_QUOTA))) {
+    return quotaExceededResponse();
+  }
 
   const body = (await req.json().catch(() => null)) as
     | { city?: string; lang?: string; budget?: string }

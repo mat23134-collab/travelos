@@ -4,7 +4,7 @@ import { runAttractionScoutAgent } from '@/lib/attractionScoutAgent';
 import { runWalkInScoutAgent } from '@/lib/walkInScoutAgent';
 import { runOnlyHereScoutAgent } from '@/lib/onlyHereScoutAgent';
 import { upsertAttractions, fetchAttractionsForCity, findEngineOverlap } from '@/lib/attractionBank';
-import { verifySession, unauthorizedResponse } from '@/lib/apiGuard';
+import { verifySessionUser, unauthorizedResponse, checkUserQuota, quotaExceededResponse, SCOUT_DAILY_QUOTA } from '@/lib/apiGuard';
 import { AttractionEngine, SITE_LANGUAGES, SiteLanguage } from '@/lib/types';
 
 /** Per-city-per-engine cooldown to limit abuse of Gemini + Exa + Places (in-memory). */
@@ -18,8 +18,11 @@ const ENGINES = new Set<AttractionEngine>(['book_ahead', 'walk_in', 'only_here']
  * (service role). engine defaults to 'book_ahead' (existing callers unchanged).
  */
 export async function POST(req: NextRequest) {
-  const userId = await verifySession(req);
-  if (!userId) return unauthorizedResponse();
+  const sessionUser = await verifySessionUser(req);
+  if (!sessionUser) return unauthorizedResponse();
+  if (!(await checkUserQuota(sessionUser.id, sessionUser.email, 'scout', SCOUT_DAILY_QUOTA))) {
+    return quotaExceededResponse();
+  }
 
   const body = (await req.json().catch(() => null)) as { city?: string; lang?: string; engine?: string } | null;
   const city = body?.city?.trim() ?? '';

@@ -4,6 +4,8 @@
  * - checkRateLimit:    in-memory sliding-window rate limiter (single-instance).
  *                      For multi-instance deploys swap the Map for Upstash Redis.
  * - verifySession:     validates a Supabase bearer token and returns the user id.
+ * - checkUserQuota:    per-user daily cap on expensive AI/API actions (§ cost
+ *                      control) — admin-allowlisted accounts are exempt.
  * - getClientIp:       extracts the real client IP from forwarded headers.
  * - rateLimitedResponse / unauthorizedResponse: standard error helpers.
  */
@@ -89,9 +91,11 @@ export async function checkRateLimitDurable(key: string, limit: number, windowMs
 
 /**
  * Verifies the `Authorization: Bearer <token>` header against Supabase.
- * Returns the authenticated user's UUID on success, or null on failure.
+ * Returns the authenticated user's id + email on success, or null on failure.
+ * Prefer this over `verifySession` when the caller needs `checkUserQuota` (it
+ * needs the email to check the admin allowlist).
  */
-export async function verifySession(req: NextRequest): Promise<string | null> {
+export async function verifySessionUser(req: NextRequest): Promise<{ id: string; email: string | null } | null> {
   const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '').trim();
   if (!token) return null;
 
@@ -108,10 +112,62 @@ export async function verifySession(req: NextRequest): Promise<string | null> {
       error,
     } = await client.auth.getUser(token);
     if (error || !user?.id) return null;
-    return user.id;
+    return { id: user.id, email: user.email ?? null };
   } catch {
     return null;
   }
+}
+
+/**
+ * Verifies the `Authorization: Bearer <token>` header against Supabase.
+ * Returns the authenticated user's UUID on success, or null on failure.
+ */
+export async function verifySession(req: NextRequest): Promise<string | null> {
+  const user = await verifySessionUser(req);
+  return user?.id ?? null;
+}
+
+// ── Per-user daily quota (cost control) ───────────────────────────────────────
+//
+// Every itinerary generation, scout, and assistant turn burns real Gemini/
+// Tavily/Exa/Google Places/Anthropic spend. Nothing previously capped how much
+// of it a single signed-in user could trigger — the existing cooldowns are all
+// keyed by resource (city) or IP, never by user. This closes that gap with a
+// per-user daily cap, reusing the same durable `rate_limit_hit` RPC as
+// `checkRateLimitDurable` (just keyed by user id + action instead of IP), so it
+// holds across instances without a second table/migration.
+//
+// The app owner's own account(s) are exempt — hardcoded here rather than a DB
+// column, since it's a short, rarely-changing list.
+const ADMIN_EMAILS = new Set(['mat23134@gmail.com']);
+
+/** Shared daily cap across all four scout routes (restaurants/attractions/
+ *  events/transportation) — one pool, not one cap per route, since a single
+ *  trip's setup naturally fans out across several of them. */
+export const SCOUT_DAILY_QUOTA = 20;
+
+/** Daily cap on assistant chat turns — naturally higher-frequency than a scout
+ *  or a full generation, so the ceiling is more generous. */
+export const ASSISTANT_DAILY_QUOTA = 50;
+
+/** True when the given email belongs to an admin-allowlisted account (never rate-limited). */
+export function isAdminEmail(email: string | null | undefined): boolean {
+  return !!email && ADMIN_EMAILS.has(email.trim().toLowerCase());
+}
+
+/**
+ * Per-user daily cap (rolling 24h) on an expensive action class (e.g.
+ * "generate", "scout", "assistant"). Admin-allowlisted emails always pass
+ * without touching the DB. Returns true when allowed.
+ */
+export async function checkUserQuota(
+  userId: string,
+  email: string | null | undefined,
+  actionClass: string,
+  dailyLimit: number,
+): Promise<boolean> {
+  if (isAdminEmail(email)) return true;
+  return checkRateLimitDurable(`quota:${actionClass}:${userId}`, dailyLimit, 24 * 60 * 60 * 1000);
 }
 
 // ── IP extraction ─────────────────────────────────────────────────────────────
@@ -134,6 +190,13 @@ export function unauthorizedResponse(message = 'Authentication required.'): Next
 export function rateLimitedResponse(): NextResponse {
   return NextResponse.json(
     { error: 'Too many requests — please wait a moment and try again.' },
+    { status: 429 },
+  );
+}
+
+export function quotaExceededResponse(): NextResponse {
+  return NextResponse.json(
+    { error: "You've hit today's usage limit for this feature — it resets in 24h." },
     { status: 429 },
   );
 }
