@@ -322,6 +322,10 @@ export interface RestaurantRecommendation {
   priceRange?: string | null;
   /** 1–4 (Google price_level scale) — used for sorting/filtering. */
   priceLevel?: number | null;
+  /** Estimated per-person cost in ILS (the scout's own currency conversion) —
+   *  source of truth for the panel's 4 price tiers (cheap/mid/premium/luxury),
+   *  calibrated for an Israeli audience rather than Google's coarse 1-4 scale. */
+  pricePerPersonIls?: number | null;
   neighborhood?: string | null;
   /** Deep-link to book (official site or OTA like TheFork / OpenTable). */
   reservationUrl?: string | null;
