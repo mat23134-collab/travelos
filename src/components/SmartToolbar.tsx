@@ -697,9 +697,18 @@ function RestaurantsPanel({ destination, days, lang, budget, groupType, interest
     () => (activeConcept ? restaurants.filter((r) => primaryConcept(r, country)?.key === activeConcept) : restaurants),
     [restaurants, activeConcept, country],
   );
+  // "≤ ceiling" for the traveler's own default budget view (everything within
+  // their means, cheapest included) — but once they deliberately step UP to a
+  // pricier tab, that tab means "show me THIS bracket", not "raise my
+  // ceiling". Without this, a ¥1,000 ramen counter with a high composite
+  // score could keep out-ranking the actual priceLevel-3/4 picks under the
+  // "יוקרתי"/"פרימיום" tabs — the budgetFit term in rankBookAhead nudges
+  // toward the target tier but doesn't hard-exclude cheaper places, so the
+  // exclusion has to happen here.
+  const browsingUp = viewLevel > budgetCeiling;
   const visiblePool = useMemo(
-    () => conceptPool.filter((r) => r.priceLevel == null || r.priceLevel <= viewLevel),
-    [conceptPool, viewLevel],
+    () => conceptPool.filter((r) => r.priceLevel == null || (browsingUp ? r.priceLevel === viewLevel : r.priceLevel <= viewLevel)),
+    [conceptPool, viewLevel, browsingUp],
   );
 
   // Request-time ranking: layer per-trip fit + diversity over the fetched pool,
