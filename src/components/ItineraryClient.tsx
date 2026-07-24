@@ -1467,6 +1467,7 @@ export function ItineraryClient({
           onBackToOverview={() => itin.setSelectedDayIndex(-1)}
           onBackToDraft={initialViewMode !== 'final' ? () => itin.setViewMode('draft') : undefined}
           initialViewMode={initialViewMode}
+          onOpenTripTools={() => openSidePanel('documents')}
         />
 
         {/* ── Shared-trip collaborators / join CTA ─────────────────────────── */}
@@ -1782,22 +1783,6 @@ export function ItineraryClient({
 
       {/* Mika's Phase-2 guided tour — runs once, after generation lands here. */}
       <ResultsMikaTour ready={!!itin.itinerary} lang={itin.ui.lang === 'he' ? 'he' : 'en'} />
-
-      {/* ── Trip companion drawer — available on every itinerary screen ─────── */}
-      <button
-        data-tour="sidepanel"
-        onClick={() => openSidePanel('documents')}
-        aria-label={itin.ui.dir === 'rtl' ? 'כלי הטיול' : 'Trip tools'}
-        className="fixed z-[60] print:hidden flex flex-col items-center gap-1.5 px-3 py-3.5 text-white shadow-lg rounded-2xl"
-        style={{
-          bottom: 'calc(1.25rem + env(safe-area-inset-bottom))',
-          ...(itin.ui.dir === 'rtl' ? { left: 12 } : { right: 12 }),
-          background: 'linear-gradient(180deg, var(--color-terracotta), var(--color-terracotta-deep))',
-        }}
-      >
-        <span className="text-[15px]">📎</span>
-        <span className="text-[15px]">✨</span>
-      </button>
 
       <SidePanel
         itineraryId={itin.itinerary._id ?? null}

@@ -19,11 +19,14 @@ interface ItineraryHeaderProps {
   onBackToDraft?: () => void;
   initialViewMode?: 'draft' | 'final';
   editBanner?: string;
+  /** Opens the trip companion drawer (documents/binder/etc). */
+  onOpenTripTools: () => void;
 }
 
 export function ItineraryHeader({
   itinerary, profile, ui, shareCopy, session, isAdmin,
   selectedDayIndex, onBackToOverview, onBackToDraft, initialViewMode, editBanner,
+  onOpenTripTools,
 }: ItineraryHeaderProps) {
   const dest = itinerary.destination ?? '';
   const groupLabel = profile?.groupSize ? `${profile.groupSize} ${profile.groupSize === 1 ? 'Adult' : 'Adults'}` : null;
@@ -78,6 +81,23 @@ export function ItineraryHeader({
 >
   {/* ── Row 1: Brand + Back + Actions ─────────────────────────────────── */}
   <div className="flex items-center gap-2 px-4 sm:px-6 h-12 sm:h-14">
+    {/* Trip tools drawer trigger — a plain hamburger icon, leading edge of the
+        nav (so it sits at the "start" side in either LTR or RTL, matching the
+        convention on most sites, instead of a separate floating FAB). */}
+    <button
+      data-tour="sidepanel"
+      onClick={onOpenTripTools}
+      aria-label={ui.dir === 'rtl' ? 'כלי הטיול' : 'Trip tools'}
+      className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg transition-colors"
+      style={{ color: 'var(--color-ink-warm)' }}
+    >
+      <svg width="17" height="13" viewBox="0 0 17 13" fill="none" aria-hidden="true">
+        <path d="M1 1H16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        <path d="M1 6.5H16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        <path d="M1 12H16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      </svg>
+    </button>
+
     {/* Back to overview (day-detail only) */}
     {selectedDayIndex >= 0 && (
       <motion.button
