@@ -1,7 +1,13 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { NextRequest, NextResponse } from 'next/server';
 import { MOCK_ITINERARY } from '@/lib/mockData';
-import { checkRateLimitDurable, getClientIp, rateLimitedResponse, verifySession } from '@/lib/apiGuard';
+import { checkRateLimitDurable, checkUserQuota, getClientIp, rateLimitedResponse, quotaExceededResponse, verifySessionUser } from '@/lib/apiGuard';
+
+/** Logged-in users get a daily cap on itinerary generations (§ cost control) —
+ *  the single most expensive pipeline in the app (Gemini + Tavily/Exa +
+ *  Google Places + an inline restaurant scout). Guests stay on the existing
+ *  IP-only limiter above (no login required, by product decision). */
+const GENERATE_DAILY_QUOTA = 1;
 import { createClient } from '@supabase/supabase-js';
 import { ClassifiedResult, type Activity, type DiningSpot, type BudgetLevel } from '@/lib/types';
 import { TravelerProfileSchema } from '@/lib/schemas';
@@ -400,7 +406,13 @@ export async function POST(req: NextRequest) {
     const profile = parsed.data;
 
     // ── userId: trust JWT only, never the request body ──────────────────────────
-    let userId: string | null = await verifySession(req);
+    const sessionUser = await verifySessionUser(req);
+    let userId: string | null = sessionUser?.id ?? null;
+
+    // ── Per-user daily quota (logged-in users only — guests stay IP-limited) ───
+    if (sessionUser && !(await checkUserQuota(sessionUser.id, sessionUser.email, 'generate', GENERATE_DAILY_QUOTA))) {
+      return quotaExceededResponse();
+    }
 
     // ── Mock mode — set MOCK_AI=true to skip all AI + DB writes for load testing ─
     if (process.env.MOCK_AI === 'true') {

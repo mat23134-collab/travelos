@@ -1,6 +1,10 @@
 /**
- * geminiOrchestrator — synthesizes the personalized, Hebrew-first neighborhood
- * guide from the day's POIs + Tavily facts + Exa semantic highlights.
+ * geminiOrchestrator — synthesizes the personalized neighborhood guide from
+ * the day's POIs + Tavily facts + Exa semantic highlights, in the site's
+ * language (`lang`, defaults to 'he' for existing callers). The JSON schema
+ * keeps its original `_hebrew`-suffixed field names for stability, but they
+ * hold text in whatever language was requested — only name_hebrew/
+ * name_english are truly language-fixed.
  *
  * Safe JSON: Gemini is asked for a raw JSON object, but we still strip any
  * ```json … ``` fences (and any stray prose around the object) before
@@ -11,6 +15,7 @@ import type {
   AnchorNeighborhood, NeighborhoodFacts, NeighborhoodGuideContent, NeighborhoodHighlights,
   ProfilerPoi, ProfilerTripContext,
 } from './types';
+import type { SiteLanguage } from '@/lib/types';
 
 const GEMINI_FETCH_MS = 30_000;
 
@@ -37,10 +42,15 @@ const asStr = (v: unknown, fallback = ''): string => (typeof v === 'string' ? v.
 const asStrArray = (v: unknown): string[] =>
   Array.isArray(v) ? v.map((x) => (typeof x === 'string' ? x.trim() : '')).filter(Boolean) : [];
 
-function systemPrompt(): string {
-  return `You are a sharp, honest local-travel editor writing for ISRAELI travelers in fluent, natural Hebrew (not translated-sounding). You explain WHY a day's plan is grouped in one neighborhood, and give real, street-level context — never generic Wikipedia phrasing.
+function systemPrompt(lang: SiteLanguage): string {
+  const language = lang === 'he' ? 'Hebrew' : 'English';
+  const audience = lang === 'he' ? 'ISRAELI' : 'English-speaking';
+  const genericTipExample = lang === 'he'
+    ? '"שווה לחפש בית קפה שכונתי ברחוב הצדדי"'
+    : '"look for a neighborhood café on a side street"';
+  return `You are a sharp, honest local-travel editor writing for ${audience} travelers in fluent, natural ${language} (not translated-sounding). You explain WHY a day's plan is grouped in one neighborhood, and give real, street-level context — never generic Wikipedia phrasing.
 
-Return ONE raw JSON object, no Markdown, with EXACTLY these keys:
+Return ONE raw JSON object, no Markdown, with EXACTLY these keys (values in ${language} except name_hebrew/name_english which always hold that specific language regardless of the rest):
 {
   "name_hebrew": string,             // the neighborhood name in Hebrew
   "name_english": string,            // the neighborhood name in English
@@ -52,8 +62,8 @@ Return ONE raw JSON object, no Markdown, with EXACTLY these keys:
 }
 
 Rules:
-- Hebrew must be natural and specific. Prefer concrete details (a station name, a street, an hour) over vague adjectives.
-- Ground claims in the provided facts/highlights. Do NOT invent metro lines or specific place names that aren't supported — keep unsupported tips generic ("שווה לחפש בית קפה שכונתי ברחוב הצדדי").
+- The prose fields (the_hook/personal_relevance/local_secrets/honest_downsides/commute_and_safety) must be natural and specific, written in ${language}. Prefer concrete details (a station name, a street, an hour) over vague adjectives.
+- Ground claims in the provided facts/highlights. Do NOT invent metro lines or specific place names that aren't supported — keep unsupported tips generic (e.g. ${genericTipExample}).
 - Be honest in honest_downsides — this builds trust. Never say "there are no downsides".
 - Keep each field tight; this is a guide chip, not an essay.`;
 }
@@ -104,8 +114,9 @@ export async function synthesizeGuide(
   trip: ProfilerTripContext,
   facts: NeighborhoodFacts,
   highlights: NeighborhoodHighlights,
+  lang: SiteLanguage = 'he',
 ): Promise<NeighborhoodGuideContent> {
-  const obj = await runGemini(systemPrompt(), userPrompt(neighborhood, pois, trip, facts, highlights));
+  const obj = await runGemini(systemPrompt(lang), userPrompt(neighborhood, pois, trip, facts, highlights));
   return {
     name_hebrew: asStr(obj.name_hebrew, neighborhood.nameHebrew ?? neighborhood.nameEnglish),
     name_english: asStr(obj.name_english, neighborhood.nameEnglish),
@@ -119,10 +130,12 @@ export async function synthesizeGuide(
 
 // ── City-level guide (whole trip, shown at the top of the results page) ────────
 
-function citySystemPrompt(): string {
-  return `You are a sharp, honest local-travel editor writing for ISRAELI travelers in fluent, natural Hebrew (not translated-sounding). You introduce a whole CITY for someone about to spend a few days there — what it actually feels like, who it's perfect for, real local tips, honest warnings, and how to get around. This is a GENERAL city intro shared by all travelers — do NOT tailor it to one specific person's profile.
+function citySystemPrompt(lang: SiteLanguage): string {
+  const language = lang === 'he' ? 'Hebrew' : 'English';
+  const audience = lang === 'he' ? 'ISRAELI' : 'English-speaking';
+  return `You are a sharp, honest local-travel editor writing for ${audience} travelers in fluent, natural ${language} (not translated-sounding). You introduce a whole CITY for someone about to spend a few days there — what it actually feels like, who it's perfect for, real local tips, honest warnings, and how to get around. This is a GENERAL city intro shared by all travelers — do NOT tailor it to one specific person's profile.
 
-Return ONE raw JSON object, no Markdown, with EXACTLY these keys:
+Return ONE raw JSON object, no Markdown, with EXACTLY these keys (values in ${language} except name_hebrew/name_english which always hold that specific language regardless of the rest):
 {
   "name_hebrew": string,             // the city name in Hebrew
   "name_english": string,            // the city name in English
@@ -134,7 +147,7 @@ Return ONE raw JSON object, no Markdown, with EXACTLY these keys:
 }
 
 Rules:
-- Hebrew must be natural and specific. Prefer concrete details (a pass name, an hour, an area) over vague adjectives.
+- The prose fields must be natural and specific, written in ${language}. Prefer concrete details (a pass name, an hour, an area) over vague adjectives.
 - Ground claims in the provided facts/highlights. Do NOT invent specific line numbers or place names that aren't supported — keep unsupported tips generic.
 - Be honest in honest_downsides — this builds trust. Never say "there are no downsides".
 - Keep each field tight; this is a guide card, not an essay.`;
@@ -166,8 +179,9 @@ export async function synthesizeCityGuide(
   city: string,
   facts: NeighborhoodFacts,
   highlights: NeighborhoodHighlights,
+  lang: SiteLanguage = 'he',
 ): Promise<NeighborhoodGuideContent> {
-  const obj = await runGemini(citySystemPrompt(), cityUserPrompt(city, facts, highlights));
+  const obj = await runGemini(citySystemPrompt(lang), cityUserPrompt(city, facts, highlights));
   return {
     name_hebrew: asStr(obj.name_hebrew, city),
     name_english: asStr(obj.name_english, city),

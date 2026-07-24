@@ -8,11 +8,41 @@
  * secrets as an icon-bullet list, and commute + safety. No map — the guide copy
  * carries all the value; the polygon added nothing.
  *
- * RTL-first (the guide copy is Hebrew). Pass a `profile` from
- * POST /api/neighborhood-profile; render `loading`/`error` states as needed.
+ * Pass a `lang` matching the profile's actual synthesis language (the caller
+ * must request the guide in that language — this component only renders the
+ * chrome/labels, it doesn't translate the AI-generated content). Pass a
+ * `profile` from POST /api/neighborhood-profile; render `loading`/`error`
+ * states as needed.
  */
 
 import type { NeighborhoodProfile } from '@/services/neighborhood/types';
+
+const COPY = {
+  he: {
+    loadError: 'לא הצלחנו לטעון את פרופיל השכונה כרגע.',
+    kickerCity: 'מדריך העיר שלכם',
+    kickerNeighborhood: 'מדריך השכונה שלכם',
+    relevanceTitleCity: 'למי העיר הזו מתאימה',
+    relevanceTitleNeighborhood: 'למה שיבצנו אתכם כאן היום',
+    honestTruth: 'האמת בלי לייפות',
+    secretsCity: 'סודות מקומיים',
+    secretsNeighborhood: 'סודות מקומיים בדרך',
+    commute: 'תחבורה ובטיחות',
+    matchLabel: 'התאמה לוייב שלכם',
+  },
+  en: {
+    loadError: "We couldn't load the neighborhood profile right now.",
+    kickerCity: 'Your city guide',
+    kickerNeighborhood: 'Your neighborhood guide',
+    relevanceTitleCity: 'Who this city is perfect for',
+    relevanceTitleNeighborhood: 'Why we placed you here today',
+    honestTruth: 'The honest truth',
+    secretsCity: 'Local secrets',
+    secretsNeighborhood: 'Local secrets along the way',
+    commute: 'Getting around & safety',
+    matchLabel: 'match to your vibe',
+  },
+} as const;
 
 // Warm "paper" palette, consistent with the rest of the app.
 const INK = '#2b2622';
@@ -27,18 +57,24 @@ export function NeighborhoodGuide({
   loading = false,
   error = null,
   variant = 'neighborhood',
+  lang = 'he',
 }: {
   profile?: NeighborhoodProfile | null;
   loading?: boolean;
   error?: string | null;
   /** 'city' swaps the copy for the whole-trip city guide on the results page. */
   variant?: 'neighborhood' | 'city';
+  /** Must match the language the profile was actually synthesized in. */
+  lang?: 'he' | 'en';
 }) {
+  const t = COPY[lang];
+  const dir = lang === 'he' ? 'rtl' : 'ltr';
+
   if (loading) return <GuideSkeleton />;
   if (error) {
     return (
-      <div className="rounded-3xl p-8 text-center text-[13px]" style={{ background: PAPER, color: INK_MUT }} dir="rtl">
-        לא הצלחנו לטעון את פרופיל השכונה כרגע.
+      <div className="rounded-3xl p-8 text-center text-[13px]" style={{ background: PAPER, color: INK_MUT }} dir={dir}>
+        {t.loadError}
       </div>
     );
   }
@@ -46,12 +82,15 @@ export function NeighborhoodGuide({
 
   const { guide, matchPercent } = profile;
   const isCity = variant === 'city';
-  const kicker = isCity ? 'מדריך העיר שלכם' : 'מדריך השכונה שלכם';
-  const relevanceTitle = isCity ? 'למי העיר הזו מתאימה' : 'למה שיבצנו אתכם כאן היום';
+  const kicker = isCity ? t.kickerCity : t.kickerNeighborhood;
+  const relevanceTitle = isCity ? t.relevanceTitleCity : t.relevanceTitleNeighborhood;
+  // Only the name in the REQUESTED language is shown — no Hebrew leaks into an
+  // English guide (or vice versa), even as a "local name" subtitle.
+  const primaryName = lang === 'en' ? guide.name_english : guide.name_hebrew;
 
   return (
     <div
-      dir="rtl"
+      dir={dir}
       className="overflow-hidden rounded-3xl shadow-xl"
       style={{ background: CARD, border: '1px solid rgba(43,38,34,0.10)' }}
     >
@@ -63,11 +102,10 @@ export function NeighborhoodGuide({
               {kicker}
             </p>
             <h2 className="text-[26px] font-black leading-tight mt-1" style={{ color: INK }}>
-              {guide.name_hebrew}
+              {primaryName}
             </h2>
-            <p className="text-[12.5px] font-semibold" style={{ color: INK_MUT }}>{guide.name_english}</p>
           </div>
-          {matchPercent > 0 && <MatchBadge percent={matchPercent} />}
+          {matchPercent > 0 && <MatchBadge percent={matchPercent} label={t.matchLabel} />}
         </div>
 
         {/* The Hook */}
@@ -91,7 +129,7 @@ export function NeighborhoodGuide({
             style={{ background: 'rgba(234,140,54,0.14)', border: '1px solid rgba(234,140,54,0.4)' }}
           >
             <p className="flex items-center gap-2 text-[13.5px] font-black mb-2" style={{ color: '#a85a12' }}>
-              <span className="text-[16px]">⚠️</span> האמת בלי לייפות
+              <span className="text-[16px]">⚠️</span> {t.honestTruth}
             </p>
             <ul className="flex flex-col gap-1.5">
               {guide.honest_downsides_hebrew.map((d, i) => (
@@ -106,7 +144,7 @@ export function NeighborhoodGuide({
 
         {/* Insider secrets — icon-bullet list */}
         {guide.local_secrets_hebrew.length > 0 && (
-          <Section icon="✨" title={isCity ? 'סודות מקומיים' : 'סודות מקומיים בדרך'}>
+          <Section icon="✨" title={isCity ? t.secretsCity : t.secretsNeighborhood}>
             <ul className="flex flex-col gap-2.5">
               {guide.local_secrets_hebrew.map((s, i) => (
                 <li key={i} className="flex items-start gap-2.5">
@@ -127,7 +165,7 @@ export function NeighborhoodGuide({
         {guide.commute_and_safety_hebrew && (
           <div className="pt-5" style={{ borderTop: '1px solid rgba(43,38,34,0.10)' }}>
             <p className="flex items-center gap-2 text-[12.5px] font-black mb-1.5" style={{ color: INK }}>
-              <span className="text-[15px]">🚇</span> תחבורה ובטיחות
+              <span className="text-[15px]">🚇</span> {t.commute}
             </p>
             <p className="text-[13.5px] leading-[1.7]" style={{ color: INK_MUT }}>
               {guide.commute_and_safety_hebrew}
@@ -152,14 +190,14 @@ function Section({ icon, title, children }: { icon: string; title: string; child
   );
 }
 
-function MatchBadge({ percent }: { percent: number }) {
+function MatchBadge({ percent, label }: { percent: number; label: string }) {
   return (
     <div
       className="shrink-0 flex flex-col items-center justify-center rounded-2xl px-3.5 py-2.5"
       style={{ background: `linear-gradient(160deg, ${ACCENT}, ${ACCENT_DEEP})`, boxShadow: '0 8px 20px -8px rgba(184,85,46,0.6)' }}
     >
       <span className="text-[22px] font-black leading-none text-white">{percent}%</span>
-      <span className="text-[9.5px] font-bold text-white/85 mt-0.5 whitespace-nowrap">התאמה לוייב שלכם</span>
+      <span className="text-[9.5px] font-bold text-white/85 mt-0.5 whitespace-nowrap">{label}</span>
     </div>
   );
 }

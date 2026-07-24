@@ -3,7 +3,8 @@
 /**
  * DayNeighborhoodGuide — the per-day entry point to the Dynamic Neighborhood
  * Profiler. Collapsed by default; on expand it collects the day's geo-located
- * stops, calls POST /api/neighborhood-profile, and renders the NeighborhoodGuide.
+ * stops, calls POST /api/neighborhood-profile, and renders the NeighborhoodGuide
+ * in the requested site language.
  *
  * Lazy on purpose: the profiler hits three paid APIs (Tavily + Exa + Gemini), so
  * we only run it when the traveler actually asks to see it. Works for any
@@ -19,6 +20,25 @@ import type { NeighborhoodProfile, ProfilerPoi } from '@/services/neighborhood/t
 import type { Session } from '@supabase/supabase-js';
 
 type Status = 'idle' | 'loading' | 'ready' | 'empty' | 'signin' | 'error';
+
+const COPY = {
+  he: {
+    title: 'מדריך השכונה של היום',
+    subtitle: 'למה קיבצנו את היום כאן — סודות מקומיים, אמת בלי לייפות, תחבורה',
+    error: 'לא הצלחנו לטעון את מדריך השכונה כרגע.',
+    retry: 'נסו שוב',
+    signIn: 'התחברו כדי לקבל מדריך שכונה מותאם אישית.',
+    empty: (city: string) => `עדיין אין מיפוי שכונות ל${city} — נוסיף בקרוב.`,
+  },
+  en: {
+    title: "Today's neighborhood guide",
+    subtitle: 'Why we grouped today here — local secrets, the honest truth, transit',
+    error: "We couldn't load the neighborhood guide right now.",
+    retry: 'Try again',
+    signIn: 'Sign in to get a personalized neighborhood guide.',
+    empty: (city: string) => `We don't have neighborhood mapping for ${city} yet — coming soon.`,
+  },
+} as const;
 
 function collectPois(day: DayPlan): ProfilerPoi[] {
   const pois: ProfilerPoi[] = [];
@@ -36,14 +56,17 @@ function collectPois(day: DayPlan): ProfilerPoi[] {
 }
 
 export function DayNeighborhoodGuide({
-  day, dayIndex, destination, session, profile,
+  day, dayIndex, destination, session, profile, lang,
 }: {
   day: DayPlan;
   dayIndex: number;
   destination: string;
   session: Session | null;
   profile: TravelerProfile | null;
+  lang: 'he' | 'en';
 }) {
+  const t = COPY[lang];
+  const dir = lang === 'he' ? 'rtl' : 'ltr';
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<Status>('idle');
   const [data, setData] = useState<NeighborhoodProfile | null>(null);
@@ -69,6 +92,7 @@ export function DayNeighborhoodGuide({
             pace: profile?.pace ?? null,
             dayNumber: dayIndex + 1,
           },
+          lang,
         }),
       });
       if (res.status === 204) { setStatus('empty'); return; }
@@ -80,7 +104,7 @@ export function DayNeighborhoodGuide({
       setStatus('error');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.access_token, cityOnly, dayIndex, JSON.stringify(pois)]);
+  }, [session?.access_token, cityOnly, dayIndex, JSON.stringify(pois), lang]);
 
   // Nothing geo-located to profile → don't even show the entry point.
   if (pois.length === 0) return null;
@@ -92,7 +116,7 @@ export function DayNeighborhoodGuide({
   };
 
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(184,85,46,0.06)', border: '1px solid rgba(184,85,46,0.18)' }} dir="rtl">
+    <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(184,85,46,0.06)', border: '1px solid rgba(184,85,46,0.18)' }} dir={dir}>
       <button
         onClick={toggle}
         className="w-full flex items-center justify-between gap-3 px-4 py-3 text-start transition-colors"
@@ -100,8 +124,8 @@ export function DayNeighborhoodGuide({
         <span className="flex items-center gap-2">
           <span className="text-[18px]">🗺️</span>
           <span className="flex flex-col">
-            <span className="text-[14px] font-black" style={{ color: '#2b2622' }}>מדריך השכונה של היום</span>
-            <span className="text-[11.5px]" style={{ color: '#6b6358' }}>למה קיבצנו את היום כאן — סודות מקומיים, אמת בלי לייפות, תחבורה</span>
+            <span className="text-[14px] font-black" style={{ color: '#2b2622' }}>{t.title}</span>
+            <span className="text-[11.5px]" style={{ color: '#6b6358' }}>{t.subtitle}</span>
           </span>
         </span>
         <motion.span animate={{ rotate: open ? 180 : 0 }} className="text-[13px]" style={{ color: '#b8552e' }}>▾</motion.span>
@@ -117,20 +141,20 @@ export function DayNeighborhoodGuide({
             className="overflow-hidden"
           >
             <div className="px-3 pb-3">
-              {status === 'loading' && <NeighborhoodGuide loading />}
-              {status === 'ready' && <NeighborhoodGuide profile={data} />}
+              {status === 'loading' && <NeighborhoodGuide loading lang={lang} />}
+              {status === 'ready' && <NeighborhoodGuide profile={data} lang={lang} />}
               {status === 'error' && (
                 <div className="p-5 text-center text-[13px]" style={{ color: '#6b6358' }}>
-                  לא הצלחנו לטעון את מדריך השכונה כרגע.{' '}
-                  <button onClick={() => void load()} className="font-bold underline" style={{ color: '#b8552e' }}>נסו שוב</button>
+                  {t.error}{' '}
+                  <button onClick={() => void load()} className="font-bold underline" style={{ color: '#b8552e' }}>{t.retry}</button>
                 </div>
               )}
               {status === 'signin' && (
-                <div className="p-5 text-center text-[13px]" style={{ color: '#6b6358' }}>התחברו כדי לקבל מדריך שכונה מותאם אישית.</div>
+                <div className="p-5 text-center text-[13px]" style={{ color: '#6b6358' }}>{t.signIn}</div>
               )}
               {status === 'empty' && (
                 <div className="p-5 text-center text-[13px]" style={{ color: '#6b6358' }}>
-                  עדיין אין מיפוי שכונות ל{cityOnly || 'עיר הזו'} — נוסיף בקרוב.
+                  {t.empty(cityOnly || (lang === 'he' ? 'עיר הזו' : 'this city'))}
                 </div>
               )}
             </div>

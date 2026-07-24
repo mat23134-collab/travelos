@@ -79,13 +79,11 @@ const COPY = {
     badgeKosherStyle: 'כשר סטייל',
     badgeVeg: 'צמחוני',
     badgeVegan: 'טבעוני',
-    refresh: 'רענון מסעדות',
-    refreshing: 'מחפשים עוד מסעדות מתאימות…',
     bookByLabel: (d: string) => `כדאי להזמין עד ${d}`,
     loading: 'טוען המלצות…',
-    scouting: (city: string) => `מאתרים את השולחנות הכי שווים ב${city}…`,
     signIn: 'התחברו כדי לטעון המלצות מסעדות.',
     errorLoad: (city: string) => `לא הצלחנו לטעון המלצות מסעדות ל${city} כרגע.`,
+    notAvailableYet: (city: string) => `עדיין לא אצרנו מסעדות ל${city} — בקרוב.`,
     retry: 'נסו שוב',
     mustOrder: 'מנת הדגל',
     bookAhead: 'להזמין',
@@ -178,13 +176,11 @@ const COPY = {
     badgeKosherStyle: 'Kosher-style',
     badgeVeg: 'Vegetarian',
     badgeVegan: 'Vegan',
-    refresh: 'Refresh restaurants',
-    refreshing: 'Finding more matching restaurants…',
     bookByLabel: (d: string) => `Book by ${d}`,
     loading: 'Loading recommendations…',
-    scouting: (city: string) => `Finding the best reservable tables in ${city}…`,
     signIn: 'Sign in to load restaurant recommendations.',
     errorLoad: (city: string) => `We couldn't load restaurant recommendations for ${city} right now.`,
+    notAvailableYet: (city: string) => `We haven't curated restaurants for ${city} yet — check back soon.`,
     retry: 'Try again',
     mustOrder: 'Must order',
     bookAhead: 'Book',
@@ -589,7 +585,7 @@ function ExploreCard({ l, lang, onOpen }: { l: Landmark; lang: Lang; onOpen: () 
 
 function RestaurantsPanel({ destination, days, lang, budget, groupType, interests, dietary, startDate, accessToken, onLockReservation, recalculateDayLoading }: SmartToolbarProps) {
   const t = COPY[lang];
-  const [status, setStatus] = useState<'idle' | 'loading' | 'scouting' | 'ready' | 'error'>('idle');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [restaurants, setRestaurants] = useState<RestaurantRecommendation[]>([]);
   const [picked, setPicked] = useState<RestaurantRecommendation | null>(null);
   // The trip budget's default price ceiling (budget→2, mid-range→3, luxury→4).
@@ -607,12 +603,12 @@ function RestaurantsPanel({ destination, days, lang, budget, groupType, interest
   const [activeConcept, setActiveConcept] = useState<string | null>(null);
   // Drop the concept filter when the city changes (its concepts differ).
   useEffect(() => { setActiveConcept(null); }, [destination]);
-  // Manual, foreground top-up: the automatic background revalidate (on
-  // `stale`/`needsTopUp`) is fire-and-forget and invisible, so a traveler
-  // stuck with a luxury-skewed bank has no way to see it actually happen.
-  // This hits the same scout endpoint but awaits it and swaps the list in.
-  const [refreshing, setRefreshing] = useState(false);
 
+  // Read-only: this panel never triggers a live scout (Gemini/Tavily/Exa/
+  // Google Places) from user traffic anymore — it only ever reads whatever
+  // the curated database already has for this city. Populating a new city is
+  // now an out-of-band admin operation, not something any signed-in user (or
+  // a bug/abuse pattern) can trigger from the app itself.
   const load = useCallback(async () => {
     const city = destination.trim();
     if (!city) return;
@@ -628,42 +624,13 @@ function RestaurantsPanel({ destination, days, lang, budget, groupType, interest
     setStatus('loading');
     try {
       const res = await fetch(`/api/restaurants?${qs.toString()}`);
-      const data = (await res.json()) as {
-        restaurants?: RestaurantRecommendation[];
-        stale?: boolean;
-        needsTopUp?: boolean;
-      };
-      if (data.restaurants && data.restaurants.length > 0) {
-        setRestaurants(data.restaurants);
-        setStatus('ready');
-        // `needsTopUp`: the bank has rows but too few actually match this
-        // trip's budget (e.g. a first scout that skewed luxury) — kick a
-        // background additive scout for real affordable/mid-range picks so
-        // the NEXT visit is properly stocked, same pattern as `stale` below.
-        if (data.stale || data.needsTopUp) {
-          backgroundRevalidate('/api/restaurants/scout', { city, lang, budget }, accessToken);
-        }
-        return;
-      }
-      if (!accessToken) { setStatus('error'); return; }
-
-      setStatus('scouting');
-      const scoutRes = await fetch('/api/restaurants/scout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ city, lang, budget }),
-      });
-      const scoutData = (await scoutRes.json()) as { restaurants?: RestaurantRecommendation[] };
-      if (scoutData.restaurants && scoutData.restaurants.length > 0) {
-        setRestaurants(scoutData.restaurants);
-        setStatus('ready');
-      } else {
-        setStatus('error');
-      }
+      const data = (await res.json()) as { restaurants?: RestaurantRecommendation[] };
+      setRestaurants(data.restaurants ?? []);
+      setStatus('ready');
     } catch {
       setStatus('error');
     }
-  }, [destination, accessToken, lang, budget, viewLevel]);
+  }, [destination, lang, budget]);
 
   // Re-fetch on mount AND whenever the price-range selector (or any other `load`
   // dependency) changes — not just when status is 'idle', so changing the tier
@@ -747,46 +714,19 @@ function RestaurantsPanel({ destination, days, lang, budget, groupType, interest
     if (status === 'ready' && picks.length > 0) trackBookAheadPanelShown(picks.length);
   }, [status, picks.length]);
 
-  const refreshRestaurants = useCallback(async () => {
-    const city = destination.trim();
-    if (!city || !accessToken || refreshing) return;
-    setRefreshing(true);
-    try {
-      const scoutRes = await fetch('/api/restaurants/scout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ city, lang, budget }),
-      });
-      const scoutData = (await scoutRes.json()) as { restaurants?: RestaurantRecommendation[] };
-      // Swap the list in only on a real result — a throttled/failed call
-      // still returns whatever's cached, so the panel never goes empty.
-      if (scoutData.restaurants && scoutData.restaurants.length > 0) {
-        setRestaurants(scoutData.restaurants);
-      }
-    } catch {
-      /* best-effort — keep showing whatever's already on screen */
-    } finally {
-      setRefreshing(false);
-    }
-  }, [destination, accessToken, lang, budget, refreshing]);
-
-  if (status === 'loading' || status === 'scouting') {
+  if (status === 'loading') {
     return (
       <div className="flex items-center gap-3 py-10 justify-center">
         <Spinner />
-        <span className="text-[13px]" style={{ color: INK_MUT }}>
-          {status === 'scouting' ? t.scouting(destination) : t.loading}
-        </span>
+        <span className="text-[13px]" style={{ color: INK_MUT }}>{t.loading}</span>
       </div>
     );
   }
 
-  if (status === 'error' || restaurants.length === 0) {
+  if (status === 'error') {
     return (
       <div className="py-8 text-center">
-        <p className="text-[13px] mb-3" style={{ color: INK_MUT }}>
-          {accessToken ? t.errorLoad(destination) : t.signIn}
-        </p>
+        <p className="text-[13px] mb-3" style={{ color: INK_MUT }}>{t.errorLoad(destination)}</p>
         <button
           onClick={() => void load()}
           className="px-4 py-2 rounded-xl text-[13px] font-semibold"
@@ -794,6 +734,16 @@ function RestaurantsPanel({ destination, days, lang, budget, groupType, interest
         >
           {t.retry}
         </button>
+      </div>
+    );
+  }
+
+  // Read-only bank: an empty city just means we haven't curated it yet — not
+  // an error, and not something the traveler (or a sign-in) can fix.
+  if (restaurants.length === 0) {
+    return (
+      <div className="py-8 text-center">
+        <p className="text-[13px]" style={{ color: INK_MUT }}>{t.notAvailableYet(destination)}</p>
       </div>
     );
   }
@@ -824,17 +774,6 @@ function RestaurantsPanel({ destination, days, lang, budget, groupType, interest
       </p>
       <div className="flex items-center justify-between gap-2 flex-wrap mb-4 mx-1">
         <PriceLadder viewLevel={viewLevel} budgetCeiling={budgetCeiling} onSelect={setViewLevel} lang={lang} />
-        {accessToken && (
-          <button
-            onClick={() => void refreshRestaurants()}
-            disabled={refreshing}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11.5px] font-bold whitespace-nowrap transition-transform active:scale-95 disabled:opacity-60"
-            style={{ background: CARD_BG, border: BORDER, color: INK, boxShadow: '0 2px 6px -4px rgba(43,38,34,0.35)' }}
-          >
-            {refreshing ? <Spinner /> : '🔄'}
-            {refreshing ? t.refreshing : t.refresh}
-          </button>
-        )}
       </div>
 
       {/* Filter row: cuisine-concept chips (only those present in this city's

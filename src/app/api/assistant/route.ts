@@ -1,7 +1,7 @@
 // src/app/api/assistant/route.ts
 import Anthropic from '@anthropic-ai/sdk';
 import { NextRequest, NextResponse } from 'next/server';
-import { verifySession, unauthorizedResponse } from '@/lib/apiGuard';
+import { verifySessionUser, unauthorizedResponse, checkUserQuota, quotaExceededResponse, ASSISTANT_DAILY_QUOTA } from '@/lib/apiGuard';
 import { findAlternativePlaces } from '@/lib/placesQuery';
 import { buildCardsFromRecommendations } from '@/lib/assistantCards';
 import { buildAssistantSystemPrompt } from '@/lib/prompts';
@@ -57,8 +57,11 @@ const TOOLS: Anthropic.Tool[] = [
 ];
 
 export async function POST(req: NextRequest) {
-  const userId = await verifySession(req);
-  if (!userId) return unauthorizedResponse();
+  const sessionUser = await verifySessionUser(req);
+  if (!sessionUser) return unauthorizedResponse();
+  if (!(await checkUserQuota(sessionUser.id, sessionUser.email, 'assistant', ASSISTANT_DAILY_QUOTA))) {
+    return quotaExceededResponse();
+  }
 
   if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY.includes('your_')) {
     return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 });

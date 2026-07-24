@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabaseService';
 import { runEventScoutAgent } from '@/lib/eventScoutAgent';
 import { upsertEvents, fetchEventsForCity } from '@/lib/eventBank';
-import { verifySession, unauthorizedResponse } from '@/lib/apiGuard';
+import { verifySessionUser, unauthorizedResponse, checkUserQuota, quotaExceededResponse, SCOUT_DAILY_QUOTA } from '@/lib/apiGuard';
 import { SITE_LANGUAGES, SiteLanguage } from '@/lib/types';
 
 /** Cooldown per city+window (events are window-scoped, unlike restaurants). */
@@ -17,8 +17,11 @@ const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
  * event rows (service role).
  */
 export async function POST(req: NextRequest) {
-  const userId = await verifySession(req);
-  if (!userId) return unauthorizedResponse();
+  const sessionUser = await verifySessionUser(req);
+  if (!sessionUser) return unauthorizedResponse();
+  if (!(await checkUserQuota(sessionUser.id, sessionUser.email, 'scout', SCOUT_DAILY_QUOTA))) {
+    return quotaExceededResponse();
+  }
 
   const body = (await req.json().catch(() => null)) as
     | { city?: string; from?: string; to?: string; lang?: string }

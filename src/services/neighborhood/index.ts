@@ -16,6 +16,7 @@ import {
 } from './contextSearch';
 import { synthesizeGuide, synthesizeCityGuide } from './geminiOrchestrator';
 import type { AnchorNeighborhood, NeighborhoodProfile, ProfilerPoi, ProfilerTripContext } from './types';
+import type { SiteLanguage } from '@/lib/types';
 
 export * from './types';
 export { resolveAnchorNeighborhood, computeMatchPercent } from './spatialProfiler';
@@ -25,6 +26,7 @@ export async function buildNeighborhoodProfile(
   city: string,
   pois: ProfilerPoi[],
   trip: ProfilerTripContext = {},
+  lang: SiteLanguage = 'he',
 ): Promise<NeighborhoodProfile | null> {
   // 1. Spatial anchor.
   const neighborhood = await resolveAnchorNeighborhood(sb, city, pois);
@@ -39,7 +41,7 @@ export async function buildNeighborhoodProfile(
   ]);
 
   // 3. Synthesize the guide.
-  const guide = await synthesizeGuide(neighborhood, pois, trip, facts, highlights);
+  const guide = await synthesizeGuide(neighborhood, pois, trip, facts, highlights, lang);
 
   return {
     neighborhood,
@@ -57,7 +59,7 @@ export async function buildNeighborhoodProfile(
  * component renders it unchanged. matchPercent is 0 (no coverage signal at city
  * scope) → the component hides the "% match" badge.
  */
-export async function buildCityProfile(city: string): Promise<NeighborhoodProfile | null> {
+export async function buildCityProfile(city: string, lang: SiteLanguage = 'he'): Promise<NeighborhoodProfile | null> {
   const trimmed = city.trim();
   if (!trimmed) return null;
 
@@ -66,7 +68,7 @@ export async function buildCityProfile(city: string): Promise<NeighborhoodProfil
     fetchCityHighlights(trimmed).catch(() => ({ localSecrets: [], honestDownsides: [], sources: [] })),
   ]);
 
-  const guide = await synthesizeCityGuide(trimmed, facts, highlights);
+  const guide = await synthesizeCityGuide(trimmed, facts, highlights, lang);
 
   const anchor: AnchorNeighborhood = {
     id: `city:${trimmed.toLowerCase()}`,

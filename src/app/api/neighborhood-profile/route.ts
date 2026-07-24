@@ -14,13 +14,15 @@ const COOLDOWN_MS = 30_000;
  * Body: {
  *   city: string,
  *   pois: { name, lat, lng, category? }[],   // the day's generated stops
- *   profile?: { interests?, groupType?, budget?, pace?, dayNumber? }
+ *   profile?: { interests?, groupType?, budget?, pace?, dayNumber? },
+ *   lang?: 'he' | 'en'
  * }
  *
  * Maps the day's POIs to their dominant neighborhood (PostGIS), grounds it with
- * Tavily + Exa, and synthesizes a personalized Hebrew guide with Gemini.
- * Auth-gated (the pipeline calls three paid APIs). Returns 204 when the city has
- * no neighborhood polygons loaded (the client hides the panel).
+ * Tavily + Exa, and synthesizes a personalized guide with Gemini in the
+ * requested site language. Auth-gated (the pipeline calls three paid APIs).
+ * Returns 204 when the city has no neighborhood polygons loaded (the client
+ * hides the panel).
  */
 export async function POST(req: NextRequest) {
   const userId = await verifySession(req);
@@ -30,11 +32,13 @@ export async function POST(req: NextRequest) {
     city?: string;
     pois?: ProfilerPoi[];
     profile?: ProfilerTripContext;
+    lang?: string;
   } | null;
 
   const city = body?.city?.trim() ?? '';
   const pois = Array.isArray(body?.pois) ? body!.pois! : [];
   if (!city) return NextResponse.json({ error: 'city is required' }, { status: 400 });
+  const lang: 'he' | 'en' = body?.lang === 'en' ? 'en' : 'he';
 
   const validPois = pois
     .filter((p) => p && typeof p.name === 'string' && Number.isFinite(p.lat) && Number.isFinite(p.lng))
@@ -46,14 +50,14 @@ export async function POST(req: NextRequest) {
   const trip = body?.profile ?? {};
 
   // Persistent cache: a guide is fully determined by (city, POI geometry, trip
-  // context), so a repeat view is a single DB read and ZERO paid API calls.
-  const cacheKey = buildGuideCacheKey(city, validPois, trip);
+  // context, language), so a repeat view is a single DB read and ZERO paid API calls.
+  const cacheKey = buildGuideCacheKey(city, validPois, trip, 'nb', lang);
   const cached = await getCachedGuide(cacheKey);
   if (cached) return NextResponse.json(cached);
 
   // Cache miss → cooldown keyed by the day's geometry guards against a burst of
   // concurrent cold builds hammering the paid APIs on a tight render loop.
-  const key = `${city.toLowerCase()}:${validPois.map((p) => `${p.lat.toFixed(3)},${p.lng.toFixed(3)}`).sort().join('|')}`;
+  const key = `${lang}:${city.toLowerCase()}:${validPois.map((p) => `${p.lat.toFixed(3)},${p.lng.toFixed(3)}`).sort().join('|')}`;
   const now = Date.now();
   if (now - (lastRunAt.get(key) ?? 0) < COOLDOWN_MS) {
     return NextResponse.json({ throttled: true }, { status: 429 });
@@ -61,7 +65,7 @@ export async function POST(req: NextRequest) {
   lastRunAt.set(key, now);
 
   try {
-    const profile = await buildNeighborhoodProfile(supabase, city, validPois, trip);
+    const profile = await buildNeighborhoodProfile(supabase, city, validPois, trip, lang);
     if (!profile) {
       // No neighborhood polygons for this city yet — feature simply hidden.
       return new NextResponse(null, { status: 204 });
