@@ -251,7 +251,9 @@ export function ResultsMikaTour({ ready, lang }: { ready: boolean; lang: TourLan
         void runTour(
           [
             { element: '[data-tour="days"]', body: TOUR_COPY[lang].daysMap, side: 'top', align: 'center' },
-            { element: '[data-tour="sidepanel"]', body: TOUR_COPY[lang].sidePanel, side: lang === 'he' ? 'right' : 'left', align: 'center' },
+            // Now a small icon in the top nav bar (moved off the old
+            // bottom-right floating button) — point the tooltip down at it.
+            { element: '[data-tour="sidepanel"]', body: TOUR_COPY[lang].sidePanel, side: 'bottom', align: 'center' },
           ],
           lang,
           {
