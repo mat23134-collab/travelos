@@ -30,6 +30,7 @@ export function buildGuideCacheKey(
   pois: ProfilerPoi[],
   trip: ProfilerTripContext,
   scope: 'nb' | 'city' = 'nb',
+  lang: 'he' | 'en' = 'he',
 ): string {
   const poiSig = pois
     .map((p) => `${p.lat.toFixed(3)},${p.lng.toFixed(3)}`)
@@ -42,17 +43,18 @@ export function buildGuideCacheKey(
     trip.pace ?? '',
     trip.dayNumber ?? '',
   ].join('~');
-  const raw = `${CACHE_VERSION}::${scope}::${city.toLowerCase().trim()}::${poiSig}::${tripSig}`;
+  const raw = `${CACHE_VERSION}::${scope}::${lang}::${city.toLowerCase().trim()}::${poiSig}::${tripSig}`;
   return createHash('sha1').update(raw).digest('hex');
 }
 
 /**
- * City guide cache key — keyed by CITY ALONE (normalized). The city guide is
- * city-generic (not per-traveler), so it's built once per city and reused for
- * every trip and every traveler until it expires. Maximum reuse, minimum spend.
+ * City guide cache key — keyed by CITY + language (normalized). The city
+ * guide is city-generic (not per-traveler), so it's built once per city per
+ * language and reused for every trip and every traveler until it expires.
+ * Maximum reuse, minimum spend.
  */
-export function buildCityGuideCacheKey(city: string): string {
-  const raw = `${CACHE_VERSION}::city::${city.toLowerCase().trim()}`;
+export function buildCityGuideCacheKey(city: string, lang: 'he' | 'en' = 'he'): string {
+  const raw = `${CACHE_VERSION}::city::${lang}::${city.toLowerCase().trim()}`;
   return createHash('sha1').update(raw).digest('hex');
 }
 

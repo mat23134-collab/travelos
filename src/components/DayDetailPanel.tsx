@@ -210,6 +210,7 @@ export function DayDetailPanel({
                 destination={destination}
                 session={session}
                 profile={profile}
+                lang={ui.lang === 'he' ? 'he' : 'en'}
               />
 
               {/* Swap / add via the concierge drawer (restaurants, attractions,
