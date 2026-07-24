@@ -146,9 +146,8 @@ const ADMIN_EMAILS = new Set(['mat23134@gmail.com']);
  *  trip's setup naturally fans out across several of them. */
 export const SCOUT_DAILY_QUOTA = 20;
 
-/** Daily cap on assistant chat turns — naturally higher-frequency than a scout
- *  or a full generation, so the ceiling is more generous. */
-export const ASSISTANT_DAILY_QUOTA = 50;
+/** Daily cap on assistant chat turns. */
+export const ASSISTANT_DAILY_QUOTA = 10;
 
 /** True when the given email belongs to an admin-allowlisted account (never rate-limited). */
 export function isAdminEmail(email: string | null | undefined): boolean {
@@ -199,4 +198,8 @@ export function quotaExceededResponse(): NextResponse {
     { error: "You've hit today's usage limit for this feature — it resets in 24h." },
     { status: 429 },
   );
+}
+
+export function forbiddenResponse(message = 'Not available.'): NextResponse {
+  return NextResponse.json({ error: message }, { status: 403 });
 }

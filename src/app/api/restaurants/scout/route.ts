@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabaseService';
 import { runRestaurantScoutAgent } from '@/lib/restaurantScoutAgent';
 import { upsertRestaurants, fetchRestaurantsForCity, cityLastUpdated, MAX_PRICE_LEVEL_BY_BUDGET } from '@/lib/restaurantBank';
-import { verifySessionUser, unauthorizedResponse, checkUserQuota, quotaExceededResponse, SCOUT_DAILY_QUOTA } from '@/lib/apiGuard';
+import { verifySessionUser, unauthorizedResponse, isAdminEmail, forbiddenResponse } from '@/lib/apiGuard';
 import { BudgetLevel, SITE_LANGUAGES, SiteLanguage } from '@/lib/types';
 
 /** Per-city cooldown to limit abuse of Gemini + Exa + Places (in-memory). */
@@ -12,12 +12,17 @@ const COOLDOWN_MS = 60_000;
 const BUDGET_LEVELS: readonly BudgetLevel[] = ['budget', 'mid-range', 'luxury'];
 
 /**
- * POST /api/restaurants/scout
+ * POST /api/restaurants/scout — ADMIN ONLY.
  * Body: { city: string, lang?: string, budget?: BudgetLevel }
  *
  * Runs the restaurant scout (Exa → Gemini → Google Places → scoring) and
  * upserts `public.restaurant_recommendations` via the service-role client.
  * Returns the freshly-scored bank so the client can render immediately.
+ *
+ * This is a curated, read-only database from the traveler's point of view —
+ * no signed-in user (or bug/abuse pattern) can trigger a live scout from the
+ * app itself; populating a new city is an explicit admin action (§ cost
+ * control). The client (`RestaurantsPanel`) never calls this route anymore.
  *
  * `budget` drives two different behaviors depending on whether the city has
  * been scouted before:
@@ -32,10 +37,7 @@ const BUDGET_LEVELS: readonly BudgetLevel[] = ['budget', 'mid-range', 'luxury'];
 export async function POST(req: NextRequest) {
   const sessionUser = await verifySessionUser(req);
   if (!sessionUser) return unauthorizedResponse();
-  const userId = sessionUser.id;
-  if (!(await checkUserQuota(sessionUser.id, sessionUser.email, 'scout', SCOUT_DAILY_QUOTA))) {
-    return quotaExceededResponse();
-  }
+  if (!isAdminEmail(sessionUser.email)) return forbiddenResponse('Restaurant scouting is an admin-only operation.');
 
   const body = (await req.json().catch(() => null)) as
     | { city?: string; lang?: string; budget?: string }

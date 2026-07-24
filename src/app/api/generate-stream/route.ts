@@ -843,7 +843,7 @@ const STREAM_RATE_WINDOW = 10 * 60 * 1000;
 
 /** Logged-in users get a daily cap on itinerary generations (§ cost control) —
  *  mirrors /api/generate. Guests stay on the IP-only limiter above. */
-const GENERATE_DAILY_QUOTA = 5;
+const GENERATE_DAILY_QUOTA = 1;
 
 export async function POST(req: NextRequest) {
   // ── Rate limiting ───────────────────────────────────────────────────────────

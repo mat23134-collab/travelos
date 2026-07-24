@@ -7,7 +7,7 @@ import { checkRateLimitDurable, checkUserQuota, getClientIp, rateLimitedResponse
  *  the single most expensive pipeline in the app (Gemini + Tavily/Exa +
  *  Google Places + an inline restaurant scout). Guests stay on the existing
  *  IP-only limiter above (no login required, by product decision). */
-const GENERATE_DAILY_QUOTA = 5;
+const GENERATE_DAILY_QUOTA = 1;
 import { createClient } from '@supabase/supabase-js';
 import { ClassifiedResult, type Activity, type DiningSpot, type BudgetLevel } from '@/lib/types';
 import { TravelerProfileSchema } from '@/lib/schemas';
