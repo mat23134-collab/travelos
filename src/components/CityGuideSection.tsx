@@ -9,6 +9,12 @@
  * after. Collapsed by default; on expand it calls POST /api/city-profile
  * (Tavily + Exa + Gemini, cached) and renders the shared guide in its 'city'
  * variant.
+ *
+ * The synthesis pipeline behind /api/city-profile only ever writes Hebrew
+ * copy (see that route's doc comment) — there's no `lang` axis in its cache
+ * or its Gemini prompt yet. Rather than show a Hebrew card inside an
+ * English-language trip, this section only renders for Hebrew-site trips
+ * until that pipeline is generalized.
  */
 
 import { useCallback, useState } from 'react';
@@ -20,10 +26,11 @@ import type { Session } from '@supabase/supabase-js';
 type Status = 'idle' | 'loading' | 'ready' | 'empty' | 'signin' | 'error';
 
 export function CityGuideSection({
-  destination, session,
+  destination, session, lang,
 }: {
   destination: string;
   session: Session | null;
+  lang: 'he' | 'en';
 }) {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<Status>('idle');
@@ -51,7 +58,7 @@ export function CityGuideSection({
     }
   }, [session?.access_token, cityOnly]);
 
-  if (!cityOnly) return null;
+  if (!cityOnly || lang !== 'he') return null;
 
   const toggle = () => {
     const next = !open;

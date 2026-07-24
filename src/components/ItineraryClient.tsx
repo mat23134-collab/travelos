@@ -44,7 +44,6 @@ import { CityGuideSection } from '@/components/CityGuideSection';
 import { SmartToolbar } from '@/components/SmartToolbar';
 import { SidePanel } from '@/components/side-panel/SidePanel';
 import { ResultsMikaTour } from '@/components/tour/MikaTour';
-import { AnonymousViewerCTA } from '@/components/AnonymousViewerCTA';
 import { GuestItineraryTeaser } from '@/components/GuestItineraryTeaser';
 import { trackFunnelEvent } from '@/lib/onboardingAnalytics';
 import { useSidePanel } from '@/state/sidePanelStore';
@@ -1589,6 +1588,7 @@ export function ItineraryClient({
               <CityGuideSection
                 destination={itin.itinerary.destination ?? ''}
                 session={session}
+                lang={itin.ui.lang === 'he' ? 'he' : 'en'}
               />
             </div>
 
@@ -1783,27 +1783,15 @@ export function ItineraryClient({
       {/* Mika's Phase-2 guided tour — runs once, after generation lands here. */}
       <ResultsMikaTour ready={!!itin.itinerary} lang={itin.ui.lang === 'he' ? 'he' : 'en'} />
 
-      {/* Turn a shared view (non-owner / logged-out) into a funnel entry.
-          `justClaimed` covers the guest-mode case: right after a guest signs
-          up and claims their own trip, `ownerUserId` is still the stale
-          server-fetched prop from before the claim (null), so the plain
-          owner-match check below can't yet see that this viewer IS the
-          owner — without this, someone gets pitched to "build your own trip"
-          on the trip they just built. */}
-      {!justClaimed && !(session?.user?.id && ownerUserId && session.user.id === ownerUserId) && (
-        <AnonymousViewerCTA destination={itin.itinerary.destination ?? ''} lang={itin.ui.lang === 'he' ? 'he' : 'en'} />
-      )}
-
       {/* ── Trip companion drawer — available on every itinerary screen ─────── */}
       <button
         data-tour="sidepanel"
         onClick={() => openSidePanel('documents')}
         aria-label={itin.ui.dir === 'rtl' ? 'כלי הטיול' : 'Trip tools'}
-        className="fixed top-1/2 -translate-y-1/2 z-[60] print:hidden flex flex-col items-center gap-1.5 px-2 py-3.5 text-white shadow-lg"
+        className="fixed z-[60] print:hidden flex flex-col items-center gap-1.5 px-3 py-3.5 text-white shadow-lg rounded-2xl"
         style={{
-          ...(itin.ui.dir === 'rtl'
-            ? { left: 0, borderRadius: '0 16px 16px 0' }
-            : { right: 0, borderRadius: '16px 0 0 16px' }),
+          bottom: 'calc(1.25rem + env(safe-area-inset-bottom))',
+          ...(itin.ui.dir === 'rtl' ? { left: 12 } : { right: 12 }),
           background: 'linear-gradient(180deg, var(--color-terracotta), var(--color-terracotta-deep))',
         }}
       >
