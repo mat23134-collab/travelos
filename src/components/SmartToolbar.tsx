@@ -272,14 +272,92 @@ interface SmartToolbarProps {
 
 type FeatureKey = 'explore' | 'restaurants' | 'attractions' | 'walkin' | 'onlyHere' | 'events';
 
+// Card copy for the concierge grid — short title + subtitle per tile, distinct
+// from the longer labels/intros used inside each feature's modal (COPY above).
+// onlyHere's title takes the destination city; the rest ignore the argument.
+const CARD_COPY: Record<Lang, Record<FeatureKey, { title: (city: string) => string; subtitle: string }>> = {
+  he: {
+    explore:      { title: () => 'עיון באטרקציות',        subtitle: 'לראות הכול' },
+    restaurants:  { title: () => 'מסעדות בהזמנה מראש',    subtitle: 'להזמין עכשיו' },
+    attractions:  { title: () => 'אטרקציות בהזמנה מראש',  subtitle: 'להזמין עכשיו' },
+    walkin:       { title: () => 'כניסה חופשית',          subtitle: 'בלי הזמנה מראש' },
+    onlyHere:     { title: (city) => `רק ב${city}`,       subtitle: 'פנינים מקומיות נסתרות' },
+    events:       { title: () => 'פסטיבלים ואירועים',     subtitle: 'קורה עכשיו' },
+  },
+  en: {
+    explore:      { title: () => 'Browse Attractions',       subtitle: 'See everything' },
+    restaurants:  { title: () => 'Book-Ahead Dining',        subtitle: 'Reserve now' },
+    attractions:  { title: () => 'Book-Ahead Attractions',   subtitle: 'Reserve now' },
+    walkin:       { title: () => 'Walk-In Spots',            subtitle: 'No reservation needed' },
+    onlyHere:     { title: (city) => `Only in ${city}`,      subtitle: 'Hidden local gems' },
+    events:       { title: () => 'Festivals & Events',       subtitle: 'Happening now' },
+  },
+};
+
+function CompassIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M14.6 9.4l-3.2 1.4-1.4 3.2 3.2-1.4 1.4-3.2z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function ForkKnifeIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M7 2v7a2 2 0 002 2v11M7 2v6M9 2v6M11 2v7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M17 2c-1.6 0-3 1.9-3 5s1.4 5 3 5v10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function TicketIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v1.5a2 2 0 000 5V16a2 2 0 01-2 2H5a2 2 0 01-2-2v-1.5a2 2 0 000-5V8z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      <path d="M10 6.5v11" stroke="currentColor" strokeWidth="1.4" strokeDasharray="2 2.2" />
+    </svg>
+  );
+}
+function WalkIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="13.2" cy="4.2" r="1.6" fill="currentColor" />
+      <path d="M13 6.3l-1.8 4.8 3 2 .8 6.9M11.2 11.1l-3.7 2 .9 3.9M11.2 11.1l3.8-1 2.8 2.9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function GemIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M6.2 3h11.6l3 5-9.3 13L3.2 8l3-5z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      <path d="M3.2 8h17.6M9.3 3l2.7 5 2.7-5M12 8L8.5 21M12 8l3.5 13" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function FlagMountainIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M3 18l5.5-8.5 3.5 4.5 2-3 6.5 7H3z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      <path d="M14.5 6.2V3m0 0l3 1.4-3 1.8" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 // Extensible: append new tools here as they ship.
-const FEATURES: Array<{ key: FeatureKey; emoji: string; labelKey: FeatureKey }> = [
-  { key: 'explore', emoji: '🧭', labelKey: 'explore' },
-  { key: 'restaurants', emoji: '🍽️', labelKey: 'restaurants' },
-  { key: 'attractions', emoji: '🎟️', labelKey: 'attractions' },
-  { key: 'walkin', emoji: '🚶', labelKey: 'walkin' },
-  { key: 'onlyHere', emoji: '💎', labelKey: 'onlyHere' },
-  { key: 'events', emoji: '🎪', labelKey: 'events' },
+const FEATURES: Array<{
+  key: FeatureKey;
+  emoji: string;
+  labelKey: FeatureKey;
+  accent: string;
+  accentBg: string;
+  icon: () => JSX.Element;
+}> = [
+  { key: 'explore', emoji: '🧭', labelKey: 'explore', accent: '#3b7dd8', accentBg: 'rgba(59,125,216,0.12)', icon: CompassIcon },
+  { key: 'restaurants', emoji: '🍽️', labelKey: 'restaurants', accent: '#c65d3b', accentBg: 'rgba(198,93,59,0.13)', icon: ForkKnifeIcon },
+  { key: 'attractions', emoji: '🎟️', labelKey: 'attractions', accent: '#d1531f', accentBg: 'rgba(209,83,31,0.12)', icon: TicketIcon },
+  { key: 'walkin', emoji: '🚶', labelKey: 'walkin', accent: '#3f9142', accentBg: 'rgba(63,145,66,0.12)', icon: WalkIcon },
+  { key: 'onlyHere', emoji: '💎', labelKey: 'onlyHere', accent: '#8b5cf6', accentBg: 'rgba(139,92,246,0.12)', icon: GemIcon },
+  { key: 'events', emoji: '🎪', labelKey: 'events', accent: '#e08a2e', accentBg: 'rgba(224,138,46,0.14)', icon: FlagMountainIcon },
 ];
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -293,29 +371,45 @@ export function SmartToolbar(props: SmartToolbarProps) {
   return (
     <div className="rounded-2xl p-3 sm:p-4" style={{ background: PAPER_SUNK, border: BORDER }} dir={dir}>
       {/* Header row */}
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-center gap-2 mb-3">
         <span className="text-[11px] font-semibold uppercase tracking-[0.18em] mx-1" style={{ color: INK_FAINT }}>
           ✦ {t.eyebrow}
         </span>
-        <div className="flex-1" />
+      </div>
+
+      {/* Feature grid — icon-badge tiles, two per row */}
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
         {FEATURES.map((f) => {
           const on = active === f.key;
+          const card = CARD_COPY[lang][f.key];
+          const Icon = f.icon;
           return (
             <motion.button
               key={f.key}
               onClick={() => setActive(on ? null : f.key)}
-              whileHover={{ scale: 1.03, y: -1 }}
+              whileHover={{ y: -2 }}
               whileTap={{ scale: 0.97 }}
-              className="flex items-center gap-2 px-4 py-2 rounded-full text-[13px] font-semibold"
+              className="flex flex-col items-center text-center gap-2 rounded-2xl px-3 py-5"
               style={{
-                background: on ? ACCENT : CARD_BG,
+                background: CARD_BG,
                 border: on ? BORDER_ACC : BORDER,
-                color: on ? '#fff' : INK,
-                boxShadow: on ? '0 6px 18px -6px rgba(184,85,46,0.55)' : '0 2px 6px -4px rgba(43,38,34,0.35)',
+                boxShadow: on ? '0 6px 18px -6px rgba(184,85,46,0.4)' : '0 2px 6px -4px rgba(43,38,34,0.25)',
               }}
             >
-              <span className="text-[15px] leading-none">{f.emoji}</span>
-              {COPY[lang][f.labelKey]}
+              <span
+                className="flex items-center justify-center w-11 h-11 rounded-full"
+                style={{ background: f.accentBg, color: f.accent }}
+              >
+                <Icon />
+              </span>
+              <span className="flex flex-col gap-0.5">
+                <span className="text-[13.5px] font-extrabold leading-tight" style={{ color: INK }}>
+                  {card.title(props.destination)}
+                </span>
+                <span className="text-[11.5px] font-medium" style={{ color: INK_MUT }}>
+                  {card.subtitle}
+                </span>
+              </span>
             </motion.button>
           );
         })}
