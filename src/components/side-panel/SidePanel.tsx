@@ -83,7 +83,14 @@ export function SidePanel(props: SidePanelProps) {
             {/* Header: tabs + close */}
             <div
               className="flex items-center gap-2 p-3 shrink-0"
-              style={{ borderBottom: '1px solid rgba(43,38,34,0.1)' }}
+              style={{
+                borderBottom: '1px solid rgba(43,38,34,0.1)',
+                // Clear the iOS status bar / notch when installed as a
+                // home-screen PWA (viewportFit: cover in layout.tsx) — the
+                // drawer sits at absolute top-0, so without this the tabs and
+                // close button collide with the status bar.
+                paddingTop: 'calc(0.75rem + env(safe-area-inset-top))',
+              }}
             >
               {TABS.map((tab) => {
                 const on = module === tab.key;
